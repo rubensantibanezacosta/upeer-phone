@@ -84,15 +84,18 @@ internal class OutboxStore(context: Context) {
     }
   }
 
-  fun resetPeer(upeerId: String) {
-    synchronized(lock) {
+  fun resetPeer(upeerId: String): Int {
+    return synchronized(lock) {
+      var reset = 0
       for (index in 0 until entries.length()) {
         val entry = entries.optJSONObject(index) ?: continue
         if (entry.optString("upeerId") != upeerId) continue
         entry.remove("packet")
         entry.put("nextAttemptAt", 0)
+        reset++
       }
-      persist()
+      if (reset > 0) persist()
+      reset
     }
   }
 

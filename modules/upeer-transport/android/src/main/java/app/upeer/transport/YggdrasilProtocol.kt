@@ -67,6 +67,12 @@ internal class YggdrasilProtocol(
       packet.optJSONObject("signedPreKey")?.let { metadata.put("signedPreKey", it) }
       packet.optString("alias").takeIf(String::isNotEmpty)?.let { metadata.put("alias", it) }
       if (state.rememberPeer(metadata)) outbox.onPeerReset(metadata.optString("senderUpeerId"))
+      Log.i(
+        TAG,
+        "Handshake $type de ${metadata.optString("senderUpeerId")} " +
+          "spk=${packet.optJSONObject("signedPreKey")?.optLong("spkId") ?: 0} " +
+          "peer=${state.peerFor(metadata.optString("senderUpeerId"))?.optJSONObject("signedPreKey") != null}",
+      )
       if (type == "HANDSHAKE_REQ") {
         val responder = Thread({ handshake.respond(activeBridge, metadataJSON) }, "upeer-handshake")
         responder.isDaemon = true
@@ -106,7 +112,7 @@ internal class YggdrasilProtocol(
       return metadataJSON
     }
     val ratchetContext = packet.optString("ratchetContext", "direct")
-    if (ratchetContext != "direct" && !ratchetContext.startsWith("group:")) {
+    if (ratchetContext != "direct" && !GROUP_CONTEXT.matches(ratchetContext)) {
       throw IllegalArgumentException("invalid DR_RESET ratchet context")
     }
     if (ratchetContext != "direct") return metadataJSON
@@ -233,5 +239,6 @@ internal class YggdrasilProtocol(
     private const val TAG = "UPeerTransport"
     private const val COMPRESSION_PREFIX = "\u2763UP\u2763"
     private const val PORT = 50005L
+    private val GROUP_CONTEXT = Regex("^group:[^:]+$")
   }
 }

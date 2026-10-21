@@ -77,13 +77,14 @@ internal class YggdrasilOutbox(
 
   fun onPeerReset(upeerId: String) {
     state.clearSession(upeerId)
-    outbox.resetPeer(upeerId)
-    Log.i(TAG, "Sesión de $upeerId reiniciada por DR_RESET")
+    val reset = outbox.resetPeer(upeerId)
+    Log.i(TAG, "Sesión de $upeerId reiniciada por DR_RESET ($reset entradas)")
     wake()
   }
 
   fun onHandshakeAccepted(upeerId: String) {
-    outbox.resetPeer(upeerId)
+    val reset = outbox.resetPeer(upeerId)
+    Log.i(TAG, "Handshake aceptado por $upeerId; outbox reactivado ($reset entradas)")
     wake()
   }
 
@@ -159,6 +160,7 @@ internal class YggdrasilOutbox(
       retry(messageID, entry, "handshake pendiente")
       return
     }
+    Log.i(TAG, "Entregando $messageID a $upeerId (sesión=${session != null}, spk=${signedPreKey?.optLong("spkId") ?: 0})")
     val currentIdentity = identity.current()
     if (currentIdentity == null) {
       retry(messageID, entry, "identidad no disponible")
@@ -232,7 +234,7 @@ internal class YggdrasilOutbox(
     val attempts = entry.optInt("attempts", 0) + 1
     val delay = minOf(MAX_BACKOFF_MS, BASE_BACKOFF_MS * attempts)
     outbox.markAttempt(messageID, attempts, System.currentTimeMillis() + delay, reason)
-    Log.w(TAG, "Reintento $attempts de $messageID en ${delay}ms: $reason")
+    Log.w(TAG, "Reintento $attempts de $messageID para ${entry.optString("upeerId")} en ${delay}ms: $reason")
   }
 
   private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)

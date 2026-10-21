@@ -161,7 +161,7 @@ func (identity *CryptoIdentity) BuildDrReset(senderYggAddress, signedPreKeyJSON,
 	if ratchetContext == "" {
 		ratchetContext = directRatchetContext
 	}
-	if ratchetContext != directRatchetContext && !strings.HasPrefix(ratchetContext, "group:") {
+	if !validRatchetContext(ratchetContext) {
 		return "", errors.New("ratchetContext must be direct or group:<id>")
 	}
 	data := map[string]any{
@@ -232,6 +232,17 @@ func (identity *CryptoIdentity) validatedSignedPreKey(signedPreKeyJSON string) (
 		return signedPreKey, errors.New("signed pre-key signature does not match identity")
 	}
 	return signedPreKey, nil
+}
+
+func validRatchetContext(value string) bool {
+	if value == directRatchetContext {
+		return true
+	}
+	if !strings.HasPrefix(value, "group:") {
+		return false
+	}
+	groupID := strings.TrimPrefix(value, "group:")
+	return groupID != "" && !strings.Contains(groupID, ":")
 }
 
 func compressOutboundMessage(value string) string {

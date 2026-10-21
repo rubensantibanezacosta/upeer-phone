@@ -13,16 +13,18 @@ const desktopSeed = hex(process.env.UPEER_SEED_HEX ?? '1111111111111111111111111
 const socksHost = process.env.UPEER_SOCKS_HOST ?? '127.0.0.1';
 const socksPort = Number(process.env.UPEER_SOCKS_PORT ?? 9051);
 const expectedMessages = Number(process.env.UPEER_EXPECT_MESSAGES ?? 1);
+const skipAckFirst = process.env.UPEER_SKIP_ACK_FIRST === '1';
 const timeoutMillis = Number(process.env.UPEER_TIMEOUT_MS ?? 120000);
 const desktopKeys = sodium.crypto_sign_seed_keypair(desktopSeed);
 const desktopPublicKey = toHex(desktopKeys.publicKey);
 const desktopUpeerId = toHex(sodium.crypto_generichash(32, desktopKeys.publicKey));
 const desktopCurvePublic = sodium.crypto_sign_ed25519_pk_to_curve25519(desktopKeys.publicKey);
 const desktopCurveSecret = sodium.crypto_sign_ed25519_sk_to_curve25519(desktopKeys.privateKey);
-const signedPreKey = sodium.crypto_box_keypair();
-const signedPreKeyId = Date.now();
+const signedPreKeyId = Number(process.env.UPEER_SPK_ID ?? Date.now());
+const signedPreKey = process.env.UPEER_SPK_ID ? deriveSignedPreKey(signedPreKeyId) : sodium.crypto_box_keypair();
 const signedPreKeySignature = toHex(sodium.crypto_sign_detached(signedPreKey.publicKey, desktopKeys.privateKey));
 const sessions = new Map();
+const seenMessages = new Set();
 let received = 0;
 let settled = false;
 
@@ -74,12 +76,20 @@ async function handleChat(chat, sealedCiphertext) {
   const activeSession = sessions.get(chat.senderUpeerId);
   verifySigned(chat, activeSession.publicKey);
   if (chat.type !== 'CHAT') throw new Error(`unexpected inner type ${chat.type}`);
+  if (seenMessages.has(chat.id)) {
+    received += 1;
+    console.log(JSON.stringify({ type: 'CHAT_DUPLICATE', id: chat.id, senderUpeerId: chat.senderUpeerId }));
+    await sendAck(chat.senderYggAddress, chat.id);
+    if (received >= expectedMessages) succeed();
+    return;
+  }
   const plaintext = ratchetDecrypt(activeSession.state, chat.ratchetHeader, chat.content, chat.nonce);
   if (!plaintext) throw new Error('ratchet decrypt failed');
   const text = decompress(Buffer.from(plaintext).toString('utf8'));
+  seenMessages.add(chat.id);
   received += 1;
   console.log(JSON.stringify({ type: 'CHAT', id: chat.id, senderUpeerId: chat.senderUpeerId, text, sealedBytes: sealedCiphertext.length / 2 }));
-  await sendAck(chat.senderYggAddress, chat.id);
+  if (!(skipAckFirst && received === 1)) await sendAck(chat.senderYggAddress, chat.id);
   if (received >= expectedMessages) succeed();
 }
 
@@ -187,6 +197,14 @@ function signPacket(packet) {
   const payload = { ...packet };
   delete payload.signature;
   return toHex(sodium.crypto_sign_detached(new TextEncoder().encode(canonicalStringify(payload)), desktopKeys.privateKey));
+}
+
+function deriveSignedPreKey(id) {
+  const material = crypto.createHash('sha256')
+    .update(Buffer.concat([Buffer.from(desktopSeed), Buffer.from(`:${id}`)]))
+    .digest();
+  const keyPair = sodium.crypto_box_seed_keypair(material);
+  return { id, publicKey: keyPair.publicKey, privateKey: keyPair.privateKey };
 }
 
 async function sendFrame(address, packet) {

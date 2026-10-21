@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLinkingURL } from 'expo-linking';
 import { router, useGlobalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SizableText, Text } from 'tamagui';
@@ -6,11 +7,31 @@ import { SizableText, Text } from 'tamagui';
 import { registerPeer, sendChat } from '../../../modules/upeer-transport/src/UPeerTransportModule';
 import { useTheme } from '@/hooks/use-theme';
 
+type DevSendParams = { upeerId?: string; address?: string; text?: string };
+
+function parseQuery(url: string | null): DevSendParams {
+  if (!url) return {};
+  try {
+    const parsed = new URL(url);
+    return {
+      upeerId: parsed.searchParams.get('upeerId') ?? undefined,
+      address: parsed.searchParams.get('address') ?? undefined,
+      text: parsed.searchParams.get('text') ?? undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
 export default function DevSendRoute() {
   const theme = useTheme();
-  const params = useGlobalSearchParams<{ upeerId: string; address: string; text: string }>();
-  const { upeerId, address, text } = params;
-  const [result, setResult] = useState(`Esperando… ${JSON.stringify(params)}`);
+  const params = useGlobalSearchParams<DevSendParams>();
+  const url = useLinkingURL();
+  const query = useMemo(() => parseQuery(url), [url]);
+  const upeerId = params.upeerId || query.upeerId;
+  const address = params.address || query.address;
+  const text = params.text || query.text;
+  const [result, setResult] = useState(`Esperando… ${JSON.stringify({ upeerId, address, text })}`);
 
   useEffect(() => {
     const timer = setTimeout(() => {
