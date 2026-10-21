@@ -1,8 +1,13 @@
 package transportbridge
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"io"
+	"strings"
 	"testing"
 )
 
@@ -78,6 +83,77 @@ func TestBuildChatSealsAndInteroperates(t *testing.T) {
 	if secondPlaintext != "segundo mensaje" {
 		t.Fatalf("second plaintext = %q", secondPlaintext)
 	}
+}
+
+func TestBuildChatCompressesLongMessagesForDesktop(t *testing.T) {
+	vectors := loadCryptoVectors(t)
+	alice, err := NewCryptoIdentity(mustHex(t, vectors.SecretKey))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bob, err := NewCryptoIdentity(mustHex(t, vectors.BobSecretKey))
+	if err != nil {
+		t.Fatal(err)
+	}
+	spkJSON, err := bob.CreateSignedPreKey(778)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var spk signedPreKeyState
+	if err := json.Unmarshal([]byte(spkJSON), &spk); err != nil {
+		t.Fatal(err)
+	}
+	message := strings.Repeat("palabra repetida ", 200)
+	outboundJSON, err := alice.BuildChat(
+		"200::1",
+		bob.PublicKeyHex(),
+		spk.SPKPub,
+		"",
+		message,
+		"message-compressed",
+		"",
+		778,
+		1700000002000,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var outbound outboundChatResult
+	if err := json.Unmarshal([]byte(outboundJSON), &outbound); err != nil {
+		t.Fatal(err)
+	}
+	inner := openAndValidateChat(t, bob, alice, outbound.Packet)
+	bobSession := acceptChatSession(t, bob, alice, inner, spk.SPKSk)
+	plaintext, _ := decryptChatContent(t, bob, bobSession, inner)
+	if !strings.HasPrefix(plaintext, compressionPrefix) {
+		t.Fatalf("long chat was not compressed: %q", plaintext[:min(len(plaintext), 32)])
+	}
+	if decompressed := gunzipMessage(t, plaintext); decompressed != message {
+		t.Fatalf("compressed chat round-trip mismatch: got %d bytes, want %d", len(decompressed), len(message))
+	}
+}
+
+func gunzipMessage(t *testing.T, value string) string {
+	t.Helper()
+	if !strings.HasPrefix(value, compressionPrefix) {
+		t.Fatalf("message does not use compression prefix: %q", value)
+	}
+	compressed, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(value, compressionPrefix))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := gzip.NewReader(bytes.NewReader(compressed))
+	if err != nil {
+		t.Fatal(err)
+	}
+	decompressed, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return string(decompressed)
 }
 
 func TestBuildHandshakeRequestAndDrResetAreSigned(t *testing.T) {

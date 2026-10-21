@@ -44,3 +44,5 @@ node transport-bridge/harness/send-sealed-chat.mjs
 ```
 
 `UPEER_EXPECT_TYPE=ACK` hace que `accept-handshake.mjs` espere y valide el ACK del móvil; como el ACK no incluye `publicKey`, hay que pasar `UPEER_EXPECT_PUBLIC_KEY=<publicKey del accept>`. En el dispositivo deben aparecer `CHAT descifrado`, `ACK enviado` y, tras reiniciar el servicio, `Estado del protocolo cargado` con las sesiones y mensajes persistidos.
+
+`send-sealed-chat.mjs` aplica la misma compresión que Desktop a `UPEER_MESSAGE`: a partir de 512 caracteres UTF-16 usa gzip + base64 con el prefijo `❣UP❣` si reduce el tamaño. La salida informa `messageBytes` y `compressed`; el móvil debe persistir y notificar el texto descomprimido. Para capturar la SPK del móvil con `accept-handshake.mjs`, usa `UPEER_EXPECT_TYPE=HANDSHAKE_REQ`.

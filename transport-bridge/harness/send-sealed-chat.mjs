@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 import net from 'node:net';
 import crypto from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 import sodium, { ready } from 'libsodium-wrappers';
+
+const PREFIX = '\u2763UP\u2763';
+const COMPRESS_THRESHOLD = 512;
 
 await ready;
 
@@ -12,7 +16,7 @@ const senderSeed = hex(process.env.UPEER_SEED_HEX ?? '0102030405060708090a0b0c0d
 const mobilePublicKey = hex(required('UPEER_MOBILE_PUBLIC_KEY'), 32);
 const mobileSpkPublicKey = hex(required('UPEER_MOBILE_SPK_PUB'), 32);
 const mobileSpkId = Number(required('UPEER_MOBILE_SPK_ID'));
-const message = process.env.UPEER_MESSAGE ?? 'Hola desde Desktop por Yggdrasil';
+const message = compressMessage(process.env.UPEER_MESSAGE ?? 'Hola desde Desktop por Yggdrasil');
 const socksHost = process.env.UPEER_SOCKS_HOST ?? '127.0.0.1';
 const socksPort = Number(process.env.UPEER_SOCKS_PORT ?? 9051);
 const timeoutMillis = Number(process.env.UPEER_TIMEOUT_MS ?? 15000);
@@ -95,11 +99,18 @@ console.log(JSON.stringify({
   target,
   senderUpeerId,
   messages: chats,
-  message,
+  messageBytes: Buffer.byteLength(message, 'utf8'),
+  compressed: message.startsWith(PREFIX),
   mobileSpkId,
   handshakeFrameBytes: handshakeFrame.length,
   chatFrameBytes: chatFrames.reduce((total, value) => total + value.length, 0),
 }));
+
+function compressMessage(text) {
+  if (text.length < COMPRESS_THRESHOLD) return text;
+  const wrapped = PREFIX + gzipSync(Buffer.from(text, 'utf8')).toString('base64');
+  return wrapped.length < text.length ? wrapped : text;
+}
 
 function hkdf(rootKey, inputMaterial, info) {
   const prk = sodium.crypto_generichash(32, inputMaterial, rootKey);

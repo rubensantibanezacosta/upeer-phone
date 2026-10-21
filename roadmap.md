@@ -32,10 +32,10 @@ Este documento guía el desarrollo de un cliente móvil de uPeer basado en el pr
 | Transporte saliente | Hecho | `dialTCP`, `dialUDP`, `read`, `write` y `closeConnection`; paquetes firmados con outbox persistente, reintentos con backoff y ACK. Chat móvil→Desktop verificado con el harness. |
 | Transporte entrante | Hecho | Listener TCP `50005` en `:yggdrasil`, framing 4B/10 MiB con fragmentación y coalescencia, `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`, X3DH, `SEALED`/`CHAT`, ACK y persistencia. Chat Desktop→móvil verificado; faltan pruebas de pérdida y cambios de red. |
 | Servicio Android | Parcial | Foreground service visible en proceso separado `:yggdrasil`, `stopWithTask=false`, configuración e identidad cifradas con Keystore, parada manual y recuperación tras force-stop. Faltan batería y control on/off explícito. |
-| Segundo plano sin push | Parcial | Listener, identidad, protocolo y outbox viven en `:yggdrasil`; el servicio responde handshakes, descifra `SEALED`/`CHAT`, envía ACK y persiste sesión/mensaje aunque la UI esté cerrada. Faltan notificaciones locales y pruebas prolongadas de batería y red. |
-| Protocolo uPeer | Parcial | `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT` firmados con SPK nativa, X3DH, `SEALED`/`CHAT`, ACK y outbox validados contra un peer Desktop simulado en ambos sentidos; faltan `DR_RESET` completo, compresión saliente, DHT y replay protection. |
+| Segundo plano sin push | Parcial | Listener, identidad, protocolo y outbox viven en `:yggdrasil`; el servicio responde handshakes, descifra `SEALED`/`CHAT`, envía ACK, persiste sesión/mensaje y publica notificaciones locales aunque la UI esté cerrada. Faltan pruebas prolongadas de batería y red. |
+| Protocolo uPeer | Parcial | `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT` firmados con SPK nativa, X3DH, `SEALED`/`CHAT`, ACK, compresión y outbox validados contra un peer Desktop simulado en ambos sentidos; `DR_RESET` implementado sin prueba adversa. Faltan DHT y replay protection. |
 | Persistencia | Parcial | Estado de protocolo cifrado en Keystore con peers, sesiones de ratchet, últimos 500 mensajes y outbox; sin DB relacional ni grupos. |
-| UI | Parcial | Onboarding, perfil, contactos, conexión, mapa, lista de conversaciones y chat conectados al protocolo nativo; estados pendiente/enviado/entregado, no leídos y ACK visibles. Faltan notificaciones locales, adjuntos, búsqueda y llamadas. |
+| UI | Parcial | Onboarding, perfil, contactos, conexión, mapa, lista de conversaciones y chat conectados al protocolo nativo; estados pendiente/enviado/entregado, no leídos, ACK y notificaciones locales visibles. Faltan adjuntos, búsqueda y llamadas. |
 
 **P1 completado en dispositivo (21/10/2026):** listener TCP `50005` en `:yggdrasil`, framing 4B/10 MiB, canonicalización/firma de `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`, rechazo de frames manipulados y harness Desktop→móvil. La prueba se repitió con la tarea/UI eliminada y el proceso `:yggdrasil` vivo.
 
@@ -48,7 +48,10 @@ Este documento guía el desarrollo de un cliente móvil de uPeer basado en el pr
 5. [x] Enviar ACK firmado tras descifrar y validarlo con un verificador independiente en dispositivo.
 6. [x] Implementar outbox persistente con reintentos, backoff y reset al aceptar el handshake; chat móvil→Desktop verificado.
 7. [x] Exponer conversaciones, mensajes, estados y no leídos a la UI conectada al servicio nativo.
-8. [ ] Completar `DR_RESET`, notificaciones locales, compresión saliente y pruebas de pérdida, duplicado y cambios de red.
+8. [ ] Completar el endurecimiento de recepción:
+   - [x] Notificaciones locales en `:yggdrasil` con previsualización privada, deep link y acción de lectura; validadas con la UI en segundo plano.
+   - [x] Compresión compatible con Desktop y prueba cruzada de mensaje largo; el texto descomprimido se persiste y se muestra.
+   - [ ] Pruebas adversas de `DR_RESET`, pérdida, duplicado, ACK perdido y cambios de red.
 
 Sin push, si el servicio muere la entrega depende del vault y de la reconexión. La UI ya muestra y envía mensajes; no presentar la entrega como garantizada ni ocultar los estados pendientes.
 
@@ -306,7 +309,7 @@ Restricción de producto: uPeer **no usará push notifications**. La recepción 
 - [x] Persistir peers, sesiones de ratchet y mensajes cifrados en almacenamiento nativo accesible por el servicio.
 - [x] Portar y vectorizar Ed25519/Curve25519, sealed boxes, X3DH y Double Ratchet en el bridge Go.
 - [x] Exponer conversaciones, lectura/comandos de mensajes, estados de entrega y no leídos a la UI sin escritores concurrentes.
-- [ ] Implementar notificaciones locales desde el servicio, con privacidad de previsualización y deep link al chat.
+- [x] Implementar notificaciones locales desde el servicio, con privacidad de previsualización y deep link al chat.
 - [ ] Decidir y validar el autoarranque tras reinicio; si no se implementa, mostrarlo como limitación.
 - [ ] Implementar la tabla de ciclo de vida anterior en dispositivo y documentar qué fabricantes la incumplen.
 - [ ] Validar en dispositivo force-stop, muerte del proceso UI/servicio, reinicio del servicio y recuperación real de peers; `START_STICKY` no garantiza ejecución perpetua.
@@ -325,9 +328,9 @@ Restricción de producto: uPeer **no usará push notifications**. La recepción 
 ### Criterios de salida
 
 - [x] Con la UI cerrada o swipeada, Desktop puede abrir TCP `50005` y el servicio valida un `HANDSHAKE_REQ` firmado; un frame manipulado se rechaza.
-- [ ] El servicio persiste el frame validado y emite una notificación local.
+- [x] El servicio persiste el frame validado y emite una notificación local.
 - [x] Al reabrir la UI no se duplica el nodo y el listener existente sigue validando frames.
-- [ ] Al reabrir la UI se lee el estado real y aparecen los mensajes pendientes.
+- [x] Al reabrir la UI se lee el estado real y aparecen los mensajes pendientes.
 - [ ] Force-stop, muerte del servicio, reinicio del dispositivo y cambios de red tienen comportamiento documentado y visible.
 - [ ] El usuario sabe cuándo el nodo y el transporte uPeer están activos y puede detenerlos desde la app o la notificación.
 - [ ] La app no declara conectividad solo por tener un servicio activo.

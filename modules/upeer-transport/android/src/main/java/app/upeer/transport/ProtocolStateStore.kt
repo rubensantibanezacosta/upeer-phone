@@ -63,14 +63,17 @@ internal class ProtocolStateStore(context: Context) {
     return true
   }
 
-  fun updateSignedPreKey(upeerId: String, signedPreKey: JSONObject) {
-    if (!validId(upeerId) || !validSignedPreKey(signedPreKey)) return
-    synchronized(lock) {
-      val peers = state.optJSONObject("peers") ?: return@synchronized
-      val existing = peers.optJSONObject(upeerId) ?: return@synchronized
+  fun updateSignedPreKey(upeerId: String, signedPreKey: JSONObject): Boolean {
+    if (!validId(upeerId) || !validSignedPreKey(signedPreKey)) return false
+    return synchronized(lock) {
+      val peers = state.optJSONObject("peers") ?: return@synchronized false
+      val existing = peers.optJSONObject(upeerId) ?: return@synchronized false
+      val currentID = existing.optJSONObject("signedPreKey")?.optLong("spkId") ?: 0L
+      if (currentID >= signedPreKey.optLong("spkId")) return@synchronized false
       existing.put("signedPreKey", copy(signedPreKey))
       state.put("peers", peers)
       persist()
+      true
     }
   }
 

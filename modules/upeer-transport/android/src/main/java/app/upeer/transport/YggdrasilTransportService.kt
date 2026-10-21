@@ -1,13 +1,9 @@
 package app.upeer.transport
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
-import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import app.upeer.transportbridge.transportbridge.Bridge
 import app.upeer.transportbridge.transportbridge.Transportbridge
 import org.json.JSONObject
@@ -16,17 +12,17 @@ import java.security.SecureRandom
 class YggdrasilTransportService : Service() {
   companion object {
     const val ACTION_START = "app.upeer.transport.START_NETWORK"
-    private const val ACTION_STOP = "app.upeer.transport.STOP_NETWORK"
-    private const val CHANNEL_ID = "upeer_yggdrasil_transport"
+    internal const val ACTION_STOP = "app.upeer.transport.STOP_NETWORK"
     private const val NOTIFICATION_ID = 7301
-    private const val STOP_REQUEST_CODE = 7302
     private const val INBOUND_PORT = 50005
+    private const val TAG = "UPeerTransport"
   }
 
   private val bridgeLock = Any()
   private val inbound = YggdrasilInbound(INBOUND_PORT) { activeBridge, payload -> protocol.handleFrame(activeBridge, payload) }
   private lateinit var configStore: YggdrasilConfigStore
   private lateinit var identity: YggdrasilIdentity
+  private lateinit var notifications: UPeerNotifications
   private lateinit var protocol: YggdrasilProtocol
   private var bridge: Bridge? = null
 
@@ -151,6 +147,7 @@ class YggdrasilTransportService : Service() {
     override fun clearIdentity() {
       protocol.clear()
       identity.clear()
+      notifications.clearMessages()
     }
 
     override fun identityStatusJSON(): String = identity.statusJSON()
@@ -161,7 +158,10 @@ class YggdrasilTransportService : Service() {
 
     override fun conversationsJSON(): String = protocol.conversationsJSON()
 
-    override fun markConversationRead(upeerId: String) = protocol.markConversationRead(upeerId)
+    override fun markConversationRead(upeerId: String) {
+      protocol.markConversationRead(upeerId)
+      notifications.clearConversation(upeerId)
+    }
 
     override fun registerPeer(upeerId: String, address: String, publicKey: String, signedPreKeyJSON: String): Boolean =
       protocol.registerPeer(upeerId, address, publicKey, signedPreKeyJSON)
@@ -178,23 +178,33 @@ class YggdrasilTransportService : Service() {
     app.upeer.transportbridge.transportbridge.Transportbridge.touch()
     configStore = YggdrasilConfigStore(this)
     identity = YggdrasilIdentity(this)
+    notifications = UPeerNotifications(this)
+    notifications.createChannels()
     val signedPreKeys = SignedPreKeyStore(this)
-    protocol = YggdrasilProtocol(identity, signedPreKeys, ProtocolStateStore(this), OutboxStore(this))
-    createNotificationChannel()
+    protocol = YggdrasilProtocol(identity, signedPreKeys, ProtocolStateStore(this), OutboxStore(this), notifications::notifyMessage)
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    if (intent?.action == ACTION_STOP) {
+    if (intent?.action == YggdrasilTransportService.ACTION_STOP) {
       binder.stop()
       return START_NOT_STICKY
     }
-    startForeground(NOTIFICATION_ID, buildNotification())
+    if (intent?.action == UPeerNotifications.ACTION_MARK_READ) {
+      val upeerId = intent.getStringExtra(UPeerNotifications.EXTRA_UPEER_ID)
+      if (upeerId.isNullOrBlank()) {
+        Log.w(TAG, "Acción de marcar como leído sin upeerId")
+      } else {
+        binder.markConversationRead(upeerId)
+      }
+      return START_STICKY
+    }
+    startForeground(NOTIFICATION_ID, notifications.foregroundNotification())
     if (intent == null) restoreNode()
     return START_STICKY
   }
 
   fun ensureForeground() {
-    startForeground(NOTIFICATION_ID, buildNotification())
+    startForeground(NOTIFICATION_ID, notifications.foregroundNotification())
   }
 
   override fun onBind(intent: Intent?): IBinder = binder
@@ -232,7 +242,7 @@ class YggdrasilTransportService : Service() {
       synchronized(bridgeLock) { bridge = activeBridge }
       inbound.start(activeBridge)
       protocol.start(activeBridge)
-      startForeground(NOTIFICATION_ID, buildNotification())
+      startForeground(NOTIFICATION_ID, notifications.foregroundNotification())
     } catch (cause: Exception) {
       synchronized(bridgeLock) { if (bridge === activeBridge) bridge = null }
       protocol.stop()
@@ -250,40 +260,8 @@ class YggdrasilTransportService : Service() {
   }
 
   override fun onTaskRemoved(rootIntent: Intent?) {
-    if (bridge != null) startForeground(NOTIFICATION_ID, buildNotification())
+    if (bridge != null) startForeground(NOTIFICATION_ID, notifications.foregroundNotification())
     super.onTaskRemoved(rootIntent)
-  }
-
-  private fun createNotificationChannel() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-    val channel = NotificationChannel(CHANNEL_ID, "Conexión uPeer", NotificationManager.IMPORTANCE_LOW)
-    getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-  }
-
-  private fun buildNotification(): Notification {
-    val stopIntent = Intent(this, YggdrasilTransportService::class.java).setAction(ACTION_STOP)
-    val stopPendingIntent = PendingIntent.getService(
-      this,
-      STOP_REQUEST_CODE,
-      stopIntent,
-      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-    )
-    val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-    val contentIntent = launchIntent?.let {
-      PendingIntent.getActivity(this, 1, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    }
-    val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(this, CHANNEL_ID) else {
-      @Suppress("DEPRECATION")
-      Notification.Builder(this)
-    }
-    return builder
-      .setSmallIcon(android.R.drawable.stat_sys_upload_done)
-      .setContentTitle("uPeer está conectado")
-      .setContentText("Manteniendo la conexión segura activa")
-      .setOngoing(true)
-      .setContentIntent(contentIntent)
-      .addAction(Notification.Action.Builder(0, "Desconectar", stopPendingIntent).build())
-      .build()
   }
 
   private fun stopAfterFailedStart(activeBridge: Bridge, cause: Exception) {

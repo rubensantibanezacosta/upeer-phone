@@ -12,6 +12,7 @@ internal class YggdrasilProtocol(
   private val signedPreKeys: SignedPreKeyStore,
   private val state: ProtocolStateStore,
   private val outboxStore: OutboxStore,
+  private val onInboundMessage: (String, String, String) -> Unit,
 ) {
   private val handshake = YggdrasilHandshake(identity, signedPreKeys)
   private val outbox = YggdrasilOutbox(identity, signedPreKeys, state, outboxStore)
@@ -169,6 +170,11 @@ internal class YggdrasilProtocol(
     Log.i(TAG, "CHAT descifrado de $senderUpeerId id=${packet.optString("id")} (${plaintext.length} caracteres)")
     val messageID = packet.optString("id")
     if (messageID.isNotEmpty()) scheduleAck(activeBridge, senderUpeerId, messageID)
+    try {
+      onInboundMessage(senderUpeerId, state.peerFor(senderUpeerId)?.optString("alias").orEmpty(), plaintext)
+    } catch (cause: Exception) {
+      Log.w(TAG, "No se pudo notificar el mensaje de $senderUpeerId: ${message(cause)}")
+    }
   }
 
   private fun scheduleAck(activeBridge: Bridge, senderUpeerId: String, messageID: String) {
@@ -225,7 +231,7 @@ internal class YggdrasilProtocol(
 
   private companion object {
     private const val TAG = "UPeerTransport"
-    private const val COMPRESSION_PREFIX = "❤UP❤"
+    private const val COMPRESSION_PREFIX = "\u2763UP\u2763"
     private const val PORT = 50005L
   }
 }
