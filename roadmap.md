@@ -27,28 +27,30 @@ Este documento guía el desarrollo de un cliente móvil de uPeer basado en el pr
 |---|---|---|
 | Identidad local | Parcial | BIP39 de 12 palabras, Ed25519, upeer ID, recuperación y borrado. Vector de derivación Desktop en `transport-bridge/bridge_test.go`; falta custodiar la clave privada fuera del estado React y añadir PIN/biometría. |
 | Perfil local | Hecho | Alias y avatar en SecureStore; imagen en archivo privado de la app. Aún no se publica ni sincroniza. |
-| Contactos | Parcial | Alta manual `upeerID@dirección`, SQLite en WAL y borrado. Sin QR, handshake, solicitudes, reputación ni bloqueo. |
+| Contactos | Parcial | Alta manual `upeerID@dirección`, SQLite en WAL y borrado. Sin QR, solicitudes, reputación ni bloqueo; el handshake ya se ejecuta en el servicio al enviar/recibir. |
 | Nodo Yggdrasil | Hecho en dispositivo | `yggdrasil-go 0.5.14` + netstack gVisor de `yggstack`; nodo embebido con `libgojni.so`, peers y reconexión. |
-| Transporte saliente | Hecho | `dialTCP`, `dialUDP`, `read`, `write` y `closeConnection`; eco TCP `50005` y UDP `50006` contra `yggstack` Desktop. |
-| Transporte entrante | Hecho para P1 | Listener TCP `50005` en `:yggdrasil`, framing 4B/10 MiB con fragmentación y coalescencia, rechazo de tamaños inválidos y validación de `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`. Falta ACK/outbox, persistencia y chat. |
+| Transporte saliente | Hecho | `dialTCP`, `dialUDP`, `read`, `write` y `closeConnection`; paquetes firmados con outbox persistente, reintentos con backoff y ACK. Chat móvil→Desktop verificado con el harness. |
+| Transporte entrante | Hecho | Listener TCP `50005` en `:yggdrasil`, framing 4B/10 MiB con fragmentación y coalescencia, `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`, X3DH, `SEALED`/`CHAT`, ACK y persistencia. Chat Desktop→móvil verificado; faltan pruebas de pérdida y cambios de red. |
 | Servicio Android | Parcial | Foreground service visible en proceso separado `:yggdrasil`, `stopWithTask=false`, configuración e identidad cifradas con Keystore, parada manual y recuperación tras force-stop. Faltan batería y control on/off explícito. |
-| Segundo plano sin push | Parcial | Listener, identidad y protocolo viven en `:yggdrasil`; el servicio responde handshakes, descifra `SEALED`/`CHAT`, envía ACK y persiste sesión/mensaje aunque la UI esté cerrada. Faltan outbox, notificaciones locales y UI de lectura. |
-| Protocolo uPeer | Parcial | `HANDSHAKE_ACCEPT` firmado con SPK nativa, recepción `SEALED`/`CHAT` y ACK validados contra un peer Desktop simulado; faltan `DR_RESET`, compresión saliente y DHT. |
-| Persistencia | Parcial | Estado de protocolo cifrado en Keystore con peers, sesiones de ratchet y últimos 500 mensajes; sin DB relacional, outbox ni grupos. |
-| UI | Parcial | Onboarding, perfil, contactos, conexión y mapa operativos a nivel local. Chats y llamadas son maquetas sin protocolo detrás; la tarjeta de conexión aún afirma cifrado E2E que no existe y debe corregirse antes de presentarla como real. |
+| Segundo plano sin push | Parcial | Listener, identidad, protocolo y outbox viven en `:yggdrasil`; el servicio responde handshakes, descifra `SEALED`/`CHAT`, envía ACK y persiste sesión/mensaje aunque la UI esté cerrada. Faltan notificaciones locales y pruebas prolongadas de batería y red. |
+| Protocolo uPeer | Parcial | `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT` firmados con SPK nativa, X3DH, `SEALED`/`CHAT`, ACK y outbox validados contra un peer Desktop simulado en ambos sentidos; faltan `DR_RESET` completo, compresión saliente, DHT y replay protection. |
+| Persistencia | Parcial | Estado de protocolo cifrado en Keystore con peers, sesiones de ratchet, últimos 500 mensajes y outbox; sin DB relacional ni grupos. |
+| UI | Parcial | Onboarding, perfil, contactos, conexión, mapa, lista de conversaciones y chat conectados al protocolo nativo; estados pendiente/enviado/entregado, no leídos y ACK visibles. Faltan notificaciones locales, adjuntos, búsqueda y llamadas. |
 
 **P1 completado en dispositivo (21/10/2026):** listener TCP `50005` en `:yggdrasil`, framing 4B/10 MiB, canonicalización/firma de `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`, rechazo de frames manipulados y harness Desktop→móvil. La prueba se repitió con la tarea/UI eliminada y el proceso `:yggdrasil` vivo.
 
-**Siguiente prioridad: protocolo headless persistente (en curso).** La identidad uPeer ya se custodia en Android Keystore y se carga desde `:yggdrasil`; las primitivas `SEALED`, X3DH, Signed Pre-Keys y Double Ratchet están portadas y vectorizadas contra `sodium-native`. El servicio ya responde handshakes y descifra/persiste chats con la UI cerrada. Falta cerrar el ciclo de entrega y la UI:
+**Siguiente prioridad: endurecer el protocolo headless.** La identidad uPeer se custodia en Android Keystore y se carga desde `:yggdrasil`; las primitivas `SEALED`, X3DH, Signed Pre-Keys, Double Ratchet, outbox y UI de chat están portadas y verificadas en ambos sentidos contra el harness. Queda:
 
 1. [x] Custodiar la identidad uPeer en Keystore y cargarla en `:yggdrasil`; la UI la provisiona pero el servicio no expone la clave privada.
 2. [x] Portar y vectorizar Ed25519/Curve25519, sealed boxes, X3DH y Double Ratchet.
 3. [x] Responder con `HANDSHAKE_ACCEPT` firmado y SPK nativa; verificado por un peer Desktop simulado.
 4. [x] Recibir `SEALED`/`CHAT`, persistir sesión de ratchet y mensaje cifrado, y sobrevivir a reinicio del servicio.
 5. [x] Enviar ACK firmado tras descifrar y validarlo con un verificador independiente en dispositivo.
-6. [ ] Implementar outbox/`DR_RESET`, exponer mensajes a la UI y emitir notificaciones locales sin duplicar nodo ni perder pendientes.
+6. [x] Implementar outbox persistente con reintentos, backoff y reset al aceptar el handshake; chat móvil→Desktop verificado.
+7. [x] Exponer conversaciones, mensajes, estados y no leídos a la UI conectada al servicio nativo.
+8. [ ] Completar `DR_RESET`, notificaciones locales, compresión saliente y pruebas de pérdida, duplicado y cambios de red.
 
-Sin push, si el servicio muere la entrega depende del vault y de la reconexión. No ampliar la UI de chat como si ya enviara mensajes.
+Sin push, si el servicio muere la entrega depende del vault y de la reconexión. La UI ya muestra y envía mensajes; no presentar la entrega como garantizada ni ocultar los estados pendientes.
 
 ## Base actual de escritorio
 
@@ -299,11 +301,11 @@ Restricción de producto: uPeer **no usará push notifications**. La recepción 
 - [x] Guardar la configuración Yggdrasil de restauración cifrada con Android Keystore; no persistir semillas/configuración en texto claro.
 - [x] Mover al servicio el listener TCP, el framing, el bucle de recepción y la validación de `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`, con harness reproducible y prueba con la UI eliminada.
 - [x] Mover al servicio la criptografía de sesión y la recepción `SEALED`/`CHAT`.
-- [x] Mover el ACK al servicio y verificarlo en dispositivo con un peer Desktop simulado; faltan outbox y DHT.
+- [x] Mover el ACK y el outbox al servicio y verificarlos en dispositivo con un peer Desktop simulado; falta DHT.
 - [x] Custodiar la identidad uPeer en Android Keystore y cargarla desde `:yggdrasil`; la UI solo la provisiona.
 - [x] Persistir peers, sesiones de ratchet y mensajes cifrados en almacenamiento nativo accesible por el servicio.
 - [x] Portar y vectorizar Ed25519/Curve25519, sealed boxes, X3DH y Double Ratchet en el bridge Go.
-- [ ] Añadir outbox y exponer lectura/comandos de mensajes a la UI sin escritores concurrentes.
+- [x] Exponer conversaciones, lectura/comandos de mensajes, estados de entrega y no leídos a la UI sin escritores concurrentes.
 - [ ] Implementar notificaciones locales desde el servicio, con privacidad de previsualización y deep link al chat.
 - [ ] Decidir y validar el autoarranque tras reinicio; si no se implementa, mostrarlo como limitación.
 - [ ] Implementar la tabla de ciclo de vida anterior en dispositivo y documentar qué fabricantes la incumplen.

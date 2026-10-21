@@ -12,8 +12,8 @@ Este documento registra el contrato observado en `upper-desktop/src/main_process
 - La identidad uPeer se cifra con Android Keystore, la carga `:yggdrasil` y la UI solo la provisiona; no se expone la clave privada por Binder.
 - `SEALED`, conversión Ed25519/Curve25519, X3DH, Signed Pre-Keys y Double Ratchet están implementados en Go y comparados con vectores de `sodium-native`.
 - El servicio responde `HANDSHAKE_ACCEPT` con SPK nativa y descifra/persiste `SEALED`/`CHAT` con peers, sesiones y mensajes cifrados. Se probaron dos mensajes consecutivos del mismo ratchet y el reinicio del servicio.
-- El ACK firmado se envía tras descifrar y fue validado en dispositivo con un verificador independiente; faltan outbox, `DR_RESET`, notificaciones y UI.
-- Conclusión: el protocolo headless ya recibe chat real, pero la app aún no lo muestra. La siguiente prioridad es cerrar entrega/ACK y exponer la conversación; ver [`../../roadmap/implementation-order.md`](../../roadmap/implementation-order.md).
+- El ACK firmado se envía tras descifrar y fue validado en dispositivo con un verificador independiente; el outbox persistente entrega chat móvil→Desktop con ACK. Faltan `DR_RESET` completo, compresión, notificaciones y pruebas de red adversas.
+- Conclusión: el protocolo headless funciona en ambos sentidos y la UI muestra la conversación; la siguiente prioridad es endurecer red/ciclo de vida y completar notificaciones. Ver [`../../roadmap/implementation-order.md`](../../roadmap/implementation-order.md).
 
 ## Transporte y framing
 
@@ -21,7 +21,7 @@ Este documento registra el contrato observado en `upper-desktop/src/main_process
 - Desktop abre conexiones TCP salientes al mismo puerto mediante SOCKS5 local en `127.0.0.1:9050`.
 - El listener de Desktop está ligado a `::1:50005`; yggstack hace el reenvío entre la red overlay y ese listener local.
 - Cada paquete TCP tiene un prefijo de longitud de 4 bytes, entero sin signo big-endian, seguido de un objeto JSON UTF-8. La longitud máxima de frame es 10 MiB.
-- El módulo Expo ofrece `dialTCP`, `writeTCP`, `read`, `closeConnection` y las operaciones de listener (`listenTCP`, `acceptTCP`, `closeListener`, `readFrame`, `writeFrame`, `inboundStatus`). El servicio `:yggdrasil` inicia el listener en `50005` y procesa frames sin depender de React; un frame manipulado se rechaza. El chat todavía no es funcional porque falta el resto del protocolo.
+- El módulo Expo ofrece `dialTCP`, `writeTCP`, `read`, `closeConnection` y las operaciones de listener (`listenTCP`, `acceptTCP`, `closeListener`, `readFrame`, `writeFrame`, `inboundStatus`). El servicio `:yggdrasil` inicia el listener en `50005` y procesa frames sin depender de React; un frame manipulado se rechaza. El chat bidireccional, el outbox y el ACK están verificados con el harness.
 
 ## Paquete exterior y firma
 
@@ -48,11 +48,11 @@ Al enviar un paquete directo, Desktop lo sella para la clave pública Ed25519 de
 
 ## Dependencias faltantes en el móvil
 
-1. ~~Listener/aceptor TCP en el puerto de protocolo, integrado con el bridge Yggdrasil y el servicio `:yggdrasil`.~~ Implementado: `ListenTCP`/`AcceptTCP`, framing y validación de handshake viven en `:yggdrasil`; falta persistencia/ACK.
-2. ~~Implementación interoperable de Ed25519, conversión Ed25519/Curve25519, sealed boxes libsodium, X3DH, Signed Pre-Keys y Double Ratchet.~~ Implementado, vectorizado e integrado en recepción con persistencia.
-3. Persistencia transaccional y protegida del estado de ratchet, incluyendo estados de claves precompartidas y deduplicación.
-4. Serialización canónica, firma y validación idénticas; framing de Desktop; compresión y semántica de ACK/DR_RESET. Canonicalización, firma de handshake y framing están implementados; faltan compresión y ACK/`DR_RESET`.
-5. Pruebas de integración cruzadas: Desktop→móvil, móvil→Desktop, primer contacto/X3DH, ratchet posterior, duplicados, ACK, reintentos y entradas TCP fragmentadas/coalescidas. El frame entrante y la fragmentación/coalescencia ya están cubiertos; faltan X3DH, ratchet, ACK y el sentido móvil→Desktop.
-6. Servicio de protocolo headless con identidad, ratchets, DB, outbox y notificaciones locales, capaz de recibir con la UI cerrada. La identidad, el ratchet y los mensajes ya están custodiados/persistidos; faltan DB relacional, outbox, notificaciones y UI. Sin push, si el servicio muere la entrega depende del vault y de la reconexión.
+1. ~~Listener/aceptor TCP en el puerto de protocolo, integrado con el bridge Yggdrasil y el servicio `:yggdrasil`.~~ Implementado: `ListenTCP`/`AcceptTCP`, framing, validación de handshake, ACK y persistencia viven en `:yggdrasil`.
+2. ~~Implementación interoperable de Ed25519, conversión Ed25519/Curve25519, sealed boxes libsodium, X3DH, Signed Pre-Keys y Double Ratchet.~~ Implementado, vectorizado e integrado en ambos sentidos.
+3. Persistencia protegida de peers, estados de ratchet, mensajes y outbox. Existe deduplicación básica; falta DB relacional y prueba de fallos transaccionales.
+4. Serialización canónica, firma y validación idénticas; framing de Desktop; compresión y semántica de ACK/DR_RESET. Canonicalización, firma, framing y ACK están implementados; faltan compresión y `DR_RESET` completo.
+5. Pruebas de integración cruzadas: Desktop→móvil, móvil→Desktop, primer contacto/X3DH, ratchet posterior, duplicados, ACK, reintentos y entradas TCP fragmentadas/coalescidas. Ambos sentidos, X3DH, ratchet, ACK y outbox están verificados; faltan duplicados, pérdida y cambios de red.
+6. Servicio de protocolo headless con identidad, ratchets, DB, outbox y notificaciones locales, capaz de recibir con la UI cerrada. La identidad, el ratchet, los mensajes, el outbox y la UI ya están cubiertos; faltan DB relacional, notificaciones y pruebas de ciclo de vida. Sin push, si el servicio muere la entrega depende del vault y de la reconexión.
 
-Hasta que estas piezas estén implementadas y verificadas, la interfaz debe presentar chat como no disponible o en desarrollo; no debe persistir mensajes como enviados ni afirmar que se entregan.
+La UI ya muestra conversaciones y envía mensajes reales; no debe presentar la entrega como garantizada si el servicio muere ni ocultar los estados pendientes.
