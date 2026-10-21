@@ -1,0 +1,6 @@
+{
+  "name": "upeer-transport",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Expo Android transport module for uPeer Yggdrasil networking"
+}

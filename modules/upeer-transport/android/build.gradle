@@ -1,0 +1,32 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'app.upeer.transport'
+version = '0.1.0'
+
+android {
+  namespace "app.upeer.transport"
+  buildFeatures {
+    aidl true
+  }
+  defaultConfig {
+    minSdkVersion 23
+    ndk { abiFilters "arm64-v8a" }
+    versionCode 1
+    versionName "0.1.0"
+  }
+  ndkVersion "27.2.12479018"
+  lintOptions {
+    abortOnError false
+  }
+}
+
+android.sourceSets.main.java.srcDirs += "$projectDir/src/main/java"
+android.sourceSets.main.jniLibs.srcDirs += "$projectDir/src/main/jniLibs"
+
+dependencies {
+}
+
+

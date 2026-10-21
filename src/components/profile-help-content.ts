@@ -1,0 +1,55 @@
+export type ProfileInfoKey = 'reputacion' | 'almacenamiento' | 'direccion' | 'id' | 'clave' | 'red';
+
+export const profileHelpContent: Record<ProfileInfoKey, { title: string; description: string; items: { label: string; description: string }[] }> = {
+  reputacion: {
+    title: 'Reputación',
+    description: 'La reputación es una puntuación que refleja cuán de fiar eres para el resto de personas que usan la app. Cuanto más alta, mejor te tratan los demás: tus mensajes llegan antes y con más fiabilidad.',
+    items: [
+      { label: 'Confianza', description: 'Empieza en 50 para todo el mundo. Sube cuando mandas y recibes mensajes con normalidad, y cuando ayudas a guardar mensajes de otros mientras están desconectados. Baja si haces cosas raras como mandar spam.' },
+      { label: 'Actividad', description: 'Mide si has estado usando la app recientemente. Si llevas tiempo sin conectarte, este número baja. Vuelve a subir en cuanto retomes la actividad normal.' },
+      { label: 'Contactos', description: 'Cuántos de tus contactos están conectados ahora mismo. Tener más contactos activos le da más peso a tu puntuación general.' },
+      { label: 'Puntuación total', description: 'Un resumen de todo lo anterior junto. Es el número que ve la app para decidir con qué prioridad procesa tus mensajes.' },
+    ],
+  },
+  almacenamiento: {
+    title: 'Almacenamiento cedido',
+    description: 'Esta aplicación funciona sin servidores centrales. Para que tus contactos reciban mensajes mientras están desconectados, los nodos de la red P2P (como el tuyo) ceden un pequeño espacio para guardar temporalmente esos datos cifrados.',
+    items: [
+      { label: 'Privacidad', description: 'Todo el contenido está cifrado de extremo a extremo (E2EE) con llaves que solo el destinatario posee. Tú no puedes leer lo que almacenas, ni nadie puede leer tus mensajes guardados en otros nodos.' },
+      { label: 'Cuotas dinámicas', description: 'Invitados: 50 MB. Confiables: 500 MB. Amigos íntimos (Score 80+): hasta 2.5 GB por persona.' },
+      { label: 'Caducidad', description: 'Tu nodo prioriza siempre el almacenamiento de tus contactos directos. Los datos expiran automáticamente si no son reclamados en 60 días.' },
+    ],
+  },
+  direccion: {
+    title: 'Tu dirección de contacto',
+    description: 'Tu dirección de contacto es lo que tienes que compartir con alguien para que pueda escribirte. Es como tu número de teléfono, pero para esta app.',
+    items: [
+      { label: '¿Cómo se comparte?', description: 'Puedes copiarla y pegarla donde quieras, o mostrar el código QR para que alguien la escanee directamente con su móvil.' },
+      { label: '¿Es segura?', description: 'Sí, puedes compartirla libremente. Solo sirve para que te encuentren en la app, no da acceso a tus mensajes ni a tu cuenta.' },
+    ],
+  },
+  id: {
+    title: 'ID de contacto',
+    description: 'Tu ID es el nombre único que te identifica dentro de la app. Forma parte de tu dirección de contacto.',
+    items: [
+      { label: '¿Lo puedo cambiar?', description: 'No. El ID se genera una sola vez cuando creas tu cuenta y no se puede modificar. Es lo que garantiza que eres siempre tú, sin importar desde qué dispositivo te conectes.' },
+      { label: '¿Alguien puede verlo?', description: 'Solo quien ya tiene tu dirección de contacto completa. No es público ni aparece en ningún listado.' },
+    ],
+  },
+  clave: {
+    title: 'Clave de verificación',
+    description: 'Es un código largo que la app usa para demostrar que eres quien dices ser. Nunca tienes que escribirla ni recordarla, la app la gestiona sola.',
+    items: [
+      { label: '¿Para qué sirve?', description: 'Cuando alguien te manda un mensaje, la app comprueba automáticamente esta clave para asegurarse de que el mensaje llega al destinatario correcto y no ha sido manipulado por nadie.' },
+      { label: '¿Puedo compartirla?', description: 'Es pública por diseño: puede verla cualquier contacto tuyo si quiere verificar que realmente está hablando contigo. No permite acceder a tu cuenta.' },
+    ],
+  },
+  red: {
+    title: 'Dirección de red',
+    description: 'Es la dirección de tu dispositivo dentro de la red que usa la app para conectarse directamente contigo sin pasar por ningún servidor.',
+    items: [
+      { label: '¿Cambia con el tiempo?', description: 'Sí. Cada vez que te conectas desde una red diferente (casa, trabajo, móvil de datos) puede ser distinta. La app lo gestiona automáticamente.' },
+      { label: '¿Tengo que hacer algo?', description: 'No. Solo es informativa. Puedes compartirla si alguien te la pide para conectarse manualmente, pero en condiciones normales la app lo hace sola.' },
+    ],
+  },
+};

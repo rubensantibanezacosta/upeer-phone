@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "upper",
-    "slug": "upper",
+    "name": "uPeer",
+    "slug": "upeer",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "upper",
+    "scheme": "upeer",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
@@ -17,7 +17,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.upeer.upeer"
     },
     "web": {
       "output": "server",
@@ -34,6 +35,9 @@
         }
       ]
     ],
+    "autolinking": {
+      "nativeModulesDir": "./modules"
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

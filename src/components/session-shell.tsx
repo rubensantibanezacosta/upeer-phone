@@ -1,0 +1,56 @@
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { View } from 'react-native';
+
+import type { UPeerIdentity } from '@/domain/identity';
+import { SessionScreen, type ConnectionSnapshot } from '@/components/session-screen';
+import { stop } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import { clearIdentity } from '@/storage/identity-store';
+import { EMPTY_PEER_MANAGEMENT } from '@/domain/yggdrasil-peers';
+
+export type SessionContextValue = {
+  identity: UPeerIdentity;
+  address: string;
+  connection: ConnectionSnapshot;
+  signOut: () => Promise<void>;
+};
+
+const SessionContext = createContext<SessionContextValue | null>(null);
+
+export function useSession(): SessionContextValue {
+  const value = useContext(SessionContext);
+  if (!value) throw new Error('La ruta requiere estar dentro de la sesión autenticada.');
+  return value;
+}
+
+export function SessionShell({ identity, onSignOut, children }: {
+  identity: UPeerIdentity;
+  onSignOut: () => void;
+  children: React.ReactNode;
+}) {
+  const [address, setAddress] = useState('');
+  const [connection, setConnection] = useState<ConnectionSnapshot>({ address: '', phase: 'Conectando a Yggdrasil…', peers: [], error: '', management: EMPTY_PEER_MANAGEMENT });
+  const updateConnection = useCallback((snapshot: ConnectionSnapshot) => setConnection(snapshot), []);
+  const updateAddress = useCallback((nextAddress: string) => {
+    setAddress(nextAddress);
+    setConnection((current) => ({ ...current, address: nextAddress }));
+  }, []);
+  const signOut = useCallback(async () => {
+    try {
+      await stop();
+      await clearIdentity();
+      onSignOut();
+    } catch (cause) {
+      console.warn('No se pudo detener la sesión de red o borrar la identidad.', cause);
+    }
+  }, [onSignOut]);
+  const value = useMemo(() => ({ identity, address, connection, signOut }), [identity, address, connection, signOut]);
+
+  return (
+    <SessionContext.Provider value={value}>
+      {children}
+      <View pointerEvents="none" style={{ height: 1, left: 0, opacity: 0, overflow: 'hidden', position: 'absolute', top: 0, width: 1 }}>
+        <SessionScreen identity={identity} onAddressChange={updateAddress} onSnapshotChange={updateConnection} onSignOut={() => void signOut()} />
+      </View>
+    </SessionContext.Provider>
+  );
+}

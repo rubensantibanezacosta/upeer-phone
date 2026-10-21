@@ -1,0 +1,107 @@
+import { useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Card, H1, Input, Paragraph, Separator, SizableText, Text, TextArea, XStack, YStack } from 'tamagui';
+
+import { createMnemonic, deriveIdentity, type UPeerIdentity } from '@/domain/identity';
+import { clearIdentity, loadIdentity, saveIdentity, saveProfile } from '@/storage/identity-store';
+import { NativeRippleButton } from '@/components/native-ripple-button';
+
+type AuthScreenProps = { identityExists: boolean; onAuthenticated: (identity: UPeerIdentity) => void };
+
+export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps) {
+  const [mnemonic, setMnemonic] = useState('');
+  const [generatedPhrase, setGeneratedPhrase] = useState('');
+  const [alias, setAlias] = useState('');
+  const [mode, setMode] = useState<'create' | 'recover' | 'unlock' | null>(null);
+  const [error, setError] = useState('');
+
+  const runWithMnemonic = async (phrase: string, nextAlias: string) => {
+    setError('');
+    try {
+      const identity = await deriveIdentity(phrase);
+      if (mode === 'unlock') {
+        const stored = await loadIdentity();
+        if (!stored || stored.upeerId !== identity.upeerId) {
+          throw new Error('La frase no corresponde a la identidad guardada en este dispositivo.');
+        }
+      } else {
+        const stored = await loadIdentity();
+        if (stored && stored.upeerId !== identity.upeerId) {
+          await clearIdentity();
+        }
+        await saveIdentity(identity);
+        await saveProfile({ upeerId: identity.upeerId, publicKey: identity.publicKey, alias: nextAlias.trim().slice(0, 64) });
+      }
+      onAuthenticated(identity);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo preparar la identidad.');
+    }
+  };
+
+  const handleCreate = () => {
+    setGeneratedPhrase(createMnemonic());
+    setMnemonic('');
+    setMode('create');
+  };
+
+  const handleMode = (nextMode: 'recover' | 'unlock') => {
+    setMnemonic('');
+    setMode(nextMode);
+    setError('');
+  };
+
+  const matchedPhrase = normalizeMnemonic(mnemonic) === generatedPhrase;
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#202124' }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24, paddingBottom: 48 }} keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled">
+          <YStack alignSelf="center" gap={24} width="100%" maxWidth={480}>
+            <YStack gap={8} paddingHorizontal={4}>
+          
+              <H1 color="color" fontSize={24} fontWeight="700" letterSpacing={-1.5}>uPeer</H1>
+              <Paragraph color="placeholder-color" fontSize={16} lineHeight={2}>Tu identidad. Tus contactos. Tu privacidad.</Paragraph>
+            </YStack>
+            <Card borderWidth={1} backgroundColor="color-1" borderColor="border-color" borderRadius={20} padding={24}>
+              <YStack gap={20}>
+                <YStack gap={8}>
+                  <SizableText color="color" fontSize={21} fontWeight="700">{mode === 'create' ? 'Crea tu identidad' : mode === 'recover' ? 'Recupera tu identidad' : mode === 'unlock' ? 'Desbloquea tu identidad' : 'Empieza a conversar en privado'}</SizableText>
+                  {!mode && <Paragraph color="placeholder-color" lineHeight={2}>{identityExists ? 'Tu identidad está protegida. Introduce tu frase para desbloquearla o recuperar otra cuenta.' : 'Crea una identidad segura o recupérala con tu frase de 12 palabras.'}</Paragraph>}
+                </YStack>
+                {generatedPhrase.length > 0 && (
+                  <YStack backgroundColor="color-2" borderColor="border-color" borderRadius={14} borderWidth={1} gap={8} padding={16}>
+                    <SizableText color="accent-color" fontSize={14} fontWeight="700">GUARDA TU FRASE DE RECUPERACIÓN</SizableText>
+                    <Text color="color" style={{ fontFamily: 'monospace', userSelect: 'text' }} fontSize={15} lineHeight={2}>{generatedPhrase}</Text>
+                    <Paragraph color="placeholder-color" fontSize={13}>No la compartas. La necesitarás para recuperar tu identidad.</Paragraph>
+                  </YStack>
+                )}
+                {mode && <>
+                  <Separator borderColor="border-color" />
+                  <YStack gap={12}>
+                    <TextArea accessibilityLabel="Frase secreta de 12 palabras" autoCapitalize="none" autoCorrect={false} backgroundColor="color-2" borderColor="border-color" color="color" height={mode === 'create' ? 86 : 112} onChangeText={setMnemonic} placeholder={mode === 'create' ? 'Escribe las 12 palabras para confirmar' : 'Escribe las 12 palabras en orden'} placeholderTextColor="placeholder-color" textAlignVertical="top" value={mnemonic} />
+                    {mode === 'create' && <Input accessibilityLabel="Nombre visible" autoCapitalize="words" backgroundColor="color-2" borderColor="border-color" color="color" onChangeText={setAlias} placeholder="Tu nombre" placeholderTextColor="placeholder-color" value={alias} />}
+                  </YStack>
+                </>}
+                {!!error && <Paragraph accessibilityRole="alert" backgroundColor="#3b1118" borderColor="#fb7185" borderRadius={10} borderWidth={1} color="#ffe4e6" padding={12}>{error}</Paragraph>}
+                {!mode && <YStack gap={12}>
+                  <NativeRippleButton backgroundColor="accent-background" color="accent-foreground" fontWeight="700" height={50} onPress={handleCreate}>Crear identidad nueva</NativeRippleButton>
+                  <NativeRippleButton backgroundColor="color-2" borderColor="border-color" borderWidth={1} color="color" height={50} onPress={() => handleMode(identityExists ? 'unlock' : 'recover')}>{identityExists ? 'Desbloquear con mi frase' : 'Recuperar identidad'}</NativeRippleButton>
+                </YStack>}
+                {mode && <YStack gap={12}>
+                  {(mode === 'recover' || mode === 'unlock') && <NativeRippleButton backgroundColor="accent-background" color="accent-foreground" fontWeight="700" height={50} onPress={() => void runWithMnemonic(mnemonic, '')}>{mode === 'recover' ? 'Recuperar identidad' : 'Desbloquear identidad'}</NativeRippleButton>}
+                  {mode === 'create' && matchedPhrase && <NativeRippleButton backgroundColor="accent-background" color="accent-foreground" fontWeight="700" height={50} onPress={() => void runWithMnemonic(generatedPhrase, alias)}>Confirmar frase y continuar</NativeRippleButton>}
+                  <XStack justifyContent="center"><SizableText color="placeholder-color" onPress={() => { setMode(null); setGeneratedPhrase(''); setMnemonic(''); setError(''); }} padding={12} role="button">Volver</SizableText></XStack>
+                </YStack>}
+              </YStack>
+            </Card>
+          </YStack>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+function normalizeMnemonic(value: string): string {
+  return value.normalize('NFKD').trim().toLowerCase().split(/\s+/).join(' ');
+}

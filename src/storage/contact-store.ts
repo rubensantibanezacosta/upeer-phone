@@ -1,0 +1,65 @@
+import * as SQLite from 'expo-sqlite';
+
+export type UPeerContact = {
+  upeerId: string;
+  address: string;
+  name: string;
+  publicKey: string | null;
+  status: 'pending' | 'incoming' | 'connected' | 'offline' | 'blocked';
+  createdAt: number;
+};
+
+let database: Promise<SQLite.SQLiteDatabase> | null = null;
+let databaseGeneration = 0;
+
+async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
+  if (!database) {
+    const generation = databaseGeneration;
+    database = SQLite.openDatabaseAsync('upeer.db').then(async (db) => {
+    await db.execAsync('PRAGMA journal_mode = WAL; CREATE TABLE IF NOT EXISTS contacts (upeerId TEXT PRIMARY KEY NOT NULL, address TEXT NOT NULL, name TEXT NOT NULL, publicKey TEXT, status TEXT NOT NULL, createdAt INTEGER NOT NULL);');
+    if (generation !== databaseGeneration) {
+      await db.closeAsync();
+      throw new Error('La sesión cambió durante la apertura de la base de contactos.');
+    }
+    return db;
+  });
+  }
+  return database;
+}
+
+export async function getContacts(): Promise<UPeerContact[]> {
+  const db = await getDatabase();
+  return db.getAllAsync<UPeerContact>('SELECT * FROM contacts ORDER BY name COLLATE NOCASE, createdAt DESC');
+}
+
+export async function saveContact(contact: UPeerContact): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync('INSERT INTO contacts (upeerId, address, name, publicKey, status, createdAt) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(upeerId) DO UPDATE SET address = excluded.address, name = excluded.name, publicKey = excluded.publicKey, status = excluded.status', contact.upeerId, contact.address, contact.name, contact.publicKey, contact.status, contact.createdAt);
+}
+
+export async function deleteContact(upeerId: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync('DELETE FROM contacts WHERE upeerId = ?', upeerId);
+}
+
+export async function clearContacts(): Promise<void> {
+  const db = await getDatabase();
+  await db.execAsync('DELETE FROM contacts');
+}
+
+export async function deleteContactDatabase(): Promise<void> {
+  databaseGeneration += 1;
+  const pendingDatabase = database;
+  database = null;
+  let closeError: unknown = null;
+  if (pendingDatabase) {
+    try {
+      const db = await pendingDatabase;
+      await db.closeAsync();
+    } catch (cause) {
+      closeError = cause;
+    }
+  }
+  await SQLite.deleteDatabaseAsync('upeer.db');
+  if (closeError) console.warn('La base de contactos se borró, pero la conexión SQLite anterior no se cerró correctamente.', closeError);
+}
