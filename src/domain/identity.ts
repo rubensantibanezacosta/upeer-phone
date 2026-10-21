@@ -8,8 +8,6 @@ export type UPeerIdentity = {
   secretKey: string;
 };
 
-const encoder = new TextEncoder();
-
 export function normalizeMnemonic(mnemonic: string): string {
   return mnemonic.normalize('NFKD').trim().toLowerCase().split(/\s+/).join(' ');
 }

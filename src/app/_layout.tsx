@@ -3,6 +3,8 @@ import { useColorScheme } from 'react-native';
 import { TamaguiProvider, createTamagui } from 'tamagui';
 import { defaultConfig } from '@tamagui/config/v6';
 
+import { SnackbarProvider } from '@/components/snackbar';
+
 const tamaguiConfig = createTamagui(defaultConfig);
 
 export default function RootLayout() {
@@ -10,7 +12,9 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <TamaguiProvider config={tamaguiConfig} defaultTheme={colorScheme === 'dark' ? 'dark' : 'light'}>
-        <Stack screenOptions={{ headerShown: false }} />
+        <SnackbarProvider>
+          <Stack screenOptions={{ headerShown: false }} />
+        </SnackbarProvider>
       </TamaguiProvider>
     </ThemeProvider>
   );

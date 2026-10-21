@@ -18,12 +18,12 @@ export const EMPTY_PEER_MANAGEMENT: PeerManagementSnapshot = {
   updatedAt: 0,
 };
 
-export function createPeerManagementSnapshot(peers: PeerPoolEntry[], reservePeers: PeerPoolEntry[] = []): PeerManagementSnapshot {
+export function createPeerManagementSnapshot(peers: PeerPoolEntry[], reservePeers: PeerPoolEntry[] = [], selfLat: number | null = null, selfLon: number | null = null): PeerManagementSnapshot {
   return {
     peers,
     reservePeers,
-    selfLat: null,
-    selfLon: null,
+    selfLat,
+    selfLon,
     statusAvailable: true,
     updatedAt: Date.now(),
   };

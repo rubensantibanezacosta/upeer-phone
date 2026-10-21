@@ -4,7 +4,8 @@ import { Card, H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui'
 
 import { createPeerManagementSnapshot, EMPTY_PEER_MANAGEMENT, type PeerManagementSnapshot } from '@/domain/yggdrasil-peers';
 import { getConnectedPeerCount, getNodeInfo, getPeerPool, getPeerStatus, retryPeers, setTransportForeground, startWithPeers } from '../../modules/upeer-transport/src/UPeerTransportModule';
-import type { PeerInfo, PeerPoolEntry } from '../../modules/upeer-transport/src/UPeerTransport.types';
+import type { PeerPoolSnapshot } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import type { PeerInfo } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import type { UPeerIdentity } from '@/domain/identity';
 import { loadOrCreateYggdrasilSeed, loadProfile, replaceYggdrasilSeed } from '@/storage/identity-store';
 import { useTheme } from '@/hooks/use-theme';
@@ -20,7 +21,7 @@ export function SessionScreen({ identity, onAddressChange, onSnapshotChange, onS
   const [address, setAddress] = useState('');
   const [peers, setPeers] = useState<PeerInfo[]>([]);
   const [management, setManagement] = useState(EMPTY_PEER_MANAGEMENT);
-  const [phase, setPhase] = useState('Conectando a Yggdrasil…');
+  const [phase, setPhase] = useState('Conectando a la red…');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [starting, setStarting] = useState(true);
@@ -34,7 +35,7 @@ export function SessionScreen({ identity, onAddressChange, onSnapshotChange, onS
       setPeers(status);
       setManagement(peerPoolSnapshot(status, pool));
       const inbound = status.filter((peer) => peer.Inbound).length;
-      setPhase(count > 0 ? `Conectado · ${count} peers activos${inbound ? ` · ${inbound} entrante${inbound === 1 ? '' : 's'}` : ''}` : nodeStarted ? 'Buscando peers de Yggdrasil…' : 'Iniciando nodo Yggdrasil…');
+      setPhase(count > 0 ? `Conectado · ${count} peers activos${inbound ? ` · ${inbound} entrante${inbound === 1 ? '' : 's'}` : ''}` : nodeStarted ? 'Buscando nodos de la red…' : 'Iniciando conexión segura…');
       if (count > 0) setError('');
       return count > 0;
     } catch (cause) {
@@ -47,7 +48,7 @@ export function SessionScreen({ identity, onAddressChange, onSnapshotChange, onS
   const connect = async (initial = false, scheduleReconnect = true): Promise<boolean> => {
     setBusy(true);
     setError('');
-    setPhase('Conectando al servicio Yggdrasil…');
+    setPhase('Iniciando conexión segura…');
     try {
       if (Platform.OS === 'android' && Number(Platform.Version) >= 33) {
         const permission = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
@@ -92,7 +93,7 @@ export function SessionScreen({ identity, onAddressChange, onSnapshotChange, onS
       await refreshStatus();
       return true;
     } catch (cause) {
-      setPhase(nodeStarted ? 'Conexión inestable · reintentando' : 'No se pudo iniciar Yggdrasil');
+      setPhase(nodeStarted ? 'Conexión inestable · reintentando' : 'No se pudo iniciar la conexión');
       setError(errorMessage(cause));
       if (scheduleReconnect) void autoReconnect();
       return false;
@@ -213,7 +214,7 @@ export function SessionScreen({ identity, onAddressChange, onSnapshotChange, onS
           </YStack>
         </Card>
         <YStack gap={10}>
-          <SizableText color={theme.text} fontSize={17} fontWeight="700">Peers de Yggdrasil</SizableText>
+          <SizableText color={theme.text} fontSize={17} fontWeight="700">Nodos de la red</SizableText>
           {peers.length === 0 ? <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} padding={16}><Paragraph color={theme.placeholder}>{starting ? 'Conectando automáticamente a la red…' : 'Buscando peers automáticamente…'}</Paragraph></Card> : peers.map((peer, index) => (
             <Card key={`${peer.URI}-${index}`} backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} padding={14}>
               <XStack alignItems="center" gap={10}>
@@ -233,17 +234,24 @@ export function SessionScreen({ identity, onAddressChange, onSnapshotChange, onS
   );
 }
 
+function rawMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : '';
+}
+
 function errorMessage(cause: unknown): string {
-  return cause instanceof Error ? cause.message : 'No se pudo conectar a Yggdrasil.';
+  const message = rawMessage(cause);
+  if (!message) return 'No se pudo conectar a la red.';
+  if (/yggdrasil|yggstack/i.test(message)) return 'No se pudo completar la conexión con la red.';
+  return message;
 }
 
 function isKeyMismatch(cause: unknown): boolean {
-  const message = errorMessage(cause).toLowerCase();
+  const message = rawMessage(cause).toLowerCase();
   return message.includes('key') && (message.includes('does not match') || message.includes('mismatch') || message.includes('certificate'));
 }
 
-function peerPoolSnapshot(peers: PeerInfo[], pool: PeerPoolEntry[]): PeerManagementSnapshot {
+function peerPoolSnapshot(peers: PeerInfo[], snapshot: PeerPoolSnapshot): PeerManagementSnapshot {
   const activeUris = new Set(peers.filter((peer) => peer.Up).map((peer) => peer.URI));
-  const activePool = pool.filter((peer) => activeUris.has(peer.uri));
-  return createPeerManagementSnapshot(activePool, pool.filter((peer) => !activeUris.has(peer.uri)));
+  const activePool = snapshot.peers.filter((peer) => activeUris.has(peer.uri));
+  return createPeerManagementSnapshot(activePool, snapshot.peers.filter((peer) => !activeUris.has(peer.uri)), snapshot.selfLat, snapshot.selfLon);
 }

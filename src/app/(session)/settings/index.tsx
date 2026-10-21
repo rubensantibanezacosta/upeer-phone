@@ -1,5 +1,5 @@
 import { Link } from 'expo-router';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Bell, ChevronRight, HardDrive, Info, LockKeyhole, Network, Palette, ShieldCheck } from '@tamagui/lucide-icons-2';
 import { H1, SizableText, Text, YStack } from 'tamagui';
@@ -23,9 +23,9 @@ export default function SettingsIndexRoute() {
   return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
     <ScrollView contentContainerStyle={styles.content}>
       <Link href="/chats" asChild>
-        <NativeRipplePressable accessibilityRole="button" android_ripple={{ color: theme.backgroundSelected, borderless: true }} style={styles.back}>
+        <Pressable accessibilityRole="button" style={styles.back}>
           <ArrowLeft color={theme.text} size={18} /><Text color={theme.text} fontSize={15}>Volver a chats</Text>
-        </NativeRipplePressable>
+        </Pressable>
       </Link>
       <YStack gap={4} paddingBottom={8}><H1 color={theme.text} fontSize={24}>Configuración</H1><Text color={theme.placeholder} fontSize={14}>Elige una sección para administrar tu cuenta</Text></YStack>
       <YStack gap={4}>{settingsSections.map((item) => <Link key={item.id} href={{ pathname: '/settings/[section]', params: { section: item.id } }} asChild>

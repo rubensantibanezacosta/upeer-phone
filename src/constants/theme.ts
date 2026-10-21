@@ -17,6 +17,7 @@ export const Colors = {
     border: '#E0E1E6',
     placeholder: '#60646C',
     accent: '#0B6BCB',
+    danger: '#D93036',
     backdrop: '#0000008C',
   },
   dark: {
@@ -28,6 +29,7 @@ export const Colors = {
     border: '#54515a',
     placeholder: '#B0B4BA',
     accent: '#0B6BCB',
+    danger: '#FF6B70',
     backdrop: '#000000B3',
   },
 } as const;

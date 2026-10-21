@@ -28,6 +28,7 @@ export default function AuthenticatedLayout() {
   return <SessionShell key={identity.upeerId} identity={identity} onSignOut={() => { setIdentity(null); router.replace('/'); }}><Stack screenOptions={{ headerShown: false }}>
     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     <Stack.Screen name="settings" options={{ headerShown: false }} />
+    <Stack.Screen name="chat/[upeerId]" options={{ headerShown: false }} />
   </Stack></SessionShell>;
 }
 

@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text as NativeText, View } from 'react-native';
-import { ChevronDown, ChevronUp, Copy, Globe2, LockKeyhole, Network } from '@tamagui/lucide-icons-2';
+import { ChevronDown, ChevronUp, Globe2, LockKeyhole, Network } from '@tamagui/lucide-icons-2';
 import { Card, Paragraph, SizableText, XStack, YStack } from 'tamagui';
-import Svg, { Circle, Ellipse, Line } from 'react-native-svg';
 
+import { CopyField } from '@/components/copy-field';
+import { NetworkMap } from '@/components/network-map';
 import type { PeerInfo, PeerPoolEntry } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import type { PeerManagementSnapshot } from '@/domain/yggdrasil-peers';
 import { useTheme } from '@/hooks/use-theme';
@@ -64,18 +65,18 @@ export function ConnectionSettingsSection({ address, phase, peers, error, manage
         <YStack gap={10} paddingHorizontal={4}>
           <XStack alignItems="center" flexWrap="wrap" gap={8}>
             <Globe2 color={theme.placeholder} size={15} />
-            <SizableText color={theme.placeholder} flex={1} fontSize={11} fontWeight="700" letterSpacing={1}>CONECTADOS EN YGGDRASIL · {activeCount}</SizableText>
+            <SizableText color={theme.placeholder} flex={1} fontSize={11} fontWeight="700" letterSpacing={1}>CONECTADOS A LA RED · {activeCount}</SizableText>
             <XStack alignItems="center" gap={5}>
               <View style={[styles.liveDot, { backgroundColor: '#22c55e' }]} />
               <TextSmall color={theme.placeholder}>Ahora mismo</TextSmall>
             </XStack>
           </XStack>
-          <Paragraph color={theme.placeholder} fontSize={12}>Conexiones actuales reportadas por el nodo Yggdrasil.</Paragraph>
+          <Paragraph color={theme.placeholder} fontSize={12}>Conexiones actuales de tu nodo.</Paragraph>
           <XStack flexWrap="wrap" gap={7}>
             {averageLatency !== null && <View style={[styles.chip, { backgroundColor: `${latencyColor(averageLatency)}20` }]}><TextSmall color={latencyColor(averageLatency)}>Media: {averageLatency} ms · {averageLatency < 100 ? 'Excelente' : averageLatency < 250 ? 'Buena' : 'Alta'}</TextSmall></View>}
             {countries.map((country) => <View key={country} style={[styles.chip, { borderColor: theme.border, borderWidth: 1 }]}><TextSmall color={theme.textSecondary}>{country}</TextSmall></View>)}
           </XStack>
-          <NetworkOverview peers={managedPeers} connectedUris={connectedUris} selfLat={management.selfLat} selfLon={management.selfLon} latencyColor={latencyColor} theme={theme} />
+          <NetworkMap peers={managedPeers} connectedUris={connectedUris} selfLat={management.selfLat} selfLon={management.selfLon} />
           <SizableText color={theme.text} fontSize={13} fontWeight="700">Conectados ahora · {connected.length}</SizableText>
           {connected.length ? connected.map((peer) => <PeerRow key={peer.uri} peer={peer} latencyColor={latencyColor} theme={theme} />) : <Paragraph color={theme.placeholder} fontSize={12}>Sin peers públicos conectados.</Paragraph>}
           <SizableText color={theme.text} fontSize={13} fontWeight="700">Peers públicos en reserva · {reserve.length}</SizableText>
@@ -100,10 +101,7 @@ export function ConnectionSettingsSection({ address, phase, peers, error, manage
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
         <YStack gap={8} paddingHorizontal={4}>
           <SizableText color={theme.text} fontSize={14} fontWeight="700">Tu dirección de red</SizableText>
-          <View style={[styles.addressField, { backgroundColor: theme.background, borderColor: theme.border }]}>
-            <NativeText selectable style={[styles.address, { color: theme.textSecondary }]}>{address}</NativeText>
-            <NativeRipplePressable accessibilityLabel="Copiar dirección de red" onPress={() => onCopy(address)}><Copy color={theme.placeholder} size={17} /></NativeRipplePressable>
-          </View>
+          <CopyField accessibilityLabel="Copiar dirección de red" onCopy={() => onCopy(address)} value={address} />
         </YStack>
       </> : null}
 
@@ -141,29 +139,6 @@ function PeerRow({ peer, latencyColor, theme }: { peer: PeerPoolEntry; latencyCo
   </Card>;
 }
 
-function NetworkOverview({ peers, connectedUris, selfLat, selfLon, latencyColor, theme }: { peers: PeerPoolEntry[]; connectedUris: Set<string>; selfLat: number | null; selfLon: number | null; latencyColor: (latency: number | null) => string; theme: ReturnType<typeof useTheme> }) {
-  const points = peers.flatMap((peer) => peer.lat === null || peer.lon === null ? [] : [{
-    uri: peer.uri,
-    x: 50 + (peer.lon / 180) * 45,
-    y: 50 - (peer.lat / 90) * 42,
-    color: connectedUris.has(peer.uri) ? latencyColor(peer.latencyMs) : '#38bdf8',
-  }]).slice(0, 12);
-  const self = selfLat !== null && selfLon !== null
-    ? { x: 50 + (selfLon / 180) * 45, y: 50 - (selfLat / 90) * 42 }
-    : null;
-  return <View style={[styles.map, { borderColor: theme.border }]}>
-    <Svg style={StyleSheet.absoluteFill} viewBox="0 0 100 100" preserveAspectRatio="none">
-      <Ellipse cx="50" cy="50" rx="46" ry="43" fill="none" stroke="#1e3a5f" strokeWidth="0.7" />
-      <Ellipse cx="50" cy="50" rx="30" ry="43" fill="none" stroke="#1e3a5f" strokeWidth="0.5" />
-      <Line x1="4" y1="50" x2="96" y2="50" stroke="#1e3a5f" strokeWidth="0.5" />
-      <Line x1="50" y1="7" x2="50" y2="93" stroke="#1e3a5f" strokeWidth="0.5" />
-      {points.map((point) => <Circle key={point.uri} cx={point.x} cy={point.y} r={connectedUris.has(point.uri) ? '2.2' : '1.5'} fill={point.color} />)}
-      {self ? <Circle cx={self.x} cy={self.y} r="3" fill="#fff" stroke="#93c5fd" strokeWidth="1.4" /> : null}
-    </Svg>
-    <View pointerEvents="none" style={styles.mapCaption}><TextSmall color="#94a3b8">VISTA DE RED · {points.length}/{peers.length} NODOS GEOLOCALIZADOS</TextSmall></View>
-  </View>;
-}
-
 function TextSmall({ children, color }: { children: React.ReactNode; color: string }) {
   return <NativeText numberOfLines={2} style={{ color, fontSize: 10, lineHeight: 14 }}>{children}</NativeText>;
 }
@@ -178,7 +153,7 @@ function peerFromStatus(peer: PeerInfo): PeerPoolEntry {
   let host = peer.URI;
   try {
     host = new URL(peer.URI).hostname;
-  } catch (cause) {
+  } catch {
     host = peer.URI;
   }
   return {
@@ -200,12 +175,8 @@ const styles = StyleSheet.create({
   divider: { height: StyleSheet.hairlineWidth, marginHorizontal: 4, marginVertical: 4 },
   liveDot: { borderRadius: 99, height: 7, width: 7 },
   chip: { alignItems: 'center', borderRadius: 99, paddingHorizontal: 9, paddingVertical: 5 },
-  addressField: { alignItems: 'center', borderRadius: 8, borderWidth: 1, flexDirection: 'row', gap: 10, minHeight: 46, paddingHorizontal: 12, paddingVertical: 9 },
-  address: { flex: 1, flexShrink: 1, fontFamily: 'monospace', fontSize: 12, lineHeight: 17 },
   detailsToggle: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 42, paddingHorizontal: 8 },
   techIcon: { alignItems: 'center', borderRadius: 7, height: 30, justifyContent: 'center', width: 30 },
   latencyTrack: { borderRadius: 99, height: 6, overflow: 'hidden' },
   latencyBar: { borderRadius: 99, height: '100%' },
-  map: { backgroundColor: '#060e1a', borderRadius: 12, borderWidth: 1, height: 190, overflow: 'hidden', position: 'relative' },
-  mapCaption: { bottom: 10, left: 10, position: 'absolute' },
 });

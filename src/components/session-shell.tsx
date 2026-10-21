@@ -1,16 +1,18 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 
-import type { UPeerIdentity } from '@/domain/identity';
+import { fromHex, type UPeerIdentity } from '@/domain/identity';
 import { SessionScreen, type ConnectionSnapshot } from '@/components/session-screen';
-import { stop } from '../../modules/upeer-transport/src/UPeerTransportModule';
-import { clearIdentity } from '@/storage/identity-store';
+import { clearIdentity as clearTransportIdentity, setIdentity as setTransportIdentity, stop } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import { clearIdentity, loadProfile, type IdentityProfile } from '@/storage/identity-store';
 import { EMPTY_PEER_MANAGEMENT } from '@/domain/yggdrasil-peers';
 
 export type SessionContextValue = {
   identity: UPeerIdentity;
   address: string;
   connection: ConnectionSnapshot;
+  profile: IdentityProfile | null;
+  refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -28,7 +30,25 @@ export function SessionShell({ identity, onSignOut, children }: {
   children: React.ReactNode;
 }) {
   const [address, setAddress] = useState('');
-  const [connection, setConnection] = useState<ConnectionSnapshot>({ address: '', phase: 'Conectando a Yggdrasil…', peers: [], error: '', management: EMPTY_PEER_MANAGEMENT });
+  const [profile, setProfile] = useState<IdentityProfile | null>(null);
+  const [connection, setConnection] = useState<ConnectionSnapshot>({ address: '', phase: 'Conectando a la red…', peers: [], error: '', management: EMPTY_PEER_MANAGEMENT });
+  const refreshProfile = useCallback(async () => {
+    try {
+      setProfile(await loadProfile());
+    } catch (cause) {
+      console.warn('No se pudo cargar el perfil de la sesión.', cause);
+    }
+  }, []);
+  useEffect(() => {
+    loadProfile().then(setProfile).catch((cause: unknown) => {
+      console.warn('No se pudo cargar el perfil de la sesión.', cause);
+    });
+  }, []);
+  useEffect(() => {
+    setTransportIdentity(fromHex(identity.secretKey)).catch((cause: unknown) => {
+      console.warn('No se pudo provisionar la identidad uPeer en el servicio de red.', cause);
+    });
+  }, [identity.secretKey]);
   const updateConnection = useCallback((snapshot: ConnectionSnapshot) => setConnection(snapshot), []);
   const updateAddress = useCallback((nextAddress: string) => {
     setAddress(nextAddress);
@@ -36,14 +56,23 @@ export function SessionShell({ identity, onSignOut, children }: {
   }, []);
   const signOut = useCallback(async () => {
     try {
+      await clearTransportIdentity();
+    } catch (cause) {
+      console.warn('No se pudo borrar la identidad del servicio de red.', cause);
+    }
+    try {
       await stop();
+    } catch (cause) {
+      console.warn('No se pudo detener la sesión de red.', cause);
+    }
+    try {
       await clearIdentity();
       onSignOut();
     } catch (cause) {
-      console.warn('No se pudo detener la sesión de red o borrar la identidad.', cause);
+      console.warn('No se pudo borrar la identidad local.', cause);
     }
   }, [onSignOut]);
-  const value = useMemo(() => ({ identity, address, connection, signOut }), [identity, address, connection, signOut]);
+  const value = useMemo(() => ({ identity, address, connection, profile, refreshProfile, signOut }), [identity, address, connection, profile, refreshProfile, signOut]);
 
   return (
     <SessionContext.Provider value={value}>

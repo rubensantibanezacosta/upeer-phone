@@ -5,6 +5,7 @@ import { Card, H1, Input, Paragraph, SizableText, Text, XStack, YStack } from 't
 import type { UPeerIdentity } from '@/domain/identity';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { registerPeer as registerNativePeer } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { deleteContact, getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
 import { loadProfile, saveProfile } from '@/storage/identity-store';
 
@@ -48,7 +49,13 @@ export function ContactsScreen({ identity, onSignOut, onContactsChange }: Contac
       return;
     }
     try {
-      await saveContact({ upeerId: upeerId.toLowerCase(), address, name: upeerId.slice(0, 12), publicKey: null, status: 'pending', createdAt: Date.now() });
+      const normalizedId = upeerId.toLowerCase();
+      await saveContact({ upeerId: normalizedId, address, name: upeerId.slice(0, 12), publicKey: null, status: 'pending', createdAt: Date.now() });
+      try {
+        await registerNativePeer(normalizedId, address, '', '');
+      } catch (cause) {
+        console.warn('El contacto se guardó, pero el servicio nativo no lo registró.', cause);
+      }
       await refresh();
       setContactInput('');
       Alert.alert('Contacto guardado', 'El contacto se guardó en este dispositivo.');
@@ -96,7 +103,7 @@ export function ContactsScreen({ identity, onSignOut, onContactsChange }: Contac
         <Card borderWidth={1} backgroundColor="color-1" borderColor="border-color" borderRadius={18} padding={18}>
           <YStack gap={12}>
             <SizableText color="color" fontSize={17} fontWeight="700">Añadir contacto</SizableText>
-            <Input accessibilityLabel="uPeerID y dirección Yggdrasil del contacto" autoCapitalize="none" autoCorrect={false} backgroundColor="color-2" borderColor="border-color" color="color" onChangeText={setContactInput} placeholder="uPeerID@200::…" placeholderTextColor="placeholder-color" value={contactInput} />
+            <Input accessibilityLabel="uPeerID y dirección de red del contacto" autoCapitalize="none" autoCorrect={false} backgroundColor="color-2" borderColor="border-color" color="color" onChangeText={setContactInput} placeholder="uPeerID@200::…" placeholderTextColor="placeholder-color" value={contactInput} />
             <NativeRippleButton backgroundColor="accent-background" color="accent-foreground" fontWeight="700" height={48} onPress={() => void addContact()}>Guardar contacto</NativeRippleButton>
           </YStack>
         </Card>

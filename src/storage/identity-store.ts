@@ -93,7 +93,7 @@ export async function removeProfileAvatar(): Promise<void> {
 export async function loadOrCreateYggdrasilSeed(): Promise<Uint8Array> {
   const stored = await SecureStore.getItemAsync(YGGDRASIL_SEED_KEY);
   if (stored) {
-    if (!/^[0-9a-f]{64}$/i.test(stored)) throw new Error('La semilla guardada de Yggdrasil no es válida.');
+    if (!/^[0-9a-f]{64}$/i.test(stored)) throw new Error('La clave de conexión guardada no es válida.');
     return Uint8Array.from(stored.match(/.{2}/g) ?? [], (byte) => Number.parseInt(byte, 16));
   }
   const seed = await generateNodeSeed();

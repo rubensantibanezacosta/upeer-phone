@@ -1,14 +1,13 @@
 import { Link, useLocalSearchParams } from 'expo-router';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from '@tamagui/lucide-icons-2';
 import { Card, Paragraph, SizableText, Text } from 'tamagui';
-import * as Clipboard from 'expo-clipboard';
 
 import { ConnectionSettingsSection } from '@/components/connection-settings-section';
 import { useSession } from '@/components/session-shell';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useTheme } from '@/hooks/use-theme';
-import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 
 const sectionLabels: Record<string, string> = {
   privacidad: 'Privacidad',
@@ -22,6 +21,7 @@ const sectionLabels: Record<string, string> = {
 
 export default function SettingsSectionRoute() {
   const theme = useTheme();
+  const copyToClipboard = useCopyToClipboard();
   const { connection } = useSession();
   const { section } = useLocalSearchParams<{ section: string }>();
   const label = sectionLabels[section] ?? 'Configuración';
@@ -29,11 +29,11 @@ export default function SettingsSectionRoute() {
   return <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
     <ScrollView contentContainerStyle={styles.content}>
       <Link href="/settings" asChild>
-        <NativeRipplePressable accessibilityRole="button" android_ripple={{ color: theme.backgroundSelected, borderless: true }} style={styles.back}>
+        <Pressable accessibilityRole="button" style={styles.back}>
           <ArrowLeft color={theme.text} size={18} /><Text color={theme.text} fontSize={15}>Volver a configuración</Text>
-        </NativeRipplePressable>
+        </Pressable>
       </Link>
-      {section === 'red' ? <ConnectionSettingsSection {...connection} onCopy={(value) => { void Clipboard.setStringAsync(value); }} /> : <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={8} padding={16}><SizableText color={theme.text} fontSize={22} fontWeight="700">{label}</SizableText><Paragraph color={theme.placeholder}>Esta sección todavía no está disponible en la app móvil.</Paragraph></Card>}
+      {section === 'red' ? <ConnectionSettingsSection {...connection} onCopy={(value) => { void copyToClipboard(value, 'Dirección copiada'); }} /> : <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={8} padding={16}><SizableText color={theme.text} fontSize={22} fontWeight="700">{label}</SizableText><Paragraph color={theme.placeholder}>Esta sección todavía no está disponible en la app móvil.</Paragraph></Card>}
     </ScrollView>
   </SafeAreaView>;
 }

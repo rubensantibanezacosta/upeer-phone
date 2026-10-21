@@ -1,11 +1,13 @@
-import { Image, StyleSheet, Text as NativeText, View } from 'react-native';
-import { Check, CheckCircle2, Cloud, Copy, Fingerprint, Info, Pencil, QrCode, Shield } from '@tamagui/lucide-icons-2';
-import { Avatar, Input, Progress, SizableText, Text, XStack, YStack } from 'tamagui';
+import { StyleSheet, View } from 'react-native';
+import { Check, Cloud, Copy, Fingerprint, Info, Pencil, QrCode, Shield } from '@tamagui/lucide-icons-2';
+import { Input, Progress, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import type { UPeerIdentity } from '@/domain/identity';
 import { useTheme } from '@/hooks/use-theme';
+import { CopyField } from '@/components/copy-field';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { ProfileAvatar } from '@/components/profile-avatar';
 
 export function ProfileHeroSection({ identity, alias, avatar, busy, onAliasChange, onAliasSave, onAvatarPress }: {
   identity: UPeerIdentity;
@@ -20,8 +22,8 @@ export function ProfileHeroSection({ identity, alias, avatar, busy, onAliasChang
   return (
     <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderBottomColor={theme.border} borderBottomWidth={1} gap={24} paddingHorizontal={20} paddingVertical={24}>
       <NativeRipplePressable accessibilityLabel="Cambiar foto de perfil" accessibilityRole="button" disabled={busy} onPress={onAvatarPress} style={styles.avatar}>
-        {avatar ? <Image source={{ uri: avatar }} style={styles.avatarImage} /> : <Avatar backgroundColor={theme.backgroundSelected} borderRadius={10} size="$8"><SizableText color={theme.text} fontSize={32} fontWeight="700">{(alias || identity.upeerId).charAt(0).toUpperCase()}</SizableText></Avatar>}
-        <View style={styles.avatarOverlay}><Pencil color={theme.text} size={24} /></View>
+        <ProfileAvatar avatar={avatar} name={alias || identity.upeerId} />
+        <View style={[styles.avatarEditBadge, { backgroundColor: theme.accent, borderColor: theme.backgroundElement }]}><Pencil color={theme.background} size={12} /></View>
       </NativeRipplePressable>
       <YStack flex={1} gap={5} minWidth={0}>
         <SizableText color={theme.placeholder} fontSize={11} fontWeight="600" letterSpacing={1}>NOMBRE</SizableText>
@@ -70,10 +72,8 @@ export function ProfileStatsSection({ reputation, vaultStats, onInfo }: {
   );
 }
 
-export function ProfileAddressSection({ fullId, copied, copyError, onCopy, onShowQr, onInfo }: {
+export function ProfileAddressSection({ fullId, onCopy, onShowQr, onInfo }: {
   fullId: string;
-  copied: boolean;
-  copyError: string;
   onCopy: () => void;
   onShowQr: () => void;
   onInfo: () => void;
@@ -83,12 +83,11 @@ export function ProfileAddressSection({ fullId, copied, copyError, onCopy, onSho
     <YStack borderBottomColor={theme.border} borderBottomWidth={1} gap={12} paddingHorizontal={20} paddingVertical={20}>
       <XStack alignItems="center" gap={8}><Fingerprint color={theme.placeholder} size={16} /><SizableText color={theme.text} flex={1} fontSize={14} fontWeight="600">Tu dirección de contacto</SizableText><NativeRipplePressable accessibilityLabel="¿Qué es la dirección de contacto?" onPress={onInfo}><Info color={theme.placeholder} size={16} /></NativeRipplePressable></XStack>
       <Text color={theme.placeholder} fontSize={12}>Comparte esta dirección para que puedan escribirte</Text>
-      <CopyableValue value={fullId} copied={copied} onCopy={onCopy} />
+      <CopyField accessibilityLabel="Copiar dirección de contacto" onCopy={onCopy} value={fullId} />
       <XStack gap={8}>
           <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} icon={<QrCode color={theme.placeholder} size={15} />} onPress={onShowQr}>Mostrar QR</NativeRippleButton>
-          <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={copied ? theme.accent : theme.text} icon={copied ? <CheckCircle2 color={theme.accent} size={15} /> : <Copy color={theme.placeholder} size={15} />} onPress={onCopy}>{copied ? '¡Copiado!' : 'Copiar'}</NativeRippleButton>
+          <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} icon={<Copy color={theme.placeholder} size={15} />} onPress={onCopy}>Copiar</NativeRippleButton>
       </XStack>
-      {copyError ? <Text color="danger" fontSize={12}>No se pudo copiar al portapapeles: {copyError}</Text> : null}
     </YStack>
   );
 }
@@ -116,23 +115,8 @@ function TechnicalField({ label, value, onInfo, onCopy }: { label: string; value
   return (
     <YStack gap={5} paddingVertical={10}>
       <XStack alignItems="center" gap={3}><SizableText color={theme.placeholder} flex={1} fontSize={10} fontWeight="600" letterSpacing={0.7}>{label.toUpperCase()}</SizableText><NativeRipplePressable accessibilityLabel={`¿Qué es ${label}?`} onPress={onInfo}><Info color={theme.placeholder} size={15} /></NativeRipplePressable></XStack>
-      <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderColor={theme.border} borderWidth={1} gap={8} paddingHorizontal={12} paddingVertical={9}>
-        <NativeText style={[styles.technicalValueText, { color: theme.textSecondary }]}>{value || '—'}</NativeText>
-        <NativeRipplePressable accessibilityLabel={`Copiar ${label}`} disabled={!value} onPress={() => onCopy(value)}><Copy color={theme.placeholder} size={16} /></NativeRipplePressable>
-      </XStack>
+      <CopyField accessibilityLabel={`Copiar ${label}`} onCopy={() => onCopy(value)} value={value} />
     </YStack>
-  );
-}
-
-function CopyableValue({ value, copied, onCopy }: { value: string; copied: boolean; onCopy: () => void }) {
-  const theme = useTheme();
-  return (
-    <View style={[styles.copyableValue, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
-      <NativeText style={[styles.copyableText, { color: theme.textSecondary }]}>{value || '—'}</NativeText>
-      <NativeRipplePressable accessibilityLabel={copied ? 'Copiado' : 'Copiar'} onPress={onCopy}>
-        {copied ? <CheckCircle2 color={theme.accent} size={16} /> : <Copy color={theme.placeholder} size={16} />}
-      </NativeRipplePressable>
-    </View>
   );
 }
 
@@ -143,4 +127,4 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 ** unitIndex).toFixed(1)} ${units[unitIndex]}`;
 }
 
-const styles = StyleSheet.create({ avatar: { borderRadius: 6, height: 96, overflow: 'hidden', position: 'relative', width: 96 }, avatarImage: { height: 96, width: 96 }, avatarOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' }, copyableValue: { alignItems: 'center', borderWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 8 }, copyableText: { flex: 1, flexShrink: 1, fontFamily: 'monospace', fontSize: 12, lineHeight: 15 }, technicalValueText: { flex: 1, flexShrink: 1, fontFamily: 'monospace', fontSize: 12, lineHeight: 15 }, divider: { height: StyleSheet.hairlineWidth, width: '100%' } });
+const styles = StyleSheet.create({ avatar: { borderRadius: 8, height: 96, overflow: 'hidden', position: 'relative', width: 96 }, avatarEditBadge: { alignItems: 'center', borderRadius: 8, borderWidth: 2, bottom: 5, height: 24, justifyContent: 'center', position: 'absolute', right: 5, width: 24 }, divider: { height: StyleSheet.hairlineWidth, width: '100%' } });

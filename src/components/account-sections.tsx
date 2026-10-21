@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
-import { Check, Clock3, Copy, Info, X } from '@tamagui/lucide-icons-2';
+import { Clock3, Copy, Info, X } from '@tamagui/lucide-icons-2';
 import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import type { UPeerIdentity } from '@/domain/identity';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useTheme } from '@/hooks/use-theme';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
@@ -38,10 +38,8 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
   const [avatar, setAvatar] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [copiedValue, setCopiedValue] = useState<string | null>(null);
-  const [copyError, setCopyError] = useState('');
-  const copyTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
+  const copyToClipboard = useCopyToClipboard();
   const [info, setInfo] = useState<ProfileInfoKey | null>(null);
   const fullId = `${identity.upeerId}@${address}`;
 
@@ -91,21 +89,9 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
     }
   };
 
-  const copyValue = async (value: string) => {
-    try {
-      await Clipboard.setStringAsync(value);
-      setCopiedValue(value);
-      setCopyError('');
-      if (copyTimeout.current) clearTimeout(copyTimeout.current);
-      copyTimeout.current = setTimeout(() => setCopiedValue((current) => current === value ? null : current), 2_000);
-    } catch (cause) {
-      setCopiedValue(null);
-      setCopyError(cause instanceof Error ? cause.message : 'No se pudo copiar al portapapeles.');
-    }
-  };
-
-  const copyProfileAddress = () => void copyValue(fullId);
-  const copyProfileValue = (value: string) => void copyValue(value);
+  const copyProfileAddress = () => { void copyToClipboard(fullId, 'Copiado al portapapeles'); };
+  const copyQrAddress = () => { copyProfileAddress(); setQrOpen(false); };
+  const copyProfileValue = (value: string) => { void copyToClipboard(value, 'Copiado al portapapeles'); };
 
   return (
     <YStack flex={1} backgroundColor={theme.background}>
@@ -115,17 +101,17 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
         {error ?
           <Paragraph accessibilityRole="alert" color="danger">{error}</Paragraph> : null}
         <ProfileStatsSection reputation={null} vaultStats={null} onInfo={setInfo} />
-        <ProfileAddressSection fullId={fullId} copied={copiedValue === fullId} copyError={copyError} onCopy={copyProfileAddress} onShowQr={() => setQrOpen(true)} onInfo={() => setInfo('direccion')} />
+        <ProfileAddressSection fullId={fullId} onCopy={copyProfileAddress} onShowQr={() => setQrOpen(true)} onInfo={() => setInfo('direccion')} />
         <ProfileTechnicalSection identity={identity} address={address} onInfo={setInfo} onCopy={copyProfileValue} />
         <YStack paddingHorizontal={20}><NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color="danger" height={48} onPress={onSignOut}>Cerrar sesión y borrar datos locales</NativeRippleButton></YStack>
       </ScrollView>
-      <ProfileQrModal visible={qrOpen} fullId={fullId} copied={copiedValue === fullId} onClose={() => setQrOpen(false)} onCopy={copyProfileAddress} />
+      <ProfileQrModal visible={qrOpen} fullId={fullId} onClose={() => setQrOpen(false)} onCopy={copyQrAddress} />
       <ProfileInfoModal info={info} onClose={() => setInfo(null)} />
     </YStack>
   );
 }
 
-function ProfileQrModal({ visible, fullId, copied, onClose, onCopy }: { visible: boolean; fullId: string; copied: boolean; onClose: () => void; onCopy: () => void }) {
+function ProfileQrModal({ visible, fullId, onClose, onCopy }: { visible: boolean; fullId: string; onClose: () => void; onCopy: () => void }) {
   const theme = useTheme();
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
@@ -135,7 +121,7 @@ function ProfileQrModal({ visible, fullId, copied, onClose, onCopy }: { visible:
           <Text color={theme.placeholder} fontSize={12} textAlign="center">Muestra este código para que alguien te agregue como contacto</Text>
           <View style={[styles.qrCanvas, { backgroundColor: theme.background }]}>{fullId ? <QRCode value={fullId} size={220} ecl="M" /> : <Text color={theme.placeholder}>Sin dirección</Text>}</View>
           <Text color={theme.textSecondary} fontFamily="$mono" fontSize={11} lineHeight={1.5}>{fullId || '—'}</Text>
-          <NativeRippleButton backgroundColor={theme.accent} color={theme.background} icon={copied ? <Check color={theme.background} /> : <Copy color={theme.background} />} onPress={onCopy} width="100%">{copied ? '¡Copiado!' : 'Copiar dirección'}</NativeRippleButton>
+          <NativeRippleButton backgroundColor={theme.accent} color={theme.background} icon={<Copy color={theme.background} />} onPress={onCopy} width="100%">Copiar dirección</NativeRippleButton>
         </NativeRipplePressable>
       </NativeRipplePressable>
     </Modal>
