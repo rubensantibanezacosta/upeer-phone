@@ -2,19 +2,63 @@
 
 Este documento define el orden de implementación. `../roadmap.md` conserva el inventario amplio de requisitos; sus números de fase y la antigua secuencia MVP no prevalecen sobre este plan.
 
-## Estado comprobado
+## Estado comprobado (21 de octubre de 2026)
 
-- Móvil tiene prototipos de derivación BIP39/uPeer ID, almacenamiento SecureStore, contactos SQLite y arranque/estado del motor Yggdrasil.
-- Móvil no tiene el protocolo uPeer entrante completo, validación común de paquetes, DHT Kademlia, handshake interoperable ni chat E2EE.
-- `src/domain/desktop-chat-protocol.md` confirma que el bridge actual no tiene listener TCP entrante ni la ruta de respuestas firmadas/sealed requerida por Desktop.
-- Desktop ya tiene perfil con alias/avatar, persistencia local de esos campos y publicación firmada; el descubrimiento/propagación presupone su red y DHT.
-- La UI de móvil no demuestra interoperabilidad. No mostrar acciones como funcionales hasta que el correspondiente criterio de salida pase pruebas con Desktop.
+- **Fase 0 — parcial.** La derivación BIP39/Ed25519/upeer ID tiene vector contra Desktop. Canonicalización, firma de `HANDSHAKE_REQ`/`ACCEPT`, framing, sealed boxes, X3DH y Double Ratchet tienen vectores cruzados con `sodium-native`; faltan compresión, ACK y vectores de chat.
+- **Fase 1 — parcial.** Creación, recuperación y borrado de identidad; alias/avatar local; dirección de red visible; identidad uPeer cifrada en Android Keystore y cargada por `:yggdrasil`. Pendientes: dejar de serializar la clave privada en SecureStore/React, PIN/biometría, DB cifrada y ratchets.
+- **Fase 2 — parcial.** Nodo Yggdrasil embebido, servicio Android visible, peers y reconexión; transporte saliente TCP/UDP, listener TCP `50005`, framing, handshake accept firmado, recepción `SEALED`/`CHAT`, ACK y mensajes persistidos en `:yggdrasil`. Pendientes: outbox y ciclo de vida completo.
+- **Fase 3 — no iniciada.** No hay DHT Kademlia, bootstrap/LAN discovery, `DHT_UPDATE`, rate limiting, replay protection ni sincronización firmada del perfil.
+- **Fases 4–10 — no iniciadas.** El chat directo ya se recibe y persiste en el servicio, pero no está expuesto a la UI ni tiene ACK/outbox completos; faltan grupos, archivos, llamadas, vault y notificaciones.
+- La UI de móvil no demuestra interoperabilidad completa. `src/domain/desktop-chat-protocol.md` confirma que Desktop espera un listener TCP en `50005`; el listener ya existe y valida handshakes, pero el chat sigue pendiente.
+
+## Hitos y prioridad vigente
+
+### Regla de arquitectura: sin UI no se pierde la recepción
+
+uPeer no usará push notifications. Por tanto, el servicio Android `:yggdrasil` debe ser el dueño del nodo, del listener TCP, del bucle de protocolo, de la identidad uPeer, de los ratchets, del outbox y de la persistencia. La UI solo lee estado y envía comandos por Binder; puede morir sin detener la recepción.
+
+Queda fuera de esta regla todo lo que dependa de React Native, Metro o `useEffect`. El servicio ya está en proceso separado y usa `stopWithTask=false`/`onTaskRemoved`; el trabajo pendiente es mover el protocolo y sus datos allí. Sin eso, cerrar la UI detiene la recepción aunque el nodo Yggdrasil siga vivo.
+
+### P1 — Primer frame entrante Desktop→móvil
+
+El objetivo fue cerrar el primer tramo de las fases 0 y 2: que Desktop pudiera abrir una conexión TCP contra el móvil y enviar un frame válido con el contrato de Desktop. El envío firmado móvil→Desktop sigue pendiente; las primitivas salientes ya existen.
+
+**Trabajo mínimo:**
+
+1. Exponer `ListenTCP` del netstack de Yggdrasil en el bridge Go y una operación de aceptación que devuelva un `connectionId` reutilizando `read`/`write`/`closeConnection`.
+2. Integrar el listener y el bucle de aceptación/lectura en `YggdrasilTransportService` (`:yggdrasil`), no en React; validar que sobrevive al cierre del proceso UI y a `onTaskRemoved`, sin presentar el servicio activo como transporte sano.
+3. Implementar framing de Desktop: prefijo big-endian de 4 bytes, JSON UTF-8, máximo 10 MiB, soporte de frames fragmentados y varios frames en un mismo chunk, rechazo de longitudes inválidas y cierre controlado.
+4. Validar la firma con la clave pública incluida en el handshake y comprobar que el `upeerId` deriva de ella; la UI no participa.
+5. Portar canonicalización y firma Ed25519 para `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`; validar antes de despachar.
+6. Crear un harness reproducible Desktop→móvil para frame partido, frames coalescidos, frame demasiado grande y cierre.
+
+**Estado (21/10/2026): completado en dispositivo.** Desktop abrió TCP `50005` vía el SOCKS5 de yggstack, envió un `HANDSHAKE_REQ` de 828 bytes y el servicio validó la firma. Se repitió tras eliminar la tarea/UI, con `:yggdrasil` vivo, y un frame manipulado fue rechazado. El harness está en `transport-bridge/harness/desktop-handshake.mjs`.
+
+**Criterio de salida:** el harness entrante pasa, el móvil no acepta un frame sin firma válida y el listener sigue aceptando con el proceso UI cerrado. El envío firmado móvil→Desktop queda para P2. La UI puede seguir mostrando el chat como no disponible; no se debe afirmar entrega de mensajes.
+
+**No hacer todavía:** chat visual completo, grupos, archivos, llamadas, DHT o sincronización de perfil. Esas fases dependen de este hito y de la criptografía de sesión.
+
+### P2 — Protocolo headless persistente (siguiente prioridad)
+
+1. [x] Custodiar la identidad uPeer en Keystore y cargarla en el servicio; la UI solo la provisiona.
+2. [x] Portar Ed25519/Curve25519, sealed boxes, X3DH, Signed Pre-Keys y Double Ratchet con vectores.
+3. [x] Persistir peers, sesiones de ratchet y mensajes cifrados; falta outbox y deduplicación transaccional.
+4. [x] Cablear recepción `SEALED`/`CHAT`, X3DH/Double Ratchet, reinicio de sesión y ACK verificado; faltan compresión saliente y `DR_RESET`.
+5. [ ] Envío firmado móvil→Desktop de chat, respuestas/ACK y outbox desde el servicio.
+6. [ ] DHT Kademlia, bootstrap y roaming.
+7. [ ] Exponer el chat a la UI, notificaciones y paridad social, vault, grupos, archivos y llamadas.
+
+**Estado (21/10/2026):** identidad uPeer cifrada en Keystore, provisionada por la UI y recuperada por `:yggdrasil` tras `force-stop` + reinicio. Las primitivas `SEALED`/X3DH/Double Ratchet pasan vectores de `sodium-native` y sesiones completas en Go. El servicio responde `HANDSHAKE_ACCEPT`, recibe dos `CHAT` consecutivos del mismo ratchet, persiste peers/sesión/mensajes y envía un ACK verificado en dispositivo. Faltan outbox, notificaciones y UI.
+
+**Criterio de salida:** con la UI cerrada, un `CHAT` válido se descifra, persiste y notifica; al reabrir aparecen los pendientes y la identidad no se serializa en React.
 
 ## Secuencia obligatoria
 
 ### 0. Contrato común y pruebas de interoperabilidad
 
 Congelar formatos/versiones de identidad, serialización canónica, firmas, paquetes, límites y errores mediante vectores de Desktop. Documentar qué operaciones criptográficas conserva cada dispositivo. No modificar derivaciones ni crear un protocolo móvil alternativo.
+
+**Estado actual:** parcial. Existen vectores de derivación, canonicalización/firma de handshake, framing, sealed boxes, X3DH, Double Ratchet y harness; compresión, ACK y vectores de chat siguen pendientes.
 
 **Salida:** los vectores son reproducibles en los entornos elegidos y existe un harness Desktop↔móvil. Toda fase posterior añade casos a ese harness.
 
@@ -24,17 +68,23 @@ Cerrar la identidad ya prototipada: creación, recuperación, desbloqueo, bloque
 
 El perfil en esta etapa es **local**. No afirmar que el alias/foto ya se sincroniza. No duplicar la identidad criptográfica en un segundo almacén de perfil.
 
+**Estado actual:** parcial. Identidad, perfil local, borrado y vault nativo en Keystore funcionan; el servicio carga la identidad sin que la UI se la pase en cada arranque. La clave privada aún se serializa en estado React/SecureStore y faltan PIN, biometría y DB cifrada.
+
 **Salida:** vectores de identidad pasan; reinicio conserva identidad y perfil; recuperación y borrado funcionan; ninguna clave privada se serializa en UI/logs.
 
 ### 2. Transporte real y ciclo de vida Android
 
 Completar sockets de overlay para los puertos/protocolos de Desktop: recepción TCP, respuestas, framing, límites, timeouts, cierre y UDP requerido. Integrarlos con el servicio Android visible y la reconexión. La prueba de eco existente no equivale a transporte uPeer.
 
-**Salida:** Desktop y móvil intercambian frames reales en ambos sentidos; pruebas cubren fragmentación/coalescencia, pérdida, reinicio y cambios de red; servicio y salud del transporte se distinguen.
+**Estado actual:** parcial. Salida TCP/UDP, listener TCP `50005`, framing, handshake accept, `SEALED`/`CHAT`, ACK, ratchet persistido y reinicio del servicio funcionan en `:yggdrasil`. Faltan outbox y pruebas de pérdida/red.
+
+**Salida:** Desktop y móvil intercambian frames reales en ambos sentidos; pruebas cubren fragmentación/coalescencia, pérdida, reinicio y cambios de red; servicio y salud del transporte se distinguen. Fragmentación/coalescencia y validación de handshake ya pasan; faltan pérdida, reinicio y ACK.
 
 ### 3. Núcleo de red autenticado y descubrimiento
 
 Portar validación de paquetes, canonicalización/firma, rate limiting y replay protection; después Kademlia, bootstrap, location blocks, `DHT_UPDATE`, renovación y roaming. Reutilizar algoritmos/formatos Desktop y sus límites.
+
+**Estado actual:** parcial. Canonicalización, firma de handshake y vectores criptográficos existen; siguen pendientes rate limiting, replay protection, DHT, bootstrap y sincronización firmada del perfil.
 
 **Aquí se habilita la sincronización firmada del perfil:** emitir el mismo `IDENTITY_UPDATE` firmado, publicarlo en DHT y verificarlo/guardarlo al recibirlo. No implementarlo como envío UDP ad hoc antes de disponer del receptor autenticado y del descubrimiento.
 
@@ -43,6 +93,8 @@ Portar validación de paquetes, canonicalización/firma, rate limiting y replay 
 ### 4. Contactos y chat directo mínimo E2EE
 
 Portar handshake, X3DH, signed pre-keys, conversión Ed25519/Curve25519, sealed boxes, Double Ratchet, persistencia transaccional, ACK, DR_RESET y outbox. Habilitar contactos y una conversación de texto vertical de extremo a extremo antes de sumar funciones de chat.
+
+**Estado actual:** parcial. Las primitivas están portadas, el ratchet se persiste, el servicio descifra `CHAT` con X3DH y envía ACK; faltan `DR_RESET`, outbox y exponer los mensajes a la UI.
 
 **Salida:** primer contacto y mensajes posteriores pasan en ambas direcciones con Desktop; se prueba reinicio, duplicado, ACK perdido, contacto offline y cambio de clave; ratchet/outbox no pierden estado.
 

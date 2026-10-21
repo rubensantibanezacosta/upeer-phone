@@ -1,8 +1,8 @@
 # Roadmap móvil uPeer con Expo
 
-_Estado: planificación inicial. No representa funcionalidades ya implementadas._
+_Estado: port en curso a 21 de octubre de 2026. Identidad, perfil local, nodo Yggdrasil, transporte saliente TCP/UDP y UI de conexión ya existen; el protocolo de chat uPeer todavía no es interoperable._
 
-> La secuencia de implementación vigente está en [`roadmap/implementation-order.md`](roadmap/implementation-order.md). Ese orden prevalece sobre los números de fase y la secuencia de MVP de este catálogo; las fases siguientes conservan requisitos y criterios de salida, no indican por sí solas qué debe portarse primero.
+> La secuencia de implementación vigente y el estado detallado están en [`roadmap/implementation-order.md`](roadmap/implementation-order.md). Ese orden prevalece sobre los números de fase y la secuencia de MVP de este catálogo; las fases siguientes conservan requisitos y criterios de salida, no indican por sí solas qué debe portarse primero.
 
 ## Propósito y reglas de uso
 
@@ -20,6 +20,35 @@ Este documento guía el desarrollo de un cliente móvil de uPeer basado en el pr
 8. Cada fase debe terminar con criterios de salida, pruebas y limitaciones documentadas antes de empezar la siguiente fase dependiente.
 9. Expo Go no es el entorno de validación final para este proyecto: los módulos nativos de Yggdrasil y Android requieren development builds y prebuild/CNG.
 10. Mantener el producto de escritorio funcional e interoperable durante el desarrollo móvil.
+
+## Estado actual del port (21 de octubre de 2026)
+
+| Área | Estado | Evidencia y límite |
+|---|---|---|
+| Identidad local | Parcial | BIP39 de 12 palabras, Ed25519, upeer ID, recuperación y borrado. Vector de derivación Desktop en `transport-bridge/bridge_test.go`; falta custodiar la clave privada fuera del estado React y añadir PIN/biometría. |
+| Perfil local | Hecho | Alias y avatar en SecureStore; imagen en archivo privado de la app. Aún no se publica ni sincroniza. |
+| Contactos | Parcial | Alta manual `upeerID@dirección`, SQLite en WAL y borrado. Sin QR, handshake, solicitudes, reputación ni bloqueo. |
+| Nodo Yggdrasil | Hecho en dispositivo | `yggdrasil-go 0.5.14` + netstack gVisor de `yggstack`; nodo embebido con `libgojni.so`, peers y reconexión. |
+| Transporte saliente | Hecho | `dialTCP`, `dialUDP`, `read`, `write` y `closeConnection`; eco TCP `50005` y UDP `50006` contra `yggstack` Desktop. |
+| Transporte entrante | Hecho para P1 | Listener TCP `50005` en `:yggdrasil`, framing 4B/10 MiB con fragmentación y coalescencia, rechazo de tamaños inválidos y validación de `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`. Falta ACK/outbox, persistencia y chat. |
+| Servicio Android | Parcial | Foreground service visible en proceso separado `:yggdrasil`, `stopWithTask=false`, configuración e identidad cifradas con Keystore, parada manual y recuperación tras force-stop. Faltan batería y control on/off explícito. |
+| Segundo plano sin push | Parcial | Listener, identidad y protocolo viven en `:yggdrasil`; el servicio responde handshakes, descifra `SEALED`/`CHAT`, envía ACK y persiste sesión/mensaje aunque la UI esté cerrada. Faltan outbox, notificaciones locales y UI de lectura. |
+| Protocolo uPeer | Parcial | `HANDSHAKE_ACCEPT` firmado con SPK nativa, recepción `SEALED`/`CHAT` y ACK validados contra un peer Desktop simulado; faltan `DR_RESET`, compresión saliente y DHT. |
+| Persistencia | Parcial | Estado de protocolo cifrado en Keystore con peers, sesiones de ratchet y últimos 500 mensajes; sin DB relacional, outbox ni grupos. |
+| UI | Parcial | Onboarding, perfil, contactos, conexión y mapa operativos a nivel local. Chats y llamadas son maquetas sin protocolo detrás; la tarjeta de conexión aún afirma cifrado E2E que no existe y debe corregirse antes de presentarla como real. |
+
+**P1 completado en dispositivo (21/10/2026):** listener TCP `50005` en `:yggdrasil`, framing 4B/10 MiB, canonicalización/firma de `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`, rechazo de frames manipulados y harness Desktop→móvil. La prueba se repitió con la tarea/UI eliminada y el proceso `:yggdrasil` vivo.
+
+**Siguiente prioridad: protocolo headless persistente (en curso).** La identidad uPeer ya se custodia en Android Keystore y se carga desde `:yggdrasil`; las primitivas `SEALED`, X3DH, Signed Pre-Keys y Double Ratchet están portadas y vectorizadas contra `sodium-native`. El servicio ya responde handshakes y descifra/persiste chats con la UI cerrada. Falta cerrar el ciclo de entrega y la UI:
+
+1. [x] Custodiar la identidad uPeer en Keystore y cargarla en `:yggdrasil`; la UI la provisiona pero el servicio no expone la clave privada.
+2. [x] Portar y vectorizar Ed25519/Curve25519, sealed boxes, X3DH y Double Ratchet.
+3. [x] Responder con `HANDSHAKE_ACCEPT` firmado y SPK nativa; verificado por un peer Desktop simulado.
+4. [x] Recibir `SEALED`/`CHAT`, persistir sesión de ratchet y mensaje cifrado, y sobrevivir a reinicio del servicio.
+5. [x] Enviar ACK firmado tras descifrar y validarlo con un verificador independiente en dispositivo.
+6. [ ] Implementar outbox/`DR_RESET`, exponer mensajes a la UI y emitir notificaciones locales sin duplicar nodo ni perder pendientes.
+
+Sin push, si el servicio muere la entrega depende del vault y de la reconexión. No ampliar la UI de chat como si ya enviara mensajes.
 
 ## Base actual de escritorio
 
@@ -134,18 +163,18 @@ Comprobar en hardware real si las integraciones móviles de Yggdrasil pueden sop
 
 ### Decisión de empaquetado
 
-- [ ] Preferir biblioteca/framework móvil compilado desde Go frente a empaquetar un ejecutable Go independiente.
+- [x] Preferir biblioteca/framework móvil compilado desde Go frente a empaquetar un ejecutable Go independiente. Implementado como AAR gomobile con `libgojni.so`.
 - [ ] Comparar upstream oficial, fork mínimo o bindings propios según API, sockets, mantenimiento y licencia.
 - [ ] Definir actualizaciones de upstream, parches, builds reproducibles y revisión de seguridad.
 - [ ] Verificar compatibilidad entre API del motor móvil, `yggstack` desktop y transporte actual de uPeer.
 
 ### Criterios de salida
 
-- [ ] Un dispositivo Android físico conecta a la red Yggdrasil y expone el estado de forma fiable.
-- [ ] Un nodo desktop puede intercambiar al menos un flujo de prueba a través de la integración elegida.
+- [x] Un dispositivo Android físico conecta a la red Yggdrasil y expone el estado de forma fiable. Validado en el dispositivo de desarrollo; falta la matriz de fabricantes y el ciclo de vida completo.
+- [x] Un nodo desktop puede intercambiar al menos un flujo de prueba a través de la integración elegida. Eco TCP/UDP contra `yggstack` Desktop; no es todavía un frame del protocolo uPeer.
 - [ ] Se documenta la API de transporte disponible, la ruta de los sockets TCP/UDP de uPeer y cómo se evita routing recursivo sin tunelizar tráfico ajeno a Yggdrasil.
 - [ ] Si iOS es requisito, existe una prueba equivalente y confirmación de entitlements.
-- [ ] Se toma una decisión documentada de reutilización o extensión del wrapper móvil.
+- [x] Se toma una decisión documentada de reutilización o extensión del wrapper móvil. Se usa `yggdrasil-go` + netstack gVisor de `yggstack` mediante un bridge propio.
 
 ## Fase 3 — Aplicación Expo, módulos nativos y CI
 
@@ -155,12 +184,12 @@ Crear la base de la app y un pipeline capaz de compilar y probar código nativo,
 
 ### Tareas
 
-- [ ] Crear `apps/mobile` con Expo, React Native y TypeScript.
-- [ ] Configurar Expo development client, development builds y prebuild/CNG.
-- [ ] Crear módulos Expo locales para los bridges Android/iOS.
+- [x] Crear `apps/mobile` con Expo, React Native y TypeScript. Implementado en la raíz del proyecto `upper`.
+- [x] Configurar Expo development client, development builds y prebuild/CNG para Android.
+- [ ] Crear módulos Expo locales para los bridges Android/iOS. Existe `modules/upeer-transport` para Android; iOS no está iniciado.
 - [ ] Automatizar config plugins para permisos, servicios, extensiones, entitlements y configuración nativa.
-- [ ] Crear bridge tipado con comandos, eventos, errores, timeout y versión de API.
-- [ ] Añadir mocks de módulo nativo para desarrollo UI y pruebas unitarias.
+- [ ] Crear bridge tipado con comandos, eventos, errores, timeout y versión de API. Hay comandos tipados; faltan eventos, timeouts y versión de API.
+- [x] Añadir mocks de módulo nativo para desarrollo UI y pruebas unitarias. `UPeerTransportModule.web.ts` cubre el desarrollo web.
 - [ ] Configurar CI con versiones fijadas de Node, Go, SDK/NDK, Java y Xcode.
 - [ ] Compilar artefactos nativos desde fuente y verificar sus hashes en CI.
 - [ ] Crear builds de debug, QA y release firmadas según cada plataforma.
@@ -168,7 +197,7 @@ Crear la base de la app y un pipeline capaz de compilar y probar código nativo,
 
 ### Criterios de salida
 
-- [ ] La build Expo instala y se comunica con el módulo nativo en dispositivo físico.
+- [x] La build Expo instala y se comunica con el módulo nativo en dispositivo físico. APK debug con `libgojni.so` arm64 validado.
 - [ ] La build de CI es reproducible dentro de los límites definidos.
 - [ ] Los cambios generados por prebuild no requieren edición manual sin automatizar.
 - [ ] El estado de errores del módulo nativo se refleja correctamente en JavaScript.
@@ -181,10 +210,10 @@ Crear/importar identidades interoperables sin exponer material privado al render
 
 ### Tareas
 
-- [ ] Portar generación e importación de frase BIP39 de 12 palabras, validación y confirmación de respaldo.
-- [ ] Preservar derivación exacta de Ed25519/X25519 y upeer ID del desktop.
-- [ ] Implementar operaciones privadas en módulo nativo o backend de seguridad aislado.
-- [ ] Guardar claves con Android Keystore/Keychain según capacidades disponibles.
+- [x] Portar generación e importación de frase BIP39 de 12 palabras, validación y confirmación de respaldo.
+- [x] Preservar derivación exacta de Ed25519/X25519 y upeer ID del desktop. Vector de derivación validado en `transport-bridge/bridge_test.go`.
+- [ ] Implementar operaciones privadas en módulo nativo o backend de seguridad aislado. Hoy la derivación se ejecuta en JS con `@noble`; el bridge Go tiene derivación, pero no es la ruta usada por la app.
+- [x] Guardar claves con Android Keystore/Keychain según capacidades disponibles. SecureStore para identidad, perfil y semilla del nodo.
 - [ ] Proteger material local con claves ligadas al dispositivo cuando sea viable.
 - [ ] Implementar bloqueo/desbloqueo por PIN y biometría como control local de acceso.
 - [ ] Implementar flujo de revelado de semilla autenticado y con limpieza de memoria/UI.
@@ -194,9 +223,9 @@ Crear/importar identidades interoperables sin exponer material privado al render
 
 ### Criterios de salida
 
-- [ ] Una identidad creada/importada en móvil conserva el mismo upeer ID que desktop.
+- [ ] Una identidad creada/importada en móvil conserva el mismo upeer ID que desktop. El vector de derivación ya coincide; falta la prueba UI móvil↔Desktop.
 - [ ] Firmas y operaciones criptográficas pasan los vectores cruzados.
-- [ ] Las claves privadas no aparecen en logs ni estado serializado de React.
+- [ ] Las claves privadas no aparecen en logs ni estado serializado de React. Hoy `UPeerIdentity.secretKey` se serializa y pasa por estado React; es un bloqueante de la custodia.
 - [ ] El bloqueo impide operaciones sensibles desde la app.
 
 ## Fase 5 — Persistencia cifrada, migraciones y archivos locales
@@ -231,10 +260,53 @@ Portar almacenamiento y estado de sesión a una base de datos compatible y prote
 
 Mantener la participación voluntaria del nodo Yggdrasil y la comunicación uPeer en Android mediante mecanismos del sistema que correspondan al uso real. Esta fase no presupone una VPN ni el enrutamiento del tráfico general del teléfono.
 
+### Contrato de segundo plano sin push
+
+Restricción de producto: uPeer **no usará push notifications**. La recepción depende de mantener vivo el servicio en primer plano y el nodo Yggdrasil. Si el sistema mata el servicio, no hay entrega instantánea; el emisor debe usar vault y el receptor recuperar al reconectar.
+
+**Debe vivir en el proceso de servicio (`:yggdrasil`), no en React:**
+
+- Nodo Yggdrasil, peer manager, reconexión y salud real del transporte.
+- Listener TCP `50005`, UDP `50006`, framing y bucle de recepción.
+- [x] Validación/firma, `SEALED`, X3DH y Double Ratchet portados en el bridge nativo con vectores Desktop; faltan dispatcher, ACK, `DR_RESET`, outbox y DHT.
+- [x] Acceso a la identidad uPeer desde Keystore en el servicio; falta mover el estado de ratchet y evitar que React serialice la clave privada.
+- Persistencia durable de mensajes, ratchets, outbox y metadatos. El servicio es el único escritor; la UI lee y envía comandos.
+- Notificaciones locales de mensajes y del estado de conexión, con previsualización configurable.
+
+**Puede morir con la UI:**
+
+- React Native, navegación, tema, snackbars, mapa, QR, pickers y estado de pantalla.
+- Metro y cualquier tarea que dependa de un `useEffect` o de la app en primer plano.
+
+| Evento | Comportamiento objetivo |
+|---|---|
+| App a segundo plano | Servicio, nodo y protocolo siguen activos. |
+| Swipe desde recientes | Servicio sigue: `stopWithTask=false` y `onTaskRemoved` reafirman el foreground. |
+| Muerte del proceso UI | El servicio en `:yggdrasil` sigue y puede recibir. |
+| Muerte del servicio | `START_STICKY` intenta recrearlo y restaurar la configuración cifrada; puede fallar. |
+| Force-stop | Se detiene todo; Android no permite reanudar hasta abrir la app. |
+| Reinicio del dispositivo | Hoy no hay autoarranque. Al abrir la app se restaura; decidir si se añade opt-in con `BOOT_COMPLETED` y validar la política. |
+| Acción "Desconectar" | Detiene servicio, nodo y recepción; borra la configuración de restauración. |
+| Sin permiso de notificaciones | No se inicia el servicio; la UI explica que la conexión visible es obligatoria. |
+
+**Estado actual:** ya existen el proceso separado `:yggdrasil`, `stopWithTask=false`, `onTaskRemoved`, `START_STICKY`, la configuración e identidad cifradas con Keystore, el listener TCP `50005`, el framing, la validación de handshakes, la respuesta `HANDSHAKE_ACCEPT` firmada con SPK nativa, la recepción `SEALED`/`CHAT` y la persistencia cifrada de sesiones/mensajes. Se probó con la tarea/UI eliminada, tras reiniciar el proceso y con dos mensajes consecutivos del mismo ratchet. Faltan ACK verificado en dispositivo, outbox, `DR_RESET`, notificaciones y UI; por tanto, la recepción existe pero **el chat aún no es visible en la app**.
+
+**Límites explícitos:** no se promete disponibilidad permanente, entrega instantánea si el servicio muere, funcionamiento tras force-stop ni recepción tras reinicio sin abrir la app. Tampoco se mantiene la UI de React viva para aparentar conexión.
+
 ### Tareas
 
-- [x] Prototipar servicio Android visible en proceso separado para el bridge Yggdrasil, con Binder IPC para el contrato TCP/UDP existente y acción de desconexión en la notificación.
+- [x] Prototipar servicio Android visible en proceso separado para el bridge Yggdrasil, con Binder IPC, `stopWithTask=false`, `onTaskRemoved` y acción de desconexión en la notificación.
 - [x] Guardar la configuración Yggdrasil de restauración cifrada con Android Keystore; no persistir semillas/configuración en texto claro.
+- [x] Mover al servicio el listener TCP, el framing, el bucle de recepción y la validación de `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`, con harness reproducible y prueba con la UI eliminada.
+- [x] Mover al servicio la criptografía de sesión y la recepción `SEALED`/`CHAT`.
+- [x] Mover el ACK al servicio y verificarlo en dispositivo con un peer Desktop simulado; faltan outbox y DHT.
+- [x] Custodiar la identidad uPeer en Android Keystore y cargarla desde `:yggdrasil`; la UI solo la provisiona.
+- [x] Persistir peers, sesiones de ratchet y mensajes cifrados en almacenamiento nativo accesible por el servicio.
+- [x] Portar y vectorizar Ed25519/Curve25519, sealed boxes, X3DH y Double Ratchet en el bridge Go.
+- [ ] Añadir outbox y exponer lectura/comandos de mensajes a la UI sin escritores concurrentes.
+- [ ] Implementar notificaciones locales desde el servicio, con privacidad de previsualización y deep link al chat.
+- [ ] Decidir y validar el autoarranque tras reinicio; si no se implementa, mostrarlo como limitación.
+- [ ] Implementar la tabla de ciclo de vida anterior en dispositivo y documentar qué fabricantes la incumplen.
 - [ ] Validar en dispositivo force-stop, muerte del proceso UI/servicio, reinicio del servicio y recuperación real de peers; `START_STICKY` no garantiza ejecución perpetua.
 - [ ] Obtener revisión de distribución para el tipo `specialUse` y justificar por qué la sesión P2P visible requiere permanencia; la declaración del manifiesto no equivale a aprobación de Google Play.
 - [ ] Mostrar al usuario un control explícito para activar/desactivar el servicio y explicar su notificación persistente.
@@ -250,11 +322,16 @@ Mantener la participación voluntaria del nodo Yggdrasil y la comunicación uPee
 
 ### Criterios de salida
 
-- [ ] El usuario sabe cuándo el nodo y el transporte uPeer están activos y puede detenerlos desde la app.
+- [x] Con la UI cerrada o swipeada, Desktop puede abrir TCP `50005` y el servicio valida un `HANDSHAKE_REQ` firmado; un frame manipulado se rechaza.
+- [ ] El servicio persiste el frame validado y emite una notificación local.
+- [x] Al reabrir la UI no se duplica el nodo y el listener existente sigue validando frames.
+- [ ] Al reabrir la UI se lee el estado real y aparecen los mensajes pendientes.
+- [ ] Force-stop, muerte del servicio, reinicio del dispositivo y cambios de red tienen comportamiento documentado y visible.
+- [ ] El usuario sabe cuándo el nodo y el transporte uPeer están activos y puede detenerlos desde la app o la notificación.
 - [ ] La app no declara conectividad solo por tener un servicio activo.
 - [ ] El routing y el tráfico normal del dispositivo no relacionado con uPeer/Yggdrasil no se redirigen.
 - [ ] Cambios de red producen reconexión medible o un error recuperable y visible.
-- [ ] No se promete que el sistema nunca finalizará el proceso.
+- [ ] No se promete que el sistema nunca finalizará el proceso ni se usa push como dependencia.
 
 ## Fase 7 — Transporte P2P, DHT e interoperabilidad
 
@@ -264,10 +341,12 @@ Conectar móviles con nodos actuales y conservar formatos de paquetes.
 
 ### Tareas
 
-- [ ] Implementar transport nativo o adaptador sobre sockets/streams disponibles del motor móvil.
+- [x] Implementar adaptador saliente sobre sockets de overlay: `dialTCP`, `dialUDP`, lectura, escritura y cierre.
+- [x] Exponer listener TCP entrante en `50005` y aceptar conexiones de Desktop sobre el netstack, desde el servicio `:yggdrasil`.
 - [ ] Mantener los formatos de uPeer transportando paquetes IPv6 desde sockets TCP/UDP normales mediante la pila gVisor de Yggstack, salvo que la prueba de interoperabilidad demuestre una alternativa compatible.
 - [ ] Resolver explícitamente TCP entrante, UDP, `-remote-tcp`, `-remote-udp`, SOCKS5 y UDP associate.
-- [ ] Portar framing, fragmentación, reensamblado, ACKs, timeouts, reintentos y control de congestión.
+- [x] Portar framing, fragmentación, reensamblado y límite de 10 MiB.
+- [ ] Portar ACKs, timeouts, reintentos y control de congestión.
 - [ ] Portar Kademlia: routing table, buckets, find node/value, exchange, bootstrap, expiración y renovación.
 - [ ] Portar bootstrap diversificado y documentar DNS/LAN discovery según capacidades móviles.
 - [ ] Desactivar o degradar multicast LAN cuando permisos, OS o red no permitan su uso.
@@ -291,12 +370,12 @@ Crear una experiencia táctil nativa en lugar de reducir la interfaz desktop.
 
 ### Tareas
 
-- [ ] Definir navegación principal: chats, contactos, grupos, llamadas y ajustes según alcance.
-- [ ] Diseñar onboarding, importación/creación de identidad y estado de red.
+- [x] Definir navegación principal: chats, contactos, llamadas y ajustes; el alcance de grupos está pendiente.
+- [x] Diseñar onboarding, importación/creación de identidad y estado de red.
 - [ ] Diseñar lista de conversaciones, búsqueda, chat, perfiles, seguridad y ajustes.
 - [ ] Adaptar gestos, teclado, safe areas, orientación, tamaños de texto y lector de pantalla.
-- [ ] Implementar temas y tokens visuales compartibles; no portar widgets Joy UI/MUI a React Native.
-- [ ] Diseñar estados vacíos, offline, reconexión, mensajes pendientes y fallos de permiso.
+- [x] Implementar temas y tokens visuales compartibles; no portar widgets Joy UI/MUI a React Native.
+- [x] Diseñar estados vacíos, offline, reconexión, mensajes pendientes y fallos de permiso.
 - [ ] Añadir navegación profunda desde notificaciones a chat/llamada.
 - [ ] Validar uso con una mano, accesibilidad y escalas de fuente.
 
