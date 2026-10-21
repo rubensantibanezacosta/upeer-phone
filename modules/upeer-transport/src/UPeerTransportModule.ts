@@ -5,7 +5,7 @@ import { pbkdf2 } from '@noble/hashes/pbkdf2.js';
 import { sha512 } from '@noble/hashes/sha2.js';
 import { NativeModule, requireNativeModule } from 'expo';
 import { validateMnemonic } from '../../../src/domain/mnemonic';
-import type { PeerInfo, PeerPoolEntry, YggdrasilNodeInfo } from './UPeerTransport.types';
+import type { IdentityTransportStatus, InboundTransportStatus, PeerInfo, PeerPoolEntry, ProtocolConversation, ProtocolMessage, ProtocolTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
 
 declare class UPeerTransportModule extends NativeModule<{}> {
   start(configJSON: number[]): Promise<YggdrasilNodeInfo>;
@@ -23,6 +23,23 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   writeUDP(connectionId: number, payload: number[]): Promise<void>;
   read(connectionId: number, maxBytes: number, timeoutMillis: number): Promise<number[]>;
   closeConnection(connectionId: number): Promise<void>;
+  listenTCP(port: number): Promise<number>;
+  acceptTCP(listenerID: number, timeoutMillis: number): Promise<number>;
+  closeListener(listenerID: number): Promise<void>;
+  readFrame(connectionId: number, timeoutMillis: number): Promise<number[]>;
+  writeFrame(connectionId: number, payload: number[]): Promise<void>;
+  validateControlFrame(payload: number[]): Promise<string>;
+  inboundStatus(): Promise<string>;
+  setIdentity(secretKey: number[]): Promise<void>;
+  clearIdentity(): Promise<void>;
+  identityStatus(): Promise<string>;
+  sendChat(upeerId: string, content: string, replyTo: string): Promise<string>;
+  messagesJSON(upeerId: string, limit: number): Promise<string>;
+  conversationsJSON(): Promise<string>;
+  markConversationRead(upeerId: string): Promise<void>;
+  registerPeer(upeerId: string, address: string, publicKey: string, signedPreKeyJSON: string): Promise<boolean>;
+  flushOutbox(): Promise<void>;
+  protocolStatus(): Promise<string>;
   generateNodeSeed(): Promise<number[]>;
 }
 
@@ -68,7 +85,7 @@ export async function getNodeInfo(): Promise<YggdrasilNodeInfo | null> {
 }
 
 export async function startWithPeers(peers: string[], nodeSeed: Uint8Array): Promise<YggdrasilNodeInfo> {
-  if (nodeSeed.length !== 32) throw new Error('La semilla del nodo Yggdrasil debe tener 32 bytes.');
+  if (nodeSeed.length !== 32) throw new Error('La clave de conexión debe tener 32 bytes.');
   return nativeModule.startWithPeers(peers, Array.from(nodeSeed, (value) => value & 0xff));
 }
 
@@ -93,9 +110,30 @@ export async function getPeerStatus(): Promise<PeerInfo[]> {
   return peers.sort((left, right) => comparePeerUris(left.URI, right.URI));
 }
 
-export async function getPeerPool(): Promise<PeerPoolEntry[]> {
-  const entries = JSON.parse(await nativeModule.peerPool()) as PeerPoolEntry[];
+export type PeerPoolSnapshot = {
+  peers: PeerPoolEntry[];
+  selfLat: number | null;
+  selfLon: number | null;
+};
+
+export async function getPeerPool(): Promise<PeerPoolSnapshot> {
+  const payload = JSON.parse(await nativeModule.peerPool()) as PeerPoolSnapshot | PeerPoolEntry[];
+  if (Array.isArray(payload)) {
+    return { peers: sortPeerPool(payload), selfLat: null, selfLon: null };
+  }
+  return {
+    peers: sortPeerPool(Array.isArray(payload.peers) ? payload.peers : []),
+    selfLat: validCoordinate(payload.selfLat, 90),
+    selfLon: validCoordinate(payload.selfLon, 180),
+  };
+}
+
+function sortPeerPool(entries: PeerPoolEntry[]): PeerPoolEntry[] {
   return entries.sort((left, right) => (right.score - left.score) || comparePeerUris(left.uri, right.uri));
+}
+
+function validCoordinate(value: number | null | undefined, limit: number): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= limit ? value : null;
 }
 
 export function getConnectedPeerCount(): Promise<number> {
@@ -128,5 +166,74 @@ export async function writeUDP(connectionId: number, payload: Uint8Array): Promi
 
 export async function readConnection(connectionId: number, maxBytes: number, timeoutMillis: number): Promise<Uint8Array> {
   return Uint8Array.from(await nativeModule.read(connectionId, maxBytes, timeoutMillis), (value) => value & 0xff);
+}
+
+export async function listenTCP(port: number): Promise<number> {
+  return nativeModule.listenTCP(port);
+}
+
+export async function acceptTCP(listenerId: number, timeoutMillis: number): Promise<number> {
+  return nativeModule.acceptTCP(listenerId, timeoutMillis);
+}
+
+export async function closeListener(listenerId: number): Promise<void> {
+  return nativeModule.closeListener(listenerId);
+}
+
+export async function readFrame(connectionId: number, timeoutMillis: number): Promise<Uint8Array> {
+  return Uint8Array.from(await nativeModule.readFrame(connectionId, timeoutMillis), (value) => value & 0xff);
+}
+
+export async function writeFrame(connectionId: number, payload: Uint8Array): Promise<void> {
+  return nativeModule.writeFrame(connectionId, Array.from(payload, (value) => value & 0xff));
+}
+
+export async function validateControlFrame(payload: Uint8Array): Promise<string> {
+  return nativeModule.validateControlFrame(Array.from(payload, (value) => value & 0xff));
+}
+
+export async function getInboundStatus(): Promise<InboundTransportStatus> {
+  return JSON.parse(await nativeModule.inboundStatus()) as InboundTransportStatus;
+}
+
+export async function setIdentity(secretKey: Uint8Array): Promise<void> {
+  if (secretKey.length !== 64) throw new Error('La clave privada uPeer debe tener 64 bytes.');
+  return nativeModule.setIdentity(Array.from(secretKey, (value) => value & 0xff));
+}
+
+export async function clearIdentity(): Promise<void> {
+  return nativeModule.clearIdentity();
+}
+
+export async function getIdentityStatus(): Promise<IdentityTransportStatus> {
+  return JSON.parse(await nativeModule.identityStatus()) as IdentityTransportStatus;
+}
+
+export async function sendChat(upeerId: string, content: string, replyTo = ''): Promise<string> {
+  return nativeModule.sendChat(upeerId, content, replyTo);
+}
+
+export async function getMessages(upeerId: string, limit = 100): Promise<ProtocolMessage[]> {
+  return JSON.parse(await nativeModule.messagesJSON(upeerId, limit)) as ProtocolMessage[];
+}
+
+export async function getConversations(): Promise<ProtocolConversation[]> {
+  return JSON.parse(await nativeModule.conversationsJSON()) as ProtocolConversation[];
+}
+
+export async function markConversationRead(upeerId: string): Promise<void> {
+  return nativeModule.markConversationRead(upeerId);
+}
+
+export async function registerPeer(upeerId: string, address: string, publicKey: string, signedPreKeyJSON: string): Promise<boolean> {
+  return nativeModule.registerPeer(upeerId, address, publicKey, signedPreKeyJSON);
+}
+
+export async function flushOutbox(): Promise<void> {
+  return nativeModule.flushOutbox();
+}
+
+export async function getProtocolStatus(): Promise<ProtocolTransportStatus> {
+  return JSON.parse(await nativeModule.protocolStatus()) as ProtocolTransportStatus;
 }
 

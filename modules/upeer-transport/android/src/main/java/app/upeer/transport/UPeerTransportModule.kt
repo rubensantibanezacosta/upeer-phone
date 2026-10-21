@@ -75,6 +75,27 @@ class UPeerTransportModule : Module() {
       service().read(id, maxBytes, timeout).map { it.toInt() and 0xff }.toIntArray()
     }
     AsyncFunction("closeConnection") { id: Int -> service().closeConnection(id) }
+    AsyncFunction("listenTCP") { port: Int -> service().listenTCP(port) }
+    AsyncFunction("acceptTCP") { listenerID: Int, timeoutMillis: Int -> service().acceptTCP(listenerID, timeoutMillis) }
+    AsyncFunction("closeListener") { listenerID: Int -> service().closeListener(listenerID) }
+    AsyncFunction("readFrame") { id: Int, timeoutMillis: Int ->
+      service().readFrame(id, timeoutMillis).map { it.toInt() and 0xff }.toIntArray()
+    }
+    AsyncFunction("writeFrame") { id: Int, payload: IntArray -> service().writeFrame(id, payload.toByteArrayCompat()) }
+    AsyncFunction("validateControlFrame") { payload: IntArray -> service().validateControlFrame(payload.toByteArrayCompat()) }
+    AsyncFunction("inboundStatus") { service().inboundStatusJSON() }
+    AsyncFunction("setIdentity") { secretKey: IntArray -> service().setIdentity(secretKey.toByteArrayCompat()) }
+    AsyncFunction("clearIdentity") { service().clearIdentity() }
+    AsyncFunction("identityStatus") { service().identityStatusJSON() }
+    AsyncFunction("sendChat") { upeerId: String, content: String, replyTo: String -> service().sendChat(upeerId, content, replyTo) }
+    AsyncFunction("messagesJSON") { upeerId: String, limit: Int -> service().messagesJSON(upeerId, limit) }
+    AsyncFunction("conversationsJSON") { service().conversationsJSON() }
+    AsyncFunction("markConversationRead") { upeerId: String -> service().markConversationRead(upeerId) }
+    AsyncFunction("registerPeer") { upeerId: String, address: String, publicKey: String, signedPreKeyJSON: String ->
+      service().registerPeer(upeerId, address, publicKey, signedPreKeyJSON)
+    }
+    AsyncFunction("flushOutbox") { service().flushOutbox() }
+    AsyncFunction("protocolStatus") { service().protocolStatusJSON() }
   }
 
   private fun bind() {

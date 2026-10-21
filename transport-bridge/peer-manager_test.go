@@ -58,17 +58,24 @@ func TestSelectReachablePeerPoolOmitsUnreachableCandidates(t *testing.T) {
 func TestPeerManagerPeerPoolJSONReturnsDiscoveredReserve(t *testing.T) {
 	manager := NewPeerManager(nil, nil)
 	latency := int64(18)
+	selfLat, selfLon := 40.4, -3.7
 	manager.pool = []peerCandidate{{URI: "tls://reserve.example:443", Country: "ES", UptimePct: 95, LatencyMs: &latency, Score: 80, Alive: true}}
+	manager.selfLat = &selfLat
+	manager.selfLon = &selfLon
 	encoded, err := manager.PeerPoolJSON()
 	if err != nil {
 		t.Fatal(err)
 	}
-	var peers []peerCandidate
-	if err := json.Unmarshal([]byte(encoded), &peers); err != nil {
+	var snapshot peerPoolSnapshot
+	if err := json.Unmarshal([]byte(encoded), &snapshot); err != nil {
 		t.Fatal(err)
 	}
+	peers := snapshot.Peers
 	if len(peers) != 1 || peers[0].URI != "tls://reserve.example:443" || !peers[0].Alive || peers[0].LatencyMs == nil || *peers[0].LatencyMs != 18 {
 		t.Fatalf("peer pool snapshot = %#v", peers)
+	}
+	if snapshot.SelfLat == nil || *snapshot.SelfLat != selfLat || snapshot.SelfLon == nil || *snapshot.SelfLon != selfLon {
+		t.Fatalf("self geo snapshot = %#v", snapshot)
 	}
 }
 

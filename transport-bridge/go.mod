@@ -3,6 +3,7 @@ module github.com/upeer/upeer/transport-bridge
 go 1.26.0
 
 require (
+	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
 	github.com/yggdrasil-network/yggdrasil-go v0.5.14
 	github.com/yggdrasil-network/yggstack v0.0.0-20260619214331-c39db65e5bcc
 	golang.org/x/crypto v0.58.0

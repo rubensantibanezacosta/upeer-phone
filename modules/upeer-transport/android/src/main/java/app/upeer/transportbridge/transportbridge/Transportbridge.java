@@ -12,19 +12,30 @@ public abstract class Transportbridge {
 		Seq.touch(); // for loading the native library
 		_init();
 	}
-	
+
 	private Transportbridge() {} // uninstantiable
-	
+
 	// touch is called from other bound packages to initialize this package
 	public static void touch() {}
-	
+
 	private static native void _init();
-	
-	
-	
+
+
+	public static final long MaxFrameBytes = 10485760L;
+
+	public static native void setErrEmptyFrame(java.lang.Exception v);
+	public static native java.lang.Exception getErrEmptyFrame();
+
+	public static native void setErrFrameTooLarge(java.lang.Exception v);
+	public static native java.lang.Exception getErrFrameTooLarge();
+
+	public static native void setErrRatchetAuthentication(java.lang.Exception v);
+	public static native java.lang.Exception getErrRatchetAuthentication();
+
 	public static native byte[] defaultConfigJSON() throws Exception;
 	public static native byte[] generateNodeSeed() throws Exception;
 	public static native Bridge newBridge();
+	public static native CryptoIdentity newCryptoIdentity(byte[] secretKey) throws Exception;
 	public static native long probePeer(String uri) throws Exception;
 	public static native long probePeerLatency(String uri);
 }

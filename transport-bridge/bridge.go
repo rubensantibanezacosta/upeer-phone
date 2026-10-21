@@ -29,6 +29,7 @@ type Bridge struct {
 	stack              *netstack.YggdrasilNetstack
 	running            bool
 	connections        map[int32]net.Conn
+	listeners          map[int32]*listenerState
 	peerManager        *PeerManager
 	peerManagerEnabled bool
 }
@@ -52,6 +53,7 @@ func (b *Bridge) DeriveIdentity(seed []byte) (string, error) {
 func NewBridge() *Bridge {
 	return &Bridge{
 		connections: make(map[int32]net.Conn),
+		listeners:   make(map[int32]*listenerState),
 	}
 }
 
@@ -278,7 +280,7 @@ func (b *Bridge) PeerPoolJSON() (string, error) {
 		return "", errors.New("Yggdrasil bridge is not started")
 	}
 	if manager == nil {
-		return "[]", nil
+		return `{"peers":[],"selfLat":null,"selfLon":null}`, nil
 	}
 	return manager.PeerPoolJSON()
 }
@@ -727,12 +729,17 @@ func (b *Bridge) Stop() error {
 	}
 	b.mutex.Lock()
 	connections := b.connections
+	listeners := b.listeners
 	node := b.node
 	b.connections = make(map[int32]net.Conn)
+	b.listeners = make(map[int32]*listenerState)
 	b.node = nil
 	b.stack = nil
 	b.running = false
 	b.mutex.Unlock()
+	for _, state := range listeners {
+		closeListenerState(state)
+	}
 	var closeErr error
 	for _, conn := range connections {
 		if err := conn.Close(); err != nil && closeErr == nil {

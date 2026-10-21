@@ -63,6 +63,12 @@ type peerDirectoryResponse struct {
 	Peers []peerCandidate `json:"peers"`
 }
 
+type peerPoolSnapshot struct {
+	Peers   []peerCandidate `json:"peers"`
+	SelfLat *float64        `json:"selfLat"`
+	SelfLon *float64        `json:"selfLon"`
+}
+
 type peerReplacement func(*core.Core, []*url.URL) error
 
 type PeerManager struct {
@@ -81,6 +87,8 @@ type PeerManager struct {
 	client              *http.Client
 	geoMu               sync.Mutex
 	geoCache            map[string]geoCacheEntry
+	selfLat             *float64
+	selfLon             *float64
 }
 
 type peerProbe func(context.Context, string) (int64, error)
@@ -364,9 +372,21 @@ func (m *PeerManager) ActivePeerURIs() []string {
 
 func (m *PeerManager) PeerPoolJSON() (string, error) {
 	m.mu.Lock()
-	peers := append([]peerCandidate(nil), m.pool...)
+	peers := make([]peerCandidate, len(m.pool))
+	copy(peers, m.pool)
 	m.mu.Unlock()
-	encoded, err := json.Marshal(peers)
+	m.geoMu.Lock()
+	var selfLat, selfLon *float64
+	if m.selfLat != nil {
+		value := *m.selfLat
+		selfLat = &value
+	}
+	if m.selfLon != nil {
+		value := *m.selfLon
+		selfLon = &value
+	}
+	m.geoMu.Unlock()
+	encoded, err := json.Marshal(peerPoolSnapshot{Peers: peers, SelfLat: selfLat, SelfLon: selfLon})
 	if err != nil {
 		return "", fmt.Errorf("encode Yggdrasil peer reserve: %w", err)
 	}
@@ -578,6 +598,11 @@ func (m *PeerManager) resolveCandidateDistances(ctx context.Context, candidates 
 	if err != nil {
 		return
 	}
+	lat, lon := self.Lat, self.Lon
+	m.geoMu.Lock()
+	m.selfLat = &lat
+	m.selfLon = &lon
+	m.geoMu.Unlock()
 	limit := min(len(candidates), maxGeoPeers)
 	jobs := make(chan int)
 	var workers sync.WaitGroup

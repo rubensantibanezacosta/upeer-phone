@@ -9,26 +9,28 @@ import go.Seq;
 
 public final class Bridge implements Seq.Proxy {
 	static { Transportbridge.touch(); }
-	
+
 	private final int refnum;
-	
+
 	@Override public final int incRefnum() {
 	      Seq.incGoRef(refnum, this);
 	      return refnum;
 	}
-	
+
 	public Bridge() {
 		this.refnum = __NewBridge();
 		Seq.trackGoRef(refnum, this);
 	}
-	
+
 	private static native int __NewBridge();
-	
+
 	Bridge(int refnum) { this.refnum = refnum; Seq.trackGoRef(refnum, this); }
-	
+
+	public native int acceptTCP(int listenerID, long timeoutMillis) throws Exception;
 	public native String address() throws Exception;
 	public native void close() throws Exception;
 	public native void closeConnection(int connectionID) throws Exception;
+	public native void closeListener(int listenerID) throws Exception;
 	public native String configuredPeerURIsJSON() throws Exception;
 	public native long connectedPeerCount() throws Exception;
 	public native String deriveIdentity(byte[] seed) throws Exception;
@@ -36,12 +38,14 @@ public final class Bridge implements Seq.Proxy {
 	public native int dialUDP(String address, long port) throws Exception;
 	public native void enablePeerManager();
 	public native byte[] generateNodeSeed() throws Exception;
+	public native int listenTCP(long port) throws Exception;
 	public native String nodeConfigWithPeers(String peersJSON, byte[] seed) throws Exception;
 	public native String peerPoolJSON() throws Exception;
 	public native String peerStatusJSON() throws Exception;
 	public native String peersJSON() throws Exception;
 	public native String publicKey() throws Exception;
 	public native byte[] read(int connectionID, long maxBytes, long timeoutMillis) throws Exception;
+	public native byte[] readFrame(int connectionID, long timeoutMillis) throws Exception;
 	public native void refreshAndReconcilePeers() throws Exception;
 	public native void refreshPeerPool() throws Exception;
 	public native void replacePeers(String peersJSON) throws Exception;
@@ -51,9 +55,12 @@ public final class Bridge implements Seq.Proxy {
 	public native void startAutoconfigure() throws Exception;
 	public native void startWithPeers(String peersJSON, byte[] seed) throws Exception;
 	public native void stop() throws Exception;
+	public native String validateControlFrame(byte[] payload) throws Exception;
+	public native String validateSignedPacket(byte[] payload, String publicKeyHex) throws Exception;
 	public native void write(int connectionID, byte[] payload) throws Exception;
 	public native void writeCallMediaDatagram(int connectionID, byte[] payload) throws Exception;
 	public native void writeDatagram(int connectionID, byte[] payload) throws Exception;
+	public native void writeFrame(int connectionID, byte[] payload) throws Exception;
 	@Override public boolean equals(Object o) {
 		if (o == null || !(o instanceof Bridge)) {
 		    return false;
@@ -61,11 +68,11 @@ public final class Bridge implements Seq.Proxy {
 		Bridge that = (Bridge)o;
 		return true;
 	}
-	
+
 	@Override public int hashCode() {
 	    return java.util.Arrays.hashCode(new Object[] {});
 	}
-	
+
 	@Override public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append("Bridge").append("{");
