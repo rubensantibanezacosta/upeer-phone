@@ -174,6 +174,7 @@ internal class ProtocolStateStore(context: Context) {
         .put("lastMessage", message.optString("content"))
         .put("lastStatus", message.optString("status"))
         .put("lastTimestamp", message.optLong("timestamp"))
+        .put("lastIsMine", message.optBoolean("isMine"))
         .put("unread", unread)
     }.sortedByDescending { it.optLong("lastTimestamp") }
     JSONArray(result).toString()

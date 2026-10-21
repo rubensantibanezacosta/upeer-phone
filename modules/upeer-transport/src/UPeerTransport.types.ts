@@ -40,6 +40,7 @@ export type ProtocolConversation = {
   lastMessage: string;
   lastStatus: ProtocolMessage['status'];
   lastTimestamp: number;
+  lastIsMine: boolean;
   unread: number;
 };
 

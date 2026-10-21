@@ -1,0 +1,98 @@
+import { useRef } from 'react';
+import { StyleSheet } from 'react-native';
+import { Check, CheckCheck, CircleAlert, Clock3 } from '@tamagui/lucide-icons-2';
+import { SizableText, Text, XStack, YStack } from 'tamagui';
+
+import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { ProfileAvatar } from '@/components/profile-avatar';
+import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
+import { useTheme } from '@/hooks/use-theme';
+
+export type ChatListEntry = {
+  upeerId: string;
+  title: string;
+  preview: string;
+  timestamp: number;
+  unread: number;
+  isMine: boolean;
+  lastStatus: ProtocolMessage['status'] | null;
+  pending?: boolean;
+  incoming?: boolean;
+};
+
+type ChatListItemProps = {
+  entry: ChatListEntry;
+  onOpen: (entry: ChatListEntry) => void;
+  onOpenMenu: (entry: ChatListEntry) => void;
+};
+
+function formatConversationTime(timestamp: number): string {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
+  const date = new Date(timestamp);
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleDateString();
+}
+
+function LastMessageStatus({ entry, color }: { entry: ChatListEntry; color: string }) {
+  const theme = useTheme();
+  if (!entry.isMine || !entry.lastStatus) return null;
+  if (entry.lastStatus === 'failed') return <CircleAlert color={theme.danger} size={15} strokeWidth={2.2} />;
+  if (entry.lastStatus === 'pending') return <Clock3 color={color} size={14} strokeWidth={2.2} />;
+  if (entry.lastStatus === 'sent') return <Check color={color} size={15} strokeWidth={2.2} />;
+  return <CheckCheck color={entry.lastStatus === 'read' ? theme.accent : color} size={15} strokeWidth={2.2} />;
+}
+
+export function ChatListItem({ entry, onOpen, onOpenMenu }: ChatListItemProps) {
+  const theme = useTheme();
+  const longPressAtRef = useRef(0);
+  const isUnread = entry.unread > 0;
+  const isEmphasized = isUnread || entry.incoming;
+  const previewColor = isEmphasized ? theme.text : theme.placeholder;
+  const time = formatConversationTime(entry.timestamp);
+
+  const handlePress = () => {
+    if (Date.now() - longPressAtRef.current < 800) return;
+    onOpen(entry);
+  };
+
+  const handleLongPress = () => {
+    longPressAtRef.current = Date.now();
+    onOpenMenu(entry);
+  };
+
+  return (
+    <NativeRipplePressable
+      accessibilityHint="Mantén pulsado para abrir las opciones de la conversación"
+      accessibilityLabel={`${entry.title}${isUnread ? `, ${entry.unread} mensajes sin leer` : ''}`}
+      accessibilityRole="button"
+      delayLongPress={350}
+      onLongPress={handleLongPress}
+      onPress={handlePress}
+      style={[styles.item]}
+    >
+      <XStack alignItems="center" gap={12} minHeight={80} paddingVertical={0}>
+        <ProfileAvatar name={entry.title} size={55} />
+        <YStack flex={1} gap={4}>
+          <XStack alignItems="center" gap={8}>
+            <SizableText color={theme.text} flex={1} fontSize={15} fontWeight={isEmphasized ? '700' : '600'} numberOfLines={1}>{entry.title}</SizableText>
+            {!!time && <Text color={isEmphasized ? theme.accent : theme.placeholder} fontSize={11} fontWeight={isEmphasized ? '700' : '500'}>{time}</Text>}
+          </XStack>
+          <XStack alignItems="center" gap={5}>
+            <LastMessageStatus color={theme.placeholder} entry={entry} />
+            <Text color={entry.incoming ? theme.accent : previewColor} flex={1} fontSize={13} fontStyle={entry.pending ? 'italic' : 'normal'} numberOfLines={1}>{entry.preview}</Text>
+            {isUnread && (
+              <XStack alignItems="center" backgroundColor={theme.accent} borderRadius={10} height={20} justifyContent="center" minWidth={20} paddingHorizontal={6}>
+                <SizableText color={theme.background} fontSize={11} fontWeight="700">{entry.unread > 99 ? '99+' : entry.unread}</SizableText>
+              </XStack>
+            )}
+          </XStack>
+        </YStack>
+      </XStack>
+    </NativeRipplePressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  item: { borderBottomWidth: StyleSheet.hairlineWidth, marginHorizontal: -12, paddingHorizontal: 12 },
+});

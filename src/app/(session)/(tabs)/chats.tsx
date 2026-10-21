@@ -2,21 +2,34 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronRight, Ellipsis, MessageCircle, MessageSquarePlus, Search, Settings, Users } from '@tamagui/lucide-icons-2';
-import { Avatar, H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
+import { Ellipsis, MessageCircle, MessageSquarePlus, Search, Settings, Users } from '@tamagui/lucide-icons-2';
+import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
+import { ChatContextMenu } from '@/components/chat-context-menu';
+import { ChatListItem, type ChatListEntry } from '@/components/chat-list-item';
+import { useSnackbar } from '@/components/snackbar';
 import { useTheme } from '@/hooks/use-theme';
 import type { UPeerContact } from '@/storage/contact-store';
 import { getContacts } from '@/storage/contact-store';
 import type { ProtocolConversation } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
-import { getConversations } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
+import { getConversations, markConversationRead } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 
+const contactStatusLabels: Record<UPeerContact['status'], string> = {
+  pending: 'Esperando respuesta…',
+  incoming: 'Solicitud de contacto recibida',
+  connected: 'Contacto conectado',
+  offline: 'Desconectado',
+  blocked: 'Bloqueado',
+};
+
 export default function ChatsRoute() {
   const theme = useTheme();
+  const { showSnackbar } = useSnackbar();
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const [conversations, setConversations] = useState<ProtocolConversation[]>([]);
+  const [selectedEntry, setSelectedEntry] = useState<ChatListEntry | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [filter, setFilter] = useState<'Todos' | 'No leídos' | 'Favoritos' | 'Grupos'>('Todos');
 
@@ -30,6 +43,51 @@ export default function ChatsRoute() {
     return () => clearInterval(timer);
   }, []);
 
+  const entries: ChatListEntry[] = conversations.length > 0
+    ? conversations.map((conversation) => ({
+      upeerId: conversation.upeerId,
+      title: conversation.alias || conversation.upeerId.slice(0, 12),
+      preview: conversation.lastMessage.replace(/^__SYS__\|/, '') || 'Sin mensajes',
+      timestamp: conversation.lastTimestamp,
+      unread: conversation.unread,
+      isMine: conversation.lastIsMine === true,
+      lastStatus: conversation.lastStatus ?? null,
+    }))
+    : contacts.map((contact) => ({
+      upeerId: contact.upeerId,
+      title: contact.name,
+      preview: contactStatusLabels[contact.status],
+      timestamp: 0,
+      unread: 0,
+      isMine: false,
+      lastStatus: null,
+      pending: contact.status === 'pending',
+      incoming: contact.status === 'incoming',
+    }));
+
+  const openChat = (entry: ChatListEntry) => {
+    setSelectedEntry(null);
+    router.push({ pathname: '/chat/[upeerId]', params: { upeerId: entry.upeerId } });
+  };
+
+  const openContextMenu = (entry: ChatListEntry) => setSelectedEntry(entry);
+
+  const showUnavailableAction = (label: string) => {
+    setSelectedEntry(null);
+    showSnackbar(`${label} estará disponible próximamente`);
+  };
+
+  const markEntryRead = (entry: ChatListEntry) => {
+    setSelectedEntry(null);
+    markConversationRead(entry.upeerId)
+      .then(getConversations)
+      .then(setConversations)
+      .catch((cause: unknown) => {
+        console.warn('No se pudo marcar la conversación como leída.', cause);
+        showSnackbar('No se pudo marcar la conversación como leída');
+      });
+  };
+
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.chatContent}>
@@ -42,12 +100,19 @@ export default function ChatsRoute() {
           {(['Todos', 'No leídos', 'Favoritos', 'Grupos'] as const).map((item) => <NativeRipplePressable key={item} onPress={() => setFilter(item)} style={[styles.chatFilterChip, { backgroundColor: filter === item ? theme.backgroundSelected : theme.background, borderColor: filter === item ? theme.accent : theme.border }]}><Text color={filter === item ? theme.accent : theme.placeholder} fontSize={11} fontWeight={filter === item ? '700' : '500'}>{item}</Text>
           </NativeRipplePressable>)}
         </ScrollView>
-        {conversations.length > 0 ? <>{conversations.map((conversation) => <NativeRipplePressable key={conversation.upeerId} accessibilityRole="button" onPress={() => router.push({ pathname: '/chat/[upeerId]', params: { upeerId: conversation.upeerId } })}><XStack alignItems="center" borderBottomColor={theme.border} borderBottomWidth={StyleSheet.hairlineWidth} gap={13} paddingVertical={14}><Avatar backgroundColor={theme.backgroundSelected} borderRadius={8} size="$5"><SizableText color={theme.accent} fontSize={17} fontWeight="700">{(conversation.alias || conversation.upeerId).charAt(0).toUpperCase()}</SizableText></Avatar><YStack flex={1} gap={4}><XStack alignItems="center" gap={8}><SizableText color={theme.text} flex={1} fontSize={15} fontWeight="600" numberOfLines={1}>{conversation.alias || conversation.upeerId.slice(0, 12)}</SizableText>{conversation.unread > 0 && <SizableText color={theme.accent} fontSize={11} fontWeight="700">{conversation.unread}</SizableText>}</XStack><Text color={theme.placeholder} fontSize={12} numberOfLines={1}>{conversation.lastMessage}</Text></YStack><ChevronRight color={theme.placeholder} size={14} /></XStack></NativeRipplePressable>)}</> : contacts.length > 0 ? <>{contacts.map((contact) => <NativeRipplePressable key={contact.upeerId} accessibilityRole="button" onPress={() => router.push({ pathname: '/chat/[upeerId]', params: { upeerId: contact.upeerId } })}><XStack alignItems="center" borderBottomColor={theme.border} borderBottomWidth={StyleSheet.hairlineWidth} gap={13} paddingVertical={14}><Avatar backgroundColor={theme.backgroundSelected} borderRadius={8} size="$5"><SizableText color={theme.accent} fontSize={17} fontWeight="700">{contact.name.charAt(0).toUpperCase()}</SizableText></Avatar><YStack flex={1} gap={4}><SizableText color={theme.text} fontSize={15} fontWeight="600">{contact.name}</SizableText><Text color={theme.placeholder} fontSize={12}>{contact.status}</Text></YStack><ChevronRight color={theme.placeholder} size={14} /></XStack></NativeRipplePressable>)}</> : <YStack alignItems="center" flex={1} gap={12} justifyContent="center" padding={24}><View style={[styles.emptyAvatar, { backgroundColor: theme.backgroundElement }]}><MessageCircle color={theme.placeholder} size={28} /></View><SizableText color={theme.text} fontSize={17} fontWeight="600">Tus conversaciones</SizableText><Paragraph color={theme.placeholder} lineHeight={1.5} textAlign="center">Añade un contacto para empezar. Tus mensajes y conversaciones se mostrarán en esta lista.</Paragraph><NativeRippleButton onPress={() => router.navigate('/contacts')}>Añadir contacto</NativeRippleButton></YStack>}
+        {entries.length > 0 ? (
+          <YStack marginTop={2}>
+            {entries.map((entry) => <ChatListItem entry={entry} key={entry.upeerId} onOpen={openChat} onOpenMenu={openContextMenu} />)}
+          </YStack>
+        ) : (
+          <YStack alignItems="center" flex={1} gap={12} justifyContent="center" padding={24}><View style={[styles.emptyAvatar, { backgroundColor: theme.backgroundElement }]}><MessageCircle color={theme.placeholder} size={28} /></View><SizableText color={theme.text} fontSize={17} fontWeight="600">Tus conversaciones</SizableText><Paragraph color={theme.placeholder} lineHeight={1.5} textAlign="center">Añade un contacto para empezar. Tus mensajes y conversaciones se mostrarán en esta lista.</Paragraph><NativeRippleButton onPress={() => router.navigate('/contacts')}>Añadir contacto</NativeRippleButton></YStack>
+        )}
       </ScrollView>
+      <ChatContextMenu entry={selectedEntry} onClose={() => setSelectedEntry(null)} onMarkRead={markEntryRead} onUnavailable={showUnavailableAction} />
       {menuOpen ? <><Pressable accessibilityLabel="Cerrar menú" onPress={() => setMenuOpen(false)} style={styles.menuDismiss} /><View style={[styles.chatMenu, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}><NativeRipplePressable accessibilityRole="button" onPress={() => { setMenuOpen(false); router.navigate('/contacts'); }} style={styles.chatMenuItem}><Users color={theme.text} size={18} /><Text color={theme.text} fontSize={14}>Contactos</Text></NativeRipplePressable><NativeRipplePressable accessibilityRole="button" onPress={() => { setMenuOpen(false); router.navigate('/settings'); }} style={styles.chatMenuItem}><Settings color={theme.text} size={18} /><Text color={theme.text} fontSize={14}>Configuración</Text></NativeRipplePressable></View></> : null}
       <NativeRipplePressable accessibilityLabel="Añadir contacto" accessibilityRole="button" onPress={() => router.navigate('/contacts')} style={[styles.floatingAddButton, { backgroundColor: theme.accent }]}><MessageSquarePlus color={theme.background} size={25} strokeWidth={2} /></NativeRipplePressable>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({ root: { flex: 1 }, chatContent: { flexGrow: 1, gap: 12, paddingTop: 20, paddingBottom: 18 }, chatFiltersScroll: { flexGrow: 0 }, chatFilters: { alignItems: 'center', gap: 8 }, chatFilterChip: { alignItems: 'center', borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, justifyContent: 'center', minHeight: 30, paddingHorizontal: 15, marginTop:8 }, chatMenuButton: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 }, menuDismiss: { ...StyleSheet.absoluteFill, zIndex: 1 }, chatMenu: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, elevation: 8, paddingVertical: 6, position: 'absolute', right: -20, top: 72, width: 190, zIndex: 2 }, chatMenuItem: { alignItems: 'center', flexDirection: 'row', gap: 12, minHeight: 46, paddingHorizontal: 14 }, emptyAvatar: { alignItems: 'center', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 }, floatingAddButton: { alignItems: 'center', borderRadius: 30, bottom: 12, elevation: 6, height: 58, justifyContent: 'center', position: 'absolute', right: -20, width: 58, zIndex: 3 } });
+const styles = StyleSheet.create({ root: { flex: 1 }, chatContent: { flexGrow: 1, gap: 12, paddingTop: 20, paddingBottom: 18 }, chatFiltersScroll: { flexGrow: 0 }, chatFilters: { alignItems: 'center', gap: 8 }, chatFilterChip: { alignItems: 'center', borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, justifyContent: 'center', minHeight: 30, marginTop: 8, paddingHorizontal: 15 }, chatMenuButton: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 }, menuDismiss: { ...StyleSheet.absoluteFill, zIndex: 1 }, chatMenu: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, elevation: 8, paddingVertical: 6, position: 'absolute', right: -20, top: 72, width: 190, zIndex: 2 }, chatMenuItem: { alignItems: 'center', flexDirection: 'row', gap: 12, minHeight: 46, paddingHorizontal: 14 }, emptyAvatar: { alignItems: 'center', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 }, floatingAddButton: { alignItems: 'center', borderRadius: 30, bottom: 12, elevation: 6, height: 58, justifyContent: 'center', position: 'absolute', right: -20, width: 58, zIndex: 3 } });
