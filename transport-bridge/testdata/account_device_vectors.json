@@ -1,0 +1,90 @@
+{
+  "generatedBy": "upper-desktop",
+  "generatedAt": "2026-10-22",
+  "now": 1800000000000,
+  "accountSecretKeySeed": "0707070707070707070707070707070707070707070707070707070707070707",
+  "accountPublicKey": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+  "accountUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+  "deviceSecretKeySeed": "0808080808080808080808080808080808080808080808080808080808080808",
+  "devicePublicKey": "1398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93ca",
+  "deviceId": "7e79092d522fc2b12e3bd0c202d3b842e57fecf4e3516afb9e16eb12e5da4875",
+  "registryKey": "32376476c9f703dd81e3077223473262cc8dfcf774661768ce9ed0567d217b35",
+  "certificate": {
+    "version": 1,
+    "accountUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+    "accountPublicKey": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+    "deviceId": "7e79092d522fc2b12e3bd0c202d3b842e57fecf4e3516afb9e16eb12e5da4875",
+    "devicePublicKey": "1398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93ca",
+    "platform": "linux",
+    "capabilities": [
+      "dht",
+      "location"
+    ],
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800604800000,
+    "epoch": 9,
+    "signature": "30ed08eb33f5288373036498d92a51eca54bd9b68eba58693e661e198ea4b95f722f64139d890ac5d87677ca076fff28d6aab9313118264f4c7d6c0d8b71c400"
+  },
+  "registry": {
+    "version": 1,
+    "accountUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+    "accountPublicKey": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+    "epoch": 9,
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800604800000,
+    "devices": [
+      {
+        "deviceId": "7e79092d522fc2b12e3bd0c202d3b842e57fecf4e3516afb9e16eb12e5da4875",
+        "devicePublicKey": "1398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93ca",
+        "platform": "linux",
+        "capabilities": [
+          "dht",
+          "location"
+        ],
+        "authorizedAt": 1800000000000,
+        "expiresAt": 1800604800000,
+        "epoch": 9
+      }
+    ],
+    "revoked": [],
+    "signature": "c845b460ac457d75f338d5e8a420db567c3b5afc62a7ac1ae77b09f3c501ae9e9208c4b36010f16e8a3b44735108badfb97876ccec107fe27186d0796dd58e04"
+  },
+  "locationBlock": {
+    "address": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+    "addresses": [
+      "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+      "200::1",
+      "200::2"
+    ],
+    "dhtSeq": 42,
+    "expiresAt": 1802592000000,
+    "signature": "9cd1b956091775d0a911d4e403308c879b5307eae70909384848c68bdd308e4a99c81ab1c3aec4de52e675e63b84e3566edeef8e3f2d6e4025bb0c2e222f2802",
+    "deviceId": "7e79092d522fc2b12e3bd0c202d3b842e57fecf4e3516afb9e16eb12e5da4875",
+    "deviceMeta": {
+      "clientName": "Revelnest Desktop",
+      "clientVersion": "1.2.0",
+      "platform": "linux",
+      "deviceClass": "desktop",
+      "capabilities": [
+        "dht",
+        "multi-device"
+      ]
+    },
+    "deviceCertificate": {
+      "version": 1,
+      "accountUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+      "accountPublicKey": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+      "deviceId": "7e79092d522fc2b12e3bd0c202d3b842e57fecf4e3516afb9e16eb12e5da4875",
+      "devicePublicKey": "1398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93ca",
+      "platform": "linux",
+      "capabilities": [
+        "dht",
+        "location"
+      ],
+      "issuedAt": 1800000000000,
+      "expiresAt": 1800604800000,
+      "epoch": 9,
+      "signature": "30ed08eb33f5288373036498d92a51eca54bd9b68eba58693e661e198ea4b95f722f64139d890ac5d87677ca076fff28d6aab9313118264f4c7d6c0d8b71c400"
+    }
+  }
+}
