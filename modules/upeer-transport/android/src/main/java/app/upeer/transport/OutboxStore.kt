@@ -17,12 +17,10 @@ internal class OutboxStore(context: Context) {
 
   fun enqueue(messageID: String, upeerId: String, content: String, replyTo: String, timestamp: Long): JSONObject {
     return synchronized(lock) {
-      for (index in 0 until entries.length()) {
-        val existing = entries.optJSONObject(index)
-        if (existing?.optString("id") == messageID) return copy(existing)
-      }
+      findLocked(messageID)?.let { return copy(it) }
       val entry = JSONObject()
         .put("id", messageID)
+        .put("kind", "CHAT")
         .put("upeerId", upeerId)
         .put("content", content)
         .put("timestamp", timestamp)
@@ -35,6 +33,41 @@ internal class OutboxStore(context: Context) {
       persist()
       copy(entry)
     }
+  }
+
+  fun enqueueUpdate(
+    entryID: String,
+    messageID: String,
+    upeerId: String,
+    content: String,
+    version: Int,
+    timestamp: Long,
+  ): JSONObject = synchronized(lock) {
+    findLocked(entryID)?.let { return copy(it) }
+    val entry = JSONObject()
+      .put("id", entryID)
+      .put("kind", "CHAT_UPDATE")
+      .put("msgId", messageID)
+      .put("upeerId", upeerId)
+      .put("content", content)
+      .put("version", version)
+      .put("timestamp", timestamp)
+      .put("attempts", 0)
+      .put("nextAttemptAt", 0)
+      .put("createdAt", System.currentTimeMillis())
+    entries.put(entry)
+    trimLocked()
+    persist()
+    copy(entry)
+  }
+
+  fun updatePendingContent(messageID: String, content: String): Boolean = synchronized(lock) {
+    val entry = findLocked(messageID) ?: return@synchronized false
+    if (entry.optString("kind", "CHAT") != "CHAT") return@synchronized false
+    entry.put("content", content).put("nextAttemptAt", 0)
+    entry.remove("packet")
+    persist()
+    true
   }
 
   fun due(now: Long, limit: Int): List<JSONObject> = synchronized(lock) {

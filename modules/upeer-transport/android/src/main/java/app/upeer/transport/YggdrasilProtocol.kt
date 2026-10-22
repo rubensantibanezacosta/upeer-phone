@@ -52,6 +52,8 @@ internal class YggdrasilProtocol(
 
   fun sendChat(upeerId: String, content: String, replyTo: String): String = outbox.enqueue(upeerId, content, replyTo)
 
+  fun editChat(upeerId: String, messageId: String, content: String): Int = outbox.editChat(upeerId, messageId, content)
+
   fun registerPeer(upeerId: String, address: String, publicKey: String, signedPreKeyJSON: String): Boolean {
     val accepted = state.upsertPeer(upeerId, address, publicKey, signedPreKeyJSON.ifBlank { null })
     if (accepted) outbox.onHandshakeAccepted(upeerId)
@@ -139,7 +141,7 @@ internal class YggdrasilProtocol(
     if (type == "ACK" || type == "DR_RESET") {
       return controlReplies.handle(activeBridge, payload, packet, type, sourceAddress)
     }
-    if (type != "CHAT") throw IllegalArgumentException("unsupported packet type $type")
+    if (type != "CHAT" && type != "CHAT_UPDATE") throw IllegalArgumentException("unsupported packet type $type")
     val senderUpeerId = packet.optString("senderUpeerId").lowercase()
     val publicKey = state.publicKeyFor(senderUpeerId)
       ?: throw IllegalStateException("unknown peer $senderUpeerId")
@@ -148,10 +150,10 @@ internal class YggdrasilProtocol(
     val senderIdentityKey: String
     val metadataJSON: String
     if (isDevicePacket) {
-      if (!DhtLocation.isHex(senderDeviceId, 32)) throw IllegalArgumentException("CHAT senderDeviceId is invalid")
+      if (!DhtLocation.isHex(senderDeviceId, 32)) throw IllegalArgumentException("$type senderDeviceId is invalid")
       val peer = state.peerFor(senderUpeerId) ?: throw IllegalStateException("unknown peer $senderUpeerId")
       if (!peer.optString("deviceId").equals(senderDeviceId, ignoreCase = true)) {
-        throw IllegalArgumentException("CHAT announced an unknown sender device")
+        throw IllegalArgumentException("$type announced an unknown sender device")
       }
       senderIdentityKey = peer.optString("devicePublicKey")
       if (!DhtLocation.isHex(senderIdentityKey, 32)) throw IllegalArgumentException("peer device key is unavailable")
@@ -163,6 +165,21 @@ internal class YggdrasilProtocol(
     val metadata = JSONObject(metadataJSON)
     if (!allow(metadata, sourceAddress)) return rateLimited(metadata)
     if (!isDevicePacket) state.rememberPeer(metadata)
+    return if (type == "CHAT_UPDATE") {
+      handleChatUpdate(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
+    } else {
+      handleChat(activeBridge, packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
+    }
+  }
+
+  private fun handleChat(
+    activeBridge: Bridge,
+    packet: JSONObject,
+    senderUpeerId: String,
+    senderIdentityKey: String,
+    isDevicePacket: Boolean,
+    metadataJSON: String,
+  ): String {
     val messageID = packet.optString("id")
     if (!ReplayPolicy.validMessageID(messageID)) throw IllegalArgumentException("CHAT message id must be a UUID")
     val existingOwner = state.messageOwner(messageID)
@@ -177,6 +194,36 @@ internal class YggdrasilProtocol(
       onInboundMessage(senderUpeerId, state.peerFor(senderUpeerId)?.optString("alias").orEmpty(), decrypted.plaintext)
     } catch (cause: Exception) {
       Log.w(TAG, "No se pudo notificar el mensaje de $senderUpeerId: ${message(cause)}")
+    }
+    return metadataJSON
+  }
+
+  private fun handleChatUpdate(
+    packet: JSONObject,
+    senderUpeerId: String,
+    senderIdentityKey: String,
+    isDevicePacket: Boolean,
+    metadataJSON: String,
+  ): String {
+    val messageID = packet.optString("msgId")
+    if (!ReplayPolicy.validMessageID(messageID)) throw IllegalArgumentException("CHAT_UPDATE msgId must be a UUID")
+    val version = packet.optInt("version", 0)
+    if (version <= 0) throw IllegalArgumentException("CHAT_UPDATE version must be positive")
+    val current = state.messageFor(messageID)
+    if (current == null || current.optString("upeerId") != senderUpeerId || current.optBoolean("isMine")) {
+      Log.w(TAG, "CHAT_UPDATE ignorado para un mensaje ajeno: $messageID")
+      return metadataJSON
+    }
+    if (version <= current.optInt("version", 0)) {
+      Log.i(TAG, "CHAT_UPDATE duplicado ignorado para $messageID (versión $version)")
+      return metadataJSON
+    }
+    val plaintext = chatDecryptor.decryptUpdate(packet, senderUpeerId, senderIdentityKey, isDevicePacket)
+    val updated = state.updateMessageContent(messageID, senderUpeerId, plaintext, version)
+    if (updated == null) {
+      Log.w(TAG, "CHAT_UPDATE obsoleto ignorado para $messageID (versión $version)")
+    } else {
+      Log.i(TAG, "CHAT_UPDATE aplicado a $messageID (versión $version)")
     }
     return metadataJSON
   }

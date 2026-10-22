@@ -31,6 +31,7 @@ public final class CryptoIdentity implements Seq.Proxy {
 	public native String buildAccountRegistryFromCertificates(String certificatesJSON, String revokedJSON, long epoch, long issuedAt, long ttlMillis) throws Exception;
 	public native String buildAck(String senderYggAddress, String messageID, String status) throws Exception;
 	public native String buildChat(String senderYggAddress, String peerPublicKeyHex, String peerSPKPublicKeyHex, String sessionJSON, String plaintext, String messageID, String replyTo, long peerSPKID, long timestamp) throws Exception;
+	public native String buildChatUpdate(String senderYggAddress, String peerPublicKeyHex, String peerSPKPublicKeyHex, String sessionJSON, String plaintext, String messageID, long version, long peerSPKID, long timestamp) throws Exception;
 	public native String buildDeviceLocationBlock(String certificateJSON, String addressesJSON, long dhtSeq, long ttlMillis, long nowMillis) throws Exception;
 	public native String buildDevicePairingRequest(String optionsJSON) throws Exception;
 	public native String buildDrReset(String senderYggAddress, String signedPreKeyJSON, String ratchetContext) throws Exception;
@@ -39,6 +40,7 @@ public final class CryptoIdentity implements Seq.Proxy {
 	public native String buildHandshakeRequest(String senderYggAddress, String signedPreKeyJSON, String alias) throws Exception;
 	public native String buildHandshakeRequestWithDevice(String senderYggAddress, String signedPreKeyJSON, String alias, String deviceJSON) throws Exception;
 	public native String buildLinkedChat(String accountUpeerID, String senderYggAddress, String peerPublicKeyHex, String peerSPKPublicKeyHex, String sessionJSON, String plaintext, String messageID, String replyTo, long peerSPKID, long timestamp, String deviceID) throws Exception;
+	public native String buildLinkedChatUpdate(String accountUpeerID, String senderYggAddress, String peerPublicKeyHex, String peerSPKPublicKeyHex, String sessionJSON, String plaintext, String messageID, long version, long peerSPKID, long timestamp, String deviceID) throws Exception;
 	public native String buildLinkedDrReset(String accountUpeerID, String senderYggAddress, String signedPreKeyJSON, String ratchetContext, String deviceID) throws Exception;
 	public native String buildLocationBlock(String addressesJSON, long dhtSeq, long ttlMillis, String deviceID) throws Exception;
 	public native String buildSignedPacket(String senderYggAddress, String packetJSON) throws Exception;

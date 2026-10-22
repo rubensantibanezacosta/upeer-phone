@@ -13,6 +13,30 @@ internal class YggdrasilChatDecryptor(
   private val sendDrReset: (String) -> Unit,
 ) {
   fun decrypt(packet: JSONObject, senderUpeerId: String, publicKey: String, isDevicePacket: Boolean): DecryptedChat {
+    val plaintext = decryptContent(packet, senderUpeerId, publicKey, isDevicePacket)
+    state.saveMessage(
+      JSONObject()
+        .put("id", packet.optString("id"))
+        .put("upeerId", senderUpeerId)
+        .put("isMine", false)
+        .put("content", plaintext)
+        .put("status", "delivered")
+        .put("version", packet.optInt("version", 1))
+        .put("isEdited", false)
+        .put("timestamp", packet.optLong("timestamp", System.currentTimeMillis()))
+        .put("receivedAt", System.currentTimeMillis()),
+    )
+    Log.i(TAG, "CHAT descifrado de $senderUpeerId id=${packet.optString("id")} (${plaintext.length} caracteres)")
+    return DecryptedChat(packet.optString("id"), plaintext)
+  }
+
+  fun decryptUpdate(packet: JSONObject, senderUpeerId: String, publicKey: String, isDevicePacket: Boolean): String {
+    val plaintext = decryptContent(packet, senderUpeerId, publicKey, isDevicePacket)
+    Log.i(TAG, "CHAT_UPDATE descifrado de $senderUpeerId id=${packet.optString("msgId")} (${plaintext.length} caracteres)")
+    return plaintext
+  }
+
+  private fun decryptContent(packet: JSONObject, senderUpeerId: String, publicKey: String, isDevicePacket: Boolean): String {
     val content = packet.optString("content")
     val nonce = packet.optString("nonce")
     val ratchetHeader = packet.optJSONObject("ratchetHeader")
@@ -58,18 +82,7 @@ internal class YggdrasilChatDecryptor(
     val result = JSONObject(resultJSON)
     val plaintext = YggdrasilPayloadCodec.decompress(YggdrasilPayloadCodec.hexToBytes(result.optString("plaintextHex")))
     state.saveSession(senderUpeerId, result.optString("session"))
-    state.saveMessage(
-      JSONObject()
-        .put("id", packet.optString("id"))
-        .put("upeerId", senderUpeerId)
-        .put("isMine", false)
-        .put("content", plaintext)
-        .put("status", "delivered")
-        .put("timestamp", packet.optLong("timestamp", System.currentTimeMillis()))
-        .put("receivedAt", System.currentTimeMillis()),
-    )
-    Log.i(TAG, "CHAT descifrado de $senderUpeerId id=${packet.optString("id")} (${plaintext.length} caracteres)")
-    return DecryptedChat(packet.optString("id"), plaintext)
+    return plaintext
   }
 
   private companion object {

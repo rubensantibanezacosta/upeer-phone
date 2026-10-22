@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Check, CheckCheck, CircleAlert, Clock3 } from '@tamagui/lucide-icons-2';
 import { Text } from 'tamagui';
 
@@ -28,14 +28,20 @@ function MessageStatus({ color, status }: { color: string; status: ProtocolMessa
   return <View accessibilityLabel={`Estado del mensaje: ${statusLabels[status]}`} style={styles.status}>{icon}</View>;
 }
 
-export function ChatMessageBubble({ entry }: { entry: ChatTimelineEntry }) {
+export function ChatMessageBubble({ entry, onEdit }: { entry: ChatTimelineEntry; onEdit?: (message: ProtocolMessage) => void }) {
   const theme = useTheme();
   const isMine = entry.message.isMine;
   const textColor = isMine ? theme.bubbleMineText : theme.text;
   const metaColor = isMine ? theme.bubbleMineText : theme.placeholder;
+  const editable = isMine && Boolean(onEdit);
 
   return (
-    <View style={[styles.row, { marginTop: entry.startsGroup ? 10 : 4 }, isMine ? styles.rowMine : styles.rowTheirs]}>
+    <Pressable
+      accessibilityHint={editable ? 'Mantén pulsado para editar el mensaje' : undefined}
+      disabled={!editable}
+      onLongPress={editable ? () => onEdit?.(entry.message) : undefined}
+      style={[styles.row, { marginTop: entry.startsGroup ? 10 : 4 }, isMine ? styles.rowMine : styles.rowTheirs]}
+    >
       <View style={[
         styles.bubble,
         { backgroundColor: isMine ? theme.bubbleMine : theme.backgroundElement },
@@ -44,12 +50,13 @@ export function ChatMessageBubble({ entry }: { entry: ChatTimelineEntry }) {
         <View style={styles.body}>
           <Text color={textColor} fontSize={14} style={styles.content}>{entry.message.content}</Text>
           <View style={styles.meta}>
+            {entry.message.isEdited ? <Text color={metaColor} fontSize={10} opacity={0.8}>editado</Text> : null}
             <Text color={metaColor} fontSize={10} opacity={0.8}>{formatChatTime(entry.message.timestamp)}</Text>
             {isMine ? <MessageStatus color={metaColor} status={entry.message.status} /> : null}
           </View>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

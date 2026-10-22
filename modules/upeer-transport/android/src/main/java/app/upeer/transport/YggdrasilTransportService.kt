@@ -161,10 +161,10 @@ class YggdrasilTransportService : Service() {
       notifications.clearMessages()
     }
     override fun identityStatusJSON(): String = identity.statusJSON()
-    override fun sendChat(upeerId: String, content: String, replyTo: String): String {
-      admissionGuard.ensure(identity::requireDeviceAdmission)
-      return protocol.sendChat(upeerId, content, replyTo)
-    }
+    override fun sendChat(upeerId: String, content: String, replyTo: String): String =
+      admitted { protocol.sendChat(upeerId, content, replyTo) }
+    override fun editChat(upeerId: String, messageId: String, content: String): Int =
+      admitted { protocol.editChat(upeerId, messageId, content) }
     override fun messagesJSON(upeerId: String, limit: Int): String = protocol.messagesJSON(upeerId, limit)
     override fun conversationsJSON(): String = protocol.conversationsJSON()
     override fun markConversationRead(upeerId: String) {
@@ -273,9 +273,7 @@ class YggdrasilTransportService : Service() {
   fun ensureForeground() {
     startForeground(NOTIFICATION_ID, notifications.foregroundNotification())
   }
-
   override fun onBind(intent: Intent?): IBinder = binder
-
   override fun onDestroy() {
     dhtRuntime.stop()
     protocol.stop()
@@ -287,7 +285,6 @@ class YggdrasilTransportService : Service() {
     inbound.stop()
     super.onDestroy()
   }
-
   private fun restoreNode() = YggdrasilNodeRestore.restoreIfNeeded(
     configStore, inbound, protocol, { bridge }, { synchronized(bridgeLock) { bridge = it } },
     { identity.refreshRegistry(); dhtRuntime.start(); startForeground(NOTIFICATION_ID, notifications.foregroundNotification()) },
@@ -295,6 +292,9 @@ class YggdrasilTransportService : Service() {
   )
 
   private fun requireBridge(): Bridge = synchronized(bridgeLock) { requireNotNull(bridge) { "Yggdrasil bridge is not started" } }
+
+  private fun <T> admitted(block: () -> T): T =
+    admissionGuard.ensure(identity::requireDeviceAdmission).let { block() }
 
   override fun onTaskRemoved(rootIntent: Intent?) { if (bridge != null) startForeground(NOTIFICATION_ID, notifications.foregroundNotification()); super.onTaskRemoved(rootIntent) }
 

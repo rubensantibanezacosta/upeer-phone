@@ -30,6 +30,7 @@ class UPeerTransportModule extends NativeModule<{}> {
   async clearIdentity(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async identityStatus(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async sendChat(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async editChat(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async messagesJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async conversationsJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async markConversationRead(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }

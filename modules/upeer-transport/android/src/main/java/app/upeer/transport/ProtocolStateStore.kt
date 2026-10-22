@@ -154,19 +154,55 @@ internal class ProtocolStateStore(context: Context) {
 
 
   fun messageOwner(messageID: String): String? = synchronized(lock) {
-    findMessageLocked(messageID)?.optString("upeerId")?.ifEmpty { null }
+    messagesLocked().let { ProtocolMessageState.find(it, messageID) }
+      ?.optString("upeerId")
+      ?.ifEmpty { null }
+  }
+
+  fun messageFor(messageID: String): JSONObject? = synchronized(lock) {
+    ProtocolMessageState.find(messagesLocked(), messageID)?.let(::copy)
   }
 
   fun saveMessage(message: JSONObject) {
     synchronized(lock) {
-      upsertMessageLocked(message)
+      state.put("messages", ProtocolMessageState.upsert(messagesLocked(), message))
       persist()
     }
   }
 
+  fun updateMessageContent(
+    messageID: String,
+    senderUpeerId: String,
+    content: String,
+    version: Int,
+  ): JSONObject? = synchronized(lock) {
+    val updated = ProtocolMessageState.updateIncomingContent(
+      messagesLocked(),
+      messageID,
+      senderUpeerId,
+      content,
+      version,
+    ) ?: return@synchronized null
+    persist()
+    updated
+  }
+
+  fun updateLocalMessageContent(messageID: String, upeerId: String, content: String, version: Int): Boolean =
+    synchronized(lock) {
+      val updated = ProtocolMessageState.updateLocalContent(
+        messagesLocked(),
+        messageID,
+        upeerId,
+        content,
+        version,
+      ) ?: return@synchronized false
+      persist()
+      updated.optInt("version", 0) == version
+    }
+
   fun markMessageStatus(messageID: String, status: String) {
     synchronized(lock) {
-      val message = findMessageLocked(messageID) ?: return@synchronized
+      val message = ProtocolMessageState.find(messagesLocked(), messageID) ?: return@synchronized
       message.put("status", status)
       persist()
     }
@@ -174,7 +210,7 @@ internal class ProtocolStateStore(context: Context) {
 
   fun ackMessage(messageID: String, senderUpeerId: String, status: String): Boolean {
     return synchronized(lock) {
-      val message = findMessageLocked(messageID) ?: return@synchronized false
+      val message = ProtocolMessageState.find(messagesLocked(), messageID) ?: return@synchronized false
       if (!ReplayPolicy.validAck(message.optString("upeerId"), senderUpeerId, message.optBoolean("isMine"), status)) {
         return@synchronized false
       }
@@ -185,16 +221,7 @@ internal class ProtocolStateStore(context: Context) {
   }
 
   fun messagesJSON(upeerId: String, limit: Int): String = synchronized(lock) {
-    val messages = state.optJSONArray("messages") ?: JSONArray()
-    val newest = buildList {
-      for (index in 0 until messages.length()) {
-        val message = messages.optJSONObject(index) ?: continue
-        if (upeerId.isNotBlank() && message.optString("upeerId") != upeerId) continue
-        add(copy(message))
-      }
-    }
-    val chronological = newest.take(limit.coerceIn(1, MAX_MESSAGES)).reversed()
-    JSONArray(chronological).toString()
+    ProtocolMessageState.snapshot(messagesLocked(), upeerId, limit)
   }
 
   fun conversationsJSON(): String = synchronized(lock) {
@@ -243,28 +270,7 @@ internal class ProtocolStateStore(context: Context) {
       .toString()
   }
 
-  private fun findMessageLocked(messageID: String): JSONObject? {
-    val messages = state.optJSONArray("messages") ?: return null
-    for (index in 0 until messages.length()) {
-      val message = messages.optJSONObject(index) ?: continue
-      if (message.optString("id") == messageID) return message
-    }
-    return null
-  }
-
-  private fun upsertMessageLocked(message: JSONObject) {
-    val messages = state.optJSONArray("messages") ?: JSONArray()
-    val next = JSONArray().put(message)
-    val id = message.optString("id")
-    for (index in 0 until messages.length()) {
-      val existing = messages.optJSONObject(index) ?: continue
-      if (existing.optString("id") != id) next.put(existing)
-    }
-    val trimmed = JSONArray()
-    val start = maxOf(0, next.length() - MAX_MESSAGES)
-    for (index in start until next.length()) trimmed.put(next.get(index))
-    state.put("messages", trimmed)
-  }
+  private fun messagesLocked(): JSONArray = state.optJSONArray("messages") ?: JSONArray()
 
   private fun copy(value: JSONObject): JSONObject = JSONObject(value.toString())
 
@@ -280,6 +286,5 @@ internal class ProtocolStateStore(context: Context) {
 
   private companion object {
     private const val TAG = "UPeerTransport"
-    private const val MAX_MESSAGES = 500
   }
 }

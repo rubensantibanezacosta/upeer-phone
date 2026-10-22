@@ -29,6 +29,7 @@ interface IYggdrasilTransport {
   void clearIdentity();
   String identityStatusJSON();
   String sendChat(String upeerId, String content, String replyTo);
+  int editChat(String upeerId, String messageId, String content);
   String messagesJSON(String upeerId, int limit);
   String conversationsJSON();
   void markConversationRead(String upeerId);

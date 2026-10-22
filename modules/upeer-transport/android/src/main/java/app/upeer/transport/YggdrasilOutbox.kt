@@ -57,9 +57,7 @@ internal class YggdrasilOutbox(
     synchronized(wakeLock) { wakeLock.notifyAll() }
   }
 
-  fun wake() {
-    synchronized(wakeLock) { wakeLock.notifyAll() }
-  }
+  fun wake() = synchronized(wakeLock) { wakeLock.notifyAll() }
 
   fun enqueue(upeerId: String, content: String, replyTo: String): String {
     if (!ID_PATTERN.matches(upeerId)) throw IllegalArgumentException("uPeer ID no válido")
@@ -75,12 +73,33 @@ internal class YggdrasilOutbox(
         .put("isMine", true)
         .put("content", text)
         .put("status", "pending")
+        .put("version", 1)
+        .put("isEdited", false)
         .put("timestamp", timestamp)
         .apply { if (replyTo.isNotEmpty()) put("replyTo", replyTo) },
     )
     outbox.enqueue(messageID, upeerId, text, replyTo, timestamp)
     wake()
     return messageID
+  }
+
+  fun editChat(upeerId: String, messageID: String, content: String): Int {
+    if (!ID_PATTERN.matches(upeerId)) throw IllegalArgumentException("uPeer ID no válido")
+    val message = state.messageFor(messageID) ?: throw IllegalArgumentException("El mensaje no existe")
+    val plan = ChatEditPolicy.plan(message, upeerId, messageID, content)
+    if (!state.updateLocalMessageContent(messageID, upeerId, plan.text, plan.version)) {
+      throw IllegalArgumentException("El mensaje ya no se puede editar")
+    }
+    if (plan.pending) {
+      if (!outbox.updatePendingContent(messageID, plan.text)) {
+        throw IllegalArgumentException("El mensaje pendiente ya no está en el outbox")
+      }
+    } else {
+      val entryID = "$messageID:u${plan.version}"
+      outbox.enqueueUpdate(entryID, messageID, upeerId, plan.text, plan.version, System.currentTimeMillis())
+    }
+    wake()
+    return plan.version
   }
 
   fun onAck(senderUpeerId: String, messageID: String, status: String): Boolean {
@@ -215,33 +234,16 @@ internal class YggdrasilOutbox(
         "spk=${recipientSpk?.optLong("spkId") ?: 0})",
     )
     try {
-      val result = if (deviceBinding != null && currentDevice != null) {
-        OutboxPacketFactory.chat(
-          currentIdentity,
-          currentDevice,
-          deviceBinding,
-          selfAddress,
-          session.orEmpty(),
-          entry.optString("content"),
-          messageID,
-          entry.optString("replyTo"),
-          entry.optLong("timestamp"),
-        )
-      } else {
-        JSONObject(
-          currentIdentity.buildChat(
-            selfAddress,
-            publicKey,
-            signedPreKey?.optString("spkPub").orEmpty(),
-            session.orEmpty(),
-            entry.optString("content"),
-            messageID,
-            entry.optString("replyTo"),
-            signedPreKey?.optLong("spkId") ?: 0L,
-            entry.optLong("timestamp"),
-          ),
-        )
-      }
+      val result = OutboxPacketFactory.packet(
+        currentIdentity,
+        currentDevice.takeIf { useDevice },
+        deviceBinding,
+        selfAddress,
+        publicKey,
+        session.orEmpty(),
+        signedPreKey,
+        entry,
+      )
       val nextSession = result.optString("session")
       val nextPacket = result.optString("packet")
       if (nextSession.isEmpty() || nextPacket.isEmpty()) {
@@ -256,23 +258,28 @@ internal class YggdrasilOutbox(
     }
   }
 
-  private fun markSent(messageID: String, entry: JSONObject) {
-    outbox.markSent(messageID, System.currentTimeMillis() + ACK_TIMEOUT_MS)
-    state.markMessageStatus(messageID, "sent")
-    Log.i(TAG, "Mensaje $messageID enviado; esperando ACK")
+  private fun markSent(entryID: String, entry: JSONObject) {
+    if (entry.optString("kind", "CHAT") == "CHAT_UPDATE") {
+      outbox.remove(entryID)
+      Log.i(TAG, "CHAT_UPDATE $entryID enviado a ${entry.optString("upeerId")}")
+      return
+    }
+    outbox.markSent(entryID, System.currentTimeMillis() + ACK_TIMEOUT_MS)
+    state.markMessageStatus(entryID, "sent")
+    Log.i(TAG, "Mensaje $entryID enviado; esperando ACK")
   }
 
-  private fun retry(messageID: String, entry: JSONObject, reason: String) {
+  private fun retry(entryID: String, entry: JSONObject, reason: String) {
     val attempts = entry.optInt("attempts", 0) + 1
     if (attempts >= MAX_ATTEMPTS) {
-      outbox.remove(messageID)
-      state.markMessageStatus(messageID, "failed")
-      Log.w(TAG, "Mensaje $messageID marcado como fallido tras $attempts intentos: $reason")
+      outbox.remove(entryID)
+      if (entry.optString("kind", "CHAT") != "CHAT_UPDATE") state.markMessageStatus(entryID, "failed")
+      Log.w(TAG, "Entrada $entryID descartada tras $attempts intentos: $reason")
       return
     }
     val delay = minOf(MAX_BACKOFF_MS, BASE_BACKOFF_MS * attempts)
-    outbox.markAttempt(messageID, attempts, System.currentTimeMillis() + delay, reason)
-    Log.w(TAG, "Reintento $attempts de $messageID para ${entry.optString("upeerId")} en ${delay}ms: $reason")
+    outbox.markAttempt(entryID, attempts, System.currentTimeMillis() + delay, reason)
+    Log.w(TAG, "Reintento $attempts de $entryID para ${entry.optString("upeerId")} en ${delay}ms: $reason")
   }
 
   private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)

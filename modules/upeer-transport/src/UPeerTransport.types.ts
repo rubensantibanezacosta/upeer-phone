@@ -33,6 +33,9 @@ export type ProtocolMessage = {
   content: string;
   status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
   timestamp: number;
+  version?: number;
+  isEdited?: boolean;
+  editedAt?: number;
   replyTo?: string;
   receivedAt?: number;
 };

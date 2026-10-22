@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, View, type ListRenderItemInfo, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CircleAlert } from '@tamagui/lucide-icons-2';
+import { CircleAlert, Pencil, X } from '@tamagui/lucide-icons-2';
 import { Text, XStack } from 'tamagui';
 
 import { ChatComposer } from '@/components/chat/chat-composer';
@@ -11,12 +11,13 @@ import { ChatEmptyState } from '@/components/chat/chat-empty-state';
 import { ChatHeader } from '@/components/chat/chat-header';
 import { ChatMessageBubble } from '@/components/chat/chat-message-bubble';
 import { ChatScrollButton } from '@/components/chat/chat-scroll-button';
+import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useSnackbar } from '@/components/snackbar';
 import { buildChatTimeline, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
 import { useTheme } from '@/hooks/use-theme';
 import { getContacts, type UPeerContact } from '@/storage/contact-store';
 import type { ProtocolMessage } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
-import { getMessages, getConversations, markConversationRead, sendChat } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
+import { editChat, getMessages, getConversations, markConversationRead, sendChat } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
 
 const MESSAGE_LIMIT = 200;
 const LATEST_OFFSET = 24;
@@ -36,6 +37,7 @@ export default function ChatRoute() {
   const [alias, setAlias] = useState('');
   const [contactStatus, setContactStatus] = useState<UPeerContact['status']>('offline');
   const [text, setText] = useState('');
+  const [editing, setEditing] = useState<ProtocolMessage | null>(null);
   const [error, setError] = useState('');
   const [showScrollButton, setShowScrollButton] = useState(false);
 
@@ -81,16 +83,34 @@ export default function ChatRoute() {
   const submit = async () => {
     const content = text.trim();
     if (!content || !upeerId) return;
+    const currentEdit = editing;
     setText('');
+    setEditing(null);
     setError('');
     try {
-      await sendChat(upeerId, content);
+      if (currentEdit) {
+        await editChat(upeerId, currentEdit.id, content);
+      } else {
+        await sendChat(upeerId, content);
+      }
       await refresh();
     } catch (cause) {
       setText(content);
+      setEditing(currentEdit);
       setError(cause instanceof Error ? cause.message : 'No se pudo enviar el mensaje.');
     }
   };
+
+  const startEditing = useCallback((message: ProtocolMessage) => {
+    setEditing(message);
+    setText(message.content);
+    setError('');
+  }, []);
+
+  const cancelEditing = useCallback(() => {
+    setEditing(null);
+    setText('');
+  }, []);
 
   const showUnavailable = useCallback((label: string) => {
     showSnackbar(`${label}: pendiente en el roadmap`);
@@ -111,9 +131,9 @@ export default function ChatRoute() {
   const renderItem = useCallback(({ item }: ListRenderItemInfo<ChatTimelineEntry>) => (
     <View>
       {item.showDateSeparator ? <ChatDateSeparator timestamp={item.message.timestamp} /> : null}
-      <ChatMessageBubble entry={item} />
+      <ChatMessageBubble entry={item} onEdit={startEditing} />
     </View>
-  ), []);
+  ), [startEditing]);
 
   return (
     <View style={styles.root}>
@@ -149,6 +169,15 @@ export default function ChatRoute() {
               <Text color={theme.danger} flex={1} fontSize={12}>{error}</Text>
             </XStack>
           )}
+          {editing ? (
+            <XStack alignItems="center" backgroundColor={theme.backgroundSelected} borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={8} paddingHorizontal={14} paddingVertical={7}>
+              <Pencil color={theme.accent} size={15} />
+              <Text color={theme.text} flex={1} fontSize={12}>Editando mensaje</Text>
+              <NativeRipplePressable accessibilityLabel="Cancelar edición" accessibilityRole="button" onPress={cancelEditing} style={styles.cancelEdit}>
+                <X color={theme.textSecondary} size={18} />
+              </NativeRipplePressable>
+            </XStack>
+          ) : null}
           <ChatComposer onChange={setText} onSend={() => { void submit(); }} onUnavailable={showUnavailable} value={text} />
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -164,5 +193,6 @@ const styles = StyleSheet.create({
   timeline: { flex: 1, position: 'relative' },
   list: { flex: 1 },
   listContent: { flexGrow: 1, paddingHorizontal: 12, paddingVertical: 16 },
+  cancelEdit: { alignItems: 'center', borderRadius: 6, height: 28, justifyContent: 'center', width: 28 },
   nativeBarBackground: { bottom: 0, left: 0, position: 'absolute', right: 0 },
 });

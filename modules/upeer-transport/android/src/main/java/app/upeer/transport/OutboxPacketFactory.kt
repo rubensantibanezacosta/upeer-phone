@@ -22,31 +22,80 @@ internal object OutboxPacketFactory {
     }
   }
 
-  fun chat(
+  fun packet(
     identity: CryptoIdentity,
-    device: DeviceIdentity,
-    binding: DeviceBinding,
+    device: DeviceIdentity?,
+    binding: DeviceBinding?,
     selfAddress: String,
+    peerPublicKey: String,
     session: String,
-    content: String,
-    messageID: String,
-    replyTo: String,
-    timestamp: Long,
-  ): JSONObject = JSONObject(
-    device.crypto.buildLinkedChat(
-      identity.upeerID(),
-      selfAddress,
-      binding.devicePublicKey,
-      binding.signedPreKey.optString("spkPub"),
-      session,
-      content,
-      messageID,
-      replyTo,
-      binding.signedPreKey.optLong("spkId"),
-      timestamp,
-      device.deviceId,
-    ),
-  )
+    signedPreKey: JSONObject?,
+    entry: JSONObject,
+  ): JSONObject {
+    val isUpdate = entry.optString("kind", "CHAT") == "CHAT_UPDATE"
+    val messageID = if (isUpdate) entry.optString("msgId") else entry.optString("id")
+    if (device != null && binding != null) {
+      return if (isUpdate) {
+        JSONObject(
+          device.crypto.buildLinkedChatUpdate(
+            identity.upeerID(),
+            selfAddress,
+            binding.devicePublicKey,
+            binding.signedPreKey.optString("spkPub"),
+            session,
+            entry.optString("content"),
+            messageID,
+            entry.optInt("version").toLong(),
+            binding.signedPreKey.optLong("spkId"),
+            entry.optLong("timestamp"),
+            device.deviceId,
+          ),
+        )
+      } else {
+        JSONObject(
+          device.crypto.buildLinkedChat(
+            identity.upeerID(),
+            selfAddress,
+            binding.devicePublicKey,
+            binding.signedPreKey.optString("spkPub"),
+            session,
+            entry.optString("content"),
+            messageID,
+            entry.optString("replyTo"),
+            binding.signedPreKey.optLong("spkId"),
+            entry.optLong("timestamp"),
+            device.deviceId,
+          ),
+        )
+      }
+    }
+    val packet = if (isUpdate) {
+      identity.buildChatUpdate(
+        selfAddress,
+        peerPublicKey,
+        signedPreKey?.optString("spkPub").orEmpty(),
+        session,
+        entry.optString("content"),
+        messageID,
+        entry.optInt("version").toLong(),
+        signedPreKey?.optLong("spkId") ?: 0L,
+        entry.optLong("timestamp"),
+      )
+    } else {
+      identity.buildChat(
+        selfAddress,
+        peerPublicKey,
+        signedPreKey?.optString("spkPub").orEmpty(),
+        session,
+        entry.optString("content"),
+        messageID,
+        entry.optString("replyTo"),
+        signedPreKey?.optLong("spkId") ?: 0L,
+        entry.optLong("timestamp"),
+      )
+    }
+    return JSONObject(packet)
+  }
 
   fun drReset(
     identity: CryptoIdentity,

@@ -34,6 +34,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   clearIdentity(): Promise<void>;
   identityStatus(): Promise<string>;
   sendChat(upeerId: string, content: string, replyTo: string): Promise<string>;
+  editChat(upeerId: string, messageId: string, content: string): Promise<number>;
   messagesJSON(upeerId: string, limit: number): Promise<string>;
   conversationsJSON(): Promise<string>;
   markConversationRead(upeerId: string): Promise<void>;
@@ -220,6 +221,10 @@ export async function getIdentityStatus(): Promise<IdentityTransportStatus> {
 
 export async function sendChat(upeerId: string, content: string, replyTo = ''): Promise<string> {
   return nativeModule.sendChat(upeerId, content, replyTo);
+}
+
+export async function editChat(upeerId: string, messageId: string, content: string): Promise<number> {
+  return nativeModule.editChat(upeerId, messageId, content);
 }
 
 export async function getMessages(upeerId: string, limit = 100): Promise<ProtocolMessage[]> {

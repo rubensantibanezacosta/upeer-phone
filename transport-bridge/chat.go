@@ -41,14 +41,113 @@ func (identity *CryptoIdentity) BuildChat(
 	peerSPKID int,
 	timestamp int64,
 ) (string, error) {
+	return identity.buildChatPacket(
+		"CHAT",
+		"id",
+		messageID,
+		replyTo,
+		0,
+		senderYggAddress,
+		peerPublicKeyHex,
+		peerSPKPublicKeyHex,
+		sessionJSON,
+		plaintext,
+		peerSPKID,
+		timestamp,
+	)
+}
+
+func (identity *CryptoIdentity) BuildChatUpdate(
+	senderYggAddress string,
+	peerPublicKeyHex string,
+	peerSPKPublicKeyHex string,
+	sessionJSON string,
+	plaintext string,
+	messageID string,
+	version int,
+	peerSPKID int,
+	timestamp int64,
+) (string, error) {
+	if version <= 0 {
+		return "", errors.New("CHAT_UPDATE version must be positive")
+	}
+	return identity.buildChatPacket(
+		"CHAT_UPDATE",
+		"msgId",
+		messageID,
+		"",
+		version,
+		senderYggAddress,
+		peerPublicKeyHex,
+		peerSPKPublicKeyHex,
+		sessionJSON,
+		plaintext,
+		peerSPKID,
+		timestamp,
+	)
+}
+
+func (identity *CryptoIdentity) buildChatPacket(
+	packetType string,
+	idField string,
+	messageID string,
+	replyTo string,
+	version int,
+	senderYggAddress string,
+	peerPublicKeyHex string,
+	peerSPKPublicKeyHex string,
+	sessionJSON string,
+	plaintext string,
+	peerSPKID int,
+	timestamp int64,
+) (string, error) {
+	data, encrypted, err := identity.buildChatData(
+		packetType,
+		idField,
+		messageID,
+		replyTo,
+		version,
+		senderYggAddress,
+		peerPublicKeyHex,
+		peerSPKPublicKeyHex,
+		sessionJSON,
+		plaintext,
+		peerSPKID,
+		timestamp,
+	)
+	if err != nil {
+		return "", err
+	}
+	signedPacket, err := identity.buildSignedPacket(data, senderYggAddress)
+	if err != nil {
+		return "", err
+	}
+	return identity.sealOutboundChat(signedPacket, peerPublicKeyHex, encrypted.Session)
+}
+
+func (identity *CryptoIdentity) buildChatData(
+	packetType string,
+	idField string,
+	messageID string,
+	replyTo string,
+	version int,
+	senderYggAddress string,
+	peerPublicKeyHex string,
+	peerSPKPublicKeyHex string,
+	sessionJSON string,
+	plaintext string,
+	peerSPKID int,
+	timestamp int64,
+) (map[string]any, ratchetEncryptResult, error) {
+	var encrypted ratchetEncryptResult
 	if !isYggdrasilAddress(net.ParseIP(senderYggAddress)) {
-		return "", errors.New("senderYggAddress must be a Yggdrasil IPv6 address")
+		return nil, encrypted, errors.New("senderYggAddress must be a Yggdrasil IPv6 address")
 	}
 	if messageID == "" {
-		return "", errors.New("CHAT message ID must not be empty")
+		return nil, encrypted, fmt.Errorf("%s message ID must not be empty", packetType)
 	}
 	if len(plaintext) > maxOutboundPlainBytes {
-		return "", errors.New("CHAT plaintext exceeds the maximum size")
+		return nil, encrypted, fmt.Errorf("%s plaintext exceeds the maximum size", packetType)
 	}
 	if timestamp <= 0 {
 		timestamp = time.Now().UnixMilli()
@@ -57,34 +156,33 @@ func (identity *CryptoIdentity) BuildChat(
 	var x3dhInitJSON string
 	if session == "" {
 		if peerSPKPublicKeyHex == "" || peerSPKID <= 0 {
-			return "", errors.New("CHAT needs a signed pre-key to start a session")
+			return nil, encrypted, fmt.Errorf("%s needs a signed pre-key to start a session", packetType)
 		}
 		outboundJSON, err := identity.StartOutboundSession(peerPublicKeyHex, peerSPKPublicKeyHex, peerSPKID)
 		if err != nil {
-			return "", err
+			return nil, encrypted, err
 		}
 		var outbound outboundSessionResult
 		if err := json.Unmarshal([]byte(outboundJSON), &outbound); err != nil {
-			return "", fmt.Errorf("decode outbound session: %w", err)
+			return nil, encrypted, fmt.Errorf("decode outbound session: %w", err)
 		}
 		session = outbound.Session
 		x3dhInitJSON = outbound.X3DHInit
 	}
 	encryptedJSON, err := identity.RatchetEncrypt(session, []byte(compressOutboundMessage(plaintext)))
 	if err != nil {
-		return "", err
+		return nil, encrypted, err
 	}
-	var encrypted ratchetEncryptResult
 	if err := json.Unmarshal([]byte(encryptedJSON), &encrypted); err != nil {
-		return "", fmt.Errorf("decode encrypted chat: %w", err)
+		return nil, encrypted, fmt.Errorf("decode encrypted chat: %w", err)
 	}
 	var message RatchetMessage
 	if err := json.Unmarshal([]byte(encrypted.Message), &message); err != nil {
-		return "", fmt.Errorf("decode ratchet message: %w", err)
+		return nil, encrypted, fmt.Errorf("decode ratchet message: %w", err)
 	}
 	data := map[string]any{
-		"type":           "CHAT",
-		"id":             messageID,
+		"type":           packetType,
+		idField:          messageID,
 		"timestamp":      json.Number(strconv.FormatInt(timestamp, 10)),
 		"content":        message.Ciphertext,
 		"nonce":          message.Nonce,
@@ -95,20 +193,23 @@ func (identity *CryptoIdentity) BuildChat(
 			"n":  json.Number(strconv.Itoa(message.Header.N)),
 		},
 	}
+	if version > 0 {
+		data["version"] = json.Number(strconv.Itoa(version))
+	}
 	if x3dhInitJSON != "" {
 		init, err := decodeControlPacket([]byte(x3dhInitJSON))
 		if err != nil {
-			return "", fmt.Errorf("decode X3DH init: %w", err)
+			return nil, encrypted, fmt.Errorf("decode X3DH init: %w", err)
 		}
 		data["x3dhInit"] = init
 	}
 	if replyTo != "" {
 		data["replyTo"] = replyTo
 	}
-	signedPacket, err := identity.buildSignedPacket(data, senderYggAddress)
-	if err != nil {
-		return "", err
-	}
+	return data, encrypted, nil
+}
+
+func (identity *CryptoIdentity) sealOutboundChat(signedPacket, peerPublicKeyHex, session string) (string, error) {
 	sealed, err := identity.Seal([]byte(signedPacket), peerPublicKeyHex)
 	if err != nil {
 		return "", err
@@ -117,7 +218,7 @@ func (identity *CryptoIdentity) BuildChat(
 	if err != nil {
 		return "", fmt.Errorf("encode sealed chat: %w", err)
 	}
-	resultJSON, err := json.Marshal(outboundChatResult{Session: encrypted.Session, Packet: string(outer)})
+	resultJSON, err := json.Marshal(outboundChatResult{Session: session, Packet: string(outer)})
 	if err != nil {
 		return "", fmt.Errorf("encode outbound chat: %w", err)
 	}
