@@ -49,7 +49,7 @@ node transport-bridge/harness/send-sealed-chat.mjs
 
 ## DR_RESET y outbox
 
-`send-dr-reset.mjs` firma un `DR_RESET` con una SPK nueva y, si se indica `UPEER_LISTEN_PORT`, escucha el chat que el móvil reconstruye desde su outbox. Ese chat debe usar exactamente `spkId` / `spkPub` del reset y descifrarse con la clave derivada, de modo que un fallo al limpiar la sesión o al reintentar el outbox haga fallar la prueba.
+`send-dr-reset.mjs` firma un `DR_RESET` con una SPK nueva y un `resetId` UUID nuevo y, si se indica `UPEER_LISTEN_PORT`, escucha el chat que el móvil reconstruye desde su outbox. Ese chat debe usar exactamente `spkId` / `spkPub` del reset y descifrarse con la clave derivada, de modo que un fallo al limpiar la sesión o al reintentar el outbox haga fallar la prueba.
 
 ```sh
 UPEER_TARGET=200:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx \
@@ -61,7 +61,7 @@ UPEER_EXPECT_MOBILE_CHAT=1 \
 node transport-bridge/harness/send-dr-reset.mjs
 ```
 
-Para comprobar que una SPK obsoleta no reemplaza a la nueva, añade `UPEER_STALE_SPK_ID=<id anterior>` y `UPEER_ACCEPT_HANDSHAKE=0`. El script envía primero la SPK nueva y después la obsoleta; el chat del outbox debe seguir descifrándose con la nueva. Con `UPEER_STALE_HANDSHAKE=1` reenvía además un `HANDSHAKE_REQ` firmado con la SPK obsoleta. El móvil solo acepta una SPK si su `spkId` es mayor que el actual, tanto en `DR_RESET` como en `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`, y una SPK repetida u obsoleta no reinicia el ratchet. `UPEER_RATCHET_CONTEXT` acepta `direct` o `group:<id>` (sin `:` adicionales).
+Para comprobar que una SPK obsoleta no reemplaza a la nueva, añade `UPEER_STALE_SPK_ID=<id anterior>` y `UPEER_ACCEPT_HANDSHAKE=0`. El script envía primero la SPK nueva y después la obsoleta; el chat del outbox debe seguir descifrándose con la nueva. Con `UPEER_STALE_HANDSHAKE=1` reenvía además un `HANDSHAKE_REQ` firmado con la SPK obsoleta. El móvil acepta un `DR_RESET` con `spkId` igual o mayor que el actual; el mismo `spkId` no reemplaza la SPK pero sí reinicia el ratchet, y un `spkId` menor se ignora. El `resetId` UUID firmado se deduplica por peer para que un reset repetido no vuelva a reiniciar; un `DR_RESET` legacy sin `resetId` se acepta pero no se deduplica. En `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT` la SPK solo se actualiza si es más reciente. `UPEER_RATCHET_CONTEXT` acepta `direct` o `group:<id>` (sin `:` adicionales).
 
 Con `UPEER_SKIP_ACK_FIRST=1` y `UPEER_EXPECT_MESSAGES=2`, `send-dr-reset.mjs` omite el primer ACK: el móvil debe reenviar el mismo `id` tras el timeout de 5 s y el harness debe cerrar con `CHAT_DUPLICATE` y `verified:true`.
 
@@ -69,7 +69,7 @@ El outbox móvil entrega en paralelo por peer: una entrada hacia un peer inalcan
 
 ## Rate limiting y replay
 
-El móvil usa el token bucket y los límites de Desktop para `SEALED` 5000/s, `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT` 50/min, `CHAT` 100/min y `ACK` 200/min; añade 20/min para `DR_RESET`. `SEALED` se limita antes de descifrar; el resto, tras validar la firma. Los frames limitados aparecen como `limited` en `inboundStatus` y como `rateLimited` en `protocolStatus`.
+El móvil usa el token bucket y los límites de Desktop para `SEALED` 5000/s, `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT` 50/min, `CHAT` 100/min, `ACK` 200/min y `DR_RESET` 20/min; Desktop aplica también el límite de 20/min para `DR_RESET`. `SEALED` se limita antes de descifrar; el resto, tras validar la firma. Los frames limitados aparecen como `limited` en `inboundStatus` y como `rateLimited` en `protocolStatus`.
 
 `send-handshake-flood.mjs` reenvía un `HANDSHAKE_REQ` firmado más veces que el límite y cuenta los `HANDSHAKE_ACCEPT` recibidos. Con `UPEER_COUNT=120` y el límite por defecto de 50/min, la prueba calcula el techo del token bucket según el tiempo transcurrido y falla si el móvil acepta todo el flood o supera ese techo.
 

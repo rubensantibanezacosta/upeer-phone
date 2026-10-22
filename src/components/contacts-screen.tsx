@@ -8,10 +8,12 @@ import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { registerPeer as registerNativePeer } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { deleteContact, getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
 import { loadProfile, saveProfile } from '@/storage/identity-store';
+import { useTheme } from '@/hooks/use-theme';
 
 type ContactsScreenProps = { identity: UPeerIdentity; onSignOut: () => void; onContactsChange?: (contacts: UPeerContact[]) => void };
 
 export function ContactsScreen({ identity, onSignOut, onContactsChange }: ContactsScreenProps) {
+  const theme = useTheme();
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const [contactInput, setContactInput] = useState('');
   const [alias, setAlias] = useState('');
@@ -104,7 +106,7 @@ export function ContactsScreen({ identity, onSignOut, onContactsChange }: Contac
           <YStack gap={12}>
             <SizableText color="color" fontSize={17} fontWeight="700">Añadir contacto</SizableText>
             <Input accessibilityLabel="uPeerID y dirección de red del contacto" autoCapitalize="none" autoCorrect={false} backgroundColor="color-2" borderColor="border-color" color="color" onChangeText={setContactInput} placeholder="uPeerID@200::…" placeholderTextColor="placeholder-color" value={contactInput} />
-            <NativeRippleButton backgroundColor="accent-background" color="accent-foreground" fontWeight="700" height={48} onPress={() => void addContact()}>Guardar contacto</NativeRippleButton>
+            <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={48} onPress={() => void addContact()}>Guardar contacto</NativeRippleButton>
           </YStack>
         </Card>
         {!!error && <Paragraph accessibilityRole="alert" color="danger">{error}</Paragraph>}

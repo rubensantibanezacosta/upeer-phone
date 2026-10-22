@@ -17,8 +17,13 @@ export const Colors = {
     border: '#E0E1E6',
     placeholder: '#60646C',
     accent: '#0B6BCB',
+    onAccent: '#FFFFFF',
+    success: '#1F7A3D',
     danger: '#D93036',
     backdrop: '#0000008C',
+    bubbleMine: '#E1EFFF',
+    bubbleMineText: '#0B4F99',
+    receiptRead: '#0B6BCB',
   },
   dark: {
     text: '#ffffff',
@@ -29,8 +34,13 @@ export const Colors = {
     border: '#54515a',
     placeholder: '#B0B4BA',
     accent: '#0B6BCB',
+    onAccent: '#FFFFFF',
+    success: '#6FD394',
     danger: '#FF6B70',
     backdrop: '#000000B3',
+    bubbleMine: '#13293F',
+    bubbleMineText: '#D7E9FF',
+    receiptRead: '#53BDEB',
   },
 } as const;
 

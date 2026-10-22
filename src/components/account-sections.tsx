@@ -103,7 +103,7 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
         <ProfileStatsSection reputation={null} vaultStats={null} onInfo={setInfo} />
         <ProfileAddressSection fullId={fullId} onCopy={copyProfileAddress} onShowQr={() => setQrOpen(true)} onInfo={() => setInfo('direccion')} />
         <ProfileTechnicalSection identity={identity} address={address} onInfo={setInfo} onCopy={copyProfileValue} />
-        <YStack paddingHorizontal={20}><NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color="danger" height={48} onPress={onSignOut}>Cerrar sesión y borrar datos locales</NativeRippleButton></YStack>
+        <YStack paddingHorizontal={20}><NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.danger} height={48} onPress={onSignOut}>Cerrar sesión y borrar datos locales</NativeRippleButton></YStack>
       </ScrollView>
       <ProfileQrModal visible={qrOpen} fullId={fullId} onClose={() => setQrOpen(false)} onCopy={copyQrAddress} />
       <ProfileInfoModal info={info} onClose={() => setInfo(null)} />
@@ -120,8 +120,8 @@ function ProfileQrModal({ visible, fullId, onClose, onCopy }: { visible: boolean
           <XStack alignItems="center" justifyContent="space-between" width="100%"><SizableText color={theme.text} fontSize={17} fontWeight="700">Tu dirección de contacto</SizableText><NativeRipplePressable accessibilityLabel="Cerrar" onPress={onClose}><X color={theme.placeholder} size={20} /></NativeRipplePressable></XStack>
           <Text color={theme.placeholder} fontSize={12} textAlign="center">Muestra este código para que alguien te agregue como contacto</Text>
           <View style={[styles.qrCanvas, { backgroundColor: theme.background }]}>{fullId ? <QRCode value={fullId} size={220} ecl="M" /> : <Text color={theme.placeholder}>Sin dirección</Text>}</View>
-          <Text color={theme.textSecondary} fontFamily="$mono" fontSize={11} lineHeight={1.5}>{fullId || '—'}</Text>
-          <NativeRippleButton backgroundColor={theme.accent} color={theme.background} icon={<Copy color={theme.background} />} onPress={onCopy} width="100%">Copiar dirección</NativeRippleButton>
+          <Text color={theme.textSecondary} fontFamily="$mono" fontSize={11} lineHeight={17}>{fullId || '—'}</Text>
+          <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} icon={<Copy color={theme.onAccent} />} onPress={onCopy} width="100%">Copiar dirección</NativeRippleButton>
         </NativeRipplePressable>
       </NativeRipplePressable>
     </Modal>
@@ -138,8 +138,8 @@ function ProfileInfoModal({ info, onClose }: { info: ProfileInfoKey | null; onCl
         <NativeRipplePressable onPress={(event) => event.stopPropagation()} style={[styles.infoDialog, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
           <XStack alignItems="center" borderBottomColor={theme.border} borderBottomWidth={1} gap={12} paddingBottom={14}><Info color={theme.placeholder} size={18} /><SizableText color={theme.text} flex={1} fontSize={17} fontWeight="700">{content.title}</SizableText><NativeRipplePressable accessibilityLabel="Cerrar" onPress={onClose}><X color={theme.placeholder} size={20} /></NativeRipplePressable></XStack>
           <ScrollView contentContainerStyle={styles.infoContent}>
-            <Text color={theme.placeholder} fontSize={14} lineHeight={1.5}>{content.description}</Text>
-            {content.items.map((item) => <YStack key={item.label} gap={4}><SizableText color={theme.text} fontSize={14} fontWeight="600">{item.label}</SizableText><Text color={theme.placeholder} fontSize={13} lineHeight={1.5}>{item.description}</Text></YStack>)}
+            <Text color={theme.placeholder} fontSize={14}>{content.description}</Text>
+            {content.items.map((item) => <YStack key={item.label} gap={4}><SizableText color={theme.text} fontSize={14} fontWeight="600">{item.label}</SizableText><Text color={theme.placeholder} fontSize={13}>{item.description}</Text></YStack>)}
           </ScrollView>
         </NativeRipplePressable>
       </NativeRipplePressable>

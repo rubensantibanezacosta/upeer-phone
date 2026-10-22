@@ -2,8 +2,11 @@ package transportbridge
 
 import (
 	"encoding/json"
+	"regexp"
 	"testing"
 )
+
+var resetIDPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 
 func TestBuildDrResetRotatesSignedPreKeyAndStartsFreshSession(t *testing.T) {
 	vectors := loadCryptoVectors(t)
@@ -85,6 +88,10 @@ func TestBuildDrResetRotatesSignedPreKeyAndStartsFreshSession(t *testing.T) {
 	}
 	if resetPacket["ratchetContext"] != "direct" {
 		t.Fatalf("reset context = %#v", resetPacket["ratchetContext"])
+	}
+	resetID, ok := resetPacket["resetId"].(string)
+	if !ok || !resetIDPattern.MatchString(resetID) {
+		t.Fatalf("reset ID = %#v", resetPacket["resetId"])
 	}
 
 	freshJSON, err := mobile.BuildChat(

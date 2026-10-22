@@ -3,8 +3,9 @@ import { StyleSheet } from 'react-native';
 import { Check, CheckCheck, CircleAlert, Clock3 } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
+import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
-import { ProfileAvatar } from '@/components/profile-avatar';
+import { getTrustLabel } from '@/domain/trust';
 import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -18,6 +19,7 @@ export type ChatListEntry = {
   lastStatus: ProtocolMessage['status'] | null;
   pending?: boolean;
   incoming?: boolean;
+  vouchScore?: number;
 };
 
 type ChatListItemProps = {
@@ -64,7 +66,7 @@ export function ChatListItem({ entry, onOpen, onOpenMenu }: ChatListItemProps) {
   return (
     <NativeRipplePressable
       accessibilityHint="Mantén pulsado para abrir las opciones de la conversación"
-      accessibilityLabel={`${entry.title}${isUnread ? `, ${entry.unread} mensajes sin leer` : ''}`}
+      accessibilityLabel={`${entry.title}${isUnread ? `, ${entry.unread} mensajes sin leer` : ''}, ${getTrustLabel(entry.vouchScore)}`}
       accessibilityRole="button"
       delayLongPress={350}
       onLongPress={handleLongPress}
@@ -72,7 +74,7 @@ export function ChatListItem({ entry, onOpen, onOpenMenu }: ChatListItemProps) {
       style={[styles.item]}
     >
       <XStack alignItems="center" gap={12} minHeight={80} paddingVertical={0}>
-        <ProfileAvatar name={entry.title} size={55} />
+        <ContactTrustAvatar name={entry.title} size={55} vouchScore={entry.vouchScore} />
         <YStack flex={1} gap={4}>
           <XStack alignItems="center" gap={8}>
             <SizableText color={theme.text} flex={1} fontSize={15} fontWeight={isEmphasized ? '700' : '600'} numberOfLines={1}>{entry.title}</SizableText>
@@ -83,7 +85,7 @@ export function ChatListItem({ entry, onOpen, onOpenMenu }: ChatListItemProps) {
             <Text color={entry.incoming ? theme.accent : previewColor} flex={1} fontSize={13} fontStyle={entry.pending ? 'italic' : 'normal'} numberOfLines={1}>{entry.preview}</Text>
             {isUnread && (
               <XStack alignItems="center" backgroundColor={theme.accent} borderRadius={10} height={20} justifyContent="center" minWidth={20} paddingHorizontal={6}>
-                <SizableText color={theme.background} fontSize={11} fontWeight="700">{entry.unread > 99 ? '99+' : entry.unread}</SizableText>
+                <SizableText color={theme.onAccent} fontSize={11} fontWeight="700">{entry.unread > 99 ? '99+' : entry.unread}</SizableText>
               </XStack>
             )}
           </XStack>

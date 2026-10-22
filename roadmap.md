@@ -1,8 +1,8 @@
 # Roadmap móvil uPeer con Expo
 
-_Estado: port en curso a 22 de octubre de 2026. Identidad, perfil local, nodo Yggdrasil, transporte saliente TCP/UDP y UI de conexión ya existen; el protocolo de chat uPeer todavía no es interoperable._
+_Estado: port en curso a 22 de octubre de 2026. Identidad, perfil local, nodo Yggdrasil, transporte saliente/entrante TCP y chat bidireccional con un contacto Desktop ya existente están verificados; B0 está cerrada y B1 es el siguiente bloqueo de DHT/bootstrap._
 
-> La secuencia de implementación vigente y el estado detallado están en [`roadmap/implementation-order.md`](roadmap/implementation-order.md). Ese orden prevalece sobre los números de fase y la secuencia de MVP de este catálogo; las fases siguientes conservan requisitos y criterios de salida, no indican por sí solas qué debe portarse primero.
+> Documento único de alcance y orden. Las fases **B0–B8** son la secuencia obligatoria de red y descubrimiento; las **fases de producto 4–10** solo empiezan después de B8. Las secciones «Fase 0» a «Fase 15» del anexo conservan requisitos detallados, pero **no son el orden de ejecución**.
 
 ## Propósito y reglas de uso
 
@@ -25,7 +25,7 @@ Este documento guía el desarrollo de un cliente móvil de uPeer basado en el pr
 
 | Área | Estado | Evidencia y límite |
 |---|---|---|
-| Identidad local | Parcial | BIP39 de 12 palabras, Ed25519, upeer ID, recuperación y borrado. Vector de derivación Desktop en `transport-bridge/bridge_test.go`; falta custodiar la clave privada fuera del estado React y añadir PIN/biometría. |
+| Identidad local | Parcial | BIP39 de 12 palabras, Ed25519, upeer ID, recuperación y borrado. Vector de derivación Desktop en `transport-bridge/bridge_test.go`; la clave se cifra en Keystore y la carga `:yggdrasil`, y la UI solo la provisiona. Faltan PIN/biometría y cambio de identidad del contacto. |
 | Perfil local | Hecho | Alias y avatar en SecureStore; imagen en archivo privado de la app. Aún no se publica ni sincroniza. |
 | Contactos | Parcial | Alta manual `upeerID@dirección`, SQLite en WAL y borrado. Sin QR, solicitudes, reputación ni bloqueo; el handshake ya se ejecuta en el servicio al enviar/recibir. |
 | Nodo Yggdrasil | Hecho en dispositivo | `yggdrasil-go 0.5.14` + netstack gVisor de `yggstack`; nodo embebido con `libgojni.so`, peers y reconexión. |
@@ -33,29 +33,11 @@ Este documento guía el desarrollo de un cliente móvil de uPeer basado en el pr
 | Transporte entrante | Hecho | Listener TCP `50005` en `:yggdrasil`, framing 4B/10 MiB con fragmentación y coalescencia, `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`, X3DH, `SEALED`/`CHAT`, ACK y persistencia. Chat Desktop→móvil verificado, incluido frame truncado y reconexión tras cambio de red; falta estrés prolongado. |
 | Servicio Android | Parcial | Foreground service visible en proceso separado `:yggdrasil`, `stopWithTask=false`, configuración e identidad cifradas con Keystore, parada manual y recuperación tras force-stop. Faltan batería y control on/off explícito. |
 | Segundo plano sin push | Parcial | Listener, identidad, protocolo y outbox viven en `:yggdrasil`; el servicio responde handshakes, descifra `SEALED`/`CHAT`, envía ACK, persiste sesión/mensaje y publica notificaciones locales aunque la UI esté cerrada. Faltan pruebas prolongadas de batería y red. |
-| Protocolo uPeer | Parcial | `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT` firmados con SPK nativa, X3DH, `SEALED`/`CHAT`, ACK, compresión y outbox validados contra un peer Desktop simulado en ambos sentidos; `DR_RESET`, ACK perdido, duplicados, rate limiting por origen/identidad y política de replay por UUID y propiedad del mensaje probados. Las SPK solo avanzan y una obsoleta no reinicia la sesión. Faltan DHT, bootstrap, cambio de identidad del contacto y offline prolongado. |
+| Protocolo uPeer | Parcial | `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT` firmados con SPK nativa, X3DH, `SEALED`/`CHAT`, ACK, compresión y outbox validados contra un peer Desktop simulado en ambos sentidos; `DR_RESET`, ACK perdido, duplicados, rate limiting por origen/identidad y política de replay por UUID y propiedad del mensaje probados. Las SPK solo avanzan en handshakes; un `DR_RESET` con el mismo `spkId` se acepta como reset idempotente mediante `resetId`, y una SPK obsoleta no reinicia la sesión. El chat cruzado se verificó con un contacto ya conocido: el handshake móvil aún no envía `powProof`, obligatorio en Desktop para contactos nuevos, ni `addresses`/`ephemeralPublicKey`. Hay prototipos locales de firma y LocationBlock en Go, sin binding ni vector Desktop, que no cuentan como DHT. Faltan alta de contacto nuevo desde móvil, DHT, bootstrap, cambio de identidad del contacto y offline prolongado. |
 | Persistencia | Parcial | Estado de protocolo cifrado en Keystore con peers, sesiones de ratchet, últimos 500 mensajes y outbox; sin DB relacional ni grupos. |
 | UI | Parcial | Onboarding, perfil, contactos, conexión, mapa, lista de conversaciones y chat conectados al protocolo nativo; estados pendiente/enviado/entregado, no leídos, ACK y notificaciones locales visibles. Faltan adjuntos, búsqueda y llamadas. |
 
-**P1 completado en dispositivo (21/10/2026):** listener TCP `50005` en `:yggdrasil`, framing 4B/10 MiB, canonicalización/firma de `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`, rechazo de frames manipulados y harness Desktop→móvil. La prueba se repitió con la tarea/UI eliminada y el proceso `:yggdrasil` vivo.
-
-**Siguiente prioridad: endurecer el protocolo headless.** La identidad uPeer se custodia en Android Keystore y se carga desde `:yggdrasil`; las primitivas `SEALED`, X3DH, Signed Pre-Keys, Double Ratchet, outbox y UI de chat están portadas y verificadas en ambos sentidos contra el harness. Queda:
-
-1. [x] Custodiar la identidad uPeer en Keystore y cargarla en `:yggdrasil`; la UI la provisiona pero el servicio no expone la clave privada.
-2. [x] Portar y vectorizar Ed25519/Curve25519, sealed boxes, X3DH y Double Ratchet.
-3. [x] Responder con `HANDSHAKE_ACCEPT` firmado y SPK nativa; verificado por un peer Desktop simulado.
-4. [x] Recibir `SEALED`/`CHAT`, persistir sesión de ratchet y mensaje cifrado, y sobrevivir a reinicio del servicio.
-5. [x] Enviar ACK firmado tras descifrar y validarlo con un verificador independiente en dispositivo.
-6. [x] Implementar outbox persistente con reintentos, backoff y reset al aceptar el handshake; chat móvil→Desktop verificado.
-7. [x] Exponer conversaciones, mensajes, estados y no leídos a la UI conectada al servicio nativo.
-8. [x] Completar el endurecimiento de recepción:
-   - [x] Notificaciones locales en `:yggdrasil` con previsualización privada, deep link y acción de lectura; validadas con la UI en segundo plano.
-   - [x] Compresión compatible con Desktop y prueba cruzada de mensaje largo; el texto descomprimido se persiste y se muestra.
-   - [x] Pruebas adversas de `DR_RESET`, SPK obsoleta, duplicado y ACK perdido.
-   - [x] Outbox concurrente por peer y reintentos acotados: un peer inalcanzable ya no bloquea otros mensajes y una entrada agotada se marca `failed` y sale del outbox. Validado en dispositivo con una entrada obsoleta de un peer ficticio.
-   - [x] Pérdida de frames y cambios de red sin reiniciar el proceso: un frame truncado cierra solo su conexión y el listener sigue aceptando frames válidos; tras desactivar y reactivar Wi-Fi/datos, los peers reconectan con el mismo PID y el chat móvil→Desktop se entrega. Validado en dispositivo.
-
-Sin push, si el servicio muere la entrega depende del vault y de la reconexión. La UI ya muestra y envía mensajes; no presentar la entrega como garantizada ni ocultar los estados pendientes.
+**Último hito cerrado:** P1 (primer frame entrante Desktop→móvil) y P2 (protocolo headless persistente). El detalle está en [Hitos y prioridad vigente](#hitos-y-prioridad-vigente). El siguiente bloqueo es DHT; se ejecuta como B0–B8.
 
 ## Base actual de escritorio
 
@@ -77,13 +59,459 @@ La integración desktop ejecuta `yggstack` y configura SOCKS local en `127.0.0.1
 - Tratar Android e iOS como integraciones nativas distintas, aunque compartan UI y lógica de dominio.
 - Preservar interoperabilidad con desktop como requisito transversal y no como una fase tardía.
 
-## Fase 0 — Alcance, decisiones y viabilidad de distribución
+## Estado de las fases bloqueantes B0–B8 (22 de octubre de 2026)
 
-### Objetivo
+- **B0 — completada.** La derivación BIP39/Ed25519/upeer ID tiene vector contra Desktop. Canonicalización, firma de `HANDSHAKE_REQ`/`ACCEPT`, framing, sealed boxes, X3DH, Double Ratchet, ACK y compresión tienen vectores o pruebas cruzadas. Los 12 tipos DHT, LocationBlock multi-dirección/legacy y `DHT_UPDATE` tienen fixture generado por Desktop y pruebas en Go, JS y Kotlin; el validador de Desktop acepta el corpus.
+- **B1 — parcial local, no integrado.** Existe un prototipo Go de firma canónica y `BuildSignedPacket` validado con pruebas de ida y vuelta y contra los vectores de B0, pero vive en la raíz del bridge y no está expuesto al binding gomobile ni a un códec Kotlin.
+- **B2 — parcial local, no integrado.** Existe un prototipo Go de `BuildLocationBlock`/`VerifyLocationBlock` con normalización de direcciones, TTL, `deviceId`, `deviceMeta` y compatibilidad legacy, ya cubierto por vectores de Desktop. No está expuesto a Kotlin; faltan secuencia DHT persistente, `deviceId` estable y monotonía.
+- **B3–B6 — no iniciadas.** Códec DHT, Kademlia, bootstrap/descubrimiento, `DHT_UPDATE` y roaming no están portados. Los archivos Kotlin adelantados sin integrar se retiraron para no confundir prototipo con implementación.
+- **B7 — parcial.** El servicio `:yggdrasil` ya es dueño del nodo, listener, protocolo, ratchets, outbox y persistencia cifrada; falta integrar el trabajador DHT y su estado observable.
+- **B8 — no iniciada.** No hay validación DHT Desktop↔móvil, fuzzing de paquetes ni presupuesto de batería/red para descubrimiento.
+- **Fases de producto 4–10 — no iniciadas como paridad.** El chat directo con un contacto ya conocido funciona en ambos sentidos y está expuesto en la UI, pero faltan grupos, archivos, llamadas, vault y notificaciones avanzadas.
+
+### Disposición del trabajo local no integrado
+
+| Archivo | Estado | Acción antes de continuar |
+|---|---|---|
+| `transport-bridge/dht_signing.go` | Prototipo Go, pruebas en verde | B1: mover la lógica a `transport-bridge/dht/` y dejar un adaptador en la fachada gomobile |
+| `transport-bridge/location_block.go` | Prototipo Go, pruebas en verde | B2: mover a `transport-bridge/dht/` y exponerlo por el bridge |
+| `transport-bridge/dht_signing_test.go` | Prueba del prototipo | Mover junto al paquete `dht` cuando se haga B1 |
+| `DhtTypes.kt`, `DhtRoutingTable.kt`, `DhtValueStore.kt` | Retirados; no integrados | Rehacerlos en B4 bajo `app/upeer/transport/dht/kademlia/`, no en la raíz |
+
+Ningún prototipo cuenta como fase completada hasta que tenga vector Desktop, binding y prueba cruzada.
+
+## Orden por fases bloqueantes
+
+Cada fase B solo puede empezar cuando la anterior tenga su criterio de salida demostrado. Las fases de producto (4–10) no se adelantan para tapar huecos de red: dependen de B8.
+
+| Fase | Bloquea a | Entrega mínima | Estado |
+|---|---|---|---|
+| B0 | B1–B8 | Vectores canónicos y harness JS/Go/Kotlin | Hecha |
+| B1 | B2–B8 | Firma/verificación de paquetes DHT en el bridge y en Kotlin | Parcial local |
+| B2 | B4–B8 | LocationBlock firmado, `dhtSeq`, `deviceId` y TTL | Parcial local |
+| B3 | B4–B8 | Códec DHT estricto, límites y admisión | No iniciada |
+| B4 | B5–B8 | Kademlia: routing, store, protocolo y queries pendientes | No iniciada |
+| B5 | B6–B8 | Bootstrap y descubrimiento diversificado | No iniciada |
+| B6 | B7–B8 | Location blocks en DHT, `DHT_UPDATE`, renovación y roaming | No iniciada |
+| B7 | B8 | Trabajador DHT dentro de `:yggdrasil` y estado observable | Parcial |
+| B8 | Producto | Interoperabilidad Desktop↔móvil, fuzzing y presupuesto | No iniciada |
+
+## Regla de organización de archivos
+
+Desktop separa `network/dht/kademlia/*` del router, los handlers y el exchange. El port debe repetir esa separación; no se añaden archivos nuevos a la raíz de `app/upeer/transport/` ni de `transport-bridge/`.
+
+### Android
+
+```text
+modules/upeer-transport/android/src/main/java/app/upeer/transport/
+  dht/
+    kademlia/
+      DhtConstants.kt
+      DhtDistance.kt
+      DhtTypes.kt
+      DhtRoutingTable.kt
+      DhtValueStore.kt
+      DhtProtocol.kt
+      DhtPendingQueries.kt
+      DhtMain.kt
+    DhtPacketCodec.kt
+    DhtBootstrap.kt
+    DhtLocation.kt
+    DhtUpdate.kt
+    DhtStatus.kt
+  (infraestructura existente: servicio, Keystore, outbox, ratchet)
+```
+
+Los tests replican el paquete bajo `src/test/java/app/upeer/transport/dht/...`; no se mezclan tests de DHT con los de transporte en la raíz.
+
+### Go
+
+```text
+transport-bridge/
+  bridge.go                 # única fachada exportada a gomobile
+  dht/
+    canonical.go
+    signed_packet.go
+    location_block.go
+    codec.go
+    *_test.go
+```
+
+La lógica nueva de DHT va en `transport-bridge/dht/`; la raíz conserva solo los tipos y métodos que gomobile necesita exportar. Los tests viven junto al paquete que prueban.
+
+## Detalle de fases bloqueantes
+
+### B0 — Contrato común y vectores
+
+**Bloquea:** todo lo demás.
+
+- [x] Vectores de identidad, handshake, framing, sealed boxes, X3DH, Double Ratchet, ACK y compresión.
+- [x] Añadir vectores generados por Desktop para: paquete canónico con objetos anidados, Unicode y enteros; `DHT_PING`/`PONG`/`FIND_NODE`/`FOUND_NODES`/`FIND_VALUE`/`FOUND_VALUE`/`STORE`/`STORE_ACK`; LocationBlock con varias direcciones y `deviceId`; LocationBlock legacy; `DHT_UPDATE`.
+- [x] Ejecutar los mismos vectores en JS, Go y Kotlin y comparar bytes canónicos, no solo el resultado booleano.
+- [x] Documentar campos excluidos de firma (`signature`, `contactCache`, `renewalToken`), límites de tamaño y errores esperados.
+
+**Salida:** un paquete firmado por Desktop verifica en Go y Kotlin, y uno firmado por móvil verifica con el validador real de Desktop sin normalizaciones propias.
+
+**No hacer:** empezar Kademlia antes de que el vector de `DHT_PING` pase en los tres runtimes.
+
+**Estado (22/10/2026): completada.** El fixture `dht_vectors.json` cubre canonicalización, firma, 12 tipos DHT, LocationBlock multi-dirección con `deviceId`/`deviceMeta`, bloque legacy y `DHT_UPDATE`. Go, JS y Kotlin reproducen los mismos bytes y firmas; el validador de Desktop acepta el corpus. La prueba de campo con dos instalaciones queda en B8.
+
+### B1 — Paquetes firmados canónicos en bridge y binding
+
+**Depende de:** B0.
+
+- [x] Prototipo Go `BuildSignedPacket`/`VerifyCanonicalJSON` con rechazo de campos reservados y JSON trailing.
+- [ ] Mover la lógica a `transport-bridge/dht/` y dejar en la raíz solo el adaptador gomobile.
+- [ ] Exportar `buildSignedPacket`, `verifyCanonicalJSON` y `verifySignedPacket` en el bridge; regenerar el binding Java.
+- [ ] Exponer en Kotlin un códec de paquete firmado que no permita inyectar `signature`, `senderUpeerId` ni `senderYggAddress`.
+- [ ] Probar en JVM: firma válida, firma alterada, clave distinta, `upeerId` que no deriva de la clave, campos reservados, JSON no objeto y datos trailing.
+
+**Salida:** Kotlin firma un `DHT_PING` y Desktop lo acepta; Desktop firma el mismo paquete y Kotlin lo acepta.
+
+### B2 — LocationBlock, secuencia y dispositivo
+
+**Depende de:** B1.
+
+- [x] Prototipo Go de construcción y verificación, TTL 30/60 días, normalización, deduplicación y orden de direcciones, `deviceId` máximo 128 y compatibilidad legacy.
+- [ ] Exportar construcción/verificación al binding y añadir el códec Kotlin equivalente.
+- [ ] Persistir `dhtSeq` monotónico por identidad; incrementarlo una sola vez por cambio real de dirección y conservarlo tras reinicio.
+- [ ] Derivar un `deviceId` estable por instalación desde la clave de dispositivo, nunca desde la UI.
+- [ ] Verificar el bloque derivando el `upeerId` de la clave pública; no confiar en el campo del bloque.
+- [ ] Probar bloque expirado, TTL fuera de rango, direcciones inválidas/duplicadas, secuencia menor, salto de secuencia abusivo, `deviceId` largo y bloque legacy.
+
+**Salida:** un cambio de dirección genera un bloque verificable por Desktop, con secuencia creciente y sin aceptar un bloque antiguo o de otra clave.
+
+### B3 — Códec DHT y política de admisión
+
+**Depende de:** B1.
+
+- [ ] Portar los tipos exactos de `kademlia/protocol.ts` y los mensajes legacy de `dhtExchange.ts`/`legacyHandlers.ts`.
+- [ ] Fijar límites de nodos por respuesta, tamaño de valor, longitud de claves, `queryId`, `nodeId`, direcciones y JSON total.
+- [ ] Aplicar rate limiting DHT por origen y tipo con los mismos umbrales que Desktop antes de asignar memoria o despachar.
+- [ ] Rechazar tipos desconocidos, respuestas sin query pendiente y paquetes con `senderUpeerId` incoherente.
+- [ ] Añadir pruebas de paquete vacío, gigante, anidado, truncado y con campos de más.
+
+**Salida:** un corpus inválido no provoca asignaciones desmedidas ni respuestas de amplificación; cada paquete válido se decodifica igual que en Desktop.
+
+### B4 — Núcleo Kademlia
+
+**Depende de:** B2, B3.
+
+- [ ] Portar IDs de 160 bits (SHA-256 truncado a 20 bytes), XOR, 160 buckets, K=20 y α=3.
+- [ ] Implementar routing table con evicción del contacto más antiguo, `lastSeen`, búsqueda de los K más cercanos y refresco de buckets.
+- [ ] Implementar value store con límite de 10 000 entradas, TTL de 30 días, deduplicación y valores multidispositivo ordenados por `dhtSeq`.
+- [ ] Implementar queries pendientes con timeout, limpieza y respuesta solo para la query correspondiente.
+- [ ] Portar los handlers `PING`, `PONG`, `FIND_NODE`, `FOUND_NODES`, `FIND_VALUE`, `FOUND_VALUE`, `STORE` y `STORE_ACK`.
+- [ ] Probar una red simulada de tres nodos: descubrimiento, almacenamiento, búsqueda, expiración y contacto que no responde.
+
+**Salida:** dos instancias Kotlin y una Go intercambian `FIND_NODE`/`STORE` con los mismos resultados que Desktop y sin bloquearse por un peer caído.
+
+### B5 — Bootstrap y descubrimiento
+
+**Depende de:** B4.
+
+- [ ] Cargar seeds desde contactos existentes, archivo local y DNS TXT `dht-seeds.upeer.chat`; validar `upeerId`, dirección y clave antes de añadirlos.
+- [ ] Implementar bootstrap con mínimo de 10 nodos y reintento cada 30 s, con deduplicación y backoff.
+- [ ] Añadir descubrimiento LAN `ff02::1` solo si Android lo permite en el servicio; documentar restricciones de multicast y batería.
+- [ ] Persistir únicamente contactos verificados y acotar su número.
+- [ ] Probar arranque sin seeds, seeds inválidas, seed Desktop real, reinicio y cambio de red.
+
+**Salida:** el móvil pasa de cero a una tabla con al menos 10 nodos verificados usando un seed Desktop, y se recupera tras reiniciar el servicio.
+
+### B6 — Location blocks en DHT, `DHT_UPDATE` y roaming
+
+**Depende de:** B2, B4, B5.
+
+- [ ] Publicar el LocationBlock propio en los K nodos más cercanos y recuperarlo con `FIND_VALUE`.
+- [ ] Portar `DHT_UPDATE` firmado a contactos íntimos y aplicar solo bloques con `dhtSeq` mayor y firma válida.
+- [ ] Implementar renovación de bloques sin superar 60 días ni permitir saltos de secuencia abusivos.
+- [ ] Portar `DHT_QUERY`/`DHT_RESPONSE`/`DHT_EXCHANGE`, vecinos y verificación por clave pública.
+- [ ] Redescubrir la dirección tras cambio de red en menos de 60 s.
+- [ ] Probar bloque antiguo, bloque de otra clave, bloque expirado, secuencia repetida, salto abusivo y roaming Desktop↔móvil.
+
+**Salida:** tras cambiar de red, Desktop encuentra la nueva dirección del móvil por DHT y el móvil encuentra la de Desktop, sin aceptar un bloque retrocedido.
+
+### B7 — Integración en `:yggdrasil` y persistencia
+
+**Depende de:** B6.
+
+- [ ] Ejecutar el trabajador DHT dentro del servicio, no en React; sobrevivir a `onTaskRemoved` y al cierre de la UI.
+- [ ] Persistir contactos verificados, `dhtSeq`, `deviceId` y bloques propios con límites y migración.
+- [ ] Programar refresco de buckets y republicación con presupuesto de batería/datos; suspender cuando el usuario desactive la conexión.
+- [ ] Exponer estado observable: `nodeId`, contactos, bootstrapped, último bootstrap, valores almacenados, paquetes enviados/recibidos y último error, sin secretos.
+- [ ] Probar UI cerrada, reinicio del servicio, cambio de red y parada manual.
+
+**Salida:** con la UI cerrada el DHT sigue operativo, se recupera tras reinicio y la UI muestra un estado que distingue “servicio activo” de “DHT saludable”.
+
+### B8 — Interoperabilidad y endurecimiento
+
+**Depende de:** B7.
+
+- [ ] Añadir DHT al harness Desktop↔móvil: bootstrap, `FIND_NODE`, `STORE`, `FIND_VALUE`, LocationBlock, `DHT_UPDATE` y roaming.
+- [ ] Ejecutar fuzzing de códec y pruebas de amplificación, replay, Sybil básico y contactos maliciosos.
+- [ ] Medir batería, datos y latencia de bootstrap en dispositivo real durante 24 h.
+- [ ] Verificar migración de estado y ausencia de secretos en logs.
+- [ ] Solo después habilitar sincronización firmada de perfil, punteros de vault y presencia.
+
+**Salida:** pruebas mixtas repetibles, límites medidos y ningún bloqueo de UI; a partir de aquí se abre la paridad de producto.
+
+## Hitos y prioridad vigente
+
+### Regla de arquitectura: sin UI no se pierde la recepción
+
+uPeer no usará push notifications. Por tanto, el servicio Android `:yggdrasil` debe ser el dueño del nodo, del listener TCP, del bucle de protocolo, de la identidad uPeer, de los ratchets, del outbox y de la persistencia. La UI solo lee estado y envía comandos por Binder; puede morir sin detener la recepción.
+
+Queda fuera de esta regla todo lo que dependa de React Native, Metro o `useEffect`. El servicio ya está en proceso separado y usa `stopWithTask=false`/`onTaskRemoved`; el protocolo y sus datos ya viven allí. Queda validar el ciclo de vida completo en fabricantes y no presentar el servicio activo como transporte sano.
+
+### P1 — Primer frame entrante Desktop→móvil
+
+El objetivo fue cerrar el primer tramo de las fases 0 y 2: que Desktop pudiera abrir una conexión TCP contra el móvil y enviar un frame válido con el contrato de Desktop. El envío firmado móvil→Desktop se completó después en P2.
+
+**Trabajo mínimo:**
+
+1. Exponer `ListenTCP` del netstack de Yggdrasil en el bridge Go y una operación de aceptación que devuelva un `connectionId` reutilizando `read`/`write`/`closeConnection`.
+2. Integrar el listener y el bucle de aceptación/lectura en `YggdrasilTransportService` (`:yggdrasil`), no en React; validar que sobrevive al cierre del proceso UI y a `onTaskRemoved`, sin presentar el servicio activo como transporte sano.
+3. Implementar framing de Desktop: prefijo big-endian de 4 bytes, JSON UTF-8, máximo 10 MiB, soporte de frames fragmentados y varios frames en un mismo chunk, rechazo de longitudes inválidas y cierre controlado.
+4. Validar la firma con la clave pública incluida en el handshake y comprobar que el `upeerId` deriva de ella; la UI no participa.
+5. Portar canonicalización y firma Ed25519 para `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`; validar antes de despachar.
+6. Crear un harness reproducible Desktop→móvil para frame partido, frames coalescidos, frame demasiado grande y cierre.
+
+**Estado (21/10/2026): completado en dispositivo.** Desktop abrió TCP `50005` vía el SOCKS5 de yggstack, envió un `HANDSHAKE_REQ` de 828 bytes y el servicio validó la firma. Se repitió tras eliminar la tarea/UI, con `:yggdrasil` vivo, y un frame manipulado fue rechazado. El harness está en `transport-bridge/harness/desktop-handshake.mjs`.
+
+**Criterio de salida:** el harness entrante pasa, el móvil no acepta un frame sin firma válida y el listener sigue aceptando con el proceso UI cerrado. El envío firmado móvil→Desktop se cerró en P2 y hoy la UI muestra la conversación; no se debe presentar la entrega como garantizada si el servicio muere.
+
+**No hacer todavía:** grupos, archivos, llamadas y sincronización de perfil. DHT ya es el siguiente bloqueo y se rige por B0–B8; no se adelanta Kademlia sin cerrar B0–B3.
+
+### P2 — Protocolo headless persistente (chat con contacto existente completado; DHT es el siguiente bloqueo)
+
+1. [x] Custodiar la identidad uPeer en Keystore y cargarla en el servicio; la UI solo la provisiona.
+2. [x] Portar Ed25519/Curve25519, sealed boxes, X3DH, Signed Pre-Keys y Double Ratchet con vectores.
+3. [x] Persistir peers, sesiones de ratchet, mensajes cifrados y outbox.
+4. [x] Cablear recepción `SEALED`/`CHAT`, X3DH/Double Ratchet, reinicio de sesión y ACK verificado; compresión saliente/entrante validada. `DR_RESET` valida la SPK, reinicia la sesión (también con la misma SPK) y reintenta el outbox; una SPK obsoleta se ignora y un `resetId` repetido no vuelve a reiniciar.
+5. [x] Envío firmado móvil→Desktop de chat, respuestas/ACK y outbox desde el servicio.
+6. [x] Exponer conversaciones, mensajes, estados de entrega y no leídos a la UI.
+7. [x] Endurecer recepción y entrega:
+   - [x] Notificaciones locales en `:yggdrasil` con canal propio, previsualización privada en bloqueo, deep link al chat y acción «Marcar como leído». Verificado con la UI en segundo plano; abrir el chat cancela la notificación.
+   - [x] Compresión compatible con Desktop (`❣UP❣` + gzip/base64, umbral UTF-16 de 512): vector Go, harness de entrada y prueba en dispositivo (1304 caracteres → 88 bytes en cable → 1304 al mostrar).
+   - [x] `DR_RESET` adverso en dispositivo: emisión, recepción, SPK obsoleta, sesión borrada y reintento del outbox.
+   - [x] ACK perdido y duplicado: harness con `UPEER_SKIP_ACK_FIRST`, reenvío del mismo `id` y ACK del duplicado sin descifrarlo dos veces.
+   - [x] Outbox concurrente por peer y presupuesto de 30 intentos: un peer inalcanzable no bloquea mensajes a otros peers y las entradas agotadas se marcan `failed` y salen del outbox. Verificado en dispositivo con una entrada obsoleta hacia `abab…`.
+   - [x] Pérdida de frames y cambios de red sin reiniciar el proceso: frame truncado con cierre controlado y frame válido posterior; Wi-Fi/datos desactivados y reactivados con peers reconectados y chat verificado, mismo PID de `:yggdrasil`.
+8. [ ] DHT Kademlia, bootstrap y roaming. Ejecutar B1–B8 en orden; B0 está cerrada y B1 es el bloqueo inmediato.
+9. [ ] Paridad social, vault, grupos, archivos y llamadas (fases 4–10, solo tras B8).
+
+**Estado (22/10/2026):** identidad uPeer cifrada en Keystore, provisionada por la UI y recuperada por `:yggdrasil` tras `force-stop` + reinicio. Las primitivas `SEALED`/X3DH/Double Ratchet pasan vectores de `sodium-native` y sesiones completas en Go. El servicio responde `HANDSHAKE_ACCEPT`, recibe `CHAT`, persiste peers/sesión/mensajes, envía ACK, entrega mensajes salientes con outbox persistente y publica notificaciones locales; el chat en ambos sentidos con un contacto ya conocido, la compresión, `DR_RESET`, el ACK perdido y los duplicados están verificados. Las SPK solo avanzan en handshakes repetidos; un `DR_RESET` con la misma SPK reinicia de forma idempotente mediante `resetId`, y una SPK obsoleta no reinicia el ratchet. El outbox entrega en paralelo por peer y falla entradas agotadas sin bloquear al resto. La pérdida de frames y el cambio de red sin reiniciar el proceso ya están validados en dispositivo.
+
+**Criterio de salida:** con la UI cerrada, un `CHAT` válido se descifra, persiste y notifica; al reabrir aparecen los pendientes y la identidad no se serializa en React.
+
+## Contrato de protocolo de chat Desktop
+
+Este apartado fija el contrato observado en `upper-desktop/src/main_process` que debe reproducir el móvil. El estado comprobado está en la tabla superior y en P2; aquí se documentan formatos, límites y diferencias pendientes. Tener las mismas primitivas no demuestra interoperabilidad: hay que pasar los harness de `transport-bridge/harness/` y comparar bytes canónicos.
+
+### Transporte y framing
+
+- Desktop escucha TCP en `::1:50005`; `yggstack -remote-tcp 50005` reenvía a ese listener el tráfico Yggdrasil entrante. Las conexiones salientes usan SOCKS5 local en `127.0.0.1:9050` y el mismo puerto `50005`.
+- Cada frame es un prefijo `uint32` big-endian con la longitud del payload seguido de un objeto JSON UTF-8. El máximo es 10 MiB (10 485 760 bytes). Se rechazan longitud cero, longitudes superiores al máximo y payload truncado; el receptor acepta frames fragmentados y varios frames coalescidos en un mismo chunk.
+- `CALL_MEDIA` usa otro formato binario sobre UDP y queda fuera de este contrato. El listener, el framing y el bucle de protocolo viven en `:yggdrasil`, no en React.
+
+### Handshake y confianza
+
+- `HANDSHAKE_REQ` y `HANDSHAKE_ACCEPT` van firmados con Ed25519 y contienen `publicKey`, `signedPreKey: { spkPub, spkSig, spkId }` y, opcionalmente, `alias`, `avatar`, `ephemeralPublicKey` y `addresses`. `HANDSHAKE_REQ` incluye además `powProof`, obligatorio en Desktop cuando el contacto es nuevo.
+- `senderUpeerId` es el BLAKE2b-256 de la clave pública Ed25519. El receptor comprueba que la firma es válida y que el `senderUpeerId` deriva de `publicKey`; no confía en un ID declarado.
+- La SPK es X25519, va firmada por la identidad Ed25519 y solo se acepta si su firma es válida. `DR_RESET` aplica además monotonicidad de `spkId`; el handshake de Desktop no impone esa comprobación, así que el móvil no debe reemplazar una SPK por otra anterior al recibir un handshake.
+- `powProof` es Argon2id (`OPSLIMIT_MIN`, `MEMLIMIT_MIN`) con contraseña `upeerId + t` (segundos), sal de 16 bytes, primeros 4 bits del hash a cero y formato JSON `{ s, t }`; la marca `t` tiene una vigencia de ±5 minutos. Desktop todavía acepta el formato legacy SHA-256, pero los clientes nuevos deben generar Argon2id. Un móvil que no lo envíe puede chatear con un contacto ya existente, pero Desktop rechazará su alta como contacto nuevo.
+
+### Paquete firmado
+
+- Un `CHAT` directo contiene `type: "CHAT"`, `id` UUID, `timestamp` en milisegundos, `content`, `nonce`, `ratchetHeader: { dh, pn, n }` y, solo al iniciar o reiniciar sesión, `x3dhInit: { ikPub, ekPub, spkId }`. `replyTo` es opcional.
+- El objeto que se firma es el paquete completo sin `signature`, `contactCache` ni `renewalToken`, más `senderUpeerId`, `senderYggAddress` e `isInternalSync`. `senderYggAddress` debe ser una IPv6 de `200::/7`; `isInternalSync` es `false` para un peer y `true` para sincronización entre dispositivos propios.
+- La serialización canónica ordena las claves de objeto recursivamente, conserva el orden de arrays y omite `undefined`. Los números deben ser enteros; el port Go rechaza decimales y no se deben introducir en paquetes nuevos.
+- La firma Ed25519 se adjunta en hexadecimal. En paquetes directos no viaja `publicKey`: el receptor usa la clave del contacto ya conocido. Por eso no existe un `CHAT` válido de primer contacto sin handshake previo.
+- Desktop y el móvil aceptan una firma legacy sin `senderYggAddress`, pero los paquetes nuevos siempre deben incluirla y firmarla.
+- Para `CHAT` directo, el paquete firmado se sella con `crypto_box_seal` usando la clave Ed25519 del destinatario convertida a Curve25519. El exterior es exactamente `{ type: "SEALED", ciphertext }`, con `ciphertext` hexadecimal; no lleva `nonce` ni `senderEphPub` en claro. El receptor abre `SEALED` antes de validar la firma interior.
+- `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT` y los paquetes DHT no se sellan. En la ruta actual de chat, tampoco se sellan `ACK` ni `DR_RESET`: viajan firmados y el receptor debe aceptarlos así.
+
+### Cifrado y compresión
+
+- La sesión inicial usa X3DH con la identidad Ed25519 convertida a Curve25519 y la Signed Pre-Key X25519 del destinatario. El primer `CHAT` incluye `x3dhInit`; los mensajes posteriores usan solo el estado del ratchet.
+- Los mensajes usan el Double Ratchet de Desktop, no un DH estático por mensaje ni AES-GCM. El encabezado `ratchetHeader` contiene `{ dh, pn, n }` y el contenido se cifra con `crypto_secretbox_easy` (XSalsa20-Poly1305) usando un nonce de 24 bytes.
+- El estado del ratchet se persiste por peer y se protege con un lock por peer; se aplican pasos de recepción, claves omitidas y rechazo de mensajes ya consumidos. Un fallo de descifrado no debe destruir una sesión válida.
+- Antes de cifrar, el contenido se comprime con el prefijo `❣UP❣` y gzip/base64 cuando tiene al menos 512 unidades UTF-16 y el resultado comprimido es más corto. En recepción se descifra y descomprime antes de persistir y mostrar.
+- Si no hay sesión compatible o el descifrado falla, se responde con `DR_RESET` y la SPK vigente; no se sustituye este flujo por un cifrado improvisado.
+
+### ACK, `DR_RESET` y recepción
+
+- Tras validar la firma, descifrar y persistir un `CHAT`, se responde con `{ type: "ACK", id, status: "delivered" }` firmado con la identidad propia. `READ` es un paquete distinto para recibos de lectura.
+- El `ACK` y el `DR_RESET` no se envían como respuesta en el mismo socket TCP entrante: se abre una conexión saliente al `senderYggAddress` autenticado y se escribe un frame nuevo. No se sellan en la ruta actual; el receptor debe validar su firma como cualquier paquete firmado.
+- `DR_RESET` contiene `type`, `resetId` UUID, `signedPreKey: { spkPub, spkSig, spkId }` y `ratchetContext: "direct"`. Se valida la firma de la SPK, el UUID y la secuencia: una SPK con `spkId` menor se ignora; un `spkId` igual con la misma SPK reinicia la sesión de forma idempotente; un `spkId` igual con otra SPK se rechaza; un `spkId` mayor actualiza la SPK. Un `DR_RESET` legacy sin `resetId` se acepta por compatibilidad, pero no se deduplica.
+- La caché de `resetId` es por peer, con TTL y límite de entradas. Un reset repetido no vuelve a reiniciar el ratchet ni el outbox.
+- El outbox móvil persiste el `CHAT` saliente, usa un timeout de ACK de 5 s, reintenta con backoff hasta 30 intentos y marca `failed` al agotarlos. Un peer inalcanzable no bloquea a los demás.
+
+### Límites y admisión
+
+| Tipo | Límite |
+|---|---|
+| `SEALED` | 5000/s por IP, antes de descifrar |
+| `HANDSHAKE_REQ` / `HANDSHAKE_ACCEPT` | 50/min por IP e identidad |
+| `CHAT` | 100/min por IP e identidad |
+| `ACK` | 200/min por IP e identidad |
+| `DR_RESET` | 20/min por IP e identidad |
+
+- Los límites de identidad se aplican después de validar la firma; `SEALED` se limita por IP antes de la operación criptográfica. Los paquetes limitados se cuentan en `inboundStatus`/`protocolStatus` y no ejecutan efectos de estado.
+- La política de replay exige `id` UUID en `CHAT` y `ACK`. El móvil trata un `id` ya persistido del mismo remitente como duplicado idempotente y lo ACKea sin volver a descifrar; Desktop puede descifrar para confirmar el duplicado, pero no debe volver a mostrarlo ni persistirlo dos veces. Una colisión de `id` entre conversaciones se rechaza; un `ACK` solo actualiza mensajes propios de ese remitente.
+- Desktop limita el contenido de chat a 1 000 000 de unidades UTF-16. El outbox móvil es más restrictivo (256 KiB de bytes UTF-8) y la fachada Go admite hasta 9 MiB de texto plano (bytes UTF-8); no se debe confundir el máximo de frame de 10 MiB con el máximo de mensaje.
+
+### Estado y pendientes de interoperabilidad
+
+- Verificado: chat directo en ambos sentidos con un contacto ya conocido, X3DH, ratchet posterior, compresión, ACK, `DR_RESET`, ACK perdido, duplicados, frame truncado, cambio de red y outbox concurrente.
+- Pendiente inmediato: enviar el `powProof` Argon2id en `HANDSHAKE_REQ` para que Desktop acepte un contacto nuevo creado desde móvil. Sin él, el alta se rechaza aunque la firma sea válida.
+- Pendiente de handshake: incluir `addresses`, `ephemeralPublicKey` y `avatar` cuando el contrato de producto los requiera; hoy el móvil solo envía lo mínimo para un contacto existente.
+- Faltan vectores completos de `CHAT` generados por Desktop con claves fijas y comparación de bytes, además de vectores de contenido comprimido y de `DR_RESET` en los tres runtimes.
+- Faltan DB relacional y pruebas de fallos transaccionales; la persistencia actual es cifrada, con límite de 500 mensajes y deduplicación básica.
+- Faltan pruebas prolongadas de ciclo de vida, batería, red adversa y offline; sin push, si `:yggdrasil` muere la entrega depende del vault y de la reconexión.
+- La UI no debe presentar la entrega como garantizada si el servicio muere ni ocultar los estados pendientes.
+
+## Contrato canónico de paquetes DHT
+
+Los vectores fijos están en `transport-bridge/testdata/dht_vectors.json`. Se generaron con el `canonicalStringify` real de Desktop y `sodium-native`, usando una semilla de prueba pública. Go, JS y Kotlin canonizan y firman los mismos bytes; el validador de Desktop acepta las 17 firmas y los 12 paquetes DHT del fixture. Las pruebas viven en `transport-bridge/dht_vectors_test.go`, `src/domain/canonical-json.test.ts` y `modules/upeer-transport/android/src/test/java/app/upeer/transport/dht/DhtCanonicalVectorTest.kt`.
+
+### Objeto firmado
+
+- Se parte del paquete DHT completo. Se excluyen solo los campos de primer nivel `signature`, `contactCache` y `renewalToken`; los objetos anidados no se limpian.
+- Se añaden `senderUpeerId`, `senderYggAddress` e `isInternalSync` (si falta, `false`). El emisor no puede inyectar esos campos.
+- La firma es Ed25519 sobre los bytes UTF-8 del JSON canónico. El paquete enviado conserva los campos excluidos y añade `signature`.
+- La verificación reconstruye el mismo objeto. Por compatibilidad, si falla con `senderYggAddress`, se prueba el payload legacy sin esa dirección. `senderUpeerId` debe derivar de la clave pública del contacto; no se confía en el campo recibido.
+- En `DHT_UPDATE`, el `locationBlock` completo forma parte de la firma exterior, incluidos `renewalToken` y `deviceMeta` anidados. La firma propia del bloque se verifica aparte.
+
+### JSON canónico
+
+- La raíz debe ser un objeto JSON; se rechazan arrays, escalares, JSON vacío y datos trailing.
+- Las claves de objeto se ordenan por unidades UTF-16, igual que `Array.prototype.sort()` de JavaScript. No basta ordenar por bytes UTF-8: `😀` va antes que `\uE000`.
+- Los arrays conservan su orden. Los strings se serializan en UTF-8 con los escapes de `JSON.stringify` (`\"`, `\\`, `\b`, `\f`, `\n`, `\r`, `\t`, `\u00xx` para controles).
+- Los números deben ser enteros representables en 64 bits (JS exige `Number.isSafeInteger`). Se rechazan floats, exponentes no enteros y valores fuera de rango.
+- `null`, booleanos y strings vacíos son válidos como valores. Un campo ausente y un campo `null` son distintos.
+- Los codecs del port rechazan JSON no canónico antes de firmar; no se normaliza silenciosamente un payload ajeno.
+
+### LocationBlock
+
+- Datos firmados del formato actual: `upeerId`, `addresses`, `dhtSeq`, `expiresAt`, `deviceId` opcional y `deviceMeta` opcional. `address` se deriva de `addresses[0]`.
+- `addresses` se recorta, valida como IPv4/IPv6, se deduplica y se ordena con la prioridad de Desktop (Yggdrasil primero). Un bloque sin direcciones válidas se rechaza.
+- `expiresAt` es obligatorio para verificar y debe ser futuro. La construcción usa 30 días por defecto y nunca supera 60 días.
+- `deviceMeta` puede incluir `clientName`, `clientVersion`, `platform`, `deviceClass` y `capabilities[]`. Forma parte de la firma del bloque.
+- `alias`, `renewalToken`, `powProof` y `address` no forman parte de la firma del bloque actual. `renewalToken` sí queda cubierto por la firma exterior cuando viaja dentro de `DHT_UPDATE` o `DHT_RESPONSE`.
+- Formato legacy: `{upeerId, address, dhtSeq, expiresAt}`. Solo se acepta si el bloque no tiene `deviceId` ni `deviceMeta`; si falla la firma actual se prueba esta variante.
+- El prototipo Go limita `deviceId` a 128 caracteres y `dhtSeq` a valores no negativos. La monotonía de `dhtSeq` y el `deviceId` estable son responsabilidad de B2.
+
+### Tipos y límites actuales
+
+| Tipo | Campos y límites vigentes en Desktop |
+|---|---|
+| `DHT_PING` | `type`; `queryId` opcional sin límite propio. Se acota por el frame máximo de 10 MiB. |
+| `DHT_PONG` | `nodeId` opcional para el validador, 1-128 hex; el handler espera el nodo. `queryId` opcional. |
+| `DHT_FIND_NODE` | `targetId` 1-128 hex; `queryId` opcional. |
+| `DHT_FOUND_NODES` | `nodes` obligatorio, máximo 20; cada `upeerId` 1-128 hex y `address` de hasta 100 caracteres. `publicKey` y `nodeId` aún no se validan. |
+| `DHT_FIND_VALUE` | `key` de 40 o 64 hex; `queryId` opcional. |
+| `DHT_FOUND_VALUE` | `key` opcional de 40/64 hex; exige `value` o `nodes`; `value` serializado máximo 10 000 caracteres. `publisher`, `timestamp` y `signature` aún no se validan. |
+| `DHT_STORE` | `key` de 40/64 hex; `value` serializado máximo 10 000 caracteres; `ttl` opcional entre 0 y 2 592 000 s. |
+| `DHT_STORE_ACK` | `key` de 40/64 hex; `queryId` opcional. |
+| `DHT_QUERY` | `targetId` 32-128 hex según `isValidHexId`; `referralContext` no se valida todavía. |
+| `DHT_RESPONSE` | `targetId` 32-128 hex; `locationBlock` opcional pero validado si existe; `neighbors` debe ser array si aparece. |
+| `DHT_UPDATE` | `locationBlock` obligatorio: `address` string, `dhtSeq` entero no negativo, `signature` de 128 hex y `powProof` de hasta 256 caracteres si existe. |
+| `DHT_EXCHANGE` | `peers` obligatorio, máximo 50; cada `upeerId` 32-128 hex y `publicKey` de 64 hex; `locationBlock` opcional validado. |
+
+- Todo paquete viaja en un frame de como máximo 10 MiB. Los límites de valor son caracteres del JSON serializado, no bytes.
+- Los límites de `queryId`, `publisher`, `timestamp`, `publicKey` y `nodeId` de nodos siguen abiertos para B3; no se deben relajar por conveniencia.
+
+### Errores esperados
+
+- JSON raíz no objeto, datos trailing, número no entero, firma distinta de 64 bytes, clave pública distinta de 32 bytes y `senderUpeerId` que no deriva de la clave.
+- `senderYggAddress` que no es IPv6 de Yggdrasil, `type` ausente, `signature`/`senderUpeerId`/`senderYggAddress` inyectados por el llamador, bloque expirado, `dhtSeq` negativo, dirección inválida o lista de direcciones vacía.
+- Un paquete firmado manipulado se rechaza antes de ejecutar handlers. Un `DHT_UPDATE` con firma exterior válida pero bloque interior inválido no debe aceptarse como actualización de ubicación.
+
+## Fases de producto (solo después de B8)
+
+B0–B8 son la secuencia obligatoria para red y descubrimiento. Las fases siguientes describen producto y no deben adelantarse para compensar una salida incompleta de B8. Las fases de identidad, transporte e integración Android ya tienen su estado en B0–B7.
+
+### 4. Contactos y chat directo mínimo E2EE
+
+Portar handshake (incluido `powProof` Argon2id para contactos nuevos), X3DH, signed pre-keys, conversión Ed25519/Curve25519, sealed boxes, Double Ratchet, persistencia transaccional, ACK, DR_RESET y outbox. Habilitar contactos y una conversación de texto vertical de extremo a extremo antes de sumar funciones de chat.
+
+**Estado actual:** parcial. Las primitivas están portadas, el ratchet se persiste, el servicio descifra `CHAT` con X3DH, envía ACK, entrega mensajes salientes con outbox, notifica mensajes entrantes y la UI muestra la conversación. `DR_RESET`, SPK obsoleta, misma SPK idempotente por `resetId`, ACK perdido, duplicados, peer inalcanzable, reconexión de red, rate limiting y replay idempotente están probados. Queda pendiente el alta de un contacto nuevo desde móvil: `HANDSHAKE_REQ` no incluye el `powProof` Argon2id que Desktop exige para contactos nuevos, ni `addresses`/`ephemeralPublicKey`; el chat cruzado actual usa un contacto ya conocido. También faltan cambio de identidad del contacto y offline prolongado.
+
+**Salida:** primer contacto y mensajes posteriores pasan en ambas direcciones con Desktop; se prueba reinicio, duplicado, ACK perdido, contacto offline y cambio de clave; ratchet/outbox no pierden estado.
+
+### 5. Paridad de chat y UX de producto
+
+Portar historial/paginación, respuestas, edición, borrado, reacciones, recibos, presencia, búsqueda y notificaciones. Completar navegación y estados visuales contra funcionalidades ya verificadas, no contra pantallas de Desktop sin backend.
+
+**Salida:** cada acción tiene persistencia, protocolo y pruebas cruzadas; estados offline/pendiente/entregado no se confunden.
+
+### 6. Vault y continuidad multidispositivo
+
+Portar almacenamiento offline, tokens, punteros DHT, recuperación de eventos/adjuntos, deduplicación y sincronización diferencial de dispositivos propios.
+
+**Salida:** escenarios prolongados offline y recuperación Desktop↔móvil sin pérdidas ni duplicados visibles, con límites de disco/red.
+
+### 7. Grupos y roles
+
+Portar invitaciones, membresía, permisos, rotación de claves/epoch, fanout acotado, mensajes e historial de grupo.
+
+**Salida:** pruebas mixtas Desktop/móvil, miembros offline y revocación confirman que un miembro expulsado no descifra mensajes futuros.
+
+### 8. Archivos y multimedia
+
+Portar selección/cámara, almacenamiento de blobs, chunks cifrados, hashes, reanudación, previews y notas de voz. Aplicar cuotas y limpieza desde el principio.
+
+**Salida:** transferencias mixtas verifican hash, límites, cancelación, reanudación y recuperación offline.
+
+### 9. Llamadas y capacidades posteriores
+
+Portar primero audio 1:1 solo después de tener señalización autenticada, contactos estables y transporte validado. Medir codecs, latencia, batería y ciclo de vida en hardware antes de vídeo, llamadas grupales o compartir pantalla.
+
+**Salida:** llamadas prolongadas y fallos/interrupciones probados en dispositivos reales; no basta con señalización o UI.
+
+### 10. Endurecimiento y publicación
+
+Completar backup/restauración, controles de privacidad, permisos, accesibilidad, auditoría de seguridad, supply chain, matrices de dispositivos, beta y requisitos de distribución. Decidir iOS a partir de una prueba técnica y revisión de entitlements; no asumir paridad automática con Android.
+
+**Salida:** criterios de seguridad, interoperabilidad, estabilidad, distribución y soporte documentados y aprobados.
+
+## Regla para solicitudes de funcionalidad
+
+Ubicar cada petición en la primera fase B incompleta de la que dependa. Una propiedad de identidad puede tener UI y persistencia local antes de B6, pero su sincronización con otros nodos no se considera terminada hasta B8. No empezar la fase dependiente si la salida anterior no está demostrada con pruebas.
+
+## Anexo — Inventario de requisitos por área
+
+Este anexo conserva el detalle histórico de las fases 0–15. Sirve para consultar requisitos y criterios de salida, no para decidir el orden: el orden vigente es B0–B8 y, después, las fases de producto 4–10.
+
+| Bloque vigente | Requisitos detallados en el anexo |
+|---|---|
+| B0 | Fases 0, 1 y 4: alcance, contratos, vectores, identidad |
+| B1 | Fases 1, 4 y 7: canonicalización, firmas, paquetes |
+| B2 | Fases 4 y 7: identidad, LocationBlock, secuencia |
+| B3 | Fase 7: códec, límites y admisión |
+| B4 | Fases 1 y 7: DHT Kademlia y protocolo |
+| B5 | Fases 2 y 7: bootstrap, descubrimiento y red |
+| B6 | Fase 7: location blocks, `DHT_UPDATE` y roaming |
+| B7 | Fases 3, 5, 6 y 7: app nativa, persistencia y servicio `:yggdrasil` |
+| B8 | Fases 2, 7 y 15: interoperabilidad, fuzzing y pruebas |
+| Producto 4 | Fases 4, 8 y 9: identidad, UI, contactos y chat |
+| Producto 5 | Fase 9: paridad de chat y notificaciones |
+| Producto 6 | Fases 5 y 10: persistencia, vault y multidispositivo |
+| Producto 7 | Fase 11: grupos y roles |
+| Producto 8 | Fase 12: archivos, multimedia y notas de voz |
+| Producto 9 | Fase 13: llamadas y compartir pantalla |
+| Producto 10 | Fases 14 y 15: seguridad, backup, beta y publicación |
+
+> **Aviso:** las casillas de este anexo reflejan el inventario original. No se reinterpretan como estado actual; el estado comprobado está en la tabla superior y en las fases B0–B8.
+
+### Fase 0 — Alcance, decisiones y viabilidad de distribución
+
+#### Objetivo
 
 Resolver prioridades del producto y restricciones de plataforma antes de construir la aplicación completa.
 
-### Tareas
+#### Tareas
 
 - [ ] Decidir si el primer objetivo es Android, Android+iOS o una prueba técnica de ambos.
 - [ ] Decidir si el cliente se distribuirá por Google Play, App Store, canales privados o varios.
@@ -95,20 +523,20 @@ Resolver prioridades del producto y restricciones de plataforma antes de constru
 - [ ] Especificar divulgación de actividad de red, datos, permisos, notificaciones y desconexión manual; no declarar VPN salvo que la arquitectura técnica finalmente la requiera.
 - [ ] Crear matriz de riesgos, dispositivos objetivo y criterios de éxito medibles.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [ ] Aprobado el alcance del MVP y la prioridad de plataformas.
 - [ ] Confirmados los requisitos de distribución, firmas y entitlements.
 - [ ] Aprobado el diseño de conexión transparente, visible y revocable.
 - [ ] No se promete ejecución móvil permanente ni inmunidad frente al sistema operativo.
 
-## Fase 1 — Inventario y separación del núcleo compartido
+### Fase 1 — Inventario y separación del núcleo compartido
 
-### Objetivo
+#### Objetivo
 
 Identificar qué código puede compartirse y especificar contratos entre JavaScript, React Native y las capas nativas.
 
-### Tareas
+#### Tareas
 
 - [ ] Clasificar módulos desktop como reutilizables, abstraíbles, portables con adaptación o nativos/no portables.
 - [ ] Inventariar dependencias de `node:net`, `node:dgram`, `child_process`, `fs`, `Buffer`, Electron IPC y APIs Chromium.
@@ -120,20 +548,20 @@ Identificar qué código puede compartirse y especificar contratos entre JavaScr
 - [ ] Documentar versionado de protocolo, detección de capacidades y estrategia de migración.
 - [ ] Definir límites de memoria y validación para paquetes externos.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [ ] Existe un mapa de módulos y dependencias revisado.
 - [ ] Los contratos de plataforma están versionados y probados con implementaciones mock.
 - [ ] Los vectores de interoperabilidad están guardados y tienen resultados conocidos del cliente desktop.
 - [ ] Se identifica cualquier módulo cuya licencia o dependencia impida su uso móvil.
 
-## Fase 2 — Prueba técnica del motor Yggdrasil y Go
+### Fase 2 — Prueba técnica del motor Yggdrasil y Go
 
-### Objetivo
+#### Objetivo
 
 Comprobar en hardware real si las integraciones móviles de Yggdrasil pueden soportar el transporte y el ciclo de vida requerido por uPeer.
 
-### Android
+#### Android
 
 - [ ] Revisar el proyecto oficial `yggdrasil-android`, la revisión de `yggdrasil-go`, licencia, API y proceso de construcción, separando el wrapper Go reutilizable de la app de referencia que integra Android `VpnService`.
 - [x] Inspeccionar la API upstream del wrapper móvil y del núcleo Go: `mobile.Yggdrasil.Send/Recv` intercambia paquetes IPv6 completos; `core.Core` expone `ReadFrom/WriteTo` como `net.PacketConn` dirigido a claves Yggdrasil, no sockets TCP/UDP de aplicación.
@@ -161,21 +589,21 @@ Comprobar en hardware real si las integraciones móviles de Yggdrasil pueden sop
 - [ ] Medir tamaño de artefactos, consumo, temperatura, memoria y batería.
 - [ ] Fijar hashes, procedencia y SBOM de los artefactos generados.
 
-### iOS, si está en alcance
+#### iOS, si está en alcance
 
 - [ ] Revisar el proyecto oficial `yggdrasil-ios`, API Swift, framework Go y extensión `NetworkExtension`.
 - [ ] Confirmar App Groups, entitlements, cuenta de organización y provisioning profiles requeridos.
 - [ ] Probar ciclo de vida de app y extensión, suspensión, expiración, reconexión y comunicación entre procesos.
 - [ ] Confirmar que el diseño es compatible con las capacidades de red y distribución previstas.
 
-### Decisión de empaquetado
+#### Decisión de empaquetado
 
 - [x] Preferir biblioteca/framework móvil compilado desde Go frente a empaquetar un ejecutable Go independiente. Implementado como AAR gomobile con `libgojni.so`.
 - [ ] Comparar upstream oficial, fork mínimo o bindings propios según API, sockets, mantenimiento y licencia.
 - [ ] Definir actualizaciones de upstream, parches, builds reproducibles y revisión de seguridad.
 - [ ] Verificar compatibilidad entre API del motor móvil, `yggstack` desktop y transporte actual de uPeer.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [x] Un dispositivo Android físico conecta a la red Yggdrasil y expone el estado de forma fiable. Validado en el dispositivo de desarrollo; falta la matriz de fabricantes y el ciclo de vida completo.
 - [x] Un nodo desktop puede intercambiar al menos un flujo de prueba a través de la integración elegida. Eco TCP/UDP contra `yggstack` Desktop; no es todavía un frame del protocolo uPeer.
@@ -183,13 +611,13 @@ Comprobar en hardware real si las integraciones móviles de Yggdrasil pueden sop
 - [ ] Si iOS es requisito, existe una prueba equivalente y confirmación de entitlements.
 - [x] Se toma una decisión documentada de reutilización o extensión del wrapper móvil. Se usa `yggdrasil-go` + netstack gVisor de `yggstack` mediante un bridge propio.
 
-## Fase 3 — Aplicación Expo, módulos nativos y CI
+### Fase 3 — Aplicación Expo, módulos nativos y CI
 
-### Objetivo
+#### Objetivo
 
 Crear la base de la app y un pipeline capaz de compilar y probar código nativo, sin depender de Expo Go.
 
-### Tareas
+#### Tareas
 
 - [x] Crear `apps/mobile` con Expo, React Native y TypeScript. Implementado en la raíz del proyecto `upper`.
 - [x] Configurar Expo development client, development builds y prebuild/CNG para Android.
@@ -202,20 +630,20 @@ Crear la base de la app y un pipeline capaz de compilar y probar código nativo,
 - [ ] Crear builds de debug, QA y release firmadas según cada plataforma.
 - [ ] Verificar que la app instalada funciona sin Metro.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [x] La build Expo instala y se comunica con el módulo nativo en dispositivo físico. APK debug con `libgojni.so` arm64 validado.
 - [ ] La build de CI es reproducible dentro de los límites definidos.
 - [ ] Los cambios generados por prebuild no requieren edición manual sin automatizar.
 - [ ] El estado de errores del módulo nativo se refleja correctamente en JavaScript.
 
-## Fase 4 — Identidad y custodia de claves
+### Fase 4 — Identidad y custodia de claves
 
-### Objetivo
+#### Objetivo
 
 Crear/importar identidades interoperables sin exponer material privado al renderer.
 
-### Tareas
+#### Tareas
 
 - [x] Portar generación e importación de frase BIP39 de 12 palabras, validación y confirmación de respaldo.
 - [x] Preservar derivación exacta de Ed25519/X25519 y upeer ID del desktop. Vector de derivación validado en `transport-bridge/bridge_test.go`.
@@ -228,20 +656,20 @@ Crear/importar identidades interoperables sin exponer material privado al render
 - [ ] Probar importación móvil→desktop y desktop→móvil con los vectores de la Fase 1.
 - [ ] Probar reinstalación, cambio de dispositivo, rotación de claves y recuperación.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [ ] Una identidad creada/importada en móvil conserva el mismo upeer ID que desktop. El vector de derivación ya coincide; falta la prueba UI móvil↔Desktop.
 - [ ] Firmas y operaciones criptográficas pasan los vectores cruzados.
 - [ ] Las claves privadas no aparecen en logs ni estado serializado de React. Hoy `UPeerIdentity.secretKey` se serializa y pasa por estado React; es un bloqueante de la custodia.
 - [ ] El bloqueo impide operaciones sensibles desde la app.
 
-## Fase 5 — Persistencia cifrada, migraciones y archivos locales
+### Fase 5 — Persistencia cifrada, migraciones y archivos locales
 
-### Objetivo
+#### Objetivo
 
 Portar almacenamiento y estado de sesión a una base de datos compatible y protegida en móvil.
 
-### Tareas
+#### Tareas
 
 - [ ] Evaluar SQLite/SQLCipher compatible con Expo prebuild para Android e iOS.
 - [ ] No asumir que compartir ORM equivale a compartir implementación de cifrado.
@@ -254,20 +682,20 @@ Portar almacenamiento y estado de sesión a una base de datos compatible y prote
 - [ ] Diseñar backup/exportación cifrada compatible o declarar explícitamente que no se soporta inicialmente.
 - [ ] Probar cierre durante escritura, disco lleno, DB dañada, restauración del OS y migraciones.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [ ] Datos sensibles permanecen cifrados en reposo según la arquitectura aprobada.
 - [ ] Migraciones son idempotentes y recuperables.
 - [ ] No se pierden estado de ratchet ni mensajes tras terminación abrupta.
 - [ ] Existen límites visibles para almacenamiento de blobs.
 
-## Fase 6 — Servicio Yggdrasil en segundo plano en Android
+### Fase 6 — Servicio Yggdrasil en segundo plano en Android
 
-### Objetivo
+#### Objetivo
 
 Mantener la participación voluntaria del nodo Yggdrasil y la comunicación uPeer en Android mediante mecanismos del sistema que correspondan al uso real. Esta fase no presupone una VPN ni el enrutamiento del tráfico general del teléfono.
 
-### Contrato de segundo plano sin push
+#### Contrato de segundo plano sin push
 
 Restricción de producto: uPeer **no usará push notifications**. La recepción depende de mantener vivo el servicio en primer plano y el nodo Yggdrasil. Si el sistema mata el servicio, no hay entrega instantánea; el emisor debe usar vault y el receptor recuperar al reconectar.
 
@@ -296,11 +724,11 @@ Restricción de producto: uPeer **no usará push notifications**. La recepción 
 | Acción "Desconectar" | Detiene servicio, nodo y recepción; borra la configuración de restauración. |
 | Sin permiso de notificaciones | No se inicia el servicio; la UI explica que la conexión visible es obligatoria. |
 
-**Estado actual:** ya existen el proceso separado `:yggdrasil`, `stopWithTask=false`, `onTaskRemoved`, `START_STICKY`, la configuración e identidad cifradas con Keystore, el listener TCP `50005`, el framing, la validación de handshakes, la respuesta `HANDSHAKE_ACCEPT` firmada con SPK nativa, la recepción `SEALED`/`CHAT`, el ACK, el outbox persistente, las notificaciones locales y la persistencia cifrada de sesiones/mensajes. Se probó con la tarea/UI eliminada, tras reiniciar el proceso, con dos mensajes consecutivos del mismo ratchet y tras cambio de red. El rate limiting por origen/identidad y la política de replay por UUID y propiedad del mensaje están implementados y cubiertos con pruebas unitarias. Falta DHT/bootstrap, cambio de identidad del contacto y estrés offline prolongado.
+**Estado actual:** ya existen el proceso separado `:yggdrasil`, `stopWithTask=false`, `onTaskRemoved`, `START_STICKY`, la configuración e identidad cifradas con Keystore, el listener TCP `50005`, el framing, la validación de handshakes, la respuesta `HANDSHAKE_ACCEPT` firmada con SPK nativa, la recepción `SEALED`/`CHAT`, el ACK, el outbox persistente, las notificaciones locales y la persistencia cifrada de sesiones/mensajes. Se probó con la tarea/UI eliminada, tras reiniciar el proceso, con dos mensajes consecutivos del mismo ratchet y tras cambio de red. El rate limiting por origen/identidad y la política de replay por UUID y propiedad del mensaje están implementados y cubiertos con pruebas unitarias. Faltan DHT/bootstrap, alta de contacto nuevo desde móvil (`powProof`), cambio de identidad del contacto y estrés offline prolongado.
 
 **Límites explícitos:** no se promete disponibilidad permanente, entrega instantánea si el servicio muere, funcionamiento tras force-stop ni recepción tras reinicio sin abrir la app. Tampoco se mantiene la UI de React viva para aparentar conexión.
 
-### Tareas
+#### Tareas
 
 - [x] Prototipar servicio Android visible en proceso separado para el bridge Yggdrasil, con Binder IPC, `stopWithTask=false`, `onTaskRemoved` y acción de desconexión en la notificación.
 - [x] Guardar la configuración Yggdrasil de restauración cifrada con Android Keystore; no persistir semillas/configuración en texto claro.
@@ -327,7 +755,7 @@ Restricción de producto: uPeer **no usará push notifications**. La recepción 
 - [ ] Probar dispositivos AOSP/Pixel y fabricantes con optimizaciones agresivas de batería.
 - [ ] Documentar qué comportamiento no se puede garantizar en segundo plano.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [x] Con la UI cerrada o swipeada, Desktop puede abrir TCP `50005` y el servicio valida un `HANDSHAKE_REQ` firmado; un frame manipulado se rechaza.
 - [x] El servicio persiste el frame validado y emite una notificación local.
@@ -340,13 +768,15 @@ Restricción de producto: uPeer **no usará push notifications**. La recepción 
 - [ ] Cambios de red producen reconexión medible o un error recuperable y visible.
 - [ ] No se promete que el sistema nunca finalizará el proceso ni se usa push como dependencia.
 
-## Fase 7 — Transporte P2P, DHT e interoperabilidad
+### Fase 7 — Transporte P2P, DHT e interoperabilidad
 
-### Objetivo
+#### Objetivo
 
 Conectar móviles con nodos actuales y conservar formatos de paquetes.
 
-### Tareas
+> La parte DHT de esta fase se ejecuta en el orden bloqueante B0–B8 definido en este mismo documento. No se marca ninguna tarea DHT como completada por tener prototipos aislados: cada una exige vector Desktop y prueba cruzada.
+
+#### Tareas
 
 - [x] Implementar adaptador saliente sobre sockets de overlay: `dialTCP`, `dialUDP`, lectura, escritura y cierre.
 - [x] Exponer listener TCP entrante en `50005` y aceptar conexiones de Desktop sobre el netstack, desde el servicio `:yggdrasil`.
@@ -360,23 +790,23 @@ Conectar móviles con nodos actuales y conservar formatos de paquetes.
 - [ ] Portar location blocks, `DHT_UPDATE` firmado, roaming y rediscovery.
 - [ ] Limitar frecuencia de heartbeats, presencia y DHT para batería/datos.
 - [x] Validar tipos de paquete, tamaño, firma, rate limiting y límites de memoria.
-- [x] Aplicar rate limiting por origen/identidad y política de replay con UUID por conversación, ACK idempotente y SPK monotónica.
+- [x] Aplicar rate limiting por origen/identidad y política de replay con UUID por conversación, ACK idempotente, `DR_RESET` con `resetId` idempotente y SPK monotónica.
 - [ ] Añadir diagnósticos de peers, RTT, bytes, errores y última reconexión sin datos secretos.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [ ] Chat de prueba Android↔desktop completa handshake y transporte.
 - [ ] Dos móviles pueden descubrirse y comunicarse por la misma red.
 - [ ] Cambios de interfaz no duplican ni corrompen mensajes.
 - [ ] Paquetes inválidos se rechazan sin consumo descontrolado de CPU/memoria.
 
-## Fase 8 — Diseño y navegación móvil
+### Fase 8 — Diseño y navegación móvil
 
-### Objetivo
+#### Objetivo
 
 Crear una experiencia táctil nativa en lugar de reducir la interfaz desktop.
 
-### Tareas
+#### Tareas
 
 - [x] Definir navegación principal: chats, contactos, llamadas y ajustes; el alcance de grupos está pendiente.
 - [x] Diseñar onboarding, importación/creación de identidad y estado de red.
@@ -387,19 +817,19 @@ Crear una experiencia táctil nativa en lugar de reducir la interfaz desktop.
 - [ ] Añadir navegación profunda desde notificaciones a chat/llamada.
 - [ ] Validar uso con una mano, accesibilidad y escalas de fuente.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [ ] Flujos principales funcionan sin depender del layout desktop.
 - [ ] Estados de red y seguridad se entienden sin términos internos innecesarios.
 - [ ] Accesibilidad básica verificada en ambas plataformas objetivo.
 
-## Fase 9 — Identidad social, mensajería y notificaciones
+### Fase 9 — Identidad social, mensajería y notificaciones
 
-### Objetivo
+#### Objetivo
 
 Entregar el núcleo de chat directo seguro con persistencia y reintentos.
 
-### Tareas
+#### Tareas
 
 - [ ] Añadir contactos por upeer ID/QR, solicitudes entrantes, reputación y bloqueo.
 - [ ] Portar chat E2EE y ratchet respetando los vectores de interoperabilidad.
@@ -412,20 +842,20 @@ Entregar el núcleo de chat directo seguro con persistencia y reintentos.
 - [ ] Sincronizar paquetes recibidos por servicio nativo con base de datos y UI al reanudarse.
 - [ ] Probar ACK perdido, mensajes repetidos, offline prolongado, cambios de clave y reintentos.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [ ] Mensajes directos E2EE pasan pruebas móviles↔desktop.
 - [ ] Reiniciar app no pierde mensajes pendientes ni estado ratchet.
 - [ ] Las notificaciones respetan preferencias de privacidad.
 - [ ] La presencia no requiere actividad innecesaria en segundo plano.
 
-## Fase 10 — Vault, offline y sincronización entre dispositivos
+### Fase 10 — Vault, offline y sincronización entre dispositivos
 
-### Objetivo
+#### Objetivo
 
 Portar recuperación offline y continuidad multidispositivo.
 
-### Tareas
+#### Tareas
 
 - [ ] Portar vault, renovación de tokens y punteros DHT.
 - [ ] Portar recuperación de mensajes y eventos de edición, borrado, reacciones y lectura.
@@ -436,19 +866,19 @@ Portar recuperación offline y continuidad multidispositivo.
 - [ ] Mostrar claramente pendiente, almacenado en vault, recuperado y entregado.
 - [ ] Probar largos periodos offline, cambio de IP, reinicio y recuperación de archivos grandes.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [ ] Mensajes y eventos se recuperan móvil↔desktop sin pérdida ni duplicados visibles.
 - [ ] La recuperación de adjuntos respeta hashes y cuotas.
 - [ ] Reiniciar el servicio no invalida el estado persistido.
 
-## Fase 11 — Grupos y roles
+### Fase 11 — Grupos y roles
 
-### Objetivo
+#### Objetivo
 
 Portar administración y mensajería grupal con seguridad de miembros.
 
-### Tareas
+#### Tareas
 
 - [ ] Crear grupos, invitar, aceptar, salir y gestionar membresía.
 - [ ] Portar mensajes grupales E2EE, roles admin/miembro y transferencia de administración.
@@ -458,19 +888,19 @@ Portar administración y mensajería grupal con seguridad de miembros.
 - [ ] Portar invitaciones y controles antiabuso/reputación.
 - [ ] Probar grupos mixtos de móvil y desktop, miembro offline y cambio de administrador.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [ ] Operaciones de grupo se mantienen consistentes en varios clientes.
 - [ ] Un miembro revocado no puede descifrar mensajes posteriores según el protocolo.
 - [ ] Fanout y recovery no producen tormentas de red.
 
-## Fase 12 — Transferencias, multimedia y notas de voz
+### Fase 12 — Transferencias, multimedia y notas de voz
 
-### Objetivo
+#### Objetivo
 
 Portar adjuntos cifrados usando APIs móviles de selección, almacenamiento y reproducción.
 
-### Tareas
+#### Tareas
 
 - [ ] Integrar Document Picker, selección de fotos y captura con permisos mínimos.
 - [ ] Portar transferencia chunked, ACK, progreso, cancelación, retries y SHA-256.
@@ -483,19 +913,19 @@ Portar adjuntos cifrados usando APIs móviles de selección, almacenamiento y re
 - [ ] Definir límites por plataforma y cuotas por conversación.
 - [ ] Validar MIME por contenido y no solo extensión.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [ ] Archivos y voces interoperan con desktop y verifican hash/firma.
 - [ ] Interrupción no deja temporales sensibles huérfanos.
 - [ ] Los permisos se piden en contexto y se tolera selección limitada.
 
-## Fase 13 — Llamadas de voz/vídeo y compartir pantalla
+### Fase 13 — Llamadas de voz/vídeo y compartir pantalla
 
-### Objetivo
+#### Objetivo
 
 Portar gradualmente llamadas, sustituyendo dependencias específicas de Chromium.
 
-### Tareas
+#### Tareas
 
 - [ ] Auditar y clasificar estado real de señalización, transporte, codecs, jitter y cifrado en desktop.
 - [ ] Definir captura/codificación nativa para Android e iOS y sus permisos/servicios.
@@ -508,20 +938,20 @@ Portar gradualmente llamadas, sustituyendo dependencias específicas de Chromium
 - [ ] Implementar compartir pantalla solo donde consentimiento y APIs estén soportados.
 - [ ] Integrar mecanismos nativos de llamada si son compatibles con las reglas de distribución.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [ ] Audio 1:1 probado durante llamadas prolongadas en dispositivos reales.
 - [ ] Interrupciones de sistema y cambios de red tienen resultado predecible.
 - [ ] Vídeo/grupos no se consideran completos por la sola presencia de UI.
 - [ ] Riesgos de confidencialidad del relay están resueltos o claramente excluidos.
 
-## Fase 14 — Ajustes, seguridad, privacidad y backup
+### Fase 14 — Ajustes, seguridad, privacidad y backup
 
-### Objetivo
+#### Objetivo
 
 Completar capacidades auxiliares y endurecer el manejo de datos móviles.
 
-### Tareas
+#### Tareas
 
 - [ ] Portar perfil, avatar, apariencia, notificaciones, privacidad y almacenamiento.
 - [ ] Portar huellas de seguridad, alertas TOFU, bloqueados y gestión de contactos.
@@ -534,19 +964,19 @@ Completar capacidades auxiliares y endurecer el manejo de datos móviles.
 - [ ] Revisar licencias, SBOM, procedencia de binarios y vulnerabilidades de dependencias.
 - [ ] Realizar revisión de seguridad independiente antes de promesas fuertes de privacidad.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [ ] Preferencias sensibles se aplican en UI, almacenamiento y notificaciones.
 - [ ] Se conoce qué datos sobreviven backup, exportación y desinstalación.
 - [ ] La cadena de suministro de Go y módulos nativos está documentada.
 
-## Fase 15 — Pruebas, beta, publicación y mantenimiento
+### Fase 15 — Pruebas, beta, publicación y mantenimiento
 
-### Objetivo
+#### Objetivo
 
 Validar el comportamiento real en redes y dispositivos antes de un lanzamiento general.
 
-### Tareas
+#### Tareas
 
 - [ ] Crear pruebas unitarias de protocolo, crypto, ratchet, DHT, DB y límites.
 - [ ] Crear pruebas de contrato usando los vectores desktop/móvil.
@@ -563,37 +993,12 @@ Validar el comportamiento real en redes y dispositivos antes de un lanzamiento g
 - [ ] Revisar textos de tienda, permisos, política de privacidad y divulgación de la conexión P2P en segundo plano.
 - [ ] Lanzar gradualmente con feature flags y plan de rollback.
 
-### Criterios de salida
+#### Criterios de salida
 
 - [ ] No hay defectos críticos de seguridad/interoperabilidad abiertos.
 - [ ] Las pruebas de hardware cumplen umbrales acordados para reconexión, batería y estabilidad.
 - [ ] Los permisos y el uso del servicio de red en segundo plano están divulgados y aprobados para el canal de distribución.
 - [ ] Existe soporte, monitoreo y procedimiento de actualización de motor Go.
-
-## Secuencia recomendada de entregas
-
-### MVP 1 — Android y chat seguro
-
-- Android físico con motor Yggdrasil y transporte uPeer interoperable; sin tunelizar tráfico general.
-- [ ] Crear/importar identidad interoperable.
-- [ ] Contactos y chat directo E2EE.
-- [ ] Persistencia, outbox básica y notificaciones locales.
-- [ ] Interoperabilidad móvil↔desktop validada.
-
-### MVP 2 — Paridad social y multimedia
-
-- [ ] Grupos, roles, edición, reacciones y lectura.
-- [ ] Vault y recuperación/sincronización.
-- [ ] Archivos cifrados y notas de voz.
-- [ ] Ajustes de privacidad, diagnóstico y almacenamiento.
-
-### MVP 3 — Llamadas e iOS
-
-- [ ] Audio 1:1 robusto; después vídeo y grupos.
-- [ ] iOS con Network Extension sujeto a viabilidad de entitlements y distribución.
-- [ ] Refinamiento de diagnóstico, backup y experiencia de segundo plano.
-
-No condicionar el MVP inicial a llamadas grupales ni a iOS antes de cerrar la prueba de viabilidad móvil. El riesgo principal es integrar el motor Go con sockets de overlay TCP/UDP y el ciclo de vida Android; si el binding solo entrega paquetes IPv6, habrá que medir y escoger una adaptación de red acotada antes de implementar pantallas completas.
 
 ## Riesgos y mitigaciones
 
@@ -632,13 +1037,15 @@ Las referencias deben volver a comprobarse al iniciar cada fase porque APIs, pol
 - Yggdrasil Android: [yggdrasil-network/yggdrasil-android](https://github.com/yggdrasil-network/yggdrasil-android).
 - Yggdrasil iOS: [yggdrasil-network/yggdrasil-ios](https://github.com/yggdrasil-network/yggdrasil-ios).
 - Apple: [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/).
+- Contrato de chat y harness locales: [`transport-bridge/harness/README.md`](transport-bridge/harness/README.md).
 
 ## Cómo iniciar cada fase
 
 Al empezar una fase:
 
 1. Confirmar su estado con código y pruebas actuales.
-2. Revisar dependencias y criterios de salida de fases previas.
-3. Crear tareas pequeñas con archivos, interfaces y pruebas esperadas.
-4. Mantener este roadmap como fuente de alcance; registrar cambios de decisión aquí.
+2. Si es una fase B, comprobar que la anterior tiene su criterio de salida demostrado; si es de producto, confirmar que B8 está cerrada.
+3. Revisar dependencias y criterios de salida de fases previas.
+4. Crear tareas pequeñas con archivos, interfaces y pruebas esperadas.
+5. Mantener este roadmap como fuente de alcance; registrar cambios de decisión aquí.
 5. Al terminar, marcar solo tareas verificadas, añadir evidencia de pruebas y anotar limitaciones o riesgos nuevos.

@@ -94,13 +94,13 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
             <YStack gap={8} paddingHorizontal={4}>
           
               <H1 color="color" fontSize={24} fontWeight="700" letterSpacing={-1.5}>uPeer</H1>
-              <Paragraph color="placeholder-color" fontSize={16} lineHeight={2}>Tu identidad. Tus contactos. Tu privacidad.</Paragraph>
+              <Paragraph color="placeholder-color" fontSize={16} lineHeight={24}>Tu identidad. Tus contactos. Tu privacidad.</Paragraph>
             </YStack>
             <Card borderWidth={1} backgroundColor="color-1" borderColor="border-color" borderRadius={20} padding={24}>
               <YStack gap={20}>
                 <YStack gap={8}>
                   <SizableText color="color" fontSize={21} fontWeight="700">{mode === 'create' ? 'Crea tu identidad' : mode === 'recover' ? 'Recupera tu identidad' : mode === 'unlock' ? 'Desbloquea tu identidad' : 'Empieza a conversar en privado'}</SizableText>
-                  {!mode && <Paragraph color="placeholder-color" lineHeight={2}>{identityExists ? 'Tu identidad está protegida. Introduce tu frase para desbloquearla o recuperar otra cuenta.' : 'Crea una identidad segura o recupérala con tu frase de 12 palabras.'}</Paragraph>}
+                  {!mode && <Paragraph color="placeholder-color" lineHeight={24}>{identityExists ? 'Tu identidad está protegida. Introduce tu frase para desbloquearla o recuperar otra cuenta.' : 'Crea una identidad segura o recupérala con tu frase de 12 palabras.'}</Paragraph>}
                 </YStack>
                 {generatedPhrase.length > 0 && (
                   <YStack backgroundColor="color-2" borderColor="border-color" borderRadius={14} borderWidth={1} gap={8} padding={16}>
@@ -131,12 +131,12 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
                 </>}
                 {!!error && <Paragraph accessibilityRole="alert" backgroundColor="#3b1118" borderColor="#fb7185" borderRadius={10} borderWidth={1} color="#ffe4e6" padding={12}>{error}</Paragraph>}
                 {!mode && <YStack gap={12}>
-                  <NativeRippleButton backgroundColor="accent-background" color="accent-foreground" fontWeight="700" height={50} onPress={handleCreate}>Crear identidad nueva</NativeRippleButton>
+                  <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} onPress={handleCreate}>Crear identidad nueva</NativeRippleButton>
                   <NativeRippleButton backgroundColor="color-2" borderColor="border-color" borderWidth={1} color="color" height={50} onPress={() => handleMode(identityExists ? 'unlock' : 'recover')}>{identityExists ? 'Desbloquear con mi frase' : 'Recuperar identidad'}</NativeRippleButton>
                 </YStack>}
                 {mode && <YStack gap={12}>
-                  {(mode === 'recover' || mode === 'unlock') && <NativeRippleButton backgroundColor="accent-background" color="accent-foreground" fontWeight="700" height={50} onPress={() => void runWithMnemonic(mnemonic, '')}>{mode === 'recover' ? 'Recuperar identidad' : 'Desbloquear identidad'}</NativeRippleButton>}
-                  {mode === 'create' && matchedPhrase && <NativeRippleButton backgroundColor="accent-background" color="accent-foreground" fontWeight="700" height={50} onPress={() => void runWithMnemonic(generatedPhrase, alias, avatar)}>Confirmar frase y continuar</NativeRippleButton>}
+                  {(mode === 'recover' || mode === 'unlock') && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} onPress={() => void runWithMnemonic(mnemonic, '')}>{mode === 'recover' ? 'Recuperar identidad' : 'Desbloquear identidad'}</NativeRippleButton>}
+                  {mode === 'create' && matchedPhrase && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} onPress={() => void runWithMnemonic(generatedPhrase, alias, avatar)}>Confirmar frase y continuar</NativeRippleButton>}
                   <XStack justifyContent="center"><SizableText color="placeholder-color" onPress={() => { setMode(null); setGeneratedPhrase(''); setMnemonic(''); setAvatar(''); setError(''); }} padding={12} role="button">Volver</SizableText></XStack>
                 </YStack>}
               </YStack>

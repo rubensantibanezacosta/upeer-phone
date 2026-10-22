@@ -1,0 +1,532 @@
+{
+  "generatedBy": "upper-desktop",
+  "generatedAt": "2026-10-22",
+  "identity": {
+    "secretKeySeed": "0707070707070707070707070707070707070707070707070707070707070707",
+    "publicKey": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+    "upeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+    "address": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2"
+  },
+  "canonicalVectors": [
+    {
+      "name": "nested-unicode-integers-escapes",
+      "payload": {
+        "zeta": "áéíóú 你好 🚀",
+        "alpha": {
+          "beta": [
+            3,
+            1,
+            2
+          ],
+          "gamma": {
+            "safeMax": 9007199254740991,
+            "negative": -42,
+            "zero": 0,
+            "enabled": true,
+            "empty": null
+          },
+          "escaped": "quote\" backslash\\ newline\n tab\t control\u0001"
+        },
+        "array": [
+          {
+            "second": 2,
+            "first": 1
+          },
+          "texto"
+        ]
+      },
+      "canonical": "{\"alpha\":{\"beta\":[3,1,2],\"escaped\":\"quote\\\" backslash\\\\ newline\\n tab\\t control\\u0001\",\"gamma\":{\"empty\":null,\"enabled\":true,\"negative\":-42,\"safeMax\":9007199254740991,\"zero\":0}},\"array\":[{\"first\":1,\"second\":2},\"texto\"],\"zeta\":\"áéíóú 你好 🚀\"}",
+      "signature": "0ccc6caaaba3608348c384174cb9db8449110f0fea4f9cfa36e3e7614fb81a4f842827b675dc73e4613144b2a6f9955e77bbbd27921dabe5f42255ae19f8a706"
+    },
+    {
+      "name": "utf16-key-order",
+      "payload": {
+        "😀": 1,
+        "": 2,
+        "a": 3,
+        "á": 4,
+        "z": 5
+      },
+      "canonical": "{\"a\":3,\"z\":5,\"á\":4,\"😀\":1,\"\":2}",
+      "signature": "6c8a1a82434fe7db9b4aa54622f9d71b9fddda1a88673a0e3bb0d04ce38f62739f3252c08feff7af2cd08cf3198f8f9240d73d53b76a8757e9753febf16bb509"
+    }
+  ],
+  "signedPackets": [
+    {
+      "name": "DHT_PING",
+      "packet": {
+        "type": "DHT_PING",
+        "queryId": "0123456789abcdef0123456789abcdef",
+        "contactCache": {
+          "timestamp": 1800000000000,
+          "contacts": []
+        },
+        "renewalToken": {
+          "targetId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+          "allowedUntil": 1801000000000,
+          "maxRenewals": 3,
+          "renewalsUsed": 0,
+          "signature": "fd8c2de9b45bba5cb294258c4532194ca83364d0845d80544c63fdd2a64a7cae0305acbff3ed56a4e418c0292b5ba3196c80e5dd670bc694bcdf887e61241407"
+        },
+        "senderUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+        "senderYggAddress": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+        "isInternalSync": false,
+        "signature": "95be1b14ee9e3b714ff2a6b7d86c7982072a4fe3b93f93fc1a564a85683d5c27a50f7909d5cd9e2f4e1699e9517e0fe084fba0fe186de038c1c39dc714316306"
+      },
+      "canonical": "{\"isInternalSync\":false,\"queryId\":\"0123456789abcdef0123456789abcdef\",\"senderUpeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\",\"senderYggAddress\":\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"type\":\"DHT_PING\"}",
+      "signature": "95be1b14ee9e3b714ff2a6b7d86c7982072a4fe3b93f93fc1a564a85683d5c27a50f7909d5cd9e2f4e1699e9517e0fe084fba0fe186de038c1c39dc714316306"
+    },
+    {
+      "name": "DHT_PONG",
+      "packet": {
+        "type": "DHT_PONG",
+        "nodeId": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+        "queryId": "0123456789abcdef0123456789abcdef",
+        "senderUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+        "senderYggAddress": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+        "isInternalSync": false,
+        "signature": "346eec62076ad24c6e68091a12eb7f6d0156fcfb85e1ac193db3e40fdfc41c1f8c3b4bc9a0ac60df319b8786558462a65d6a2f6e83e7d9221397054014568a0d"
+      },
+      "canonical": "{\"isInternalSync\":false,\"nodeId\":\"5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a\",\"queryId\":\"0123456789abcdef0123456789abcdef\",\"senderUpeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\",\"senderYggAddress\":\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"type\":\"DHT_PONG\"}",
+      "signature": "346eec62076ad24c6e68091a12eb7f6d0156fcfb85e1ac193db3e40fdfc41c1f8c3b4bc9a0ac60df319b8786558462a65d6a2f6e83e7d9221397054014568a0d"
+    },
+    {
+      "name": "DHT_FIND_NODE",
+      "packet": {
+        "type": "DHT_FIND_NODE",
+        "targetId": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+        "queryId": "0123456789abcdef0123456789abcdef",
+        "senderUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+        "senderYggAddress": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+        "isInternalSync": false,
+        "signature": "9568b7b4192e8129a0f41bf2bbd031f7aa2e796b329560d1d0179b0e480dbd1416e43616f533f6ea0282b4296a16e098449c25a43f8341d492ccdd1d06d61301"
+      },
+      "canonical": "{\"isInternalSync\":false,\"queryId\":\"0123456789abcdef0123456789abcdef\",\"senderUpeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\",\"senderYggAddress\":\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"targetId\":\"6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b\",\"type\":\"DHT_FIND_NODE\"}",
+      "signature": "9568b7b4192e8129a0f41bf2bbd031f7aa2e796b329560d1d0179b0e480dbd1416e43616f533f6ea0282b4296a16e098449c25a43f8341d492ccdd1d06d61301"
+    },
+    {
+      "name": "DHT_FOUND_NODES",
+      "packet": {
+        "type": "DHT_FOUND_NODES",
+        "nodes": [
+          {
+            "upeerId": "4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e",
+            "address": "200:1111:2222:3333:4444:5555:6666:7777",
+            "publicKey": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+            "nodeId": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
+          },
+          {
+            "upeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+            "address": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+            "publicKey": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+            "nodeId": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b"
+          }
+        ],
+        "queryId": "0123456789abcdef0123456789abcdef",
+        "senderUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+        "senderYggAddress": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+        "isInternalSync": false,
+        "signature": "c657f015b940c0ef87c4225af5bf5b82eebe7fc2c711e32493ee1a957c6bb69f3cf89cdaf8def65e870b5ee86ad0dfc2be13bd5def6b9cd160a35c28c59ac80f"
+      },
+      "canonical": "{\"isInternalSync\":false,\"nodes\":[{\"address\":\"200:1111:2222:3333:4444:5555:6666:7777\",\"nodeId\":\"5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a\",\"publicKey\":\"3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d\",\"upeerId\":\"4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e\"},{\"address\":\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"nodeId\":\"6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b\",\"publicKey\":\"ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c\",\"upeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\"}],\"queryId\":\"0123456789abcdef0123456789abcdef\",\"senderUpeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\",\"senderYggAddress\":\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"type\":\"DHT_FOUND_NODES\"}",
+      "signature": "c657f015b940c0ef87c4225af5bf5b82eebe7fc2c711e32493ee1a957c6bb69f3cf89cdaf8def65e870b5ee86ad0dfc2be13bd5def6b9cd160a35c28c59ac80f"
+    },
+    {
+      "name": "DHT_FIND_VALUE",
+      "packet": {
+        "type": "DHT_FIND_VALUE",
+        "key": "7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c",
+        "queryId": "0123456789abcdef0123456789abcdef",
+        "senderUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+        "senderYggAddress": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+        "isInternalSync": false,
+        "signature": "4423e41cfff5c7198bdaa9aabc279a8365a704c9c6099305dee3720a57551582000325796005dd1d93d5983f33c1623f3fd365c1612b81e4896a023a119cd601"
+      },
+      "canonical": "{\"isInternalSync\":false,\"key\":\"7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c\",\"queryId\":\"0123456789abcdef0123456789abcdef\",\"senderUpeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\",\"senderYggAddress\":\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"type\":\"DHT_FIND_VALUE\"}",
+      "signature": "4423e41cfff5c7198bdaa9aabc279a8365a704c9c6099305dee3720a57551582000325796005dd1d93d5983f33c1623f3fd365c1612b81e4896a023a119cd601"
+    },
+    {
+      "name": "DHT_FOUND_VALUE",
+      "packet": {
+        "type": "DHT_FOUND_VALUE",
+        "key": "7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c",
+        "value": {
+          "upeerId": "4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e",
+          "locationBlock": {
+            "address": "200:1111:2222:3333:4444:5555:6666:7777",
+            "addresses": [
+              "200:1111:2222:3333:4444:5555:6666:7777",
+              "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+              "200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001"
+            ],
+            "alias": "Rubén uPeer 你好 🚀",
+            "dhtSeq": 42,
+            "expiresAt": 1800000000000,
+            "signature": "385bdade5d9da07eaa7bd535a0bccc7480240f8f84ad33a3904b6df4c643598da7b7f0a4b69dc4301f2d3e9708f0a7f6bc04a47ab8d8f57c97752d9fa6995f0b",
+            "renewalToken": {
+              "targetId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+              "allowedUntil": 1801000000000,
+              "maxRenewals": 3,
+              "renewalsUsed": 0,
+              "signature": "fd8c2de9b45bba5cb294258c4532194ca83364d0845d80544c63fdd2a64a7cae0305acbff3ed56a4e418c0292b5ba3196c80e5dd670bc694bcdf887e61241407"
+            },
+            "deviceId": "9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb",
+            "deviceMeta": {
+              "clientName": "Revelnest Desktop",
+              "clientVersion": "1.2.0",
+              "platform": "linux",
+              "deviceClass": "desktop",
+              "capabilities": [
+                "dht",
+                "multi-device"
+              ]
+            }
+          },
+          "note": "valor anidado con á é í ó ú 你好 🚀",
+          "counters": {
+            "attempts": 3,
+            "expiresAt": 1800000000000
+          }
+        },
+        "publisher": "4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e",
+        "timestamp": 1800000000000,
+        "signature": "b3aca55ad253a48d2bb60ce4794b17c12e9eb75247077ea087a0de1c8933af88c4c53a6802d4a4f442c1864dd965c0006072bb63f4ebdf03538e88a97b9d0b09",
+        "queryId": "0123456789abcdef0123456789abcdef",
+        "senderUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+        "senderYggAddress": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+        "isInternalSync": false
+      },
+      "canonical": "{\"isInternalSync\":false,\"key\":\"7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c\",\"publisher\":\"4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e\",\"queryId\":\"0123456789abcdef0123456789abcdef\",\"senderUpeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\",\"senderYggAddress\":\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"timestamp\":1800000000000,\"type\":\"DHT_FOUND_VALUE\",\"value\":{\"counters\":{\"attempts\":3,\"expiresAt\":1800000000000},\"locationBlock\":{\"address\":\"200:1111:2222:3333:4444:5555:6666:7777\",\"addresses\":[\"200:1111:2222:3333:4444:5555:6666:7777\",\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001\"],\"alias\":\"Rubén uPeer 你好 🚀\",\"deviceId\":\"9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb\",\"deviceMeta\":{\"capabilities\":[\"dht\",\"multi-device\"],\"clientName\":\"Revelnest Desktop\",\"clientVersion\":\"1.2.0\",\"deviceClass\":\"desktop\",\"platform\":\"linux\"},\"dhtSeq\":42,\"expiresAt\":1800000000000,\"renewalToken\":{\"allowedUntil\":1801000000000,\"maxRenewals\":3,\"renewalsUsed\":0,\"signature\":\"fd8c2de9b45bba5cb294258c4532194ca83364d0845d80544c63fdd2a64a7cae0305acbff3ed56a4e418c0292b5ba3196c80e5dd670bc694bcdf887e61241407\",\"targetId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\"},\"signature\":\"385bdade5d9da07eaa7bd535a0bccc7480240f8f84ad33a3904b6df4c643598da7b7f0a4b69dc4301f2d3e9708f0a7f6bc04a47ab8d8f57c97752d9fa6995f0b\"},\"note\":\"valor anidado con á é í ó ú 你好 🚀\",\"upeerId\":\"4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e\"}}",
+      "signature": "b3aca55ad253a48d2bb60ce4794b17c12e9eb75247077ea087a0de1c8933af88c4c53a6802d4a4f442c1864dd965c0006072bb63f4ebdf03538e88a97b9d0b09"
+    },
+    {
+      "name": "DHT_STORE",
+      "packet": {
+        "type": "DHT_STORE",
+        "key": "7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c",
+        "value": {
+          "upeerId": "4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e",
+          "locationBlock": {
+            "address": "200:1111:2222:3333:4444:5555:6666:7777",
+            "addresses": [
+              "200:1111:2222:3333:4444:5555:6666:7777",
+              "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+              "200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001"
+            ],
+            "alias": "Rubén uPeer 你好 🚀",
+            "dhtSeq": 42,
+            "expiresAt": 1800000000000,
+            "signature": "385bdade5d9da07eaa7bd535a0bccc7480240f8f84ad33a3904b6df4c643598da7b7f0a4b69dc4301f2d3e9708f0a7f6bc04a47ab8d8f57c97752d9fa6995f0b",
+            "renewalToken": {
+              "targetId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+              "allowedUntil": 1801000000000,
+              "maxRenewals": 3,
+              "renewalsUsed": 0,
+              "signature": "fd8c2de9b45bba5cb294258c4532194ca83364d0845d80544c63fdd2a64a7cae0305acbff3ed56a4e418c0292b5ba3196c80e5dd670bc694bcdf887e61241407"
+            },
+            "deviceId": "9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb",
+            "deviceMeta": {
+              "clientName": "Revelnest Desktop",
+              "clientVersion": "1.2.0",
+              "platform": "linux",
+              "deviceClass": "desktop",
+              "capabilities": [
+                "dht",
+                "multi-device"
+              ]
+            }
+          },
+          "note": "valor anidado con á é í ó ú 你好 🚀",
+          "counters": {
+            "attempts": 3,
+            "expiresAt": 1800000000000
+          }
+        },
+        "publisher": "4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e",
+        "timestamp": 1800000000000,
+        "signature": "2ba6f60973290779b222752103e86cf55633081430884f790565fbf6cfeaafa0ef8beccc54462300040770785d92067fae4762e49465f57b7fd00086e2054504",
+        "queryId": "0123456789abcdef0123456789abcdef",
+        "senderUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+        "senderYggAddress": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+        "isInternalSync": false
+      },
+      "canonical": "{\"isInternalSync\":false,\"key\":\"7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c\",\"publisher\":\"4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e\",\"queryId\":\"0123456789abcdef0123456789abcdef\",\"senderUpeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\",\"senderYggAddress\":\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"timestamp\":1800000000000,\"type\":\"DHT_STORE\",\"value\":{\"counters\":{\"attempts\":3,\"expiresAt\":1800000000000},\"locationBlock\":{\"address\":\"200:1111:2222:3333:4444:5555:6666:7777\",\"addresses\":[\"200:1111:2222:3333:4444:5555:6666:7777\",\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001\"],\"alias\":\"Rubén uPeer 你好 🚀\",\"deviceId\":\"9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb\",\"deviceMeta\":{\"capabilities\":[\"dht\",\"multi-device\"],\"clientName\":\"Revelnest Desktop\",\"clientVersion\":\"1.2.0\",\"deviceClass\":\"desktop\",\"platform\":\"linux\"},\"dhtSeq\":42,\"expiresAt\":1800000000000,\"renewalToken\":{\"allowedUntil\":1801000000000,\"maxRenewals\":3,\"renewalsUsed\":0,\"signature\":\"fd8c2de9b45bba5cb294258c4532194ca83364d0845d80544c63fdd2a64a7cae0305acbff3ed56a4e418c0292b5ba3196c80e5dd670bc694bcdf887e61241407\",\"targetId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\"},\"signature\":\"385bdade5d9da07eaa7bd535a0bccc7480240f8f84ad33a3904b6df4c643598da7b7f0a4b69dc4301f2d3e9708f0a7f6bc04a47ab8d8f57c97752d9fa6995f0b\"},\"note\":\"valor anidado con á é í ó ú 你好 🚀\",\"upeerId\":\"4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e\"}}",
+      "signature": "2ba6f60973290779b222752103e86cf55633081430884f790565fbf6cfeaafa0ef8beccc54462300040770785d92067fae4762e49465f57b7fd00086e2054504"
+    },
+    {
+      "name": "DHT_STORE_ACK",
+      "packet": {
+        "type": "DHT_STORE_ACK",
+        "key": "7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c",
+        "queryId": "0123456789abcdef0123456789abcdef",
+        "senderUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+        "senderYggAddress": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+        "isInternalSync": false,
+        "signature": "7bcefd9640b2cce938c9e61e9418109970f5855ae1acf3516bffe1407d47ffe24e3b85e02a138b4eb2b2a168652b43ce59e8d3e77a77d69b61090fe300a5740a"
+      },
+      "canonical": "{\"isInternalSync\":false,\"key\":\"7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c\",\"queryId\":\"0123456789abcdef0123456789abcdef\",\"senderUpeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\",\"senderYggAddress\":\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"type\":\"DHT_STORE_ACK\"}",
+      "signature": "7bcefd9640b2cce938c9e61e9418109970f5855ae1acf3516bffe1407d47ffe24e3b85e02a138b4eb2b2a168652b43ce59e8d3e77a77d69b61090fe300a5740a"
+    },
+    {
+      "name": "DHT_QUERY",
+      "packet": {
+        "type": "DHT_QUERY",
+        "targetId": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+        "referralContext": {
+          "requester": "4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e",
+          "timestamp": 1800000000000,
+          "note": "contexto 你好"
+        },
+        "senderUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+        "senderYggAddress": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+        "isInternalSync": false,
+        "signature": "ab8a1a5c7d07e1d16f1e869923cf852a8177287308783950c22e94c1a7235347eb31213615fe1c9d9cc7bad70d5914bde13ac20819e1290a96e2904e789d7a06"
+      },
+      "canonical": "{\"isInternalSync\":false,\"referralContext\":{\"note\":\"contexto 你好\",\"requester\":\"4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e\",\"timestamp\":1800000000000},\"senderUpeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\",\"senderYggAddress\":\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"targetId\":\"6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b\",\"type\":\"DHT_QUERY\"}",
+      "signature": "ab8a1a5c7d07e1d16f1e869923cf852a8177287308783950c22e94c1a7235347eb31213615fe1c9d9cc7bad70d5914bde13ac20819e1290a96e2904e789d7a06"
+    },
+    {
+      "name": "DHT_RESPONSE",
+      "packet": {
+        "type": "DHT_RESPONSE",
+        "targetId": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+        "publicKey": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+        "locationBlock": {
+          "address": "200:1111:2222:3333:4444:5555:6666:7777",
+          "addresses": [
+            "200:1111:2222:3333:4444:5555:6666:7777",
+            "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+            "200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001"
+          ],
+          "alias": "Rubén uPeer 你好 🚀",
+          "dhtSeq": 42,
+          "expiresAt": 1800000000000,
+          "signature": "385bdade5d9da07eaa7bd535a0bccc7480240f8f84ad33a3904b6df4c643598da7b7f0a4b69dc4301f2d3e9708f0a7f6bc04a47ab8d8f57c97752d9fa6995f0b",
+          "renewalToken": {
+            "targetId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+            "allowedUntil": 1801000000000,
+            "maxRenewals": 3,
+            "renewalsUsed": 0,
+            "signature": "fd8c2de9b45bba5cb294258c4532194ca83364d0845d80544c63fdd2a64a7cae0305acbff3ed56a4e418c0292b5ba3196c80e5dd670bc694bcdf887e61241407"
+          },
+          "deviceId": "9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb",
+          "deviceMeta": {
+            "clientName": "Revelnest Desktop",
+            "clientVersion": "1.2.0",
+            "platform": "linux",
+            "deviceClass": "desktop",
+            "capabilities": [
+              "dht",
+              "multi-device"
+            ]
+          }
+        },
+        "neighbors": [
+          {
+            "upeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+            "address": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+            "publicKey": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"
+          }
+        ],
+        "senderUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+        "senderYggAddress": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+        "isInternalSync": false,
+        "signature": "faf0a038f74fd22e583391c3a2fa949ed62ccc8800a73ff311d6e17be838fdc72a137f149dc60d2bf9b6e386c1383884bef2e01121dd9cbda65a713d8c6fce03"
+      },
+      "canonical": "{\"isInternalSync\":false,\"locationBlock\":{\"address\":\"200:1111:2222:3333:4444:5555:6666:7777\",\"addresses\":[\"200:1111:2222:3333:4444:5555:6666:7777\",\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001\"],\"alias\":\"Rubén uPeer 你好 🚀\",\"deviceId\":\"9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb\",\"deviceMeta\":{\"capabilities\":[\"dht\",\"multi-device\"],\"clientName\":\"Revelnest Desktop\",\"clientVersion\":\"1.2.0\",\"deviceClass\":\"desktop\",\"platform\":\"linux\"},\"dhtSeq\":42,\"expiresAt\":1800000000000,\"renewalToken\":{\"allowedUntil\":1801000000000,\"maxRenewals\":3,\"renewalsUsed\":0,\"signature\":\"fd8c2de9b45bba5cb294258c4532194ca83364d0845d80544c63fdd2a64a7cae0305acbff3ed56a4e418c0292b5ba3196c80e5dd670bc694bcdf887e61241407\",\"targetId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\"},\"signature\":\"385bdade5d9da07eaa7bd535a0bccc7480240f8f84ad33a3904b6df4c643598da7b7f0a4b69dc4301f2d3e9708f0a7f6bc04a47ab8d8f57c97752d9fa6995f0b\"},\"neighbors\":[{\"address\":\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"publicKey\":\"ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c\",\"upeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\"}],\"publicKey\":\"3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d\",\"senderUpeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\",\"senderYggAddress\":\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"targetId\":\"6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b\",\"type\":\"DHT_RESPONSE\"}",
+      "signature": "faf0a038f74fd22e583391c3a2fa949ed62ccc8800a73ff311d6e17be838fdc72a137f149dc60d2bf9b6e386c1383884bef2e01121dd9cbda65a713d8c6fce03"
+    },
+    {
+      "name": "DHT_UPDATE",
+      "packet": {
+        "type": "DHT_UPDATE",
+        "locationBlock": {
+          "address": "200:1111:2222:3333:4444:5555:6666:7777",
+          "addresses": [
+            "200:1111:2222:3333:4444:5555:6666:7777",
+            "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+            "200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001"
+          ],
+          "alias": "Rubén uPeer 你好 🚀",
+          "dhtSeq": 42,
+          "expiresAt": 1800000000000,
+          "signature": "385bdade5d9da07eaa7bd535a0bccc7480240f8f84ad33a3904b6df4c643598da7b7f0a4b69dc4301f2d3e9708f0a7f6bc04a47ab8d8f57c97752d9fa6995f0b",
+          "renewalToken": {
+            "targetId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+            "allowedUntil": 1801000000000,
+            "maxRenewals": 3,
+            "renewalsUsed": 0,
+            "signature": "fd8c2de9b45bba5cb294258c4532194ca83364d0845d80544c63fdd2a64a7cae0305acbff3ed56a4e418c0292b5ba3196c80e5dd670bc694bcdf887e61241407"
+          },
+          "deviceId": "9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb",
+          "deviceMeta": {
+            "clientName": "Revelnest Desktop",
+            "clientVersion": "1.2.0",
+            "platform": "linux",
+            "deviceClass": "desktop",
+            "capabilities": [
+              "dht",
+              "multi-device"
+            ]
+          }
+        },
+        "senderUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+        "senderYggAddress": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+        "isInternalSync": false,
+        "signature": "63160e068a30e0c1aaa1adb81bc9696cba4e96e8eb023c01b37390142389e4916f9db9789ded771e2e3b8c47c1d1b99b074bec0a15c1d61998bdea93d2f4ba07"
+      },
+      "canonical": "{\"isInternalSync\":false,\"locationBlock\":{\"address\":\"200:1111:2222:3333:4444:5555:6666:7777\",\"addresses\":[\"200:1111:2222:3333:4444:5555:6666:7777\",\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001\"],\"alias\":\"Rubén uPeer 你好 🚀\",\"deviceId\":\"9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb\",\"deviceMeta\":{\"capabilities\":[\"dht\",\"multi-device\"],\"clientName\":\"Revelnest Desktop\",\"clientVersion\":\"1.2.0\",\"deviceClass\":\"desktop\",\"platform\":\"linux\"},\"dhtSeq\":42,\"expiresAt\":1800000000000,\"renewalToken\":{\"allowedUntil\":1801000000000,\"maxRenewals\":3,\"renewalsUsed\":0,\"signature\":\"fd8c2de9b45bba5cb294258c4532194ca83364d0845d80544c63fdd2a64a7cae0305acbff3ed56a4e418c0292b5ba3196c80e5dd670bc694bcdf887e61241407\",\"targetId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\"},\"signature\":\"385bdade5d9da07eaa7bd535a0bccc7480240f8f84ad33a3904b6df4c643598da7b7f0a4b69dc4301f2d3e9708f0a7f6bc04a47ab8d8f57c97752d9fa6995f0b\"},\"senderUpeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\",\"senderYggAddress\":\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"type\":\"DHT_UPDATE\"}",
+      "signature": "63160e068a30e0c1aaa1adb81bc9696cba4e96e8eb023c01b37390142389e4916f9db9789ded771e2e3b8c47c1d1b99b074bec0a15c1d61998bdea93d2f4ba07"
+    },
+    {
+      "name": "DHT_EXCHANGE",
+      "packet": {
+        "type": "DHT_EXCHANGE",
+        "peers": [
+          {
+            "upeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+            "publicKey": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+            "locationBlock": {
+              "address": "200:1111:2222:3333:4444:5555:6666:7777",
+              "addresses": [
+                "200:1111:2222:3333:4444:5555:6666:7777",
+                "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+                "200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001"
+              ],
+              "alias": "Rubén uPeer 你好 🚀",
+              "dhtSeq": 43,
+              "expiresAt": 1800000000000,
+              "signature": "d7fa57e24a5de3a19d6d7f6bc3d50bf7dd29434e29d3689e40b53b262e14eb30887429b42a58ecd1aaf79ea2cb2f804986dde932f228ac5f80e54f747134c206",
+              "renewalToken": {
+                "targetId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+                "allowedUntil": 1801000000000,
+                "maxRenewals": 3,
+                "renewalsUsed": 0,
+                "signature": "fd8c2de9b45bba5cb294258c4532194ca83364d0845d80544c63fdd2a64a7cae0305acbff3ed56a4e418c0292b5ba3196c80e5dd670bc694bcdf887e61241407"
+              },
+              "deviceId": "9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb"
+            }
+          }
+        ],
+        "senderUpeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+        "senderYggAddress": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+        "isInternalSync": false,
+        "signature": "3a19a01be37b986bdf27b29b07aaa0c7bdd404bce85c9fcb290cb761cca935221b5375f38d75afc9565d477cfb08a43832b9fee1ee2b680377a70ce67c98220f"
+      },
+      "canonical": "{\"isInternalSync\":false,\"peers\":[{\"locationBlock\":{\"address\":\"200:1111:2222:3333:4444:5555:6666:7777\",\"addresses\":[\"200:1111:2222:3333:4444:5555:6666:7777\",\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001\"],\"alias\":\"Rubén uPeer 你好 🚀\",\"deviceId\":\"9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb\",\"dhtSeq\":43,\"expiresAt\":1800000000000,\"renewalToken\":{\"allowedUntil\":1801000000000,\"maxRenewals\":3,\"renewalsUsed\":0,\"signature\":\"fd8c2de9b45bba5cb294258c4532194ca83364d0845d80544c63fdd2a64a7cae0305acbff3ed56a4e418c0292b5ba3196c80e5dd670bc694bcdf887e61241407\",\"targetId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\"},\"signature\":\"d7fa57e24a5de3a19d6d7f6bc3d50bf7dd29434e29d3689e40b53b262e14eb30887429b42a58ecd1aaf79ea2cb2f804986dde932f228ac5f80e54f747134c206\"},\"publicKey\":\"ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c\",\"upeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\"}],\"senderUpeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\",\"senderYggAddress\":\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"type\":\"DHT_EXCHANGE\"}",
+      "signature": "3a19a01be37b986bdf27b29b07aaa0c7bdd404bce85c9fcb290cb761cca935221b5375f38d75afc9565d477cfb08a43832b9fee1ee2b680377a70ce67c98220f"
+    }
+  ],
+  "locationBlocks": [
+    {
+      "name": "multi-address-device-metadata",
+      "signedData": {
+        "upeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+        "addresses": [
+          "200:1111:2222:3333:4444:5555:6666:7777",
+          "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+          "200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001"
+        ],
+        "dhtSeq": 42,
+        "expiresAt": 1800000000000,
+        "deviceId": "9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb",
+        "deviceMeta": {
+          "clientName": "Revelnest Desktop",
+          "clientVersion": "1.2.0",
+          "platform": "linux",
+          "deviceClass": "desktop",
+          "capabilities": [
+            "dht",
+            "multi-device"
+          ]
+        }
+      },
+      "canonical": "{\"addresses\":[\"200:1111:2222:3333:4444:5555:6666:7777\",\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001\"],\"deviceId\":\"9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb\",\"deviceMeta\":{\"capabilities\":[\"dht\",\"multi-device\"],\"clientName\":\"Revelnest Desktop\",\"clientVersion\":\"1.2.0\",\"deviceClass\":\"desktop\",\"platform\":\"linux\"},\"dhtSeq\":42,\"expiresAt\":1800000000000,\"upeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\"}",
+      "signature": "385bdade5d9da07eaa7bd535a0bccc7480240f8f84ad33a3904b6df4c643598da7b7f0a4b69dc4301f2d3e9708f0a7f6bc04a47ab8d8f57c97752d9fa6995f0b",
+      "block": {
+        "address": "200:1111:2222:3333:4444:5555:6666:7777",
+        "addresses": [
+          "200:1111:2222:3333:4444:5555:6666:7777",
+          "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+          "200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001"
+        ],
+        "alias": "Rubén uPeer 你好 🚀",
+        "dhtSeq": 42,
+        "expiresAt": 1800000000000,
+        "signature": "385bdade5d9da07eaa7bd535a0bccc7480240f8f84ad33a3904b6df4c643598da7b7f0a4b69dc4301f2d3e9708f0a7f6bc04a47ab8d8f57c97752d9fa6995f0b",
+        "renewalToken": {
+          "targetId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+          "allowedUntil": 1801000000000,
+          "maxRenewals": 3,
+          "renewalsUsed": 0,
+          "signature": "fd8c2de9b45bba5cb294258c4532194ca83364d0845d80544c63fdd2a64a7cae0305acbff3ed56a4e418c0292b5ba3196c80e5dd670bc694bcdf887e61241407"
+        },
+        "deviceId": "9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb",
+        "deviceMeta": {
+          "clientName": "Revelnest Desktop",
+          "clientVersion": "1.2.0",
+          "platform": "linux",
+          "deviceClass": "desktop",
+          "capabilities": [
+            "dht",
+            "multi-device"
+          ]
+        }
+      }
+    },
+    {
+      "name": "multi-address-device-id",
+      "signedData": {
+        "upeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+        "addresses": [
+          "200:1111:2222:3333:4444:5555:6666:7777",
+          "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+          "200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001"
+        ],
+        "dhtSeq": 43,
+        "expiresAt": 1800000000000,
+        "deviceId": "9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb"
+      },
+      "canonical": "{\"addresses\":[\"200:1111:2222:3333:4444:5555:6666:7777\",\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001\"],\"deviceId\":\"9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb\",\"dhtSeq\":43,\"expiresAt\":1800000000000,\"upeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\"}",
+      "signature": "d7fa57e24a5de3a19d6d7f6bc3d50bf7dd29434e29d3689e40b53b262e14eb30887429b42a58ecd1aaf79ea2cb2f804986dde932f228ac5f80e54f747134c206",
+      "block": {
+        "address": "200:1111:2222:3333:4444:5555:6666:7777",
+        "addresses": [
+          "200:1111:2222:3333:4444:5555:6666:7777",
+          "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+          "200:aaaa:bbbb:cccc:dddd:eeee:ffff:0001"
+        ],
+        "alias": "Rubén uPeer 你好 🚀",
+        "dhtSeq": 43,
+        "expiresAt": 1800000000000,
+        "signature": "d7fa57e24a5de3a19d6d7f6bc3d50bf7dd29434e29d3689e40b53b262e14eb30887429b42a58ecd1aaf79ea2cb2f804986dde932f228ac5f80e54f747134c206",
+        "renewalToken": {
+          "targetId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+          "allowedUntil": 1801000000000,
+          "maxRenewals": 3,
+          "renewalsUsed": 0,
+          "signature": "fd8c2de9b45bba5cb294258c4532194ca83364d0845d80544c63fdd2a64a7cae0305acbff3ed56a4e418c0292b5ba3196c80e5dd670bc694bcdf887e61241407"
+        },
+        "deviceId": "9c4a1f0e8d7b6a5c49382716f5e4d3c2b1a09187766554433221100ffeeddccbb"
+      }
+    },
+    {
+      "name": "legacy-address",
+      "signedData": {
+        "upeerId": "8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3",
+        "address": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+        "dhtSeq": 44,
+        "expiresAt": 1800000000000
+      },
+      "canonical": "{\"address\":\"200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2\",\"dhtSeq\":44,\"expiresAt\":1800000000000,\"upeerId\":\"8d2d1c260127c74476b27136c5e38c003b66b889f5c80032fb81ebc3f44f45a3\"}",
+      "signature": "89a58e324fb0971cdff738ec41d6f72310ed53db9458b7ce4685cfe05c7fd9571e57352ebd6e3dd6c21c07af43fa54890c794da663ea7bb74f8065a7edac4109",
+      "block": {
+        "address": "200:9f8e:7d6c:5b4a:3928:1706:f5e4:d3c2",
+        "alias": "Rubén uPeer 你好 🚀",
+        "dhtSeq": 44,
+        "expiresAt": 1800000000000,
+        "signature": "89a58e324fb0971cdff738ec41d6f72310ed53db9458b7ce4685cfe05c7fd9571e57352ebd6e3dd6c21c07af43fa54890c794da663ea7bb74f8065a7edac4109"
+      }
+    }
+  ]
+}

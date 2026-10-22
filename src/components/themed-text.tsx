@@ -41,11 +41,11 @@ const styles = StyleSheet.create({
     fontWeight: 600,
   },
   link: {
-    lineHeight: 1.5,
+    lineHeight: 21,
     fontSize: 14,
   },
   linkPrimary: {
-    lineHeight: 1.5,
+    lineHeight: 21,
     fontSize: 14,
     color: '#3c87f7',
   },

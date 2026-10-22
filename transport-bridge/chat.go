@@ -164,8 +164,13 @@ func (identity *CryptoIdentity) BuildDrReset(senderYggAddress, signedPreKeyJSON,
 	if !validRatchetContext(ratchetContext) {
 		return "", errors.New("ratchetContext must be direct or group:<id>")
 	}
+	resetID, err := newResetID()
+	if err != nil {
+		return "", err
+	}
 	data := map[string]any{
-		"type": "DR_RESET",
+		"type":    "DR_RESET",
+		"resetId": resetID,
 		"signedPreKey": map[string]any{
 			"spkPub": signedPreKey.SPKPub,
 			"spkSig": signedPreKey.SPKSig,

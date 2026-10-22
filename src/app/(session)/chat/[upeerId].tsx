@@ -1,37 +1,52 @@
-import { useCallback, useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, View, type ListRenderItemInfo, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Send } from '@tamagui/lucide-icons-2';
-import { Input, SizableText, Text, XStack, YStack } from 'tamagui';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CircleAlert } from '@tamagui/lucide-icons-2';
+import { Text, XStack } from 'tamagui';
 
-import { NativeRipplePressable } from '@/components/native-ripple-pressable';
-import type { ProtocolMessage } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
-import { getMessages, markConversationRead, sendChat } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
-import { getContacts } from '@/storage/contact-store';
+import { ChatComposer } from '@/components/chat/chat-composer';
+import { ChatDateSeparator } from '@/components/chat/chat-date-separator';
+import { ChatEmptyState } from '@/components/chat/chat-empty-state';
+import { ChatHeader } from '@/components/chat/chat-header';
+import { ChatMessageBubble } from '@/components/chat/chat-message-bubble';
+import { ChatScrollButton } from '@/components/chat/chat-scroll-button';
+import { useSnackbar } from '@/components/snackbar';
+import { buildChatTimeline, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
 import { useTheme } from '@/hooks/use-theme';
+import { getContacts, type UPeerContact } from '@/storage/contact-store';
+import type { ProtocolMessage } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
+import { getMessages, getConversations, markConversationRead, sendChat } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
 
-const statusLabels: Record<ProtocolMessage['status'], string> = {
-  pending: 'Pendiente',
-  sent: 'Enviado',
-  delivered: 'Entregado',
-  read: 'Leído',
-  failed: 'Fallido',
-};
+const MESSAGE_LIMIT = 200;
+const LATEST_OFFSET = 24;
+const SCROLL_BUTTON_OFFSET = 180;
+
+const keyExtractor = (entry: ChatTimelineEntry) => entry.message.id;
 
 export default function ChatRoute() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const { showSnackbar } = useSnackbar();
   const { upeerId } = useLocalSearchParams<{ upeerId: string }>();
+  const listRef = useRef<FlatList<ChatTimelineEntry>>(null);
+  const atLatestRef = useRef(true);
+  const previousCountRef = useRef(0);
   const [messages, setMessages] = useState<ProtocolMessage[]>([]);
   const [alias, setAlias] = useState('');
+  const [contactStatus, setContactStatus] = useState<UPeerContact['status']>('offline');
   const [text, setText] = useState('');
   const [error, setError] = useState('');
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!upeerId) return;
-    const [nextMessages, contacts] = await Promise.all([getMessages(upeerId, 200), getContacts()]);
+    const [nextMessages, contacts, conversations] = await Promise.all([getMessages(upeerId, MESSAGE_LIMIT), getContacts(), getConversations()]);
     setMessages(nextMessages);
-    setAlias(contacts.find((contact) => contact.upeerId === upeerId)?.name ?? upeerId.slice(0, 12));
+    const contact = contacts.find((item) => item.upeerId === upeerId);
+    const conversationAlias = conversations.find((conversation) => conversation.upeerId === upeerId)?.alias;
+    setAlias(contact?.name || conversationAlias || upeerId.slice(0, 12));
+    setContactStatus(contact?.status ?? 'offline');
     await markConversationRead(upeerId);
   }, [upeerId]);
 
@@ -51,6 +66,18 @@ export default function ChatRoute() {
     };
   }, [refresh, upeerId]);
 
+  const timeline = useMemo(() => toInvertedChatTimeline(buildChatTimeline(messages)), [messages]);
+
+  useEffect(() => {
+    const nextCount = messages.length;
+    const previousCount = previousCountRef.current;
+    previousCountRef.current = nextCount;
+    if (nextCount === 0 || nextCount <= previousCount) return;
+    if (!atLatestRef.current && !timeline[0]?.message.isMine) return;
+    listRef.current?.scrollToOffset({ animated: false, offset: 0 });
+    setShowScrollButton(false);
+  }, [messages.length, timeline]);
+
   const submit = async () => {
     const content = text.trim();
     if (!content || !upeerId) return;
@@ -60,36 +87,82 @@ export default function ChatRoute() {
       await sendChat(upeerId, content);
       await refresh();
     } catch (cause) {
+      setText(content);
       setError(cause instanceof Error ? cause.message : 'No se pudo enviar el mensaje.');
     }
   };
 
+  const showUnavailable = useCallback((label: string) => {
+    showSnackbar(`${label}: pendiente en el roadmap`);
+  }, [showSnackbar]);
+
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offset = Math.max(0, event.nativeEvent.contentOffset.y);
+    atLatestRef.current = offset < LATEST_OFFSET;
+    setShowScrollButton(offset > SCROLL_BUTTON_OFFSET);
+  }, []);
+
+  const scrollToLatest = useCallback(() => {
+    atLatestRef.current = true;
+    setShowScrollButton(false);
+    listRef.current?.scrollToOffset({ animated: true, offset: 0 });
+  }, []);
+
+  const renderItem = useCallback(({ item }: ListRenderItemInfo<ChatTimelineEntry>) => (
+    <View>
+      {item.showDateSeparator ? <ChatDateSeparator timestamp={item.message.timestamp} /> : null}
+      <ChatMessageBubble entry={item} />
+    </View>
+  ), []);
+
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
-      <XStack alignItems="center" borderBottomColor={theme.border} borderBottomWidth={StyleSheet.hairlineWidth} gap={10} paddingHorizontal={12} paddingVertical={10}>
-        <NativeRipplePressable accessibilityLabel="Volver" onPress={() => router.back()} style={styles.backButton}><ArrowLeft color={theme.text} size={20} /></NativeRipplePressable>
-        <YStack flex={1} gap={2}>
-          <SizableText color={theme.text} fontSize={16} fontWeight="700" numberOfLines={1}>{alias || 'Conversación'}</SizableText>
-          <Text color={theme.placeholder} fontSize={11} numberOfLines={1}>{upeerId}</Text>
-        </YStack>
-      </XStack>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
-        <ScrollView contentContainerStyle={styles.messageContent}>
-          {messages.length === 0 ? <YStack alignItems="center" flex={1} gap={8} justifyContent="center" padding={24}><SizableText color={theme.text} fontSize={16} fontWeight="600">Sin mensajes</SizableText><Text color={theme.placeholder} textAlign="center">El primer mensaje iniciará el handshake y la sesión cifrada.</Text></YStack> : messages.map((message) => (
-            <View key={message.id} style={[styles.bubble, { alignSelf: message.isMine ? 'flex-end' : 'flex-start', backgroundColor: message.isMine ? theme.accent : theme.backgroundElement }]}>
-              <Text color={message.isMine ? theme.background : theme.text} fontSize={14} lineHeight={20}>{message.content}</Text>
-              <Text color={message.isMine ? theme.background : theme.placeholder} fontSize={10} opacity={0.8} textAlign="right">{statusLabels[message.status] ?? message.status} · {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-            </View>
-          ))}
-        </ScrollView>
-        {!!error && <Text color={theme.danger} fontSize={12} paddingHorizontal={14} paddingVertical={6}>{error}</Text>}
-        <XStack alignItems="center" borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={8} paddingHorizontal={10} paddingVertical={8}>
-          <Input accessibilityLabel="Mensaje" flex={1} backgroundColor={theme.backgroundElement} borderColor={theme.border} color={theme.text} multiline onChangeText={setText} onSubmitEditing={() => { void submit(); }} placeholder="Escribe un mensaje" placeholderTextColor={theme.placeholder} value={text} />
-          <NativeRipplePressable accessibilityLabel="Enviar mensaje" disabled={!text.trim()} onPress={() => { void submit(); }} style={[styles.sendButton, { backgroundColor: text.trim() ? theme.accent : theme.backgroundSelected }]}><Send color={text.trim() ? theme.background : theme.placeholder} size={19} /></NativeRipplePressable>
-        </XStack>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    <View style={styles.root}>
+      <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
+        <ChatHeader alias={alias || 'Conversación'} onBack={() => router.back()} onUnavailable={showUnavailable} status={contactStatus} upeerId={upeerId ?? ''} />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
+          <View style={styles.timeline}>
+            {timeline.length === 0 ? <ChatEmptyState /> : (
+              <FlatList
+                ref={listRef}
+                contentContainerStyle={styles.listContent}
+                data={timeline}
+                initialNumToRender={24}
+                inverted
+                keyboardDismissMode="interactive"
+                keyboardShouldPersistTaps="handled"
+                keyExtractor={keyExtractor}
+                maxToRenderPerBatch={16}
+                onScroll={handleScroll}
+                renderItem={renderItem}
+                scrollEventThrottle={16}
+                showsVerticalScrollIndicator={false}
+                style={styles.list}
+                updateCellsBatchingPeriod={40}
+                windowSize={7}
+              />
+            )}
+            {showScrollButton && timeline.length > 0 ? <ChatScrollButton onPress={scrollToLatest} /> : null}
+          </View>
+          {!!error && (
+            <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={7} paddingHorizontal={14} paddingVertical={7}>
+              <CircleAlert color={theme.danger} size={15} />
+              <Text color={theme.danger} flex={1} fontSize={12}>{error}</Text>
+            </XStack>
+          )}
+          <ChatComposer onChange={setText} onSend={() => { void submit(); }} onUnavailable={showUnavailable} value={text} />
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+      {insets.bottom > 0 ? (
+        <View pointerEvents="none" style={[styles.nativeBarBackground, { backgroundColor: theme.backgroundElement, height: insets.bottom }]} />
+      ) : null}
+    </View>
   );
 }
 
-const styles = StyleSheet.create({ root: { flex: 1 }, backButton: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 }, messageContent: { flexGrow: 1, gap: 8, justifyContent: 'flex-end', paddingHorizontal: 12, paddingVertical: 14 }, bubble: { borderRadius: 14, gap: 4, maxWidth: '84%', paddingHorizontal: 12, paddingVertical: 8 }, sendButton: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 } });
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  timeline: { flex: 1, position: 'relative' },
+  list: { flex: 1 },
+  listContent: { flexGrow: 1, paddingHorizontal: 12, paddingVertical: 16 },
+  nativeBarBackground: { bottom: 0, left: 0, position: 'absolute', right: 0 },
+});

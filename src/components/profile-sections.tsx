@@ -23,13 +23,13 @@ export function ProfileHeroSection({ identity, alias, avatar, busy, onAliasChang
     <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderBottomColor={theme.border} borderBottomWidth={1} gap={24} paddingHorizontal={20} paddingVertical={24}>
       <NativeRipplePressable accessibilityLabel="Cambiar foto de perfil" accessibilityRole="button" disabled={busy} onPress={onAvatarPress} style={styles.avatar}>
         <ProfileAvatar avatar={avatar} name={alias || identity.upeerId} />
-        <View style={[styles.avatarEditBadge, { backgroundColor: theme.accent, borderColor: theme.backgroundElement }]}><Pencil color={theme.background} size={12} /></View>
+        <View style={[styles.avatarEditBadge, { backgroundColor: theme.accent, borderColor: theme.backgroundElement }]}><Pencil color={theme.onAccent} size={12} /></View>
       </NativeRipplePressable>
       <YStack flex={1} gap={5} minWidth={0}>
         <SizableText color={theme.placeholder} fontSize={11} fontWeight="600" letterSpacing={1}>NOMBRE</SizableText>
         <XStack alignItems="center" gap={8}>
           <Input accessibilityLabel="Nombre visible" autoCapitalize="words" backgroundColor={theme.background} borderColor={theme.border} color={theme.text} flex={1} maxLength={64} onChangeText={onAliasChange} onSubmitEditing={onAliasSave} placeholder="Escribe tu nombre..." placeholderTextColor={theme.placeholder} value={alias} />
-          <NativeRippleButton accessibilityLabel="Guardar nombre" backgroundColor={theme.accent} circular disabled={busy} icon={<Check color={theme.background} size={18} />} onPress={onAliasSave} />
+          <NativeRippleButton accessibilityLabel="Guardar nombre" backgroundColor={theme.accent} circular disabled={busy} icon={<Check color={theme.onAccent} size={18} />} onPress={onAliasSave} />
         </XStack>
         <Text color={theme.placeholder} fontFamily="$mono" fontSize={11}>{identity.upeerId.slice(0, 24)}…</Text>
       </YStack>

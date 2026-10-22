@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf16"
 
 	"golang.org/x/crypto/blake2b"
 )
@@ -197,6 +198,17 @@ func canonicalStringify(value any) (string, error) {
 	return builder.String(), nil
 }
 
+func canonicalKeyLess(left, right string) bool {
+	leftUnits := utf16.Encode([]rune(left))
+	rightUnits := utf16.Encode([]rune(right))
+	for index := 0; index < len(leftUnits) && index < len(rightUnits); index++ {
+		if leftUnits[index] != rightUnits[index] {
+			return leftUnits[index] < rightUnits[index]
+		}
+	}
+	return len(leftUnits) < len(rightUnits)
+}
+
 func writeCanonical(builder *strings.Builder, value any) error {
 	switch typed := value.(type) {
 	case nil:
@@ -231,7 +243,9 @@ func writeCanonical(builder *strings.Builder, value any) error {
 		for key := range typed {
 			keys = append(keys, key)
 		}
-		sort.Strings(keys)
+		sort.Slice(keys, func(left, right int) bool {
+			return canonicalKeyLess(keys[left], keys[right])
+		})
 		builder.WriteByte('{')
 		for index, key := range keys {
 			if index > 0 {

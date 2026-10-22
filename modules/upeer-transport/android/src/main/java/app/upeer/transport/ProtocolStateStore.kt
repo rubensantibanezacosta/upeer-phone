@@ -72,16 +72,23 @@ internal class ProtocolStateStore(context: Context) {
     return true
   }
 
-  fun updateSignedPreKey(upeerId: String, signedPreKey: JSONObject): Boolean {
-    if (!validId(upeerId) || !validSignedPreKey(signedPreKey)) return false
+  fun updateSignedPreKey(upeerId: String, signedPreKey: JSONObject): SignedPreKeyUpdate {
+    if (!validId(upeerId) || !validSignedPreKey(signedPreKey)) return SignedPreKeyUpdate.INVALID
     return synchronized(lock) {
-      val peers = state.optJSONObject("peers") ?: return@synchronized false
-      val existing = peers.optJSONObject(upeerId) ?: return@synchronized false
-      if (!isNewerSignedPreKey(existing, signedPreKey)) return@synchronized false
+      val peers = state.optJSONObject("peers") ?: return@synchronized SignedPreKeyUpdate.INVALID
+      val existing = peers.optJSONObject(upeerId) ?: return@synchronized SignedPreKeyUpdate.INVALID
+      val current = existing.optJSONObject("signedPreKey")
+      val decision = DrResetPolicy.classifySignedPreKey(
+        current?.optLong("spkId") ?: 0L,
+        current?.optString("spkPub").orEmpty(),
+        signedPreKey.optLong("spkId"),
+        signedPreKey.optString("spkPub"),
+      )
+      if (decision != SignedPreKeyUpdate.UPDATED) return@synchronized decision
       existing.put("signedPreKey", copy(signedPreKey))
       state.put("peers", peers)
       persist()
-      true
+      SignedPreKeyUpdate.UPDATED
     }
   }
 
@@ -255,8 +262,13 @@ internal class ProtocolStateStore(context: Context) {
   }
 
   private fun isNewerSignedPreKey(target: JSONObject, candidate: JSONObject): Boolean {
-    val currentID = target.optJSONObject("signedPreKey")?.optLong("spkId") ?: 0L
-    return candidate.optLong("spkId") > currentID
+    val current = target.optJSONObject("signedPreKey")
+    return DrResetPolicy.classifySignedPreKey(
+      current?.optLong("spkId") ?: 0L,
+      current?.optString("spkPub").orEmpty(),
+      candidate.optLong("spkId"),
+      candidate.optString("spkPub"),
+    ) == SignedPreKeyUpdate.UPDATED
   }
 
   private fun copy(value: JSONObject): JSONObject = JSONObject(value.toString())

@@ -17,6 +17,7 @@ internal class YggdrasilProtocol(
 ) {
   private val handshake = YggdrasilHandshake(identity, signedPreKeys)
   private val outbox = YggdrasilOutbox(identity, signedPreKeys, state, outboxStore)
+  private val resetCache = DrResetReplayCache()
 
   fun start(activeBridge: Bridge) = outbox.start(activeBridge)
 
@@ -26,6 +27,7 @@ internal class YggdrasilProtocol(
     outbox.stop()
     handshake.clear()
     outboxStore.clear()
+    resetCache.clear()
     state.clear()
   }
 
@@ -150,8 +152,15 @@ internal class YggdrasilProtocol(
     if (!currentIdentity.verifySignedPreKey(publicKey, signedPreKey.optString("spkPub"), signedPreKey.optString("spkSig"))) {
       throw IllegalArgumentException("DR_RESET signed pre-key signature is invalid")
     }
-    if (!state.updateSignedPreKey(senderUpeerId, signedPreKey)) {
-      Log.i(TAG, "DR_RESET obsoleto ignorado para $senderUpeerId spk=${signedPreKey.optLong("spkId")}")
+    val resetId = packet.optString("resetId")
+    if (resetId.isNotEmpty() && !DrResetPolicy.validResetId(resetId)) throw IllegalArgumentException("invalid DR_RESET resetId")
+    if (resetId.isNotEmpty() && !resetCache.accept(senderUpeerId, resetId)) {
+      Log.i(TAG, "DR_RESET duplicado ignorado para $senderUpeerId")
+      return metadataJSON
+    }
+    val update = state.updateSignedPreKey(senderUpeerId, signedPreKey)
+    if (update == SignedPreKeyUpdate.STALE || update == SignedPreKeyUpdate.INVALID) {
+      Log.w(TAG, "DR_RESET no aplicado para $senderUpeerId: $update")
       return metadataJSON
     }
     outbox.onPeerReset(senderUpeerId)

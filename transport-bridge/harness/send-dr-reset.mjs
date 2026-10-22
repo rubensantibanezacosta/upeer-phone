@@ -70,6 +70,7 @@ function deriveSignedPreKey(id) {
 async function sendReset(signedPreKey) {
   const data = {
     type: 'DR_RESET',
+    resetId: crypto.randomUUID(),
     signedPreKey: {
       spkId: signedPreKey.id,
       spkPub: toHex(signedPreKey.publicKey),
