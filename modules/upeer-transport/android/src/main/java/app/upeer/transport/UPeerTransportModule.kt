@@ -96,6 +96,19 @@ class UPeerTransportModule : Module() {
     }
     AsyncFunction("flushOutbox") { service().flushOutbox() }
     AsyncFunction("protocolStatus") { service().protocolStatusJSON() }
+    AsyncFunction("locationBlock") { ttlMillis: Double -> service().locationBlockJSON(ttlMillis.toLong()) }
+    AsyncFunction("deviceIdentityStatus") { service().deviceIdentityStatusJSON() }
+    AsyncFunction("accountRegistry") { service().accountRegistryJSON() }
+    AsyncFunction("accountRegistryStatus") { service().accountRegistryStatusJSON() }
+    AsyncFunction("revokeAccountDevice") { deviceId: String, reason: String -> service().revokeAccountDevice(deviceId, reason) }
+    AsyncFunction("validateDeviceAdmission") { certificateJSON: String, registryJSON: String, expectedAccountUpeerId: String, nowMillis: Double ->
+      service().validateDeviceAdmission(certificateJSON, registryJSON, expectedAccountUpeerId, nowMillis.toLong())
+    }
+    AsyncFunction("dhtLocationStatus") { service().dhtLocationStatusJSON() }
+    AsyncFunction("lookupContactLocation") { upeerId: String -> service().lookupContactLocation(upeerId) }
+    AsyncFunction("verifyLocationBlock") { blockJSON: String, publicKeyHex: String, nowMillis: Double ->
+      service().verifyLocationBlock(blockJSON, publicKeyHex, nowMillis.toLong())
+    }
   }
 
   private fun bind() {

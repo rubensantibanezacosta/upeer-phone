@@ -27,8 +27,12 @@ public final class CryptoIdentity implements Seq.Proxy {
 	CryptoIdentity(int refnum) { this.refnum = refnum; Seq.trackGoRef(refnum, this); }
 
 	public native String acceptInboundSession(String peerPublicKeyHex, String x3dhInitJSON, String spkSecretKeyHex) throws Exception;
+	public native String approveDevicePairingRequest(String requestJSON, long epoch, long issuedAt, long expiresAt) throws Exception;
+	public native String buildAccountRegistryFromCertificates(String certificatesJSON, String revokedJSON, long epoch, long issuedAt, long ttlMillis) throws Exception;
 	public native String buildAck(String senderYggAddress, String messageID, String status) throws Exception;
 	public native String buildChat(String senderYggAddress, String peerPublicKeyHex, String peerSPKPublicKeyHex, String sessionJSON, String plaintext, String messageID, String replyTo, long peerSPKID, long timestamp) throws Exception;
+	public native String buildDeviceLocationBlock(String certificateJSON, String addressesJSON, long dhtSeq, long ttlMillis, long nowMillis) throws Exception;
+	public native String buildDevicePairingRequest(String optionsJSON) throws Exception;
 	public native String buildDrReset(String senderYggAddress, String signedPreKeyJSON, String ratchetContext) throws Exception;
 	public native String buildHandshakeAccept(String senderYggAddress, String signedPreKeyJSON, String alias) throws Exception;
 	public native String buildHandshakeRequest(String senderYggAddress, String signedPreKeyJSON, String alias) throws Exception;
@@ -39,6 +43,7 @@ public final class CryptoIdentity implements Seq.Proxy {
 	public native String publicKeyHex();
 	public native String ratchetDecrypt(String sessionJSON, String messageJSON) throws Exception;
 	public native String ratchetEncrypt(String sessionJSON, byte[] plaintext) throws Exception;
+	public native String revokeAccountDevice(String previousRegistryJSON, String deviceID, String reason, long nowMillis) throws Exception;
 	public native String seal(byte[] plaintext, String recipientPublicKeyHex) throws Exception;
 	public native String sign(byte[] payload);
 	public native String signCanonicalJSON(String payloadJSON) throws Exception;

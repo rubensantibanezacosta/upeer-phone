@@ -13,6 +13,7 @@ internal class YggdrasilOutbox(
   private val signedPreKeys: SignedPreKeyStore,
   private val state: ProtocolStateStore,
   private val outbox: OutboxStore,
+  private val admission: DeviceAdmissionGuard,
 ) {
   private val lock = Any()
   private val wakeLock = Object()
@@ -97,6 +98,7 @@ internal class YggdrasilOutbox(
   }
 
   fun sendDrReset(upeerId: String) {
+    if (!admission.isAdmitted()) return
     val activeBridge = synchronized(lock) { bridge } ?: return
     val peer = state.peerFor(upeerId) ?: return
     val address = peer.optString("address")
@@ -111,6 +113,7 @@ internal class YggdrasilOutbox(
   }
 
   fun flush() {
+    if (!admission.isAdmitted()) return
     val activeBridge = synchronized(lock) { if (running) bridge else null } ?: return
     for (entry in outbox.due(System.currentTimeMillis(), MAX_BATCH)) {
       val messageID = entry.optString("id")
@@ -153,6 +156,7 @@ internal class YggdrasilOutbox(
   }
 
   private fun deliver(activeBridge: Bridge, entry: JSONObject) {
+    if (!admission.isAdmitted()) return
     val messageID = entry.optString("id")
     val upeerId = entry.optString("upeerId")
     val peer = state.peerFor(upeerId)

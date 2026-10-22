@@ -104,6 +104,10 @@ internal class ProtocolStateStore(context: Context) {
     state.optJSONObject("peers")?.optJSONObject(upeerId)?.optString("address")?.ifEmpty { null }
   }
 
+  fun peersJSON(): String = synchronized(lock) {
+    JSONObject(state.optJSONObject("peers")?.toString() ?: "{}").toString()
+  }
+
   fun sessionFor(upeerId: String): String? = synchronized(lock) {
     state.optJSONObject("sessions")?.optString(upeerId)?.ifEmpty { null }
   }

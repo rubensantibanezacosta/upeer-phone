@@ -1,10 +1,14 @@
 package transportbridge
 
 import (
+	"crypto/ed25519"
+	"encoding/hex"
 	"encoding/json"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/upeer/upeer/transport-bridge/dht"
 )
 
 func testCryptoIdentity(t *testing.T) *CryptoIdentity {
@@ -91,7 +95,7 @@ func TestLocationBlockRoundTripAndTamperDetection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var decoded locationBlockRecord
+	var decoded dht.LocationBlock
 	if err := json.Unmarshal([]byte(block), &decoded); err != nil {
 		t.Fatal(err)
 	}
@@ -132,5 +136,93 @@ func TestLocationBlockRejectsInvalidFields(t *testing.T) {
 	}
 	if _, err := identity.BuildLocationBlock(`[]`, 1, 0, ""); err == nil {
 		t.Fatal("location block accepted an empty address list")
+	}
+}
+
+const accountBridgeNow int64 = 1_790_000_000_000
+
+func accountBridgeKey(seed byte) ed25519.PrivateKey {
+	bytes := make([]byte, ed25519.SeedSize)
+	for index := range bytes {
+		bytes[index] = seed
+	}
+	return ed25519.NewKeyFromSeed(bytes)
+}
+
+func TestAccountBridgePairingRegistryAndLocation(t *testing.T) {
+	rootSecret := []byte(accountBridgeKey(1))
+	deviceSecret := []byte(accountBridgeKey(2))
+	root, err := NewCryptoIdentity(rootSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	device, err := NewCryptoIdentity(deviceSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	optionsJSON, err := json.Marshal(dht.DevicePairingRequestOptions{
+		AccountUpeerID: root.UpeerID(),
+		Platform:       "android",
+		Capabilities:   []string{"chat", "dht"},
+		Nonce:          hex.EncodeToString(deviceSecret[:dht.AccountNonceBytes]),
+		CreatedAt:      accountBridgeNow,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requestJSON, err := device.BuildDevicePairingRequest(string(optionsJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if valid, err := VerifyDevicePairingRequest(requestJSON, root.UpeerID(), accountBridgeNow); err != nil || !valid {
+		t.Fatalf("pairing request = %v, %v", valid, err)
+	}
+	certificateJSON, err := root.ApproveDevicePairingRequest(requestJSON, 7, accountBridgeNow, accountBridgeNow+dht.AccountCertificateDefaultTTLMillis)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if valid, err := VerifyDeviceCertificate(certificateJSON, root.UpeerID(), accountBridgeNow); err != nil || !valid {
+		t.Fatalf("device certificate = %v, %v", valid, err)
+	}
+	certificatesJSON, err := json.Marshal([]string{certificateJSON})
+	if err != nil {
+		t.Fatal(err)
+	}
+	registryJSON, err := root.BuildAccountRegistryFromCertificates(string(certificatesJSON), "[]", 7, accountBridgeNow, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if valid, err := VerifyAccountRegistry(registryJSON, root.UpeerID(), accountBridgeNow); err != nil || !valid {
+		t.Fatalf("account registry = %v, %v", valid, err)
+	}
+	if valid, err := ValidateDeviceAdmission(certificateJSON, registryJSON, root.UpeerID(), accountBridgeNow); err != nil || !valid {
+		t.Fatalf("device admission = %v, %v", valid, err)
+	}
+	blockJSON, err := device.BuildDeviceLocationBlock(certificateJSON, `["200::1"]`, 1, 0, accountBridgeNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicKey := hex.EncodeToString(accountBridgeKey(1).Public().(ed25519.PublicKey))
+	if valid, err := VerifyDeviceLocationBlock(blockJSON, publicKey, registryJSON, accountBridgeNow); err != nil || !valid {
+		t.Fatalf("device location block = %v, %v", valid, err)
+	}
+	deviceID, err := DeriveDeviceID(ed25519.PrivateKey(deviceSecret).Public().(ed25519.PublicKey))
+	if err != nil {
+		t.Fatal(err)
+	}
+	revokedJSON, err := root.RevokeAccountDevice(registryJSON, deviceID, "lost device", accountBridgeNow+1_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if valid, err := ValidateDeviceAdmission(certificateJSON, revokedJSON, root.UpeerID(), accountBridgeNow+1_000); err == nil || valid {
+		t.Fatalf("revoked admission = %v, %v", valid, err)
+	}
+	nextEpoch, err := NextAccountRegistryEpoch(registryJSON)
+	if err != nil || nextEpoch != 8 {
+		t.Fatalf("next epoch = %d, %v", nextEpoch, err)
+	}
+	key, err := AccountRegistryKey(root.UpeerID())
+	if err != nil || key == "" {
+		t.Fatalf("registry key = %q, %v", key, err)
 	}
 }

@@ -1,8 +1,10 @@
 # Roadmap móvil uPeer con Expo
 
-_Estado: port en curso a 22 de octubre de 2026. Identidad, perfil local, nodo Yggdrasil, transporte saliente/entrante TCP y chat bidireccional con un contacto Desktop ya existente están verificados; B0 y B1 están cerradas y B2 es el siguiente bloqueo de DHT/bootstrap._
+_Estado: port en curso a 22 de octubre de 2026. Identidad, perfil local, nodo Yggdrasil, transporte saliente/entrante TCP, chat bidireccional con un contacto Desktop ya existente, paquetes DHT firmados, LocationBlock con secuencia persistente, códec/admisión DHT, núcleo Kademlia, store/lookup iterativo y bootstrap/descubrimiento local están verificados; B0–B5 están cerradas localmente. B6 (identidad de cuenta y registro de dispositivos) tiene el núcleo Go completo, clave/certificado de dispositivo, registro local firmado con epoch, guarda de admisión y un trabajador DHT que publica y consulta el registro; siguen pendientes la prueba de campo de ese trabajador, el emparejamiento OOB en UI, la admisión de certificados de contactos antes de cifrar, las SPK por dispositivo y la migración Desktop. B7 tiene publicación, lookup iterativo, `DHT_UPDATE` bidireccional con certificado y registro en Android y Desktop, y secuencia anti-reinstalación en Android; siguen pendientes la renovación con saltos acotados, la admisión antes de cifrar, la migración de la mensajería Desktop a claves por dispositivo y la prueba de roaming real. B8 es el servicio, B9 la interoperabilidad y B10 la sincronización multidispositivo._
 
-> Documento único de alcance y orden. Las fases **B0–B8** son la secuencia obligatoria de red y descubrimiento; las **fases de producto 4–10** solo empiezan después de B8. Las secciones «Fase 0» a «Fase 15» del anexo conservan requisitos detallados, pero **no son el orden de ejecución**.
+> Coordinación móvil↔escritorio: el estado conjunto, las dependencias cruzadas y el trabajo abierto de B6/B7 se mantienen en [`../ROADMAP.md`](../ROADMAP.md) (raíz del workspace, fuera de este repositorio).
+
+> Documento único de alcance y orden. Las fases **B0–B10** son la secuencia obligatoria de red, identidad de cuenta y sincronización; las **fases de producto 4–10** solo empiezan después de B9 y el **Producto 6** además después de B10. Las secciones «Fase 0» a «Fase 15» del anexo conservan requisitos detallados, pero **no son el orden de ejecución**.
 
 ## Propósito y reglas de uso
 
@@ -20,6 +22,8 @@ Este documento guía el desarrollo de un cliente móvil de uPeer basado en el pr
 8. Cada fase debe terminar con criterios de salida, pruebas y limitaciones documentadas antes de empezar la siguiente fase dependiente.
 9. Expo Go no es el entorno de validación final para este proyecto: los módulos nativos de Yggdrasil y Android requieren development builds y prebuild/CNG.
 10. Mantener el producto de escritorio funcional e interoperable durante el desarrollo móvil.
+11. Una cuenta no se propaga copiando su clave privada: cada dispositivo tiene claves propias y un certificado de dispositivo; la raíz de cuenta solo autoriza o revoca.
+12. La DHT descubre direcciones y publica punteros; la entrega offline se apoya en un buzón/vault cifrado por dispositivo, nunca en almacenar mensajes en la DHT.
 
 ## Estado actual del port (22 de octubre de 2026)
 
@@ -33,17 +37,20 @@ Este documento guía el desarrollo de un cliente móvil de uPeer basado en el pr
 | Transporte entrante | Hecho | Listener TCP `50005` en `:yggdrasil`, framing 4B/10 MiB con fragmentación y coalescencia, `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`, X3DH, `SEALED`/`CHAT`, ACK y persistencia. Chat Desktop→móvil verificado, incluido frame truncado y reconexión tras cambio de red; falta estrés prolongado. |
 | Servicio Android | Parcial | Foreground service visible en proceso separado `:yggdrasil`, `stopWithTask=false`, configuración e identidad cifradas con Keystore, parada manual y recuperación tras force-stop. Faltan batería y control on/off explícito. |
 | Segundo plano sin push | Parcial | Listener, identidad, protocolo y outbox viven en `:yggdrasil`; el servicio responde handshakes, descifra `SEALED`/`CHAT`, envía ACK, persiste sesión/mensaje y publica notificaciones locales aunque la UI esté cerrada. Faltan pruebas prolongadas de batería y red. |
-| Protocolo uPeer | Parcial | `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT` firmados con SPK nativa, X3DH, `SEALED`/`CHAT`, ACK, compresión y outbox validados contra un peer Desktop simulado en ambos sentidos; `DR_RESET`, ACK perdido, duplicados, rate limiting por origen/identidad y política de replay por UUID y propiedad del mensaje probados. Las SPK solo avanzan en handshakes; un `DR_RESET` con el mismo `spkId` se acepta como reset idempotente mediante `resetId`, y una SPK obsoleta no reinicia la sesión. El chat cruzado se verificó con un contacto ya conocido: el handshake móvil aún no envía `powProof`, obligatorio en Desktop para contactos nuevos, ni `addresses`/`ephemeralPublicKey`. Hay prototipos locales de firma y LocationBlock en Go, sin binding ni vector Desktop, que no cuentan como DHT. Faltan alta de contacto nuevo desde móvil, DHT, bootstrap, cambio de identidad del contacto y offline prolongado. |
+| Protocolo uPeer | Parcial | `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT` firmados con SPK nativa, X3DH, `SEALED`/`CHAT`, ACK, compresión y outbox validados contra un peer Desktop simulado en ambos sentidos; `DR_RESET`, ACK perdido, duplicados, rate limiting por origen/identidad y política de replay por UUID y propiedad del mensaje probados. Las SPK solo avanzan en handshakes; un `DR_RESET` con el mismo `spkId` se acepta como reset idempotente mediante `resetId`, y una SPK obsoleta no reinicia la sesión. El chat cruzado se verificó con un contacto ya conocido: el handshake móvil aún no envía `powProof`, obligatorio en Desktop para contactos nuevos, ni `addresses`/`ephemeralPublicKey`. El LocationBlock firmado, el `dhtSeq` persistente y el `deviceId` derivado están integrados localmente en Go, binding, Kotlin y TypeScript (B2); el códec, la admisión, el núcleo Kademlia y bootstrap/descubrimiento están portados localmente (B3–B5), mientras roaming y el trabajador DHT en el servicio siguen pendientes. Faltan alta de contacto nuevo desde móvil, prueba con Desktop real, cambio de identidad del contacto y offline prolongado. |
 | Persistencia | Parcial | Estado de protocolo cifrado en Keystore con peers, sesiones de ratchet, últimos 500 mensajes y outbox; sin DB relacional ni grupos. |
+| Multidispositivo | No iniciado en móvil; Desktop parcial | Desktop tiene `deviceId`, tabla `devices`, self-sync y vault, pero el escenario multiproceso comparte mnemonic y SPK entre dispositivos; `isTrusted` no se aplica al enrutado y revocar solo borra una fila. B6 y B10 exigen claves por dispositivo, registro firmado, emparejamiento y revocación; la Fase 10 no se portará sobre el atajo actual. |
 | UI | Parcial | Onboarding, perfil, contactos, conexión, mapa, lista de conversaciones y chat conectados al protocolo nativo; estados pendiente/enviado/entregado, no leídos, ACK y notificaciones locales visibles. Faltan adjuntos, búsqueda y llamadas. |
 
-**Último hito cerrado:** P1 (primer frame entrante Desktop→móvil) y P2 (protocolo headless persistente). El detalle está en [Hitos y prioridad vigente](#hitos-y-prioridad-vigente). El siguiente bloqueo es DHT; se ejecuta como B0–B8.
+**Último hito cerrado:** P1 (primer frame entrante Desktop→móvil) y P2 (protocolo headless persistente). El detalle está en [Hitos y prioridad vigente](#hitos-y-prioridad-vigente). El siguiente bloqueo es B6 (identidad de cuenta y registro de dispositivos), seguido de B7 (DHT/roaming), B8 (servicio), B9 (interoperabilidad) y B10 (sincronización).
 
 ## Base actual de escritorio
 
 La referencia funcional está en el repositorio desktop asociado y sus módulos de protocolo, red e identidad.
 
 El proyecto desktop asociado incluye identidad BIP39 y upeer ID; firmas Ed25519; cifrado E2EE X25519/Salsa20/Poly1305 y ratchet; huellas y alertas de cambio de clave; transporte sobre Yggdrasil; DHT Kademlia; bootstrap y roaming firmado; contactos; presencia; chat con ACK/lectura, respuestas, reacciones, edición y borrado; vault y recuperación offline; grupos, roles y sincronización multidispositivo; transferencia cifrada de archivos; notas de voz; configuración y diagnósticos; y llamadas cuya implementación tiene partes completas y otras aún pendientes.
+
+La sincronización multidispositivo de Desktop es una **referencia funcional parcial, no un modelo de seguridad que portar**. `src/main_process/storage/schema.ts` y `devices-operations.ts` guardan dispositivos descubiertos, pero `isTrusted` solo se usa en la UI y `deleteDevice` únicamente elimina la fila. El test `tests/integration/network/multi-process.integration.test.ts` arranca el segundo dispositivo con la **misma mnemonic y el mismo `sourceDir`** que el primero, incluido su SPK: no valida claves independientes ni autorización por dispositivo. `SYNC_PULSE` tiene handler, pero no se encontró ningún emisor (`broadcastPulse`) en `src/main_process`; la sincronización real observada es self-sync directo y vault con el mismo `recipientSid`. En online, el self-sync directo funciona si el otro dispositivo está en `selfAddresses` o es descubierto por DHT; en offline, el vault conserva el paquete para recuperación posterior, pero lo cifra con la misma identidad/SPK, sin sobre por dispositivo ni historial inicial negociado. Por tanto, B6 y B10 incluyen cambios obligatorios en Desktop, no solo el port móvil.
 
 No todas las descripciones del README deben tomarse como prueba del estado real: antes de portar, confirmar código, pruebas y compatibilidad actual.
 
@@ -59,42 +66,49 @@ La integración desktop ejecuta `yggstack` y configura SOCKS local en `127.0.0.1
 - Tratar Android e iOS como integraciones nativas distintas, aunque compartan UI y lógica de dominio.
 - Preservar interoperabilidad con desktop como requisito transversal y no como una fase tardía.
 
-## Estado de las fases bloqueantes B0–B8 (22 de octubre de 2026)
+## Estado de las fases bloqueantes B0–B10 (22 de octubre de 2026)
 
 - **B0 — completada.** La derivación BIP39/Ed25519/upeer ID tiene vector contra Desktop. Canonicalización, firma de `HANDSHAKE_REQ`/`ACCEPT`, framing, sealed boxes, X3DH, Double Ratchet, ACK y compresión tienen vectores o pruebas cruzadas. Los 12 tipos DHT, LocationBlock multi-dirección/legacy y `DHT_UPDATE` tienen fixture generado por Desktop y pruebas en Go, JS y Kotlin; el validador de Desktop acepta el corpus.
-- **B1 — parcial local, no integrado.** Existe un prototipo Go de firma canónica y `BuildSignedPacket` validado con pruebas de ida y vuelta y contra los vectores de B0, pero vive en la raíz del bridge y no está expuesto al binding gomobile ni a un códec Kotlin.
-- **B2 — parcial local, no integrado.** Existe un prototipo Go de `BuildLocationBlock`/`VerifyLocationBlock` con normalización de direcciones, TTL, `deviceId`, `deviceMeta` y compatibilidad legacy, ya cubierto por vectores de Desktop. No está expuesto a Kotlin; faltan secuencia DHT persistente, `deviceId` estable y monotonía.
-- **B3–B6 — no iniciadas.** Códec DHT, Kademlia, bootstrap/descubrimiento, `DHT_UPDATE` y roaming no están portados. Los archivos Kotlin adelantados sin integrar se retiraron para no confundir prototipo con implementación.
-- **B7 — parcial.** El servicio `:yggdrasil` ya es dueño del nodo, listener, protocolo, ratchets, outbox y persistencia cifrada; falta integrar el trabajador DHT y su estado observable.
-- **B8 — no iniciada.** No hay validación DHT Desktop↔móvil, fuzzing de paquetes ni presupuesto de batería/red para descubrimiento.
-- **Fases de producto 4–10 — no iniciadas como paridad.** El chat directo con un contacto ya conocido funciona en ambos sentidos y está expuesto en la UI, pero faltan grupos, archivos, llamadas, vault y notificaciones avanzadas.
+- **B1 — completada localmente.** `transport-bridge/dht/` contiene canonicalización y paquetes firmados, y el binding regenerado expone `buildSignedPacket`, `verifyCanonicalJSON` y `verifySignedPacket`; `DhtPacketCodec` aplica la política en Kotlin. La prueba con dos instalaciones queda en B9.
+- **B2 — completada localmente, integrada en servicio/AIDL/TS.** `transport-bridge/dht/location_block.go` construye y verifica bloques firmados con direcciones normalizadas, TTL 30/60 días, `dhtSeq`, `deviceId` y `deviceMeta`, con compatibilidad legacy. El binding gomobile expone `buildLocationBlock`, `verifyLocationBlock` y `deriveDeviceID`; `DhtLocation` y `DhtLocationStore` aplican la política en Kotlin, persisten la secuencia cifrada por identidad y el servicio la publica por AIDL. Desde B6 el `deviceId` deriva de la clave del dispositivo y el bloque adjunta su certificado; la secuencia sigue siendo estado local. Falta la prueba de campo Desktop↔móvil, que corresponde a B9.
+- **B3 — completada localmente, pendiente de integración en el bucle DHT.** `dht/codec*.go` y `DhtPacketPolicy`/`DhtMessageParser` portan los 12 tipos de `protocol.ts` y los mensajes legacy con límites de 64 KiB, profundidad 16, 20 nodos, 50 peers, 10 000 caracteres de valor, claves 40/64 hex y `queryId` de 64. `DhtAdmissionPolicy` y `AdmissionPolicy` aplican los umbrales DHT de Desktop por IP e identidad, verifican firma/`senderUpeerId` y consumen respuestas solo con query pendiente. La integración con el trabajador DHT corresponde a B8 y la prueba de amplificación/fuzzing a B9.
+- **B4 — completada localmente.** `dht/kademlia_*.go` y `app/upeer/transport/dht/kademlia/*.kt` implementan IDs SHA-256 truncados a 20 bytes, XOR, 160 buckets, K=20, α=3, routing con evicción LRU y `lastSeen`, store de 10 000 entradas/30 días/10 dispositivos ordenados por `dhtSeq`, queries con timeout y correlación estricta, y los handlers `PING`/`PONG`/`FIND_NODE`/`FOUND_NODES`/`FIND_VALUE`/`FOUND_VALUE`/`STORE`/`STORE_ACK`. `KademliaIterative` añade store con `FIND_NODE` previo, ACK y reintento acotado, y lookup por rondas α=3 que incorpora nodos nuevos; `KademliaValueMerge` fusiona bloques por `deviceId` y registros por `epoch`. Las pruebas simulan tres nodos en Kotlin y Go, incluidas expiración, peer que no responde, ACK perdido y dos dispositivos; el cableado al servicio y gomobile corresponde a B8 y la prueba mixta de campo a B9.
+- **B5 — completada localmente.** `KademliaSeedLoader` valida `upeerId` (BLAKE2b-256 de la clave Ed25519), dirección IP literal y clave de 32 bytes; carga contactos existentes, archivo `seednodes.json` y TXT `dht-seeds.upeer.chat`, deduplica y acota a 100 seeds. `KademliaBootstrap` exige 10 contactos verificados por respuesta `FIND_NODE`, reintenta cada 30 s con backoff hasta 5 min, descubre por rondas y se recupera de reinicio mediante `KademliaContactFileStore`, que solo guarda contactos verificados y limita a 100. La sonda LAN `ff02::1` queda tras la política de multicast, permiso Wi-Fi, servicio activo, red disponible y ahorro de batería, con intervalo de 5 min. El resolvedor DNS Android usa `DnsResolver.rawQuery` y el parser TXT propio; el `MulticastLock` real, la ruta de persistencia y el worker quedan en B8. Las pruebas cubren vectores BLAKE2b, seeds válidas/inválidas, red simulada con seed Desktop-compatible hasta 10+ nodos, reinicio, backoff/cambio de red y LAN: 94 pruebas JVM y 46 Go. La prueba con un Desktop real por red queda en B9.
+- **B6 — en curso (núcleo Go + almacén móvil).** `transport-bridge/dht/account_*.go` define certificado de dispositivo firmado por la raíz, solicitud de pairing OOB firmada por el dispositivo, registro de cuenta con `epoch` y revocaciones, admisión certificado→registro, `LocationBlock` firmado por clave de dispositivo con certificado adjunto y publicación/consulta del registro en Kademlia. El binding expone las operaciones desde `dht_signing.go`. En Android, `DeviceIdentityStore` cifra en Keystore una clave Ed25519 de dispositivo y su certificado, `YggdrasilIdentity` lo provisiona al cargar/provisionar la cuenta y `locationBlockJSON` publica el bloque firmado por dispositivo con certificado; el estado se expone por AIDL/TS. Faltan el emparejamiento OOB en UI, la validación de certificados de contactos antes de cifrar (B7), las SPK firmadas por dispositivo, la migración de Desktop/móvil y los vectores cruzados; el detalle está en la sección B6. Desktop ya emite certificado y registro para ubicación, pero su mensajería sigue usando la identidad compartida. Es el bloqueo activo.
+- **B7 — en curso (store/lookup iterativo, `DHT_UPDATE` bidireccional y secuencia anti-reinstalación).** El `LocationBlock` firmado por dispositivo se publica bajo la clave DHT del `upeerId`, se valida al recibir `DHT_STORE` y se recupera con lookup iterativo, comprobando certificado y admisión contra el registro de cuenta. El store usa `FIND_NODE` previo, K nodos, ACK y reintento acotado; el lookup incorpora nodos nuevos por rondas α=3, fusiona los bloques de varios dispositivos y cachea solo el resultado verificado. `DHT_UPDATE` se envía a contactos íntimos con todas sus direcciones conocidas, solo al cambiar `dhtSeq` o direcciones, y en recepción exige sobre firmado, certificado, registro vigente y `dhtSeq` estrictamente mayor por `(cuenta, deviceId)`; el último aceptado se persiste en Keystore y no se reenvía. Si falta el estado local de secuencia, el worker recupera el propio bloque DHT y se niega a publicar cuando no puede leerlo o verificarlo. Desktop ya emite bloques con certificado y registro de cuenta, y acepta los de Android. Faltan la renovación con límite de saltos, la admisión antes de cifrar, la migración de mensajería Desktop y la prueba de roaming real. El trabajo abierto y su orden están en [`../ROADMAP.md`](../ROADMAP.md).
+- **B8 — parcial.** El servicio `:yggdrasil` ya es dueño del nodo, listener, protocolo, ratchets, outbox y persistencia cifrada; falta integrar el trabajador DHT (códec, admisión, núcleo y bootstrap ya disponibles), el `MulticastLock`, la ruta de persistencia de contactos, certificados/epoch y su estado observable.
+- **B9 — no iniciada.** No hay validación DHT Desktop↔móvil, fuzzing de paquetes, presupuesto de batería/red para descubrimiento ni interop del registro de dispositivos.
+- **B10 — no iniciada.** Sincronización online/offline, historial y entrega diferida entre dispositivos autorizados; depende de B9.
+- **Fases de producto 4–10 — no iniciadas como paridad.** El chat directo con un contacto ya conocido funciona en ambos sentidos y está expuesto en la UI, pero faltan grupos, archivos, llamadas, vault y notificaciones avanzadas. El Producto 6 (vault/multidispositivo) no empieza hasta B10.
 
 ### Disposición del trabajo local no integrado
 
 | Archivo | Estado | Acción antes de continuar |
 |---|---|---|
-| `transport-bridge/dht_signing.go` | Prototipo Go, pruebas en verde | B1: mover la lógica a `transport-bridge/dht/` y dejar un adaptador en la fachada gomobile |
-| `transport-bridge/location_block.go` | Prototipo Go, pruebas en verde | B2: mover a `transport-bridge/dht/` y exponerlo por el bridge |
-| `transport-bridge/dht_signing_test.go` | Prueba del prototipo | Mover junto al paquete `dht` cuando se haga B1 |
-| `DhtTypes.kt`, `DhtRoutingTable.kt`, `DhtValueStore.kt` | Retirados; no integrados | Rehacerlos en B4 bajo `app/upeer/transport/dht/kademlia/`, no en la raíz |
+| `transport-bridge/dht_signing.go` | Integrado; adaptador gomobile | — |
+| `transport-bridge/location_block.go` | Integrado; adaptador gomobile | — |
+| `transport-bridge/dht_signing_test.go` | Prueba del adaptador | — |
+| `DhtTypes.kt`, `DhtRoutingTable.kt`, `DhtValueStore.kt` | Retirados; reemplazados en B4 | Implementación vigente en `app/upeer/transport/dht/kademlia/`, no en la raíz |
 
 Ningún prototipo cuenta como fase completada hasta que tenga vector Desktop, binding y prueba cruzada.
 
 ## Orden por fases bloqueantes
 
-Cada fase B solo puede empezar cuando la anterior tenga su criterio de salida demostrado. Las fases de producto (4–10) no se adelantan para tapar huecos de red: dependen de B8.
+Cada fase B solo puede empezar cuando la anterior tenga su criterio de salida demostrado. Las fases de producto (4–10) no se adelantan para tapar huecos de red: dependen de B9; el Producto 6 depende además de B10.
 
 | Fase | Bloquea a | Entrega mínima | Estado |
 |---|---|---|---|
-| B0 | B1–B8 | Vectores canónicos y harness JS/Go/Kotlin | Hecha |
-| B1 | B2–B8 | Firma/verificación de paquetes DHT en el bridge y en Kotlin | Hecha |
-| B2 | B4–B8 | LocationBlock firmado, `dhtSeq`, `deviceId` y TTL | Parcial local |
-| B3 | B4–B8 | Códec DHT estricto, límites y admisión | No iniciada |
-| B4 | B5–B8 | Kademlia: routing, store, protocolo y queries pendientes | No iniciada |
-| B5 | B6–B8 | Bootstrap y descubrimiento diversificado | No iniciada |
-| B6 | B7–B8 | Location blocks en DHT, `DHT_UPDATE`, renovación y roaming | No iniciada |
-| B7 | B8 | Trabajador DHT dentro de `:yggdrasil` y estado observable | Parcial |
-| B8 | Producto | Interoperabilidad Desktop↔móvil, fuzzing y presupuesto | No iniciada |
+| B0 | B1–B10 | Vectores canónicos y harness JS/Go/Kotlin | Hecha |
+| B1 | B2–B10 | Firma/verificación de paquetes DHT en el bridge y en Kotlin | Hecha |
+| B2 | B4–B10 | LocationBlock firmado, `dhtSeq`, `deviceId` y TTL | Integrada localmente |
+| B3 | B4–B10 | Códec DHT estricto, límites y admisión | Integrada localmente |
+| B4 | B5–B10 | Kademlia: routing, store, protocolo y queries | Integrada localmente |
+| B5 | B6–B10 | Bootstrap, seeds, LAN y persistencia de contactos | Integrada localmente |
+| B6 | B7–B10, Producto 6 | Cuenta, claves por dispositivo, certificado, registro, emparejamiento y revocación | En curso (Go + Keystore móvil) |
+| B7 | B8–B10 | Location blocks con certificado, `DHT_UPDATE`, renovación y roaming | En curso (Android + Desktop con certificado; anti-reinstalación Android hecha, falta prueba real) |
+| B8 | B9–B10 | Trabajador DHT, certificados y epoch dentro de `:yggdrasil` | Parcial |
+| B9 | B10, Producto 6 | Interoperabilidad Desktop↔móvil, registro, fuzzing y presupuesto | No iniciada |
+| B10 | Producto 6 | Sincronización online/offline, historial y entrega diferida por dispositivo | No iniciada |
 
 ## Regla de organización de archivos
 
@@ -114,7 +128,12 @@ modules/upeer-transport/android/src/main/java/app/upeer/transport/
       DhtProtocol.kt
       DhtPendingQueries.kt
       DhtMain.kt
+    DhtLimits.kt
+    DhtMessage.kt
+    DhtMessageParser.kt
     DhtPacketCodec.kt
+    DhtPacketPolicy.kt
+    DhtAdmissionPolicy.kt
     DhtBootstrap.kt
     DhtLocation.kt
     DhtUpdate.kt
@@ -134,6 +153,11 @@ transport-bridge/
     signed_packet.go
     location_block.go
     codec.go
+    codec_types.go
+    codec_decode.go
+    codec_validation.go
+    codec_exchange.go
+    admission.go
     *_test.go
 ```
 
@@ -154,7 +178,7 @@ La lógica nueva de DHT va en `transport-bridge/dht/`; la raíz conserva solo lo
 
 **No hacer:** empezar Kademlia antes de que el vector de `DHT_PING` pase en los tres runtimes.
 
-**Estado (22/10/2026): completada.** El fixture `dht_vectors.json` cubre canonicalización, firma, 12 tipos DHT, LocationBlock multi-dirección con `deviceId`/`deviceMeta`, bloque legacy y `DHT_UPDATE`. Go, JS y Kotlin reproducen los mismos bytes y firmas; el validador de Desktop acepta el corpus. La prueba de campo con dos instalaciones queda en B8.
+**Estado (22/10/2026): completada.** El fixture `dht_vectors.json` cubre canonicalización, firma, 12 tipos DHT, LocationBlock multi-dirección con `deviceId`/`deviceMeta`, bloque legacy y `DHT_UPDATE`. Go, JS y Kotlin reproducen los mismos bytes y firmas; el validador de Desktop acepta el corpus. La prueba de campo con dos instalaciones queda en B9.
 
 ### B1 — Paquetes firmados canónicos en bridge y binding
 
@@ -168,94 +192,150 @@ La lógica nueva de DHT va en `transport-bridge/dht/`; la raíz conserva solo lo
 
 **Salida:** Kotlin firma un `DHT_PING` y Desktop lo acepta; Desktop firma el mismo paquete y Kotlin lo acepta.
 
-**Estado (22/10/2026): completada.** `transport-bridge/dht/` contiene canonicalización y paquetes firmados; la raíz conserva el adaptador gomobile. El binding regenerado expone `buildSignedPacket`, `verifyCanonicalJSON` y `verifySignedPacket`, y `DhtPacketCodec` aplica la política en Kotlin con pruebas JVM de firma válida, alteración, clave distinta, `upeerId` incoherente, campos reservados, dirección inválida, JSON no objeto y trailing. La firma JDK ya reproduce los bytes de Desktop en `DhtCanonicalVectorTest`; la prueba con dos instalaciones queda en B8.
+**Estado (22/10/2026): completada.** `transport-bridge/dht/` contiene canonicalización y paquetes firmados; la raíz conserva el adaptador gomobile. El binding regenerado expone `buildSignedPacket`, `verifyCanonicalJSON` y `verifySignedPacket`, y `DhtPacketCodec` aplica la política en Kotlin con pruebas JVM de firma válida, alteración, clave distinta, `upeerId` incoherente, campos reservados, dirección inválida, JSON no objeto y trailing. La firma JDK ya reproduce los bytes de Desktop en `DhtCanonicalVectorTest`; la prueba con dos instalaciones queda en B9.
 
 ### B2 — LocationBlock, secuencia y dispositivo
 
 **Depende de:** B1.
 
 - [x] Prototipo Go de construcción y verificación, TTL 30/60 días, normalización, deduplicación y orden de direcciones, `deviceId` máximo 128 y compatibilidad legacy.
-- [ ] Exportar construcción/verificación al binding y añadir el códec Kotlin equivalente.
-- [ ] Persistir `dhtSeq` monotónico por identidad; incrementarlo una sola vez por cambio real de dirección y conservarlo tras reinicio.
-- [ ] Derivar un `deviceId` estable por instalación desde la clave de dispositivo, nunca desde la UI.
-- [ ] Verificar el bloque derivando el `upeerId` de la clave pública; no confiar en el campo del bloque.
-- [ ] Probar bloque expirado, TTL fuera de rango, direcciones inválidas/duplicadas, secuencia menor, salto de secuencia abusivo, `deviceId` largo y bloque legacy.
+- [x] Exportar construcción/verificación al binding y añadir el códec Kotlin equivalente.
+- [x] Persistir `dhtSeq` monotónico por identidad; incrementarlo una sola vez por cambio real de dirección y conservarlo tras reinicio.
+- [x] Derivar un `deviceId` estable por instalación desde la clave de dispositivo, nunca desde la UI.
+- [x] Verificar el bloque derivando el `upeerId` de la clave pública; no confiar en el campo del bloque.
+- [x] Probar bloque expirado, TTL fuera de rango, direcciones inválidas/duplicadas, secuencia menor, salto de secuencia abusivo, `deviceId` largo y bloque legacy.
 
 **Salida:** un cambio de dirección genera un bloque verificable por Desktop, con secuencia creciente y sin aceptar un bloque antiguo o de otra clave.
+
+**Estado (22/10/2026): completada localmente.** `transport-bridge/dht/location_block.go` construye y verifica bloques firmados y el adaptador gomobile los expone como `buildLocationBlock`, `verifyLocationBlock` y `deriveDeviceID`. `DhtLocation` replica el códec canónico en Kotlin y `DhtLocationStore` persiste de forma cifrada `dhtSeq` por identidad. La secuencia solo avanza al cambiar la dirección, se conserva al reiniciar, se reinicia al cambiar de identidad, se recupera del propio bloque DHT si falta el estado local y aplica el límite `MAX_DHT_SEQ_JUMP` de Desktop. El servicio publica el bloque y el estado por AIDL y el módulo TypeScript los tipa. `DhtLocationTest`, `DhtLocationStoreTest`, `DhtSequenceTest` y las pruebas Go cubren vectores de Desktop, expiración, clave distinta, campos alterados, `dhtSeq` retrocedido, salto abusivo, TTL, direcciones inválidas, bloque legacy y recuperación de secuencia. Desde B6 el `deviceId` lo aporta `DeviceIdentityStore` y el bloque adjunta el certificado del dispositivo. La prueba de campo Desktop↔móvil queda en B9.
 
 ### B3 — Códec DHT y política de admisión
 
 **Depende de:** B1.
 
-- [ ] Portar los tipos exactos de `kademlia/protocol.ts` y los mensajes legacy de `dhtExchange.ts`/`legacyHandlers.ts`.
-- [ ] Fijar límites de nodos por respuesta, tamaño de valor, longitud de claves, `queryId`, `nodeId`, direcciones y JSON total.
-- [ ] Aplicar rate limiting DHT por origen y tipo con los mismos umbrales que Desktop antes de asignar memoria o despachar.
-- [ ] Rechazar tipos desconocidos, respuestas sin query pendiente y paquetes con `senderUpeerId` incoherente.
-- [ ] Añadir pruebas de paquete vacío, gigante, anidado, truncado y con campos de más.
+- [x] Portar los tipos exactos de `kademlia/protocol.ts` y los mensajes legacy de `dhtExchange.ts`/`legacyHandlers.ts`.
+- [x] Fijar límites de nodos por respuesta, tamaño de valor, longitud de claves, `queryId`, `nodeId`, direcciones y JSON total.
+- [x] Aplicar rate limiting DHT por origen y tipo con los mismos umbrales que Desktop antes de asignar memoria o despachar.
+- [x] Rechazar tipos desconocidos, respuestas sin query pendiente y paquetes con `senderUpeerId` incoherente.
+- [x] Añadir pruebas de paquete vacío, gigante, anidado, truncado y con campos de más.
 
 **Salida:** un corpus inválido no provoca asignaciones desmedidas ni respuestas de amplificación; cada paquete válido se decodifica igual que en Desktop.
+
+**Estado (22/10/2026): completada localmente.** `DhtLimits`, `DhtMessage`, `DhtMessageParser` y `DhtPacketPolicy` decodifican los 12 tipos DHT con rechazo de campos no declarados, JSON de más de 64 KiB, profundidad mayor de 16, claves de 40/64 hex, `queryId` de más de 64, más de 20 nodos, más de 50 peers o valores de más de 10 000 caracteres. `DhtPendingQueries` correlaciona respuestas modernas por `queryId` y `DHT_RESPONSE` legacy por `targetId`, con origen y timeout de 30 s. `DhtAdmissionPolicy` aplica rate limiting por IP e identidad con los umbrales exactos de `rate-limiter.ts`, verifica firma, deriva el remitente de la clave y rechaza `senderUpeerId` incoherente o respuestas sin query. El port Go replica el códec, la admisión y las pruebas en `transport-bridge/dht/codec*.go` y `admission.go`. Las 58 pruebas JVM y toda la suite Go pasan; la integración en `DhtProtocol` queda para B4 y el fuzzing/amplificación para B9.
 
 ### B4 — Núcleo Kademlia
 
 **Depende de:** B2, B3.
 
-- [ ] Portar IDs de 160 bits (SHA-256 truncado a 20 bytes), XOR, 160 buckets, K=20 y α=3.
-- [ ] Implementar routing table con evicción del contacto más antiguo, `lastSeen`, búsqueda de los K más cercanos y refresco de buckets.
-- [ ] Implementar value store con límite de 10 000 entradas, TTL de 30 días, deduplicación y valores multidispositivo ordenados por `dhtSeq`.
-- [ ] Implementar queries pendientes con timeout, limpieza y respuesta solo para la query correspondiente.
-- [ ] Portar los handlers `PING`, `PONG`, `FIND_NODE`, `FOUND_NODES`, `FIND_VALUE`, `FOUND_VALUE`, `STORE` y `STORE_ACK`.
-- [ ] Probar una red simulada de tres nodos: descubrimiento, almacenamiento, búsqueda, expiración y contacto que no responde.
+- [x] Portar IDs de 160 bits (SHA-256 truncado a 20 bytes), XOR, 160 buckets, K=20 y α=3.
+- [x] Implementar routing table con evicción del contacto más antiguo, `lastSeen`, búsqueda de los K más cercanos y refresco de buckets.
+- [x] Implementar value store con límite de 10 000 entradas, TTL de 30 días, deduplicación y valores multidispositivo ordenados por `dhtSeq`.
+- [x] Implementar queries pendientes con timeout, limpieza y respuesta solo para la query correspondiente.
+- [x] Portar los handlers `PING`, `PONG`, `FIND_NODE`, `FOUND_NODES`, `FIND_VALUE`, `FOUND_VALUE`, `STORE` y `STORE_ACK`.
+- [x] Probar una red simulada de tres nodos: descubrimiento, almacenamiento, búsqueda, expiración y contacto que no responde.
 
 **Salida:** dos instancias Kotlin y una Go intercambian `FIND_NODE`/`STORE` con los mismos resultados que Desktop y sin bloquearse por un peer caído.
+
+**Estado (22/10/2026): completada localmente.** `transport-bridge/dht/kademlia_*.go` y `app/upeer/transport/dht/kademlia/*.kt` replican `distance.ts`, `kbucket.ts`, `routing.ts`, `store.ts` y `protocol.ts` con IDs SHA-256 truncados a 20 bytes, XOR, 160 buckets, K=20 y α=3. El routing evicta el contacto más antiguo, actualiza `lastSeen`/dirección y expone buckets obsoletos; el store aplica 10 000 entradas, TTL de 30 días, deduplicación y hasta 10 bloques por clave ordenados por `dhtSeq` descendente. Los trackers de queries de Kotlin y Go correlacionan por `queryId` (y clave cuando existe), descartan respuestas de otra query y limpian a los 30 s; cada lookup usa timeout de 5 s. Los handlers modernos y el encoder (`DhtMessageEncoder`/`EncodeMessage`) validan la salida con el códec B3. Las pruebas de tres nodos cubren descubrimiento, `STORE`, `FIND_VALUE`, expiración y peer caído en Kotlin y Go, con un total de 79 pruebas JVM y `go test ./dht` en verde. El cableado gomobile/servicio y la prueba mixta Desktop↔móvil quedan en B8/B9.
 
 ### B5 — Bootstrap y descubrimiento
 
 **Depende de:** B4.
 
-- [ ] Cargar seeds desde contactos existentes, archivo local y DNS TXT `dht-seeds.upeer.chat`; validar `upeerId`, dirección y clave antes de añadirlos.
-- [ ] Implementar bootstrap con mínimo de 10 nodos y reintento cada 30 s, con deduplicación y backoff.
-- [ ] Añadir descubrimiento LAN `ff02::1` solo si Android lo permite en el servicio; documentar restricciones de multicast y batería.
-- [ ] Persistir únicamente contactos verificados y acotar su número.
-- [ ] Probar arranque sin seeds, seeds inválidas, seed Desktop real, reinicio y cambio de red.
+- [x] Cargar seeds desde contactos existentes, archivo local y DNS TXT `dht-seeds.upeer.chat`; validar `upeerId`, dirección y clave antes de añadirlos.
+- [x] Implementar bootstrap con mínimo de 10 nodos y reintento cada 30 s, con deduplicación y backoff.
+- [x] Añadir descubrimiento LAN `ff02::1` solo si Android lo permite en el servicio; documentar restricciones de multicast y batería.
+- [x] Persistir únicamente contactos verificados y acotar su número.
+- [x] Probar arranque sin seeds, seeds inválidas, seed Desktop, reinicio y cambio de red.
 
 **Salida:** el móvil pasa de cero a una tabla con al menos 10 nodos verificados usando un seed Desktop, y se recupera tras reiniciar el servicio.
 
-### B6 — Location blocks en DHT, `DHT_UPDATE` y roaming
+**Estado (22/10/2026): completada localmente.** `KademliaSeedLoader`/`KademliaSeedValidator` cargan contactos existentes, archivo local y TXT, validan que la clave Ed25519 derive el `upeerId` mediante BLAKE2b-256, rechazan direcciones no literales o claves ajenas, deduplican y limitan a 100 seeds. `KademliaBootstrap` sonda `PING` + `FIND_NODE` hacia el propio nodo, solo marca contactos tras recibir respuesta, completa con rondas de descubrimiento y verificación por lotes, exige 10 contactos y aplica reintento de 30 s con backoff exponencial hasta 5 min. `KademliaContactFileStore` guarda únicamente contactos verificados, ordena por `lastSeen`, limita a 100 y usa reemplazo atómico; al reiniciar, el bootstrap restaura la tabla sin red. `KademliaLanDiscovery` aplica la guarda de multicast, permiso Wi-Fi, servicio activo, red disponible y batería, con sonda cada 5 min. Android exige `CHANGE_WIFI_MULTICAST_STATE` y `MulticastLock` (B8), el scope IPv6 de la interfaz Wi-Fi y suspender la sonda con ahorro de batería. El resolvedor Android usa `DnsResolver.rawQuery` y un parser TXT con compresión de nombres; el `MulticastLock`, la ruta real de persistencia y el worker quedan en B8. Las pruebas cubren vectores BLAKE2b, seeds válidas/inválidas, seed Desktop-compatible, red simulada de 10+ nodos, reinicio, backoff/cambio de red y LAN. Se corrigió además el tracker de queries para usar `ReentrantLock` en lugar de `CompletableFuture`, que exigía API 24 frente a `minSdk 23`. La prueba con un Desktop real por red queda en B9.
 
-**Depende de:** B2, B4, B5.
+### B6 — Identidad de cuenta y registro autenticado de dispositivos
 
-- [ ] Publicar el LocationBlock propio en los K nodos más cercanos y recuperarlo con `FIND_VALUE`.
-- [ ] Portar `DHT_UPDATE` firmado a contactos íntimos y aplicar solo bloques con `dhtSeq` mayor y firma válida.
-- [ ] Implementar renovación de bloques sin superar 60 días ni permitir saltos de secuencia abusivos.
-- [ ] Portar `DHT_QUERY`/`DHT_RESPONSE`/`DHT_EXCHANGE`, vecinos y verificación por clave pública.
-- [ ] Redescubrir la dirección tras cambio de red en menos de 60 s.
-- [ ] Probar bloque antiguo, bloque de otra clave, bloque expirado, secuencia repetida, salto abusivo y roaming Desktop↔móvil.
+**Depende de:** B5. **Bloquea a:** B7–B10 y Producto 6.
 
-**Salida:** tras cambiar de red, Desktop encuentra la nueva dirección del móvil por DHT y el móvil encuentra la de Desktop, sin aceptar un bloque retrocedido.
+**Decisión de diseño:** una identidad uPeer, varios dispositivos autorizados, claves independientes por dispositivo y sincronización cifrada entre ellos. El `upeerId` sigue derivando de la clave pública de la cuenta, pero cada dispositivo firma con su propia clave y presenta un certificado emitido por la raíz de cuenta. El móvil puede iniciar el emparejamiento, pero ningún dispositivo es jefe permanente ni punto de fallo obligatorio.
 
-### B7 — Integración en `:yggdrasil` y persistencia
+- [x] Fijar la custodia de la raíz de cuenta: la mnemonic/raíz se materializa solo para emparejar, revocar o firmar una actualización del registro, y no se copia como clave de mensajería a todos los dispositivos. **Decisión (22/10/2026):** custodio de emparejamiento, no clave de mensajería compartida. Cada dispositivo conserva su clave Ed25519 y su certificado; la raíz solo se usa en el dispositivo que empareja o revoca. La migración de una instalación existente puede usar temporalmente la identidad actual como raíz y emitir un certificado para una clave de dispositivo nueva, pero la raíz no se copia a los demás dispositivos. Si se decide custodiar la raíz en cada dispositivo, B6 no puede afirmar revocación efectiva.
+- [ ] Definir el certificado de dispositivo firmado por la raíz: `accountUpeerId`, `deviceId` = hash de la clave pública Ed25519 del dispositivo, clave X25519 estática si existe, plataforma, capacidades, `issuedAt`, `expiresAt` y `epoch`; las SPK van firmadas por la clave del dispositivo y rotan sin reemitir el certificado, con versión y reglas de compatibilidad legacy.
+- [ ] Implementar emparejamiento out-of-band (QR/código y confirmación local): el dispositivo nuevo genera sus claves y una solicitud; la operación firmada por la raíz emite el certificado. La UI puede iniciarla desde móvil o Desktop, pero no se transfieren mnemonic, clave privada de cuenta ni SPK de otro dispositivo.
+- [ ] Publicar un registro de cuenta firmado y monotónico (`epoch`) con dispositivos autorizados y revocados en DHT; los contactos lo validan antes de cifrar a un dispositivo, con TTL corto y refresco al reconectar. `devices.isTrusted` local no sustituye este registro.
+- [ ] Aplicar la verificación en admisión: certificado -> raíz del contacto, epoch vigente y `deviceId` no revocado. `isInternalSync` deja de ser prueba de identidad; como máximo es una pista de transporte.
+- [ ] Firmar el LocationBlock con la clave del dispositivo y adjuntar su certificado; mantener la clave DHT de cuenta, varios bloques por `upeerId` y `dhtSeq` por dispositivo. La publicación y el roaming se cierran en B7.
+- [ ] Definir y aplicar revocación: registro con epoch nuevo, motivo y fecha; el dispositivo revocado deja de ser destino de cifrado. Al reconectar debe descubrir el epoch, borrar claves/sesiones e impedir nuevo descifrado. Documentar la ventana de compromiso: los emisores offline con un registro anterior pueden haber cifrado al revocado y los ciphertexts ya almacenados en su dispositivo no se borran remotamente.
+- [ ] Actualizar Desktop: migrar de identidad compartida a cuenta + dispositivo, eliminar el self-sync basado en mnemonic/SPK compartidas e implementar registro, emparejamiento y revocación antes de declarar paridad.
+- [x] Persistir cuenta, certificado, epoch, revocados y claves de dispositivo en Keystore/almacén seguro; la UI nunca exporta claves privadas.
+- [ ] Añadir vectores y pruebas: dos dispositivos con claves distintas, tercero no autorizado, certificado manipulado, epoch retrocedido, revocación online y offline, y migración de una instalación existente.
 
-**Depende de:** B6.
+**Estado (22/10/2026): en curso, núcleo Go completo, certificado de dispositivo y registro local con guarda de admisión.** `account_types.go` fija el esquema versionado; `account_certificate.go` emite/verifica el certificado y la solicitud OOB; `account_registry.go` y `account_registry_ops.go` construyen, verifican, actualizan con `epoch` monotónico y revocan; `account_admission.go` aplica certificado→registro→revocado; `account_location.go` firma `LocationBlock` con la clave del dispositivo y adjunta el certificado; `account_dht.go` publica y recupera el registro por una clave DHT BLAKE2b de 64 hex, con límite de valor de 10 000 bytes. El binding expone estas operaciones en `dht_signing.go`. En Android, `DeviceIdentityStore` genera una clave Ed25519 de dispositivo, solicita y verifica su certificado contra la raíz, lo cifra en Keystore y lo reemite al caducar; `AccountRegistryStore` construye y cifra el registro firmado con los certificados activos, conserva revocaciones, incrementa `epoch` al cambiar un certificado o al acercarse el TTL (24 h con renovación 1 h antes) y valida la admisión del dispositivo local. `YggdrasilIdentity` refresca certificado y registro antes de enviar o publicar, `YggdrasilTransportService.sendChat`/`locationBlockJSON` bloquean operaciones si el dispositivo local no está admitido y `DhtLocation.buildDevice` firma el bloque con la clave del dispositivo. `DeviceAdmissionGuard` comprueba la admisión cacheada antes de cada frame entrante, antes de entregar el outbox y al enviar; si el registro marca revocado el dispositivo local, borra sesiones, SPK y outbox una sola vez y rechaza nuevos descifrados y envíos hasta que se vuelva a admitir. El registro se refresca al arrancar el nodo, al restaurarlo tras un reinicio y antes de enviar o publicar. La guarda local sigue siendo la única que bloquea el dispositivo revocado; la validación de certificados de contactos antes de cifrar y el roaming quedan para B7. El registro y su estado se exponen por AIDL (`accountRegistryJSON`, `accountRegistryStatusJSON`, `revokeAccountDevice`, `validateDeviceAdmission`) y TypeScript (`getAccountRegistry`, `getAccountRegistryStatus`, `revokeAccountDevice`, `validateDeviceAdmission`); `DhtLocation.verify` enruta los bloques con certificado a `VerifyDeviceLocationBlock`. Pruebas Go: dos dispositivos con claves distintas, tercero no autorizado, certificado manipulado, epoch retrocedido, revocación online/offline, metadatos de registro divergentes, bloque de ubicación manipulado y publicación/consulta Kademlia; pruebas Kotlin de parseo de certificado, secuencia, construcción/reutilización del registro, renovación por certificado, refresco por TTL, revocación del dispositivo local y de otro dispositivo, cambio de cuenta y guarda de admisión con notificación única de revocación; `ContactRegistryStoreTest` cubre adopción, persistencia, rollback, cambio en el mismo epoch, caducidad y admisión, y `KademliaPacketRouterTest` cubre enrutado, remitente desconocido y clave incoherente. El servicio arranca ahora `YggdrasilDhtRuntime` en el mismo proceso `:yggdrasil`: carga semillas por DNS/fichero/contactos persistidos, hace bootstrap con `KademliaBootstrap`, envía y recibe paquetes DHT firmados sobre el puerto 50005, exige que la clave del remitente derive su `upeerId` y valida cualquier `DHT_STORE` dirigido a la clave de registro de cuenta. Tras el bootstrap publica el registro propio y, al arrancar o cambiar la red, reintenta el bootstrap, republica y consulta los registros de hasta ocho contactos conocidos; `ContactRegistryStore` cifra esos registros remotos, exige `epoch` creciente y actualizaciones monotónicas, y responde a la admisión de certificados con el registro cacheado. El estado DHT se expone dentro de `protocolStatusJSON`. Pendiente: emparejamiento OOB en UI, prueba en dispositivo de la publicación/consulta DHT, admisión de certificados de contactos antes de cifrar, SPK firmadas por dispositivo, migración Desktop/móvil y vectores cruzados; por eso el resto de casillas sigue abierto.
+**Salida:** dos dispositivos del mismo `upeerId` se emparejan sin copiar claves, generan bloques verificables con claves distintas, un tercero no puede añadirse en silencio y una revocación firmada impide que el dispositivo revocado siga siendo destinatario. Desktop y móvil aplican el mismo registro.
+
+**No hacer:** usar `deviceId` como simple metadato de un bloque firmado por la cuenta; aceptar `isInternalSync` sin certificado; ni declarar revocación si la raíz o el SPK se comparten.
+
+### B7 — Location blocks en DHT, `DHT_UPDATE` y roaming
+
+**Depende de:** B2, B4, B5, B6. **Coordinación:** [`../ROADMAP.md`](../ROADMAP.md).
+
+- [x] Publicar el bloque firmado por dispositivo con su certificado bajo la clave DHT del `upeerId`, validarlo al recibir `DHT_STORE` y recuperarlo con `FIND_VALUE` comprobando certificado y admisión contra el registro de cuenta.
+- [x] Sustituir la difusión actual por un *store* iterativo: `FIND_NODE` sobre la clave del `upeerId`, selección de los K nodos más cercanos, `STORE` con seguimiento de `DHT_STORE_ACK`, reintento acotado y poda de nodos que no responden.
+- [x] Añadir un *lookup* iterativo real para `FIND_VALUE` (rondas α=3 con nodos nuevos) y cachear el resultado solo tras verificar certificado, firma y admisión; fusionar los bloques de varios dispositivos antes de elegir el `dhtSeq` más alto.
+- [x] Portar `DHT_UPDATE` firmado a contactos íntimos: enviarlo al cambiar dirección/`dhtSeq` a todas las direcciones conocidas del contacto; recibirlo solo con firma de paquete válida, bloque con certificado del `deviceId` correcto, cuenta correcta, epoch no revocado y `dhtSeq` estrictamente mayor por `(cuenta, deviceId)`; persistir el último `dhtSeq` aceptado y no reenviar en bucle. El verificador de `powProof` queda desactivado hasta integrar Argon2id en Android.
+- [x] Garantizar la secuencia anti-reinstalación: si `DhtLocationStore` no tiene estado, `DhtLocationWorker` recupera el suelo de `dhtSeq` desde el propio bloque verificado en DHT y falla cerrado si no puede leerlo o verificarlo; un resultado vacío se interpreta como primera publicación de ese dispositivo. `DhtUpdateAcceptanceStore` migra a estado v2 y cuenta la secuencia por `(cuenta, deviceId)`, de modo que un dispositivo nuevo no colisiona con otro y el mismo `deviceId` sigue rechazando repeticiones y retrocesos.
+- [ ] Implementar renovación acotada: TTL máximo 60 días, renovación solo dentro de la ventana previa a expirar, `dhtSeq` monotónico con salto máximo `MAX_DHT_SEQ_JUMP`, sin renovar bloques sin certificado vigente o con epoch revocado.
+- [ ] Portar `DHT_QUERY`/`DHT_RESPONSE`/`DHT_EXCHANGE`, vecinos y verificación por clave pública y certificado de dispositivo.
+- [ ] Redescubrir la dirección tras cambio de red en menos de 60 s y republicar en bootstrap, cambio de red y mantenimiento sin superar el presupuesto de batería/datos.
+- [ ] Definir y aplicar la admisión antes de cifrar a un contacto: refrescar registro de cuenta y ubicación si la caché expiró, fail-closed si falta certificado, admisión o epoch válido, y política de compatibilidad temporal con Desktop legacy (hoy sus bloques sin certificado se rechazan en `DHT_STORE`).
+- [ ] Completar pruebas de `DHT_UPDATE` en dispositivo real: bloque antiguo, bloque de otra clave, bloque expirado, secuencia repetida, salto abusivo, certificado revocado, replay, pérdida de ACK y roaming Desktop↔móvil; incluir Wi-Fi↔datos, reinicio, Doze y cambio de IP. Las pruebas unitarias Android y Desktop ya cubren válido, repetido, retrocedido, salto abusivo, certificado inválido, cuenta ajena, registro ausente, revocación y epoch.
+
+**Salida:** tras cambiar de red, Desktop encuentra la nueva dirección del móvil por DHT y el móvil encuentra la de Desktop, sin aceptar un bloque retrocedido y validando el certificado del dispositivo. Desktop ya emite bloques con certificado; falta la prueba de roaming en ambos sentidos.
+
+**Estado (22/10/2026): en curso; emisión y recepción con certificado completadas.** `DhtLocationWorker` publica el bloque firmado por el dispositivo con su certificado bajo la clave del `upeerId` (compatible con `toKademliaId` de Desktop) tras el bootstrap, al cambiar de red y en el mantenimiento; no publica bloques sin certificado de dispositivo y evita republicar si la dirección, el `dhtSeq` y la expiración siguen vigentes. Si `DhtLocationStore` no tiene estado, recupera el suelo de `dhtSeq` desde el propio bloque verificado en DHT antes de construir el siguiente y falla cerrado cuando no puede leerlo o verificarlo. `DhtContactLocation` selecciona el bloque de mayor `dhtSeq` entre varios dispositivos, exige que el certificado corresponda al `deviceId` y a la cuenta, y `lookupContactLocation` solo lo devuelve si `verifyDeviceLocationBlock` valida firma y admisión contra el registro de cuenta. El router rechaza `DHT_STORE` de ubicación sin certificado o firma válidos. El store es iterativo y el lookup usa rondas α=3 con fusión por `deviceId`; `DhtLocationCache` conserva solo el bloque verificado, como máximo 5 minutos y nunca más allá de `expiresAt`. `DHT_UPDATE` se envía por el dispatcher a contactos íntimos y se acepta en `DhtUpdateService` con certificado, registro, secuencia persistida por `(cuenta, deviceId)`, migración v1→v2, rate limit y sin reenvío; Desktop emite y verifica bloques con certificado y publica su registro. Pendiente: renovación con límite de saltos, admisión antes de cifrar, migración de mensajería Desktop y prueba de roaming. El desglose, el orden de migración y la matriz de pruebas están en [`../ROADMAP.md`](../ROADMAP.md).
+
+### B8 — Integración en `:yggdrasil` y persistencia
+
+**Depende de:** B7.
 
 - [ ] Ejecutar el trabajador DHT dentro del servicio, no en React; sobrevivir a `onTaskRemoved` y al cierre de la UI.
-- [ ] Persistir contactos verificados, `dhtSeq`, `deviceId` y bloques propios con límites y migración.
+- [ ] Persistir contactos verificados, `dhtSeq`, `deviceId`, certificado de dispositivo, epoch, revocados y bloques propios con límites y migración.
 - [ ] Programar refresco de buckets y republicación con presupuesto de batería/datos; suspender cuando el usuario desactive la conexión.
 - [ ] Exponer estado observable: `nodeId`, contactos, bootstrapped, último bootstrap, valores almacenados, paquetes enviados/recibidos y último error, sin secretos.
 - [ ] Probar UI cerrada, reinicio del servicio, cambio de red y parada manual.
 
-**Salida:** con la UI cerrada el DHT sigue operativo, se recupera tras reinicio y la UI muestra un estado que distingue “servicio activo” de “DHT saludable”.
+**Salida:** con la UI cerrada el DHT sigue operativo, se recupera tras reinicio, conserva certificado/epoch/revocados y la UI muestra un estado que distingue “servicio activo” de “DHT saludable”.
 
-### B8 — Interoperabilidad y endurecimiento
+### B9 — Interoperabilidad y endurecimiento
 
-**Depende de:** B7.
+**Depende de:** B8.
 
-- [ ] Añadir DHT al harness Desktop↔móvil: bootstrap, `FIND_NODE`, `STORE`, `FIND_VALUE`, LocationBlock, `DHT_UPDATE` y roaming.
+- [ ] Añadir DHT al harness Desktop↔móvil: bootstrap, `FIND_NODE`, `STORE`, `FIND_VALUE`, LocationBlock con certificado de dispositivo, `DHT_UPDATE` y roaming.
+- [ ] Validar el registro de cuenta Desktop↔móvil: emparejamiento, epoch, certificado, revocación online/offline y migración desde una instalación con identidad compartida.
 - [ ] Ejecutar fuzzing de códec y pruebas de amplificación, replay, Sybil básico y contactos maliciosos.
 - [ ] Medir batería, datos y latencia de bootstrap en dispositivo real durante 24 h.
 - [ ] Verificar migración de estado y ausencia de secretos en logs.
-- [ ] Solo después habilitar sincronización firmada de perfil, punteros de vault y presencia.
+- [ ] No habilitar sincronización multidispositivo, punteros de vault ni presencia compartida: corresponden a B6 y B10.
 
-**Salida:** pruebas mixtas repetibles, límites medidos y ningún bloqueo de UI; a partir de aquí se abre la paridad de producto.
+**Salida:** pruebas mixtas repetibles, límites medidos y ningún bloqueo de UI; a partir de aquí se abre la paridad de producto, salvo el Producto 6, que espera a B10.
+
+### B10 — Sincronización y entrega diferida entre dispositivos
+
+**Depende de:** B9. **Bloquea a:** Producto 6.
+
+- [ ] Crear un canal pairwise entre dispositivos con X3DH/Double Ratchet usando sus claves de dispositivo y certificados; separado de las sesiones con contactos. No reutilizar el ratchet del contacto ni la SPK de otro dispositivo.
+- [ ] Definir `SYNC_ENVELOPE` firmado y cifrado con `deviceId`, `epoch`, secuencia, tipo y `eventId`/`messageId`; idempotencia por UUID. Una copia sincronizada conserva el ID y el contenido original y no crea un mensaje nuevo ni reinicia el ratchet del contacto.
+- [ ] Replicar mensajes salientes/entrantes, ediciones, borrados, reacciones, lecturas y eventos de perfil/grupo a todos los dispositivos autorizados. Cada dispositivo mantiene su propia sesión con el contacto: solo el que descifró un paquete de esa sesión envía ACK y avanza su ratchet; una copia recibida por sincronización no ACK ni toca la sesión del contacto.
+- [ ] Implementar entrega diferida por dispositivo (buzón/vault): sobre cifrado por dispositivo, TTL y cuotas, replicado a N custodios, puntero firmado en DHT, consulta al reconectar, ACK y borrado. La DHT solo publica punteros; no almacena mensajes.
+- [ ] Sincronización inicial de historial tras el emparejamiento: transferencia por chunks con cursor y hashes, reanudable y con deduplicación. Si no hay otro dispositivo online, queda pendiente; no se copia la base de datos ni claves privadas.
+- [ ] Resolver conflictos por evento con versión/epoch, tombstones y desempate determinista; deduplicar mensajes, reacciones y recibos. Un mensaje sincronizado no debe generar un segundo mensaje visible ni un `DR_RESET`.
+- [ ] Definir la revocación de un dispositivo que estuvo offline días: los emisores refrescan el registro antes de cifrar a un dispositivo, los mensajes cifrados con un registro posterior al epoch no se dirigen al revocado, las entradas de buzón obsoletas expiran y el dispositivo revocado borra claves al reconectar. Medir y documentar la ventana de emisores desactualizados y qué ciphertext previo no puede borrarse remotamente.
+- [ ] Ejecutar el trabajador de sincronización en `:yggdrasil`, con presupuesto de batería/datos y estados observables `pending`/`synced`/`vaulted`/`delivered`/`failed`.
+- [ ] Actualizar Desktop y móvil con el mismo protocolo; retirar `SYNC_PULSE` y el self-sync con identidad/SPK compartidas o migrarlos a `SYNC_ENVELOPE`.
+- [ ] Pruebas cruzadas: dos dispositivos de la misma cuenta, uno offline; envío y recepción desde cada uno; edición/borrado/lectura; duplicados; reinicio; cambio de dirección; revocación con el otro offline; Desktop↔móvil. Verificar que no hay duplicados ni reinicio de ratchet.
+
+**Salida:** un dispositivo puede enviar/recibir con el otro apagado; al volver, recupera mensajes y eventos sin duplicados ni pérdida de estado criptográfico; un dispositivo revocado no descifra mensajes cifrados con el registro posterior al epoch, aunque haya estado días offline, y la ventana de revocación con emisores desactualizados queda medida y documentada. El flujo funciona con UI cerrada y con un único dispositivo propio online.
+
+**No hacer:** asumir que la DHT entrega mensajes; exigir que ambos dispositivos estén conectados; copiar mnemonic/SPK; ni portar la Fase 10 antes de cerrar B6 y B10.
 
 ## Hitos y prioridad vigente
 
@@ -282,9 +362,9 @@ El objetivo fue cerrar el primer tramo de las fases 0 y 2: que Desktop pudiera a
 
 **Criterio de salida:** el harness entrante pasa, el móvil no acepta un frame sin firma válida y el listener sigue aceptando con el proceso UI cerrado. El envío firmado móvil→Desktop se cerró en P2 y hoy la UI muestra la conversación; no se debe presentar la entrega como garantizada si el servicio muere.
 
-**No hacer todavía:** grupos, archivos, llamadas y sincronización de perfil. DHT ya es el siguiente bloqueo y se rige por B0–B8; no se adelanta Kademlia sin cerrar B0–B3.
+**No hacer todavía:** grupos, archivos, llamadas y sincronización de perfil. DHT se rige por B0–B9; la identidad multidispositivo se cierra en B6 y la sincronización en B10. No se adelanta roaming ni el trabajador del servicio sin cerrar B5.
 
-### P2 — Protocolo headless persistente (chat con contacto existente completado; DHT es el siguiente bloqueo)
+### P2 — Protocolo headless persistente (chat con contacto existente completado; B6 es el siguiente bloqueo)
 
 1. [x] Custodiar la identidad uPeer en Keystore y cargarla en el servicio; la UI solo la provisiona.
 2. [x] Portar Ed25519/Curve25519, sealed boxes, X3DH, Signed Pre-Keys y Double Ratchet con vectores.
@@ -299,8 +379,8 @@ El objetivo fue cerrar el primer tramo de las fases 0 y 2: que Desktop pudiera a
    - [x] ACK perdido y duplicado: harness con `UPEER_SKIP_ACK_FIRST`, reenvío del mismo `id` y ACK del duplicado sin descifrarlo dos veces.
    - [x] Outbox concurrente por peer y presupuesto de 30 intentos: un peer inalcanzable no bloquea mensajes a otros peers y las entradas agotadas se marcan `failed` y salen del outbox. Verificado en dispositivo con una entrada obsoleta hacia `abab…`.
    - [x] Pérdida de frames y cambios de red sin reiniciar el proceso: frame truncado con cierre controlado y frame válido posterior; Wi-Fi/datos desactivados y reactivados con peers reconectados y chat verificado, mismo PID de `:yggdrasil`.
-8. [ ] DHT Kademlia, bootstrap y roaming. Ejecutar B1–B8 en orden; B0 está cerrada y B1 es el bloqueo inmediato.
-9. [ ] Paridad social, vault, grupos, archivos y llamadas (fases 4–10, solo tras B8).
+8. [ ] DHT Kademlia, bootstrap y roaming. B0–B5 están cerradas localmente; B6 (identidad/registro) es el siguiente bloqueo, B7 es DHT/roaming, B8 el servicio y B9 la interoperabilidad. B10 (sincronización) solo empieza tras B9.
+9. [ ] Paridad social, vault, grupos, archivos y llamadas (fases 4–10, solo tras B9; vault/multidispositivo tras B10).
 
 **Estado (22/10/2026):** identidad uPeer cifrada en Keystore, provisionada por la UI y recuperada por `:yggdrasil` tras `force-stop` + reinicio. Las primitivas `SEALED`/X3DH/Double Ratchet pasan vectores de `sodium-native` y sesiones completas en Go. El servicio responde `HANDSHAKE_ACCEPT`, recibe `CHAT`, persiste peers/sesión/mensajes, envía ACK, entrega mensajes salientes con outbox persistente y publica notificaciones locales; el chat en ambos sentidos con un contacto ya conocido, la compresión, `DR_RESET`, el ACK perdido y los duplicados están verificados. Las SPK solo avanzan en handshakes repetidos; un `DR_RESET` con la misma SPK reinicia de forma idempotente mediante `resetId`, y una SPK obsoleta no reinicia el ratchet. El outbox entrega en paralelo por peer y falla entradas agotadas sin bloquear al resto. La pérdida de frames y el cambio de red sin reiniciar el proceso ya están validados en dispositivo.
 
@@ -406,23 +486,23 @@ Los vectores fijos están en `transport-bridge/testdata/dht_vectors.json`. Se ge
 
 ### Tipos y límites actuales
 
-| Tipo | Campos y límites vigentes en Desktop |
+| Tipo | Campos y límites vigentes en Desktop y en el port desde B3 |
 |---|---|
-| `DHT_PING` | `type`; `queryId` opcional sin límite propio. Se acota por el frame máximo de 10 MiB. |
-| `DHT_PONG` | `nodeId` opcional para el validador, 1-128 hex; el handler espera el nodo. `queryId` opcional. |
-| `DHT_FIND_NODE` | `targetId` 1-128 hex; `queryId` opcional. |
-| `DHT_FOUND_NODES` | `nodes` obligatorio, máximo 20; cada `upeerId` 1-128 hex y `address` de hasta 100 caracteres. `publicKey` y `nodeId` aún no se validan. |
-| `DHT_FIND_VALUE` | `key` de 40 o 64 hex; `queryId` opcional. |
-| `DHT_FOUND_VALUE` | `key` opcional de 40/64 hex; exige `value` o `nodes`; `value` serializado máximo 10 000 caracteres. `publisher`, `timestamp` y `signature` aún no se validan. |
-| `DHT_STORE` | `key` de 40/64 hex; `value` serializado máximo 10 000 caracteres; `ttl` opcional entre 0 y 2 592 000 s. |
-| `DHT_STORE_ACK` | `key` de 40/64 hex; `queryId` opcional. |
-| `DHT_QUERY` | `targetId` 32-128 hex según `isValidHexId`; `referralContext` no se valida todavía. |
-| `DHT_RESPONSE` | `targetId` 32-128 hex; `locationBlock` opcional pero validado si existe; `neighbors` debe ser array si aparece. |
-| `DHT_UPDATE` | `locationBlock` obligatorio: `address` string, `dhtSeq` entero no negativo, `signature` de 128 hex y `powProof` de hasta 256 caracteres si existe. |
-| `DHT_EXCHANGE` | `peers` obligatorio, máximo 50; cada `upeerId` 32-128 hex y `publicKey` de 64 hex; `locationBlock` opcional validado. |
+| `DHT_PING` | `type`; `queryId` opcional de hasta 64 caracteres; `nodeId` opcional 1-128 hex. |
+| `DHT_PONG` | `nodeId` opcional 1-128 hex; `queryId` opcional de hasta 64 caracteres. |
+| `DHT_FIND_NODE` | `targetId` 1-128 hex; `queryId` opcional de hasta 64 caracteres. |
+| `DHT_FOUND_NODES` | `nodes` obligatorio, máximo 20; cada `upeerId` 1-128 hex y `address` de hasta 100 caracteres; `publicKey`/`nodeId` opcionales de hasta 128. |
+| `DHT_FIND_VALUE` | `key` de 40 o 64 hex; `queryId` opcional de hasta 64 caracteres. |
+| `DHT_FOUND_VALUE` | `key` opcional de 40/64 hex; exige `value` o `nodes`; `value` serializado máximo 10 000 caracteres; `nodes` máximo 20; `publisher` máximo 128; `timestamp` entero no negativo. `signature` es la firma exterior validada por B1. |
+| `DHT_STORE` | `key` de 40/64 hex; `value` serializado máximo 10 000 caracteres; `ttl` opcional entre 0 y 2 592 000 s; `publisher` máximo 128 y `timestamp` entero no negativo. |
+| `DHT_STORE_ACK` | `key` de 40/64 hex; `queryId` opcional de hasta 64 caracteres. |
+| `DHT_QUERY` | `targetId` 32-128 hex; `referralContext` debe ser objeto si aparece; `queryId` opcional de hasta 64 caracteres. |
+| `DHT_RESPONSE` | `targetId` 32-128 hex; `locationBlock` opcional validado si existe; `neighbors` máximo 20 y cada entrada con campos opcionales; `publicKey` máximo 128. |
+| `DHT_UPDATE` | `locationBlock` obligatorio: `address` de hasta 100 caracteres, `dhtSeq` entero no negativo, `signature` de 128 caracteres y `powProof` de hasta 256 caracteres si existe. |
+| `DHT_EXCHANGE` | `peers` obligatorio, máximo 50; cada `upeerId` 32-128 hex y `publicKey` de 64 caracteres; `locationBlock` opcional validado. |
 
-- Todo paquete viaja en un frame de como máximo 10 MiB. Los límites de valor son caracteres del JSON serializado, no bytes.
-- Los límites de `queryId`, `publisher`, `timestamp`, `publicKey` y `nodeId` de nodos siguen abiertos para B3; no se deben relajar por conveniencia.
+- Desde B3 el port rechaza campos no declarados, limita el JSON total a 64 KiB en Go y 64 Ki caracteres en Kotlin, y la profundidad a 16 antes de decodificar. El límite de valor sigue siendo caracteres del JSON serializado, no bytes.
+- `queryId`, `publisher`, `timestamp`, `publicKey` y `nodeId` de nodos ya tienen cota explícita; no se deben relajar por conveniencia.
 
 ### Errores esperados
 
@@ -430,9 +510,9 @@ Los vectores fijos están en `transport-bridge/testdata/dht_vectors.json`. Se ge
 - `senderYggAddress` que no es IPv6 de Yggdrasil, `type` ausente, `signature`/`senderUpeerId`/`senderYggAddress` inyectados por el llamador, bloque expirado, `dhtSeq` negativo, dirección inválida o lista de direcciones vacía.
 - Un paquete firmado manipulado se rechaza antes de ejecutar handlers. Un `DHT_UPDATE` con firma exterior válida pero bloque interior inválido no debe aceptarse como actualización de ubicación.
 
-## Fases de producto (solo después de B8)
+## Fases de producto (solo después de B9; Producto 6 después de B10)
 
-B0–B8 son la secuencia obligatoria para red y descubrimiento. Las fases siguientes describen producto y no deben adelantarse para compensar una salida incompleta de B8. Las fases de identidad, transporte e integración Android ya tienen su estado en B0–B7.
+B0–B9 son la secuencia obligatoria para red, identidad de cuenta e interoperabilidad; B10 es la sincronización multidispositivo. Las fases siguientes describen producto y no deben adelantarse para compensar una salida incompleta de B9. Las fases de identidad, transporte e integración Android ya tienen su estado en B0–B10; el Producto 6 no se porta sobre el atajo actual de Desktop.
 
 ### 4. Contactos y chat directo mínimo E2EE
 
@@ -448,11 +528,11 @@ Portar historial/paginación, respuestas, edición, borrado, reacciones, recibos
 
 **Salida:** cada acción tiene persistencia, protocolo y pruebas cruzadas; estados offline/pendiente/entregado no se confunden.
 
-### 6. Vault y continuidad multidispositivo
+### 6. Vault y continuidad multidispositivo (Producto 6; depende de B10)
 
-Portar almacenamiento offline, tokens, punteros DHT, recuperación de eventos/adjuntos, deduplicación y sincronización diferencial de dispositivos propios.
+B6 aporta cuenta, registro autenticado de dispositivos, claves independientes y revocación; B10 añade canales pairwise y entrega diferida. Esta fase porta la capa de producto: vault, tokens, punteros DHT, recuperación de eventos/adjuntos, deduplicación, cuotas y UI de estados. No se reimplementa el self-sync actual de Desktop con identidad/SPK compartidas.
 
-**Salida:** escenarios prolongados offline y recuperación Desktop↔móvil sin pérdidas ni duplicados visibles, con límites de disco/red.
+**Salida:** escenarios prolongados offline y recuperación Desktop↔móvil sin pérdidas ni duplicados visibles, con límites de disco/red; un dispositivo revocado deja de recibir y descifrar mensajes cifrados con el registro posterior al epoch.
 
 ### 7. Grupos y roles
 
@@ -480,11 +560,11 @@ Completar backup/restauración, controles de privacidad, permisos, accesibilidad
 
 ## Regla para solicitudes de funcionalidad
 
-Ubicar cada petición en la primera fase B incompleta de la que dependa. Una propiedad de identidad puede tener UI y persistencia local antes de B6, pero su sincronización con otros nodos no se considera terminada hasta B8. No empezar la fase dependiente si la salida anterior no está demostrada con pruebas.
+Ubicar cada petición en la primera fase B incompleta de la que dependa. Una propiedad de identidad puede tener UI y persistencia local antes de B6, pero su sincronización con otros nodos no se considera terminada hasta B9; la identidad por dispositivo, el emparejamiento, la revocación y la sincronización de historial se cierran en B6 y B10. No empezar la fase dependiente si la salida anterior no está demostrada con pruebas.
 
 ## Anexo — Inventario de requisitos por área
 
-Este anexo conserva el detalle histórico de las fases 0–15. Sirve para consultar requisitos y criterios de salida, no para decidir el orden: el orden vigente es B0–B8 y, después, las fases de producto 4–10.
+Este anexo conserva el detalle histórico de las fases 0–15. Sirve para consultar requisitos y criterios de salida, no para decidir el orden: el orden vigente es B0–B10 y, después, las fases de producto 4–10.
 
 | Bloque vigente | Requisitos detallados en el anexo |
 |---|---|
@@ -494,18 +574,20 @@ Este anexo conserva el detalle histórico de las fases 0–15. Sirve para consul
 | B3 | Fase 7: códec, límites y admisión |
 | B4 | Fases 1 y 7: DHT Kademlia y protocolo |
 | B5 | Fases 2 y 7: bootstrap, descubrimiento y red |
-| B6 | Fase 7: location blocks, `DHT_UPDATE` y roaming |
-| B7 | Fases 3, 5, 6 y 7: app nativa, persistencia y servicio `:yggdrasil` |
-| B8 | Fases 2, 7 y 15: interoperabilidad, fuzzing y pruebas |
+| B6 | Fases 4 y 10: identidad de cuenta, clave por dispositivo, registro, emparejamiento y revocación |
+| B7 | Fase 7: location blocks con certificado, `DHT_UPDATE` y roaming |
+| B8 | Fases 3, 5, 6 y 7: app nativa, persistencia y servicio `:yggdrasil` |
+| B9 | Fases 2, 7 y 15: interoperabilidad, registro de dispositivos, fuzzing y pruebas |
+| B10 | Fases 5 y 10: sincronización online/offline, historial y entrega diferida |
 | Producto 4 | Fases 4, 8 y 9: identidad, UI, contactos y chat |
 | Producto 5 | Fase 9: paridad de chat y notificaciones |
-| Producto 6 | Fases 5 y 10: persistencia, vault y multidispositivo |
+| Producto 6 | Fases 5 y 10 + B6 y B10: persistencia, vault y multidispositivo |
 | Producto 7 | Fase 11: grupos y roles |
 | Producto 8 | Fase 12: archivos, multimedia y notas de voz |
 | Producto 9 | Fase 13: llamadas y compartir pantalla |
 | Producto 10 | Fases 14 y 15: seguridad, backup, beta y publicación |
 
-> **Aviso:** las casillas de este anexo reflejan el inventario original. No se reinterpretan como estado actual; el estado comprobado está en la tabla superior y en las fases B0–B8.
+> **Aviso:** las casillas de este anexo reflejan el inventario original. No se reinterpretan como estado actual; el estado comprobado está en la tabla superior y en las fases B0–B10.
 
 ### Fase 0 — Alcance, decisiones y viabilidad de distribución
 
@@ -776,7 +858,7 @@ Restricción de producto: uPeer **no usará push notifications**. La recepción 
 
 Conectar móviles con nodos actuales y conservar formatos de paquetes.
 
-> La parte DHT de esta fase se ejecuta en el orden bloqueante B0–B8 definido en este mismo documento. No se marca ninguna tarea DHT como completada por tener prototipos aislados: cada una exige vector Desktop y prueba cruzada.
+> La parte DHT de esta fase se ejecuta en el orden bloqueante B0–B9 definido en este mismo documento. No se marca ninguna tarea DHT como completada por tener prototipos aislados: cada una exige vector Desktop y prueba cruzada.
 
 #### Tareas
 
@@ -855,7 +937,7 @@ Entregar el núcleo de chat directo seguro con persistencia y reintentos.
 
 #### Objetivo
 
-Portar recuperación offline y continuidad multidispositivo.
+Portar recuperación offline y continuidad multidispositivo sobre B6 y B10. No se reimplementa el self-sync actual de Desktop con mnemonic/SPK compartidas.
 
 #### Tareas
 
@@ -863,16 +945,18 @@ Portar recuperación offline y continuidad multidispositivo.
 - [ ] Portar recuperación de mensajes y eventos de edición, borrado, reacciones y lectura.
 - [ ] Portar recuperación segmentada de adjuntos y su deduplicación.
 - [ ] Añadir límites configurables de datos, almacenamiento, batería y replicación.
-- [ ] Portar dispositivos propios, confianza y sincronización diferencial de historial.
+- [ ] Portar la UI de dispositivos propios, emparejamiento, confianza y revocación sobre el registro firmado de B6; la confianza local no autoriza.
+- [ ] Usar `SYNC_ENVELOPE` de B10 para historial y eventos; no generar mensajes nuevos ni reiniciar el ratchet del contacto.
 - [ ] Resolver conflicto de orden, duplicados, expiración, eliminación y rotación de claves.
 - [ ] Mostrar claramente pendiente, almacenado en vault, recuperado y entregado.
-- [ ] Probar largos periodos offline, cambio de IP, reinicio y recuperación de archivos grandes.
+- [ ] Probar largos periodos offline, cambio de IP, reinicio, revocación de un dispositivo offline y recuperación de archivos grandes.
 
 #### Criterios de salida
 
 - [ ] Mensajes y eventos se recuperan móvil↔desktop sin pérdida ni duplicados visibles.
 - [ ] La recuperación de adjuntos respeta hashes y cuotas.
 - [ ] Reiniciar el servicio no invalida el estado persistido.
+- [ ] Un dispositivo revocado no recibe ni descifra mensajes cifrados con el registro posterior al epoch, aunque haya estado offline días.
 
 ### Fase 11 — Grupos y roles
 
@@ -1016,6 +1100,9 @@ Validar el comportamiento real en redes y dispositivos antes de un lanzamiento g
 | Entitlements/App Store no aprobados | No se puede publicar iOS | Validar cuenta y entitlements en Fase 0/2 |
 | Binarios Go opacos o no reproducibles | Riesgo de supply chain | Compilar desde fuente, fijar versiones, hashes y SBOM |
 | Llamadas sobre transporte TCP | Latencia/jitter altos | Audio primero, medición real y UDP como optimización posterior |
+| Compartir mnemonic/SPK entre dispositivos | Revocación imposible y compromiso total de la cuenta | B6: claves por dispositivo, certificado firmado y raíz no copiada; no aceptar `isInternalSync` como autorización |
+| Usar la DHT como buzón offline | Pérdida de mensajes y amplificación | B10: DHT solo publica punteros; el payload cifrado por dispositivo vive en vault/custodios con TTL, ACK y deduplicación |
+| Sincronizar con un dispositivo apagado | Duplicados o reinicio de ratchet | B10: `SYNC_ENVELOPE` con `eventId` idempotente; cada dispositivo usa su propia sesión con el contacto y una copia sincronizada no ACK ni avanza ese ratchet |
 
 ## Registro de decisiones técnicas
 
@@ -1029,6 +1116,8 @@ Validar el comportamiento real en redes y dispositivos antes de un lanzamiento g
 | SQLite cifrado | Pendiente | Prueba de DB móvil, migraciones y recuperación |
 | Distribución iOS | Pendiente | Entitlements, equipo Apple y aprobación técnica |
 | Llamadas móviles | Posterior al MVP | Calidad en hardware y diseño de cifrado media |
+| Identidad multidispositivo | B6 y B10; Desktop actual no conforme | Una cuenta, claves por dispositivo, certificado y registro firmados, emparejamiento sin copiar la raíz y revocación. Evidencia: vectores nuevos, migración Desktop/móvil, revocación con dispositivo offline y sync sin duplicados ni reinicio de ratchet |
+| Entrega offline entre dispositivos | B10 | DHT solo para punteros; buzón/vault cifrado por dispositivo con TTL, cuotas, ACK y deduplicación. No exigir que ambos dispositivos estén conectados |
 
 ## Referencias primarias para la implementación
 
@@ -1046,7 +1135,7 @@ Las referencias deben volver a comprobarse al iniciar cada fase porque APIs, pol
 Al empezar una fase:
 
 1. Confirmar su estado con código y pruebas actuales.
-2. Si es una fase B, comprobar que la anterior tiene su criterio de salida demostrado; si es de producto, confirmar que B8 está cerrada.
+2. Si es una fase B, comprobar que la anterior tiene su criterio de salida demostrado; si es de producto, confirmar que B9 está cerrada y, para el Producto 6, que B10 también lo está.
 3. Revisar dependencias y criterios de salida de fases previas.
 4. Crear tareas pequeñas con archivos, interfaces y pruebas esperadas.
 5. Mantener este roadmap como fuente de alcance; registrar cambios de decisión aquí.

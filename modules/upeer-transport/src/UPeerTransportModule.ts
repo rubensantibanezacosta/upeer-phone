@@ -5,7 +5,7 @@ import { pbkdf2 } from '@noble/hashes/pbkdf2.js';
 import { sha512 } from '@noble/hashes/sha2.js';
 import { NativeModule, requireNativeModule } from 'expo';
 import { validateMnemonic } from '../../../src/domain/mnemonic';
-import type { IdentityTransportStatus, InboundTransportStatus, PeerInfo, PeerPoolEntry, ProtocolConversation, ProtocolMessage, ProtocolTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
+import type { AccountRegistryStatus, DeviceIdentityStatus, DhtLocationStatus, IdentityTransportStatus, InboundTransportStatus, LocationBlock, PeerInfo, PeerPoolEntry, ProtocolConversation, ProtocolMessage, ProtocolTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
 
 declare class UPeerTransportModule extends NativeModule<{}> {
   start(configJSON: number[]): Promise<YggdrasilNodeInfo>;
@@ -40,6 +40,15 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   registerPeer(upeerId: string, address: string, publicKey: string, signedPreKeyJSON: string): Promise<boolean>;
   flushOutbox(): Promise<void>;
   protocolStatus(): Promise<string>;
+  locationBlock(ttlMillis: number): Promise<string>;
+  deviceIdentityStatus(): Promise<string>;
+  accountRegistry(): Promise<string>;
+  accountRegistryStatus(): Promise<string>;
+  revokeAccountDevice(deviceId: string, reason: string): Promise<string>;
+  validateDeviceAdmission(certificateJSON: string, registryJSON: string, expectedAccountUpeerId: string, nowMillis: number): Promise<boolean>;
+  dhtLocationStatus(): Promise<string>;
+  lookupContactLocation(upeerId: string): Promise<string>;
+  verifyLocationBlock(blockJSON: string, publicKeyHex: string, nowMillis: number): Promise<boolean>;
   generateNodeSeed(): Promise<number[]>;
 }
 
@@ -235,5 +244,47 @@ export async function flushOutbox(): Promise<void> {
 
 export async function getProtocolStatus(): Promise<ProtocolTransportStatus> {
   return JSON.parse(await nativeModule.protocolStatus()) as ProtocolTransportStatus;
+}
+
+export async function getLocationBlock(ttlMillis = 0): Promise<LocationBlock> {
+  return JSON.parse(await nativeModule.locationBlock(ttlMillis)) as LocationBlock;
+}
+
+export async function getDeviceIdentityStatus(): Promise<DeviceIdentityStatus> {
+  return JSON.parse(await nativeModule.deviceIdentityStatus()) as DeviceIdentityStatus;
+}
+
+export async function getAccountRegistry(): Promise<string> {
+  return nativeModule.accountRegistry();
+}
+
+export async function getAccountRegistryStatus(): Promise<AccountRegistryStatus> {
+  return JSON.parse(await nativeModule.accountRegistryStatus()) as AccountRegistryStatus;
+}
+
+export async function revokeAccountDevice(deviceId: string, reason: string): Promise<AccountRegistryStatus> {
+  return JSON.parse(await nativeModule.revokeAccountDevice(deviceId, reason)) as AccountRegistryStatus;
+}
+
+export async function validateDeviceAdmission(
+  certificateJSON: string,
+  registryJSON: string,
+  expectedAccountUpeerId: string,
+  nowMillis = Date.now(),
+): Promise<boolean> {
+  return nativeModule.validateDeviceAdmission(certificateJSON, registryJSON, expectedAccountUpeerId, nowMillis);
+}
+
+export async function getDhtLocationStatus(): Promise<DhtLocationStatus> {
+  return JSON.parse(await nativeModule.dhtLocationStatus()) as DhtLocationStatus;
+}
+
+export async function lookupContactLocation(upeerId: string): Promise<LocationBlock | null> {
+  const blockJSON = await nativeModule.lookupContactLocation(upeerId);
+  return blockJSON ? JSON.parse(blockJSON) as LocationBlock : null;
+}
+
+export async function verifyLocationBlock(blockJSON: string, publicKeyHex: string, nowMillis = Date.now()): Promise<boolean> {
+  return nativeModule.verifyLocationBlock(blockJSON, publicKeyHex, nowMillis);
 }
 

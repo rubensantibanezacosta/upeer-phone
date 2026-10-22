@@ -32,14 +32,28 @@ public abstract class Transportbridge {
 	public static native void setErrRatchetAuthentication(java.lang.Exception v);
 	public static native java.lang.Exception getErrRatchetAuthentication();
 
+	public static native String accountRegistryKey(String accountUpeerID) throws Exception;
+	public static native String approveDevicePairingRequest(byte[] accountSecretKey, String requestJSON, long epoch, long issuedAt, long expiresAt) throws Exception;
+	public static native String buildAccountRegistryFromCertificates(byte[] accountSecretKey, String certificatesJSON, String revokedJSON, long epoch, long issuedAt, long ttlMillis) throws Exception;
+	public static native String buildDeviceLocationBlock(byte[] deviceSecretKey, String certificateJSON, String addressesJSON, long dhtSeq, long ttlMillis, long nowMillis) throws Exception;
+	public static native String buildDevicePairingRequest(byte[] deviceSecretKey, String optionsJSON) throws Exception;
 	public static native String buildSignedPacket(byte[] secretKey, String senderYggAddress, String packetJSON) throws Exception;
 	public static native byte[] defaultConfigJSON() throws Exception;
+	public static native String deriveDeviceID(byte[] deviceKey) throws Exception;
 	public static native byte[] generateNodeSeed() throws Exception;
 	public static native Bridge newBridge();
 	public static native CryptoIdentity newCryptoIdentity(byte[] secretKey) throws Exception;
+	public static native long nextAccountRegistryEpoch(String registryJSON) throws Exception;
 	public static native long probePeer(String uri) throws Exception;
 	public static native long probePeerLatency(String uri);
+	public static native String revokeAccountDevice(String previousRegistryJSON, byte[] accountSecretKey, String deviceID, String reason, long nowMillis) throws Exception;
+	public static native boolean validateAccountRegistryUpdate(String previousJSON, String nextJSON, String expectedAccountUpeerID, long nowMillis) throws Exception;
+	public static native boolean validateDeviceAdmission(String certificateJSON, String registryJSON, String expectedAccountUpeerID, long nowMillis) throws Exception;
+	public static native boolean verifyAccountRegistry(String registryJSON, String expectedAccountUpeerID, long nowMillis) throws Exception;
 	public static native boolean verifyCanonicalJSON(String payloadJSON, String signatureHex, String publicKeyHex) throws Exception;
+	public static native boolean verifyDeviceCertificate(String certificateJSON, String expectedAccountUpeerID, long nowMillis) throws Exception;
+	public static native boolean verifyDeviceLocationBlock(String blockJSON, String accountPublicKeyHex, String registryJSON, long nowMillis) throws Exception;
+	public static native boolean verifyDevicePairingRequest(String requestJSON, String expectedAccountUpeerID, long nowMillis) throws Exception;
 	public static native boolean verifyLocationBlock(String blockJSON, String publicKeyHex, long nowMillis) throws Exception;
 	public static native String verifySignedPacket(String packetJSON, String publicKeyHex) throws Exception;
 }

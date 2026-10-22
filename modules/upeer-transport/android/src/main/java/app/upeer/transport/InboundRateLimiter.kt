@@ -55,6 +55,13 @@ internal class InboundRateLimiter(
       "CHAT" to Rule(windowMs = 60_000, maxTokens = 100),
       "ACK" to Rule(windowMs = 60_000, maxTokens = 200),
       "DR_RESET" to Rule(windowMs = 60_000, maxTokens = 20),
+      "DHT_QUERY" to Rule(windowMs = 30_000, maxTokens = 20),
+      "DHT_RESPONSE" to Rule(windowMs = 30_000, maxTokens = 40),
+      "DHT_UPDATE" to Rule(windowMs = 60_000, maxTokens = 40),
+      "DHT_EXCHANGE" to Rule(windowMs = 60_000, maxTokens = 60),
+      "DHT_FIND_NODE" to Rule(windowMs = 30_000, maxTokens = 30),
+      "DHT_FIND_VALUE" to Rule(windowMs = 30_000, maxTokens = 30),
+      "DHT_STORE" to Rule(windowMs = 60_000, maxTokens = 10),
     )
   }
 }

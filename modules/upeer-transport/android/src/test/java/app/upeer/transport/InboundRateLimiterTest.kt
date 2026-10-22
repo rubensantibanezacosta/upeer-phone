@@ -40,6 +40,16 @@ class InboundRateLimiterTest {
   }
 
   @Test
+  fun dhtLimitsMatchDesktopThresholds() {
+    val limiter = InboundRateLimiter { 0L }
+    repeat(20) { assertTrue(limiter.allow("ip:200::1", "DHT_QUERY")) }
+    assertFalse(limiter.allow("ip:200::1", "DHT_QUERY"))
+    repeat(10) { assertTrue(limiter.allow("ip:200::1", "DHT_STORE")) }
+    assertFalse(limiter.allow("ip:200::1", "DHT_STORE"))
+    assertTrue(limiter.allow("ip:200::1", "DHT_PING"))
+  }
+
+  @Test
   fun countsLimitedFrames() {
     val limiter = InboundRateLimiter { 0L }
     repeat(20) { assertTrue(limiter.allow("id:peer", "DR_RESET")) }

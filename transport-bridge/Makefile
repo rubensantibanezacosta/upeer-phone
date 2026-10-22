@@ -2,6 +2,7 @@ ANDROID_HOME ?= $(HOME)/Android/Sdk
 NDK_HOME ?= $(ANDROID_HOME)/ndk/27.2.12479018
 GOMOBILE := $(HOME)/go/bin/gomobile
 GOBIND := $(HOME)/go/bin/gobind
+export PATH := $(HOME)/go/bin:$(PATH)
 MODULE_DIR := ../modules/upeer-transport/android
 
 .PHONY: test bind-android

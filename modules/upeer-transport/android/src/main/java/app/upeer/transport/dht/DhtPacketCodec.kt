@@ -78,6 +78,7 @@ object DhtPacketCodec {
     if (!isYggdrasilAddress(senderYggAddress)) {
       throw IllegalArgumentException("senderYggAddress must be a Yggdrasil IPv6 address")
     }
+    DhtPacketPolicy.decode(packet)
     return packet
   }
 

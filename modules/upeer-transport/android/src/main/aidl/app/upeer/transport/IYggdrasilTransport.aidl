@@ -35,4 +35,13 @@ interface IYggdrasilTransport {
   boolean registerPeer(String upeerId, String address, String publicKey, String signedPreKeyJSON);
   void flushOutbox();
   String protocolStatusJSON();
+  String locationBlockJSON(long ttlMillis);
+  String deviceIdentityStatusJSON();
+  String dhtLocationStatusJSON();
+  String lookupContactLocation(String upeerId);
+  String accountRegistryJSON();
+  String accountRegistryStatusJSON();
+  String revokeAccountDevice(String deviceId, String reason);
+  boolean validateDeviceAdmission(String certificateJSON, String registryJSON, String expectedAccountUpeerId, long nowMillis);
+  boolean verifyLocationBlock(String blockJSON, String publicKeyHex, long nowMillis);
 }

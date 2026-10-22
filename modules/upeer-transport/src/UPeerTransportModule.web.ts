@@ -36,6 +36,15 @@ class UPeerTransportModule extends NativeModule<{}> {
   async registerPeer(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async flushOutbox(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async protocolStatus(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async locationBlock(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async deviceIdentityStatus(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async accountRegistry(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async accountRegistryStatus(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async revokeAccountDevice(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async validateDeviceAdmission(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async dhtLocationStatus(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async lookupContactLocation(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async verifyLocationBlock(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
 }
 
 export default registerWebModule(UPeerTransportModule, 'UPeerTransport');

@@ -13,10 +13,11 @@ internal class YggdrasilProtocol(
   private val state: ProtocolStateStore,
   private val outboxStore: OutboxStore,
   private val onInboundMessage: (String, String, String) -> Unit,
+  private val admission: DeviceAdmissionGuard,
   private val rateLimiter: InboundRateLimiter = InboundRateLimiter(),
 ) {
   private val handshake = YggdrasilHandshake(identity, signedPreKeys)
-  private val outbox = YggdrasilOutbox(identity, signedPreKeys, state, outboxStore)
+  private val outbox = YggdrasilOutbox(identity, signedPreKeys, state, outboxStore, admission)
   private val resetCache = DrResetReplayCache()
 
   fun start(activeBridge: Bridge) = outbox.start(activeBridge)
@@ -40,7 +41,7 @@ internal class YggdrasilProtocol(
   }
 
   fun flushOutbox() = outbox.flush()
-
+  fun peerPublicKey(upeerId: String): String? = state.publicKeyFor(upeerId)
   fun markConversationRead(upeerId: String) = state.markConversationRead(upeerId)
 
   fun messagesJSON(upeerId: String, limit: Int): String = state.messagesJSON(upeerId, limit)
@@ -182,7 +183,6 @@ internal class YggdrasilProtocol(
     .put("type", type)
     .put("rateLimited", true)
     .toString()
-
 
   private fun decryptChat(activeBridge: Bridge, packet: JSONObject, senderUpeerId: String, publicKey: String) {
     val content = packet.optString("content")

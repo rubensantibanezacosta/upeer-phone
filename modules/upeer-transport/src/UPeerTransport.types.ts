@@ -7,6 +7,8 @@ export type IdentityTransportStatus = {
   ready: boolean;
   publicKey?: string;
   upeerId?: string;
+  deviceId?: string;
+  deviceCertificateReady?: boolean;
 };
 
 export type InboundTransportStatus = {
@@ -53,6 +55,60 @@ export type ProtocolTransportStatus = {
   outbox: number;
   unread: number;
   rateLimited: number;
+  dht?: DhtRuntimeStatus;
+};
+
+export type DhtRuntimeStatus = {
+  ready: boolean;
+  nodeId?: string;
+  contacts?: number;
+  bootstrapped?: boolean;
+  seedsLoaded?: number;
+  lastSuccessAt?: number;
+  nextAttemptAt?: number;
+  published?: boolean;
+  locationPublished?: boolean;
+  remoteRegistries?: number;
+};
+
+export type DhtLocationStatus = {
+  ready: boolean;
+  upeerId?: string;
+  dhtSeq: number;
+  lastAddress?: string;
+  deviceId?: string;
+};
+
+export type LocationBlock = {
+  address: string;
+  addresses?: string[];
+  dhtSeq: number;
+  expiresAt: number;
+  signature: string;
+  deviceId?: string;
+  deviceMeta?: Record<string, unknown>;
+  deviceCertificate?: Record<string, unknown>;
+};
+
+export type DeviceIdentityStatus = {
+  ready: boolean;
+  accountUpeerId?: string;
+  deviceId?: string;
+  certificateEpoch?: number;
+  certificateExpiresAt?: number;
+  certificate?: Record<string, unknown>;
+};
+
+export type AccountRegistryStatus = {
+  ready: boolean;
+  accountUpeerId?: string;
+  epoch?: number;
+  issuedAt?: number;
+  expiresAt?: number;
+  devices?: number;
+  revoked?: number;
+  localDeviceId?: string;
+  localDeviceAdmitted?: boolean;
 };
 
 export type PeerInfo = {
