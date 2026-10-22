@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import QRCode from 'react-native-qrcode-svg';
@@ -92,6 +92,16 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
   const copyProfileAddress = () => { void copyToClipboard(fullId, 'Copiado al portapapeles'); };
   const copyQrAddress = () => { copyProfileAddress(); setQrOpen(false); };
   const copyProfileValue = (value: string) => { void copyToClipboard(value, 'Copiado al portapapeles'); };
+  const confirmSignOut = () => {
+    Alert.alert(
+      'Cerrar sesión',
+      'Se borrarán tu identidad y todos los datos locales de este dispositivo. Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Cerrar sesión', style: 'destructive', onPress: onSignOut },
+      ],
+    );
+  };
 
   return (
     <YStack flex={1} backgroundColor={theme.background}>
@@ -103,7 +113,7 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
         <ProfileStatsSection reputation={null} vaultStats={null} onInfo={setInfo} />
         <ProfileAddressSection fullId={fullId} onCopy={copyProfileAddress} onShowQr={() => setQrOpen(true)} onInfo={() => setInfo('direccion')} />
         <ProfileTechnicalSection identity={identity} address={address} onInfo={setInfo} onCopy={copyProfileValue} />
-        <YStack paddingHorizontal={20}><NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.danger} height={48} icon={<LogOut color={theme.danger} size={18} />} onPress={onSignOut}>Cerrar sesión y borrar datos locales</NativeRippleButton></YStack>
+        <YStack paddingHorizontal={20}><NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.danger} height={48} icon={<LogOut color={theme.danger} size={18} />} onPress={confirmSignOut}>Cerrar sesión y borrar datos locales</NativeRippleButton></YStack>
       </ScrollView>
       <ProfileQrModal visible={qrOpen} fullId={fullId} onClose={() => setQrOpen(false)} onCopy={copyQrAddress} />
       <ProfileInfoModal info={info} onClose={() => setInfo(null)} />

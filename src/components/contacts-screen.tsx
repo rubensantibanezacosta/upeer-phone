@@ -75,7 +75,7 @@ export function ContactsScreen({ identity, onSignOut, onContactsChange }: Contac
     await refresh();
   };
 
-  const lockIdentity = async () => {
+  const performSignOut = async () => {
     setBusy(true);
     setError('');
     try {
@@ -85,6 +85,17 @@ export function ContactsScreen({ identity, onSignOut, onContactsChange }: Contac
     } finally {
       setBusy(false);
     }
+  };
+
+  const lockIdentity = () => {
+    Alert.alert(
+      'Cerrar sesión',
+      'Se borrarán tu identidad y todos los datos locales de este dispositivo. Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Cerrar sesión', style: 'destructive', onPress: () => void performSignOut() },
+      ],
+    );
   };
 
   return (
@@ -126,7 +137,7 @@ export function ContactsScreen({ identity, onSignOut, onContactsChange }: Contac
             </Card>
           ))}
         </YStack>
-        <NativeRippleButton backgroundColor="transparent" borderColor="border-color" borderWidth={1} color="danger" disabled={busy} height={48} onPress={() => void lockIdentity()}>Cerrar sesión y borrar datos locales</NativeRippleButton>
+        <NativeRippleButton backgroundColor="transparent" borderColor="border-color" borderWidth={1} color="danger" disabled={busy} height={48} onPress={lockIdentity}>Cerrar sesión y borrar datos locales</NativeRippleButton>
       </ScrollView>
     </SafeAreaView>
   );
