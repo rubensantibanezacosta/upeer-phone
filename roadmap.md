@@ -1,6 +1,6 @@
 # Roadmap móvil uPeer con Expo
 
-_Estado: port en curso a 22 de octubre de 2026. Identidad, perfil local, nodo Yggdrasil, transporte saliente/entrante TCP y chat bidireccional con un contacto Desktop ya existente están verificados; B0 está cerrada y B1 es el siguiente bloqueo de DHT/bootstrap._
+_Estado: port en curso a 22 de octubre de 2026. Identidad, perfil local, nodo Yggdrasil, transporte saliente/entrante TCP y chat bidireccional con un contacto Desktop ya existente están verificados; B0 y B1 están cerradas y B2 es el siguiente bloqueo de DHT/bootstrap._
 
 > Documento único de alcance y orden. Las fases **B0–B8** son la secuencia obligatoria de red y descubrimiento; las **fases de producto 4–10** solo empiezan después de B8. Las secciones «Fase 0» a «Fase 15» del anexo conservan requisitos detallados, pero **no son el orden de ejecución**.
 
@@ -87,7 +87,7 @@ Cada fase B solo puede empezar cuando la anterior tenga su criterio de salida de
 | Fase | Bloquea a | Entrega mínima | Estado |
 |---|---|---|---|
 | B0 | B1–B8 | Vectores canónicos y harness JS/Go/Kotlin | Hecha |
-| B1 | B2–B8 | Firma/verificación de paquetes DHT en el bridge y en Kotlin | Parcial local |
+| B1 | B2–B8 | Firma/verificación de paquetes DHT en el bridge y en Kotlin | Hecha |
 | B2 | B4–B8 | LocationBlock firmado, `dhtSeq`, `deviceId` y TTL | Parcial local |
 | B3 | B4–B8 | Códec DHT estricto, límites y admisión | No iniciada |
 | B4 | B5–B8 | Kademlia: routing, store, protocolo y queries pendientes | No iniciada |
@@ -161,12 +161,14 @@ La lógica nueva de DHT va en `transport-bridge/dht/`; la raíz conserva solo lo
 **Depende de:** B0.
 
 - [x] Prototipo Go `BuildSignedPacket`/`VerifyCanonicalJSON` con rechazo de campos reservados y JSON trailing.
-- [ ] Mover la lógica a `transport-bridge/dht/` y dejar en la raíz solo el adaptador gomobile.
-- [ ] Exportar `buildSignedPacket`, `verifyCanonicalJSON` y `verifySignedPacket` en el bridge; regenerar el binding Java.
-- [ ] Exponer en Kotlin un códec de paquete firmado que no permita inyectar `signature`, `senderUpeerId` ni `senderYggAddress`.
-- [ ] Probar en JVM: firma válida, firma alterada, clave distinta, `upeerId` que no deriva de la clave, campos reservados, JSON no objeto y datos trailing.
+- [x] Mover la lógica a `transport-bridge/dht/` y dejar en la raíz solo el adaptador gomobile.
+- [x] Exportar `buildSignedPacket`, `verifyCanonicalJSON` y `verifySignedPacket` en el bridge; regenerar el binding Java.
+- [x] Exponer en Kotlin un códec de paquete firmado que no permita inyectar `signature`, `senderUpeerId` ni `senderYggAddress`.
+- [x] Probar en JVM: firma válida, firma alterada, clave distinta, `upeerId` que no deriva de la clave, campos reservados, JSON no objeto y datos trailing.
 
 **Salida:** Kotlin firma un `DHT_PING` y Desktop lo acepta; Desktop firma el mismo paquete y Kotlin lo acepta.
+
+**Estado (22/10/2026): completada.** `transport-bridge/dht/` contiene canonicalización y paquetes firmados; la raíz conserva el adaptador gomobile. El binding regenerado expone `buildSignedPacket`, `verifyCanonicalJSON` y `verifySignedPacket`, y `DhtPacketCodec` aplica la política en Kotlin con pruebas JVM de firma válida, alteración, clave distinta, `upeerId` incoherente, campos reservados, dirección inválida, JSON no objeto y trailing. La firma JDK ya reproduce los bytes de Desktop en `DhtCanonicalVectorTest`; la prueba con dos instalaciones queda en B8.
 
 ### B2 — LocationBlock, secuencia y dispositivo
 

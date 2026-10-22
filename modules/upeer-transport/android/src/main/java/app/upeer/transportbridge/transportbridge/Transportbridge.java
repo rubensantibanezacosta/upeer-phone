@@ -32,10 +32,14 @@ public abstract class Transportbridge {
 	public static native void setErrRatchetAuthentication(java.lang.Exception v);
 	public static native java.lang.Exception getErrRatchetAuthentication();
 
+	public static native String buildSignedPacket(byte[] secretKey, String senderYggAddress, String packetJSON) throws Exception;
 	public static native byte[] defaultConfigJSON() throws Exception;
 	public static native byte[] generateNodeSeed() throws Exception;
 	public static native Bridge newBridge();
 	public static native CryptoIdentity newCryptoIdentity(byte[] secretKey) throws Exception;
 	public static native long probePeer(String uri) throws Exception;
 	public static native long probePeerLatency(String uri);
+	public static native boolean verifyCanonicalJSON(String payloadJSON, String signatureHex, String publicKeyHex) throws Exception;
+	public static native boolean verifyLocationBlock(String blockJSON, String publicKeyHex, long nowMillis) throws Exception;
+	public static native String verifySignedPacket(String packetJSON, String publicKeyHex) throws Exception;
 }

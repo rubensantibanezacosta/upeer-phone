@@ -32,6 +32,8 @@ public final class CryptoIdentity implements Seq.Proxy {
 	public native String buildDrReset(String senderYggAddress, String signedPreKeyJSON, String ratchetContext) throws Exception;
 	public native String buildHandshakeAccept(String senderYggAddress, String signedPreKeyJSON, String alias) throws Exception;
 	public native String buildHandshakeRequest(String senderYggAddress, String signedPreKeyJSON, String alias) throws Exception;
+	public native String buildLocationBlock(String addressesJSON, long dhtSeq, long ttlMillis, String deviceID) throws Exception;
+	public native String buildSignedPacket(String senderYggAddress, String packetJSON) throws Exception;
 	public native String createSignedPreKey(long spkID) throws Exception;
 	public native byte[] openSealed(String ciphertextHex) throws Exception;
 	public native String publicKeyHex();
@@ -39,6 +41,7 @@ public final class CryptoIdentity implements Seq.Proxy {
 	public native String ratchetEncrypt(String sessionJSON, byte[] plaintext) throws Exception;
 	public native String seal(byte[] plaintext, String recipientPublicKeyHex) throws Exception;
 	public native String sign(byte[] payload);
+	public native String signCanonicalJSON(String payloadJSON) throws Exception;
 	public native String startOutboundSession(String peerPublicKeyHex, String peerSPKPublicKeyHex, long peerSPKID) throws Exception;
 	public native String upeerID();
 	public native boolean verifySignedPreKey(String peerPublicKeyHex, String spkPubHex, String spkSigHex);

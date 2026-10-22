@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf16"
+
+	"github.com/upeer/upeer/transport-bridge/dht"
 )
 
 const (
@@ -199,22 +201,7 @@ func (identity *CryptoIdentity) VerifySignedPreKey(peerPublicKeyHex, spkPubHex, 
 }
 
 func (identity *CryptoIdentity) buildSignedPacket(data map[string]any, senderYggAddress string) (string, error) {
-	payload := cloneStringMap(data)
-	payload["senderUpeerId"] = identity.UpeerID()
-	payload["senderYggAddress"] = senderYggAddress
-	canonical, err := canonicalStringify(payload)
-	if err != nil {
-		return "", err
-	}
-	packet := cloneStringMap(data)
-	packet["senderUpeerId"] = identity.UpeerID()
-	packet["senderYggAddress"] = senderYggAddress
-	packet["signature"] = identity.Sign([]byte(canonical))
-	encoded, err := json.Marshal(packet)
-	if err != nil {
-		return "", fmt.Errorf("encode signed packet: %w", err)
-	}
-	return string(encoded), nil
+	return dht.BuildSignedPacketFromObject(identity.secretKey, senderYggAddress, data)
 }
 
 func (identity *CryptoIdentity) validatedSignedPreKey(signedPreKeyJSON string) (signedPreKeyState, error) {
