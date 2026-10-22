@@ -2,7 +2,7 @@
 
 Este documento registra el contrato observado en `upper-desktop/src/main_process`. No implementa ni adapta el protocolo. Una implementación móvil no se debe considerar interoperable hasta que pase pruebas cruzadas con Desktop.
 
-## Estado del port móvil (21 de octubre de 2026)
+## Estado del port móvil (22 de octubre de 2026)
 
 - Identidad BIP39 de 12 palabras, Ed25519 y upeer ID: implementada y con vector de derivación contra Desktop.
 - Nodo Yggdrasil embebido con `yggdrasil-go 0.5.14` y netstack gVisor de `yggstack`; transporte saliente TCP/UDP, lectura, escritura y cierre operativos.
@@ -12,8 +12,11 @@ Este documento registra el contrato observado en `upper-desktop/src/main_process
 - La identidad uPeer se cifra con Android Keystore, la carga `:yggdrasil` y la UI solo la provisiona; no se expone la clave privada por Binder.
 - `SEALED`, conversión Ed25519/Curve25519, X3DH, Signed Pre-Keys y Double Ratchet están implementados en Go y comparados con vectores de `sodium-native`.
 - El servicio responde `HANDSHAKE_ACCEPT` con SPK nativa y descifra/persiste `SEALED`/`CHAT` con peers, sesiones y mensajes cifrados. Se probaron dos mensajes consecutivos del mismo ratchet y el reinicio del servicio.
-- El ACK firmado se envía tras descifrar y fue validado en dispositivo con un verificador independiente; el outbox persistente entrega chat móvil→Desktop con ACK. `DR_RESET` valida la SPK firmada, actualiza la clave si es más reciente, borra la sesión y reintenta el outbox. La compresión gzip/base64 es compatible con Desktop y las notificaciones locales se publican desde `:yggdrasil`. Faltan pruebas adversas de reset, pérdida, duplicado y red.
-- Conclusión: el protocolo headless funciona en ambos sentidos, la UI muestra la conversación y notifica mensajes entrantes; la siguiente prioridad es validar escenarios adversos y endurecer red/ciclo de vida. Ver [`../../roadmap/implementation-order.md`](../../roadmap/implementation-order.md).
+- El ACK firmado se envía tras descifrar y fue validado en dispositivo con un verificador independiente; el outbox persistente entrega chat móvil→Desktop con ACK. `DR_RESET` valida la SPK firmada, actualiza la clave solo si es más reciente, borra la sesión y reintenta el outbox. Una SPK obsoleta o repetida no reemplaza la actual ni reinicia el ratchet, tampoco desde un handshake reenviado. La compresión gzip/base64 es compatible con Desktop y las notificaciones locales se publican desde `:yggdrasil`. `DR_RESET`, ACK perdido, duplicados, frame truncado y reconexión tras cambio de red están probados en dispositivo.
+- El outbox usa un pool de envío y un lock por peer: un peer inalcanzable no bloquea mensajes a otros. Tras 30 intentos, una entrada se marca `failed`, se elimina del outbox y deja de consumir reintentos. Verificado en dispositivo con una entrada obsoleta de un peer ficticio y un mensaje nuevo entregado con la SPK vigente.
+- El rate limiting usa el token bucket y los límites de Desktop para `SEALED`, `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`, `CHAT` y `ACK`; añade 20/min para `DR_RESET`, que Desktop deja sin regla. `SEALED` se limita antes de descifrar; el resto, tras validar la firma. Los frames limitados se contabilizan en `inboundStatus`/`protocolStatus` y no ejecutan efectos de estado.
+- La política de replay exige `id` UUID en `CHAT` y `ACK`, trata un `id` ya persistido del mismo remitente como duplicado idempotente (responde ACK sin volver a descifrar), rechaza colisiones de `id` entre conversaciones y solo aplica un ACK a mensajes propios del remitente. `DR_RESET` sigue protegido por SPK monotónica. Hay pruebas unitarias Kotlin para límites y UUID, y el harness `send-handshake-flood.mjs` verifica que un flood autenticado no supera el límite.
+- Conclusión: el protocolo headless funciona en ambos sentidos, la UI muestra la conversación y notifica mensajes entrantes; la siguiente prioridad es DHT/bootstrap, cambio de identidad del contacto y ciclo de vida/offline prolongado. Ver [`../../roadmap/implementation-order.md`](../../roadmap/implementation-order.md).
 
 ## Transporte y framing
 
@@ -51,8 +54,8 @@ Al enviar un paquete directo, Desktop lo sella para la clave pública Ed25519 de
 1. ~~Listener/aceptor TCP en el puerto de protocolo, integrado con el bridge Yggdrasil y el servicio `:yggdrasil`.~~ Implementado: `ListenTCP`/`AcceptTCP`, framing, validación de handshake, ACK y persistencia viven en `:yggdrasil`.
 2. ~~Implementación interoperable de Ed25519, conversión Ed25519/Curve25519, sealed boxes libsodium, X3DH, Signed Pre-Keys y Double Ratchet.~~ Implementado, vectorizado e integrado en ambos sentidos.
 3. Persistencia protegida de peers, estados de ratchet, mensajes y outbox. Existe deduplicación básica; falta DB relacional y prueba de fallos transaccionales.
-4. Serialización canónica, firma y validación idénticas; framing de Desktop; compresión y semántica de ACK/DR_RESET. Canonicalización, firma, framing, compresión, ACK y `DR_RESET` están implementados; faltan vectores de chat y protección frente a replay.
-5. Pruebas de integración cruzadas: Desktop→móvil, móvil→Desktop, primer contacto/X3DH, ratchet posterior, duplicados, ACK, reintentos y entradas TCP fragmentadas/coalescidas. Ambos sentidos, X3DH, ratchet, ACK y outbox están verificados; faltan duplicados, pérdida y cambios de red.
+4. Serialización canónica, firma y validación idénticas; framing de Desktop; compresión y semántica de ACK/DR_RESET. Canonicalización, firma, framing, compresión, ACK y `DR_RESET` están implementados; las SPK son monotónicas, el rate limiting usa los límites Desktop más 20/min para `DR_RESET`, y la política de replay usa UUID por conversación, ACK idempotente y propiedad del mensaje. Faltan vectores de chat completos.
+5. Pruebas de integración cruzadas: Desktop→móvil, móvil→Desktop, primer contacto/X3DH, ratchet posterior, duplicados, ACK, reintentos y entradas TCP fragmentadas/coalescidas. Ambos sentidos, X3DH, ratchet, ACK, duplicados, outbox, aislamiento de peers inalcanzables, frame truncado, reconexión tras cambio de red y flood autenticado limitado están verificados.
 6. Servicio de protocolo headless con identidad, ratchets, DB, outbox y notificaciones locales, capaz de recibir con la UI cerrada. La identidad, el ratchet, los mensajes, el outbox, las notificaciones y la UI ya están cubiertos; faltan DB relacional y pruebas de ciclo de vida y red adversa. Sin push, si el servicio muere la entrega depende del vault y de la reconexión.
 
 La UI ya muestra conversaciones y envía mensajes reales; no debe presentar la entrega como garantizada si el servicio muere ni ocultar los estados pendientes.

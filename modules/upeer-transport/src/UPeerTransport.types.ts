@@ -16,6 +16,7 @@ export type InboundTransportStatus = {
   frames: number;
   valid: number;
   invalid: number;
+  limited: number;
   lastType: string;
   lastSenderUpeerId: string;
   lastSenderYggAddress: string;
@@ -51,6 +52,7 @@ export type ProtocolTransportStatus = {
   messages: number;
   outbox: number;
   unread: number;
+  rateLimited: number;
 };
 
 export type PeerInfo = {

@@ -61,9 +61,55 @@ UPEER_EXPECT_MOBILE_CHAT=1 \
 node transport-bridge/harness/send-dr-reset.mjs
 ```
 
-Para comprobar que una SPK obsoleta no reemplaza a la nueva, añade `UPEER_STALE_SPK_ID=<id anterior>` y `UPEER_ACCEPT_HANDSHAKE=0`. El script envía primero la SPK nueva y después la obsoleta; el chat del outbox debe seguir descifrándose con la nueva. `UPEER_RATCHET_CONTEXT` acepta `direct` o `group:<id>` (sin `:` adicionales).
+Para comprobar que una SPK obsoleta no reemplaza a la nueva, añade `UPEER_STALE_SPK_ID=<id anterior>` y `UPEER_ACCEPT_HANDSHAKE=0`. El script envía primero la SPK nueva y después la obsoleta; el chat del outbox debe seguir descifrándose con la nueva. Con `UPEER_STALE_HANDSHAKE=1` reenvía además un `HANDSHAKE_REQ` firmado con la SPK obsoleta. El móvil solo acepta una SPK si su `spkId` es mayor que el actual, tanto en `DR_RESET` como en `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`, y una SPK repetida u obsoleta no reinicia el ratchet. `UPEER_RATCHET_CONTEXT` acepta `direct` o `group:<id>` (sin `:` adicionales).
 
 Con `UPEER_SKIP_ACK_FIRST=1` y `UPEER_EXPECT_MESSAGES=2`, `send-dr-reset.mjs` omite el primer ACK: el móvil debe reenviar el mismo `id` tras el timeout de 5 s y el harness debe cerrar con `CHAT_DUPLICATE` y `verified:true`.
+
+El outbox móvil entrega en paralelo por peer: una entrada hacia un peer inalcanzable no bloquea mensajes a otros. Tras 30 intentos, el mensaje se marca `failed` y sale del outbox. Esto permite limpiar entradas antiguas de pruebas sin reiniciar la app.
+
+## Rate limiting y replay
+
+El móvil usa el token bucket y los límites de Desktop para `SEALED` 5000/s, `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT` 50/min, `CHAT` 100/min y `ACK` 200/min; añade 20/min para `DR_RESET`. `SEALED` se limita antes de descifrar; el resto, tras validar la firma. Los frames limitados aparecen como `limited` en `inboundStatus` y como `rateLimited` en `protocolStatus`.
+
+`send-handshake-flood.mjs` reenvía un `HANDSHAKE_REQ` firmado más veces que el límite y cuenta los `HANDSHAKE_ACCEPT` recibidos. Con `UPEER_COUNT=120` y el límite por defecto de 50/min, la prueba calcula el techo del token bucket según el tiempo transcurrido y falla si el móvil acepta todo el flood o supera ese techo.
+
+```sh
+UPEER_TARGET=200:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx \
+UPEER_SENDER_ADDRESS=200:yyyy:yyyy:yyyy:yyyy:yyyy:yyyy:yyyy \
+UPEER_LISTEN_PORT=50105 \
+UPEER_SOCKS_PORT=9051 \
+UPEER_COUNT=120 \
+node transport-bridge/harness/send-handshake-flood.mjs
+```
+
+El token bucket permite una ráfaga inicial de 50 y repone 50 tokens por minuto, por lo que la salida incluye `elapsedMs` y `expectedCeiling`. Usa una identidad distinta o espera 60 segundos antes de repetir la prueba. La política de replay exige `id` UUID en `CHAT`/`ACK`: un duplicado del mismo remitente se ACKea sin volver a descifrar, una colisión de `id` entre conversaciones se rechaza y un ACK solo actualiza mensajes propios de ese remitente.
+
+## Pérdida de frames
+
+`send-truncated-frame.mjs` abre una conexión Yggdrasil, envía el prefijo de longitud y solo una parte del payload, y cierra. El servicio debe registrar el cierre, liberar el slot y seguir aceptando frames válidos.
+
+```sh
+UPEER_TARGET=200:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx \
+UPEER_SOCKS_PORT=9051 \
+node transport-bridge/harness/send-truncated-frame.mjs
+```
+
+Después del frame truncado, repite un `desktop-handshake.mjs` o `send-dr-reset.mjs` válido contra el mismo dispositivo. `UPEER_TRUNCATE_BYTES` ajusta cuántos bytes se envían; por defecto 6.
+
+## Cambio de red sin reiniciar
+
+Con el dispositivo conectado por USB se puede cortar la red sin perder `adb`:
+
+```sh
+adb shell svc wifi disable
+adb shell svc data disable
+sleep 20
+adb shell pidof com.upeer.upeer:yggdrasil
+adb shell svc wifi enable
+adb shell svc data enable
+```
+
+Durante el corte, `getPeerStatus()` debe mostrar los peers en `Up:false` con `network is unreachable`. Tras reactivar la red, el mismo PID debe recuperar peers y un `send-dr-reset.mjs` con listener debe entregar un chat. Restaura siempre Wi-Fi y datos al terminar.
 
 ## ACK perdido y duplicados
 

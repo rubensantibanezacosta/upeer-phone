@@ -27,6 +27,7 @@ android.sourceSets.main.java.srcDirs += "$projectDir/src/main/java"
 android.sourceSets.main.jniLibs.srcDirs += "$projectDir/src/main/jniLibs"
 
 dependencies {
+  testImplementation "junit:junit:4.13.2"
 }
 
 

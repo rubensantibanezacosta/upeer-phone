@@ -83,6 +83,22 @@ func (b *Bridge) AcceptTCP(listenerID int32, timeoutMillis int) (int32, error) {
 	}
 }
 
+func (b *Bridge) ConnectionAddress(connectionID int32) (string, error) {
+	conn, err := b.connection(connectionID)
+	if err != nil {
+		return "", err
+	}
+	remote := conn.RemoteAddr()
+	if remote == nil {
+		return "", errors.New("Yggdrasil connection has no remote address")
+	}
+	host, _, splitErr := net.SplitHostPort(remote.String())
+	if splitErr != nil {
+		return remote.String(), nil
+	}
+	return host, nil
+}
+
 func (b *Bridge) CloseListener(listenerID int32) error {
 	b.mutex.Lock()
 	state, ok := b.listeners[listenerID]

@@ -13,7 +13,7 @@ internal class ProtocolStateStore(context: Context) {
     valueKey = "protocol_state",
   )
   private val lock = Any()
-  private var state = loadState()
+  private var state = ProtocolStateCodec.load(store)
 
   fun rememberPeer(metadata: JSONObject): Boolean {
     val upeerId = metadata.optString("senderUpeerId")
@@ -24,16 +24,21 @@ internal class ProtocolStateStore(context: Context) {
       val peers = state.optJSONObject("peers") ?: JSONObject()
       val existing = peers.optJSONObject(upeerId) ?: JSONObject()
       val previousKey = existing.optString("publicKey")
+      val keyChanged = previousKey.isNotEmpty() && previousKey != publicKey
+      if (keyChanged) {
+        state.optJSONObject("sessions")?.remove(upeerId)
+        existing.remove("signedPreKey")
+      }
       existing.put("publicKey", publicKey).put("lastSeen", System.currentTimeMillis())
       if (address.isNotBlank()) existing.put("address", address)
       val alias = metadata.optString("alias").trim()
       if (alias.isNotEmpty()) existing.put("alias", alias.take(100))
       val signedPreKey = metadata.optJSONObject("signedPreKey")
-      if (signedPreKey != null && validSignedPreKey(signedPreKey)) existing.put("signedPreKey", copy(signedPreKey))
+      if (signedPreKey != null && validSignedPreKey(signedPreKey) && (keyChanged || isNewerSignedPreKey(existing, signedPreKey))) {
+        existing.put("signedPreKey", copy(signedPreKey))
+      }
       peers.put(upeerId, existing)
       state.put("peers", peers)
-      val keyChanged = previousKey.isNotEmpty() && previousKey != publicKey
-      if (keyChanged) state.optJSONObject("sessions")?.remove(upeerId)
       persist()
       keyChanged
     }
@@ -50,14 +55,18 @@ internal class ProtocolStateStore(context: Context) {
       val peers = state.optJSONObject("peers") ?: JSONObject()
       val existing = peers.optJSONObject(upeerId) ?: JSONObject()
       val previousKey = existing.optString("publicKey")
+      val keyChanged = previousKey.isNotEmpty() && publicKey.isNotEmpty() && previousKey != publicKey
+      if (keyChanged) {
+        state.optJSONObject("sessions")?.remove(upeerId)
+        existing.remove("signedPreKey")
+      }
       existing.put("address", address).put("lastSeen", System.currentTimeMillis())
       if (publicKey.isNotEmpty()) existing.put("publicKey", publicKey)
-      if (signedPreKey != null) existing.put("signedPreKey", copy(signedPreKey))
+      if (signedPreKey != null && (keyChanged || isNewerSignedPreKey(existing, signedPreKey))) {
+        existing.put("signedPreKey", copy(signedPreKey))
+      }
       peers.put(upeerId, existing)
       state.put("peers", peers)
-      if (previousKey.isNotEmpty() && publicKey.isNotEmpty() && previousKey != publicKey) {
-        state.optJSONObject("sessions")?.remove(upeerId)
-      }
       persist()
     }
     return true
@@ -68,8 +77,7 @@ internal class ProtocolStateStore(context: Context) {
     return synchronized(lock) {
       val peers = state.optJSONObject("peers") ?: return@synchronized false
       val existing = peers.optJSONObject(upeerId) ?: return@synchronized false
-      val currentID = existing.optJSONObject("signedPreKey")?.optLong("spkId") ?: 0L
-      if (currentID >= signedPreKey.optLong("spkId")) return@synchronized false
+      if (!isNewerSignedPreKey(existing, signedPreKey)) return@synchronized false
       existing.put("signedPreKey", copy(signedPreKey))
       state.put("peers", peers)
       persist()
@@ -110,12 +118,8 @@ internal class ProtocolStateStore(context: Context) {
   }
 
 
-  fun hasMessage(messageID: String): Boolean = synchronized(lock) {
-    val messages = state.optJSONArray("messages") ?: return@synchronized false
-    for (index in 0 until messages.length()) {
-      if (messages.optJSONObject(index)?.optString("id") == messageID) return@synchronized true
-    }
-    false
+  fun messageOwner(messageID: String): String? = synchronized(lock) {
+    findMessageLocked(messageID)?.optString("upeerId")?.ifEmpty { null }
   }
 
   fun saveMessage(message: JSONObject) {
@@ -133,10 +137,13 @@ internal class ProtocolStateStore(context: Context) {
     }
   }
 
-  fun ackMessage(messageID: String, status: String): Boolean {
+  fun ackMessage(messageID: String, senderUpeerId: String, status: String): Boolean {
     return synchronized(lock) {
       val message = findMessageLocked(messageID) ?: return@synchronized false
-      message.put("status", if (status == "read") "read" else "delivered")
+      if (!ReplayPolicy.validAck(message.optString("upeerId"), senderUpeerId, message.optBoolean("isMine"), status)) {
+        return@synchronized false
+      }
+      message.put("status", status)
       persist()
       true
     }
@@ -144,14 +151,15 @@ internal class ProtocolStateStore(context: Context) {
 
   fun messagesJSON(upeerId: String, limit: Int): String = synchronized(lock) {
     val messages = state.optJSONArray("messages") ?: JSONArray()
-    val selected = buildList {
+    val newest = buildList {
       for (index in 0 until messages.length()) {
         val message = messages.optJSONObject(index) ?: continue
         if (upeerId.isNotBlank() && message.optString("upeerId") != upeerId) continue
         add(copy(message))
       }
-    }.takeLast(limit.coerceIn(1, MAX_MESSAGES))
-    JSONArray(selected).toString()
+    }
+    val chronological = newest.take(limit.coerceIn(1, MAX_MESSAGES)).reversed()
+    JSONArray(chronological).toString()
   }
 
   fun conversationsJSON(): String = synchronized(lock) {
@@ -198,7 +206,7 @@ internal class ProtocolStateStore(context: Context) {
 
   fun clear() {
     synchronized(lock) {
-      state = emptyState()
+      state = ProtocolStateCodec.empty()
       try {
         store.clear()
       } catch (cause: Exception) {
@@ -246,6 +254,11 @@ internal class ProtocolStateStore(context: Context) {
     state.put("messages", trimmed)
   }
 
+  private fun isNewerSignedPreKey(target: JSONObject, candidate: JSONObject): Boolean {
+    val currentID = target.optJSONObject("signedPreKey")?.optLong("spkId") ?: 0L
+    return candidate.optLong("spkId") > currentID
+  }
+
   private fun copy(value: JSONObject): JSONObject = JSONObject(value.toString())
 
   private fun validId(value: String): Boolean = value.length == 64 && value.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
@@ -262,36 +275,6 @@ internal class ProtocolStateStore(context: Context) {
       Log.e(TAG, "No se pudo persistir el estado del protocolo", cause)
     }
   }
-
-  private fun loadState(): JSONObject {
-    val encoded = try {
-      store.load()
-    } catch (cause: Exception) {
-      Log.e(TAG, "No se pudo leer el estado del protocolo", cause)
-      return emptyState()
-    } ?: return emptyState()
-    return try {
-      val decoded = JSONObject(String(encoded, Charsets.UTF_8))
-      if (decoded.optJSONObject("peers") == null) decoded.put("peers", JSONObject())
-      if (decoded.optJSONObject("sessions") == null) decoded.put("sessions", JSONObject())
-      if (decoded.optJSONArray("messages") == null) decoded.put("messages", JSONArray())
-      Log.i(
-        TAG,
-        "Estado del protocolo cargado: peers=${decoded.optJSONObject("peers")?.length() ?: 0} " +
-          "sessions=${decoded.optJSONObject("sessions")?.length() ?: 0} " +
-          "messages=${decoded.optJSONArray("messages")?.length() ?: 0}",
-      )
-      decoded
-    } catch (cause: Exception) {
-      Log.e(TAG, "El estado del protocolo no es JSON válido", cause)
-      emptyState()
-    }
-  }
-
-  private fun emptyState(): JSONObject = JSONObject()
-    .put("peers", JSONObject())
-    .put("sessions", JSONObject())
-    .put("messages", JSONArray())
 
   private companion object {
     private const val TAG = "UPeerTransport"

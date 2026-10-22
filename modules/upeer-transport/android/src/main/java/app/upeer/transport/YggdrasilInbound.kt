@@ -7,7 +7,7 @@ import java.util.concurrent.Semaphore
 
 internal class YggdrasilInbound(
   private val port: Int,
-  private val onFrame: (Bridge, ByteArray) -> String,
+  private val onFrame: (Bridge, ByteArray, String) -> String,
 ) {
   private data class State(
     val listening: Boolean = false,
@@ -15,6 +15,7 @@ internal class YggdrasilInbound(
     val frames: Long = 0,
     val valid: Long = 0,
     val invalid: Long = 0,
+    val limited: Long = 0,
     val lastType: String = "",
     val lastSenderUpeerID: String = "",
     val lastSenderYggAddress: String = "",
@@ -71,6 +72,7 @@ internal class YggdrasilInbound(
       .put("frames", state.frames)
       .put("valid", state.valid)
       .put("invalid", state.invalid)
+      .put("limited", state.limited)
       .put("lastType", state.lastType)
       .put("lastSenderUpeerId", state.lastSenderUpeerID)
       .put("lastSenderYggAddress", state.lastSenderYggAddress)
@@ -96,7 +98,8 @@ internal class YggdrasilInbound(
         continue
       }
       synchronized(lock) { state = state.copy(accepted = state.accepted + 1) }
-      val reader = Thread({ readFrames(activeBridge, connectionID) }, "upeer-inbound-$connectionID")
+      val sourceAddress = connectionSource(activeBridge, connectionID)
+      val reader = Thread({ readFrames(activeBridge, connectionID, sourceAddress) }, "upeer-inbound-$connectionID")
       reader.isDaemon = true
       try {
         reader.start()
@@ -108,7 +111,7 @@ internal class YggdrasilInbound(
     }
   }
 
-  private fun readFrames(activeBridge: Bridge, connectionID: Int) {
+  private fun readFrames(activeBridge: Bridge, connectionID: Int, sourceAddress: String) {
     try {
       while (isActive(activeBridge)) {
         val payload = activeBridge.readFrame(connectionID, 0L)
@@ -116,8 +119,21 @@ internal class YggdrasilInbound(
           state = state.copy(frames = state.frames + 1, lastFrameAt = System.currentTimeMillis())
         }
         try {
-          val metadataJSON = onFrame(activeBridge, payload)
+          val metadataJSON = onFrame(activeBridge, payload, sourceAddress)
           val metadata = JSONObject(metadataJSON)
+          if (metadata.optBoolean("rateLimited")) {
+            synchronized(lock) {
+              state = state.copy(
+                limited = state.limited + 1,
+                lastType = metadata.optString("type"),
+                lastSenderUpeerID = metadata.optString("senderUpeerId"),
+                lastSenderYggAddress = metadata.optString("senderYggAddress"),
+                lastError = "rate limited",
+              )
+            }
+            Log.w(TAG, "Frame limitado: ${metadata.optString("type")}")
+            continue
+          }
           synchronized(lock) {
             state = state.copy(
               valid = state.valid + 1,
@@ -142,6 +158,13 @@ internal class YggdrasilInbound(
       closeConnection(activeBridge, connectionID)
       connectionSlots.release()
     }
+  }
+
+  private fun connectionSource(activeBridge: Bridge, connectionID: Int): String = try {
+    activeBridge.connectionAddress(connectionID)
+  } catch (cause: Exception) {
+    Log.w(TAG, "No se pudo leer la dirección de la conexión $connectionID: ${message(cause)}")
+    "connection:$connectionID"
   }
 
   private fun closeConnection(activeBridge: Bridge, connectionID: Int) {

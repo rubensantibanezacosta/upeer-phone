@@ -33,6 +33,7 @@ public final class Bridge implements Seq.Proxy {
 	public native void closeListener(int listenerID) throws Exception;
 	public native String configuredPeerURIsJSON() throws Exception;
 	public native long connectedPeerCount() throws Exception;
+	public native String connectionAddress(int connectionID) throws Exception;
 	public native String deriveIdentity(byte[] seed) throws Exception;
 	public native int dialTCP(String address, long port) throws Exception;
 	public native int dialUDP(String address, long port) throws Exception;

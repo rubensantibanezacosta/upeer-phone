@@ -1,6 +1,6 @@
 # Roadmap móvil uPeer con Expo
 
-_Estado: port en curso a 21 de octubre de 2026. Identidad, perfil local, nodo Yggdrasil, transporte saliente TCP/UDP y UI de conexión ya existen; el protocolo de chat uPeer todavía no es interoperable._
+_Estado: port en curso a 22 de octubre de 2026. Identidad, perfil local, nodo Yggdrasil, transporte saliente TCP/UDP y UI de conexión ya existen; el protocolo de chat uPeer todavía no es interoperable._
 
 > La secuencia de implementación vigente y el estado detallado están en [`roadmap/implementation-order.md`](roadmap/implementation-order.md). Ese orden prevalece sobre los números de fase y la secuencia de MVP de este catálogo; las fases siguientes conservan requisitos y criterios de salida, no indican por sí solas qué debe portarse primero.
 
@@ -21,7 +21,7 @@ Este documento guía el desarrollo de un cliente móvil de uPeer basado en el pr
 9. Expo Go no es el entorno de validación final para este proyecto: los módulos nativos de Yggdrasil y Android requieren development builds y prebuild/CNG.
 10. Mantener el producto de escritorio funcional e interoperable durante el desarrollo móvil.
 
-## Estado actual del port (21 de octubre de 2026)
+## Estado actual del port (22 de octubre de 2026)
 
 | Área | Estado | Evidencia y límite |
 |---|---|---|
@@ -30,10 +30,10 @@ Este documento guía el desarrollo de un cliente móvil de uPeer basado en el pr
 | Contactos | Parcial | Alta manual `upeerID@dirección`, SQLite en WAL y borrado. Sin QR, solicitudes, reputación ni bloqueo; el handshake ya se ejecuta en el servicio al enviar/recibir. |
 | Nodo Yggdrasil | Hecho en dispositivo | `yggdrasil-go 0.5.14` + netstack gVisor de `yggstack`; nodo embebido con `libgojni.so`, peers y reconexión. |
 | Transporte saliente | Hecho | `dialTCP`, `dialUDP`, `read`, `write` y `closeConnection`; paquetes firmados con outbox persistente, reintentos con backoff y ACK. Chat móvil→Desktop verificado con el harness. |
-| Transporte entrante | Hecho | Listener TCP `50005` en `:yggdrasil`, framing 4B/10 MiB con fragmentación y coalescencia, `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`, X3DH, `SEALED`/`CHAT`, ACK y persistencia. Chat Desktop→móvil verificado; faltan pruebas de pérdida y cambios de red. |
+| Transporte entrante | Hecho | Listener TCP `50005` en `:yggdrasil`, framing 4B/10 MiB con fragmentación y coalescencia, `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT`, X3DH, `SEALED`/`CHAT`, ACK y persistencia. Chat Desktop→móvil verificado, incluido frame truncado y reconexión tras cambio de red; falta estrés prolongado. |
 | Servicio Android | Parcial | Foreground service visible en proceso separado `:yggdrasil`, `stopWithTask=false`, configuración e identidad cifradas con Keystore, parada manual y recuperación tras force-stop. Faltan batería y control on/off explícito. |
 | Segundo plano sin push | Parcial | Listener, identidad, protocolo y outbox viven en `:yggdrasil`; el servicio responde handshakes, descifra `SEALED`/`CHAT`, envía ACK, persiste sesión/mensaje y publica notificaciones locales aunque la UI esté cerrada. Faltan pruebas prolongadas de batería y red. |
-| Protocolo uPeer | Parcial | `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT` firmados con SPK nativa, X3DH, `SEALED`/`CHAT`, ACK, compresión y outbox validados contra un peer Desktop simulado en ambos sentidos; `DR_RESET` implementado sin prueba adversa. Faltan DHT y replay protection. |
+| Protocolo uPeer | Parcial | `HANDSHAKE_REQ`/`HANDSHAKE_ACCEPT` firmados con SPK nativa, X3DH, `SEALED`/`CHAT`, ACK, compresión y outbox validados contra un peer Desktop simulado en ambos sentidos; `DR_RESET`, ACK perdido, duplicados, rate limiting por origen/identidad y política de replay por UUID y propiedad del mensaje probados. Las SPK solo avanzan y una obsoleta no reinicia la sesión. Faltan DHT, bootstrap, cambio de identidad del contacto y offline prolongado. |
 | Persistencia | Parcial | Estado de protocolo cifrado en Keystore con peers, sesiones de ratchet, últimos 500 mensajes y outbox; sin DB relacional ni grupos. |
 | UI | Parcial | Onboarding, perfil, contactos, conexión, mapa, lista de conversaciones y chat conectados al protocolo nativo; estados pendiente/enviado/entregado, no leídos, ACK y notificaciones locales visibles. Faltan adjuntos, búsqueda y llamadas. |
 
@@ -48,10 +48,12 @@ Este documento guía el desarrollo de un cliente móvil de uPeer basado en el pr
 5. [x] Enviar ACK firmado tras descifrar y validarlo con un verificador independiente en dispositivo.
 6. [x] Implementar outbox persistente con reintentos, backoff y reset al aceptar el handshake; chat móvil→Desktop verificado.
 7. [x] Exponer conversaciones, mensajes, estados y no leídos a la UI conectada al servicio nativo.
-8. [ ] Completar el endurecimiento de recepción:
+8. [x] Completar el endurecimiento de recepción:
    - [x] Notificaciones locales en `:yggdrasil` con previsualización privada, deep link y acción de lectura; validadas con la UI en segundo plano.
    - [x] Compresión compatible con Desktop y prueba cruzada de mensaje largo; el texto descomprimido se persiste y se muestra.
-   - [ ] Pruebas adversas de `DR_RESET`, pérdida, duplicado, ACK perdido y cambios de red.
+   - [x] Pruebas adversas de `DR_RESET`, SPK obsoleta, duplicado y ACK perdido.
+   - [x] Outbox concurrente por peer y reintentos acotados: un peer inalcanzable ya no bloquea otros mensajes y una entrada agotada se marca `failed` y sale del outbox. Validado en dispositivo con una entrada obsoleta de un peer ficticio.
+   - [x] Pérdida de frames y cambios de red sin reiniciar el proceso: un frame truncado cierra solo su conexión y el listener sigue aceptando frames válidos; tras desactivar y reactivar Wi-Fi/datos, los peers reconectan con el mismo PID y el chat móvil→Desktop se entrega. Validado en dispositivo.
 
 Sin push, si el servicio muere la entrega depende del vault y de la reconexión. La UI ya muestra y envía mensajes; no presentar la entrega como garantizada ni ocultar los estados pendientes.
 
@@ -273,7 +275,7 @@ Restricción de producto: uPeer **no usará push notifications**. La recepción 
 
 - Nodo Yggdrasil, peer manager, reconexión y salud real del transporte.
 - Listener TCP `50005`, UDP `50006`, framing y bucle de recepción.
-- [x] Validación/firma, `SEALED`, X3DH y Double Ratchet portados en el bridge nativo con vectores Desktop; faltan dispatcher, ACK, `DR_RESET`, outbox y DHT.
+- [x] Validación/firma, `SEALED`, X3DH, Double Ratchet, ACK, `DR_RESET` y outbox portados en el bridge nativo y el servicio; falta DHT.
 - [x] Acceso a la identidad uPeer desde Keystore en el servicio; falta mover el estado de ratchet y evitar que React serialice la clave privada.
 - Persistencia durable de mensajes, ratchets, outbox y metadatos. El servicio es el único escritor; la UI lee y envía comandos.
 - Notificaciones locales de mensajes y del estado de conexión, con previsualización configurable.
@@ -294,7 +296,7 @@ Restricción de producto: uPeer **no usará push notifications**. La recepción 
 | Acción "Desconectar" | Detiene servicio, nodo y recepción; borra la configuración de restauración. |
 | Sin permiso de notificaciones | No se inicia el servicio; la UI explica que la conexión visible es obligatoria. |
 
-**Estado actual:** ya existen el proceso separado `:yggdrasil`, `stopWithTask=false`, `onTaskRemoved`, `START_STICKY`, la configuración e identidad cifradas con Keystore, el listener TCP `50005`, el framing, la validación de handshakes, la respuesta `HANDSHAKE_ACCEPT` firmada con SPK nativa, la recepción `SEALED`/`CHAT` y la persistencia cifrada de sesiones/mensajes. Se probó con la tarea/UI eliminada, tras reiniciar el proceso y con dos mensajes consecutivos del mismo ratchet. Faltan ACK verificado en dispositivo, outbox, `DR_RESET`, notificaciones y UI; por tanto, la recepción existe pero **el chat aún no es visible en la app**.
+**Estado actual:** ya existen el proceso separado `:yggdrasil`, `stopWithTask=false`, `onTaskRemoved`, `START_STICKY`, la configuración e identidad cifradas con Keystore, el listener TCP `50005`, el framing, la validación de handshakes, la respuesta `HANDSHAKE_ACCEPT` firmada con SPK nativa, la recepción `SEALED`/`CHAT`, el ACK, el outbox persistente, las notificaciones locales y la persistencia cifrada de sesiones/mensajes. Se probó con la tarea/UI eliminada, tras reiniciar el proceso, con dos mensajes consecutivos del mismo ratchet y tras cambio de red. El rate limiting por origen/identidad y la política de replay por UUID y propiedad del mensaje están implementados y cubiertos con pruebas unitarias. Falta DHT/bootstrap, cambio de identidad del contacto y estrés offline prolongado.
 
 **Límites explícitos:** no se promete disponibilidad permanente, entrega instantánea si el servicio muere, funcionamiento tras force-stop ni recepción tras reinicio sin abrir la app. Tampoco se mantiene la UI de React viva para aparentar conexión.
 
@@ -357,7 +359,8 @@ Conectar móviles con nodos actuales y conservar formatos de paquetes.
 - [ ] Desactivar o degradar multicast LAN cuando permisos, OS o red no permitan su uso.
 - [ ] Portar location blocks, `DHT_UPDATE` firmado, roaming y rediscovery.
 - [ ] Limitar frecuencia de heartbeats, presencia y DHT para batería/datos.
-- [ ] Validar tipos de paquete, tamaño, firma, rate limiting y límites de memoria.
+- [x] Validar tipos de paquete, tamaño, firma, rate limiting y límites de memoria.
+- [x] Aplicar rate limiting por origen/identidad y política de replay con UUID por conversación, ACK idempotente y SPK monotónica.
 - [ ] Añadir diagnósticos de peers, RTT, bytes, errores y última reconexión sin datos secretos.
 
 ### Criterios de salida

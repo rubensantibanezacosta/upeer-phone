@@ -4,6 +4,9 @@ import android.util.Log
 import app.upeer.transportbridge.transportbridge.Bridge
 import org.json.JSONObject
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.ThreadFactory
 
 internal class YggdrasilOutbox(
   private val identity: YggdrasilIdentity,
@@ -13,6 +16,11 @@ internal class YggdrasilOutbox(
 ) {
   private val lock = Any()
   private val wakeLock = Object()
+  private val inFlight = ConcurrentHashMap.newKeySet<String>()
+  private val peerLocks = ConcurrentHashMap<String, Any>()
+  private val sendPool = Executors.newFixedThreadPool(MAX_PARALLEL_SENDS, ThreadFactory { task ->
+    Thread(task, "upeer-outbox-send").apply { isDaemon = true }
+  })
   private var bridge: Bridge? = null
   private var selfAddress = ""
   private var worker: Thread? = null
@@ -67,10 +75,10 @@ internal class YggdrasilOutbox(
     return messageID
   }
 
-  fun onAck(messageID: String, status: String): Boolean {
-    if (!state.ackMessage(messageID, status)) return false
+  fun onAck(senderUpeerId: String, messageID: String, status: String): Boolean {
+    if (!state.ackMessage(messageID, senderUpeerId, status)) return false
     outbox.remove(messageID)
-    Log.i(TAG, "ACK recibido para $messageID ($status)")
+    Log.i(TAG, "ACK recibido de $senderUpeerId para $messageID ($status)")
     wake()
     return true
   }
@@ -105,10 +113,25 @@ internal class YggdrasilOutbox(
   fun flush() {
     val activeBridge = synchronized(lock) { if (running) bridge else null } ?: return
     for (entry in outbox.due(System.currentTimeMillis(), MAX_BATCH)) {
-      if (!running) return
-      deliver(activeBridge, entry)
+      val messageID = entry.optString("id")
+      if (messageID.isEmpty() || !inFlight.add(messageID)) continue
+      sendPool.execute {
+        try {
+          if (!isActive(activeBridge)) return@execute
+          val peerLock = peerLocks.computeIfAbsent(entry.optString("upeerId")) { Any() }
+          synchronized(peerLock) {
+            if (isActive(activeBridge)) deliver(activeBridge, entry)
+          }
+        } catch (cause: Exception) {
+          retry(messageID, entry, message(cause))
+        } finally {
+          inFlight.remove(messageID)
+        }
+      }
     }
   }
+
+  private fun isActive(activeBridge: Bridge): Boolean = synchronized(lock) { running && bridge === activeBridge }
 
   private fun loop() {
     while (true) {
@@ -232,6 +255,12 @@ internal class YggdrasilOutbox(
 
   private fun retry(messageID: String, entry: JSONObject, reason: String) {
     val attempts = entry.optInt("attempts", 0) + 1
+    if (attempts >= MAX_ATTEMPTS) {
+      outbox.remove(messageID)
+      state.markMessageStatus(messageID, "failed")
+      Log.w(TAG, "Mensaje $messageID marcado como fallido tras $attempts intentos: $reason")
+      return
+    }
     val delay = minOf(MAX_BACKOFF_MS, BASE_BACKOFF_MS * attempts)
     outbox.markAttempt(messageID, attempts, System.currentTimeMillis() + delay, reason)
     Log.w(TAG, "Reintento $attempts de $messageID para ${entry.optString("upeerId")} en ${delay}ms: $reason")
@@ -243,6 +272,8 @@ internal class YggdrasilOutbox(
     private const val TAG = "UPeerTransport"
     private const val PORT = 50005L
     private const val MAX_BATCH = 8
+    private const val MAX_PARALLEL_SENDS = 12
+    private const val MAX_ATTEMPTS = 30
     private const val MAX_MESSAGE_BYTES = 256 * 1024
     private const val RETRY_TICK_MS = 1_500L
     private const val ACK_TIMEOUT_MS = 5_000L

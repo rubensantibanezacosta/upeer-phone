@@ -19,7 +19,7 @@ class YggdrasilTransportService : Service() {
   }
 
   private val bridgeLock = Any()
-  private val inbound = YggdrasilInbound(INBOUND_PORT) { activeBridge, payload -> protocol.handleFrame(activeBridge, payload) }
+  private val inbound = YggdrasilInbound(INBOUND_PORT) { activeBridge, payload, source -> protocol.handleFrame(activeBridge, payload, source) }
   private lateinit var configStore: YggdrasilConfigStore
   private lateinit var identity: YggdrasilIdentity
   private lateinit var notifications: UPeerNotifications

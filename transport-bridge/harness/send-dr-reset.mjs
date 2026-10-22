@@ -16,6 +16,7 @@ const senderSeed = hex(process.env.UPEER_SEED_HEX ?? '0102030405060708090a0b0c0d
 const ratchetContext = process.env.UPEER_RATCHET_CONTEXT ?? 'direct';
 const spkId = Number(process.env.UPEER_SPK_ID ?? Date.now());
 const staleSpkId = process.env.UPEER_STALE_SPK_ID ? Number(process.env.UPEER_STALE_SPK_ID) : 0;
+const staleHandshake = process.env.UPEER_STALE_HANDSHAKE === '1';
 const listenPort = Number(process.env.UPEER_LISTEN_PORT ?? 0);
 const expectChat = process.env.UPEER_EXPECT_MOBILE_CHAT === '1';
 const acceptHandshake = process.env.UPEER_ACCEPT_HANDSHAKE !== '0';
@@ -43,12 +44,14 @@ if (listenPort > 0) {
 }
 await sendReset(freshSPK);
 if (staleSPK) await sendReset(staleSPK);
+if (staleHandshake && staleSPK) await sendHandshake(staleSPK);
 console.log(JSON.stringify({
   type: 'DR_RESET',
   target,
   spkId,
   spkPub: toHex(freshSPK.publicKey),
   staleSpkId: staleSpkId || null,
+  staleHandshake: staleHandshake && !!staleSPK,
   ratchetContext,
   senderUpeerId,
   listening: listenPort || null,
@@ -73,6 +76,24 @@ async function sendReset(signedPreKey) {
       spkSig: signedPreKey.signature,
     },
     ratchetContext,
+    isInternalSync: false,
+    senderUpeerId,
+    senderYggAddress,
+  };
+  data.signature = signPacket(data);
+  await sendFrame(target, data);
+}
+
+async function sendHandshake(signedPreKey) {
+  const data = {
+    type: 'HANDSHAKE_REQ',
+    publicKey: senderPublicKey,
+    signedPreKey: {
+      spkId: signedPreKey.id,
+      spkPub: toHex(signedPreKey.publicKey),
+      spkSig: signedPreKey.signature,
+    },
+    alias: 'Desktop stale handshake',
     isInternalSync: false,
     senderUpeerId,
     senderYggAddress,
