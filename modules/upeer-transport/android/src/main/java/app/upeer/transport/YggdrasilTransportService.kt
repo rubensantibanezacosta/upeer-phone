@@ -241,6 +241,8 @@ class YggdrasilTransportService : Service() {
     protocol = YggdrasilProtocol(
       identity,
       signedPreKeys,
+      DeviceSignedPreKeyStore(this),
+      DeviceMessagingBindings(),
       protocolState,
       OutboxStore(this),
       notifications::notifyMessage,

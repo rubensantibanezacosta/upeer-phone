@@ -7,6 +7,8 @@ import org.json.JSONObject
 internal class YggdrasilHandshake(
   private val identity: YggdrasilIdentity,
   private val signedPreKeys: SignedPreKeyStore,
+  private val deviceSignedPreKeys: DeviceSignedPreKeyStore,
+  private val deviceBindings: DeviceMessagingBindings,
 ) {
   fun respond(activeBridge: Bridge, metadataJSON: String) {
     val metadata = try {
@@ -24,7 +26,20 @@ internal class YggdrasilHandshake(
       return
     }
     val packet = try {
-      currentIdentity.buildHandshakeAccept(target, signedPreKeys.currentJSON(currentIdentity), "")
+      val device = identity.currentDevice()
+      val deviceFields = device?.let {
+        deviceBindings.handshakeFields(it, deviceSignedPreKeys)
+      }
+      if (deviceFields != null) {
+        currentIdentity.buildHandshakeAcceptWithDevice(
+          target,
+          signedPreKeys.currentJSON(currentIdentity),
+          "",
+          deviceFields.toString(),
+        )
+      } else {
+        currentIdentity.buildHandshakeAccept(target, signedPreKeys.currentJSON(currentIdentity), "")
+      }
     } catch (cause: Exception) {
       Log.w(TAG, "No se pudo construir HANDSHAKE_ACCEPT: ${message(cause)}")
       return
@@ -47,7 +62,10 @@ internal class YggdrasilHandshake(
     }
   }
 
-  fun clear() = signedPreKeys.clear()
+  fun clear() {
+    signedPreKeys.clear()
+    deviceSignedPreKeys.clear()
+  }
 
   private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
 

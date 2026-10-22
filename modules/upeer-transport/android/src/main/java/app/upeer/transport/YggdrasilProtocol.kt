@@ -2,12 +2,15 @@ package app.upeer.transport
 
 import android.util.Log
 import app.upeer.transport.dht.ContactEncryptionAdmission
+import app.upeer.transport.dht.DhtLocation
 import app.upeer.transportbridge.transportbridge.Bridge
 import org.json.JSONObject
 
 internal class YggdrasilProtocol(
   private val identity: YggdrasilIdentity,
   private val signedPreKeys: SignedPreKeyStore,
+  private val deviceSignedPreKeys: DeviceSignedPreKeyStore,
+  private val deviceBindings: DeviceMessagingBindings,
   private val state: ProtocolStateStore,
   private val outboxStore: OutboxStore,
   private val onInboundMessage: (String, String, String) -> Unit,
@@ -15,9 +18,25 @@ internal class YggdrasilProtocol(
   private val contactAdmission: ContactEncryptionAdmission,
   private val rateLimiter: InboundRateLimiter = InboundRateLimiter(),
 ) {
-  private val handshake = YggdrasilHandshake(identity, signedPreKeys)
-  private val outbox = YggdrasilOutbox(identity, signedPreKeys, state, outboxStore, admission, contactAdmission)
+  private val handshake = YggdrasilHandshake(identity, signedPreKeys, deviceSignedPreKeys, deviceBindings)
+  private val outbox = YggdrasilOutbox(
+    identity,
+    signedPreKeys,
+    deviceSignedPreKeys,
+    deviceBindings,
+    state,
+    outboxStore,
+    admission,
+    contactAdmission,
+  )
   private val resetCache = DrResetReplayCache()
+  private val chatDecryptor = YggdrasilChatDecryptor(
+    identity,
+    signedPreKeys,
+    deviceSignedPreKeys,
+    state,
+    outbox::sendDrReset,
+  )
 
   fun start(activeBridge: Bridge) = outbox.start(activeBridge)
 
@@ -57,7 +76,25 @@ internal class YggdrasilProtocol(
       return rateLimitedMetadata(outerType)
     }
     val currentIdentity = identity.current() ?: throw IllegalStateException("uPeer identity is not available")
-    val inner = currentIdentity.openSealed(outer.optString("ciphertext"))
+    val ciphertext = outer.optString("ciphertext")
+    var accountFailure: Throwable? = null
+    val accountInner = try {
+      currentIdentity.openSealed(ciphertext)
+    } catch (cause: Exception) {
+      accountFailure = cause
+      null
+    }
+    val inner = accountInner ?: identity.currentDevice()?.let { device ->
+      try {
+        device.crypto.openSealed(ciphertext)
+      } catch (cause: Exception) {
+        Log.w(TAG, "El paquete SEALED no se pudo abrir con la clave de dispositivo: ${message(cause)}")
+        null
+      }
+    } ?: throw IllegalStateException(
+      "SEALED packet could not be opened with identity or device key",
+      accountFailure,
+    )
     return handleSignedPacket(activeBridge, inner, sourceAddress)
   }
 
@@ -78,6 +115,11 @@ internal class YggdrasilProtocol(
       val metadata = JSONObject(metadataJSON)
       packet.optJSONObject("signedPreKey")?.let { metadata.put("signedPreKey", it) }
       packet.optString("alias").takeIf(String::isNotEmpty)?.let { metadata.put("alias", it) }
+      val accountUpeerId = metadata.optString("senderUpeerId")
+      val deviceAttached = deviceBindings.attach(metadata, packet, accountUpeerId)
+      if (deviceBindings.hasFields(packet) && !deviceAttached) {
+        Log.w(TAG, "Handshake $type de $accountUpeerId con identidad de dispositivo inválida")
+      }
       if (!allow(metadata, sourceAddress)) return rateLimited(metadata)
       if (state.rememberPeer(metadata)) outbox.onPeerReset(metadata.optString("senderUpeerId"))
       Log.i(
@@ -100,10 +142,26 @@ internal class YggdrasilProtocol(
     val senderUpeerId = packet.optString("senderUpeerId").lowercase()
     val publicKey = state.publicKeyFor(senderUpeerId)
       ?: throw IllegalStateException("unknown peer $senderUpeerId")
-    val metadataJSON = activeBridge.validateSignedPacket(payload, publicKey)
+    val senderDeviceId = packet.optString("senderDeviceId").lowercase()
+    val isDevicePacket = senderDeviceId.isNotEmpty()
+    val senderIdentityKey: String
+    val metadataJSON: String
+    if (isDevicePacket) {
+      if (!DhtLocation.isHex(senderDeviceId, 32)) throw IllegalArgumentException("CHAT senderDeviceId is invalid")
+      val peer = state.peerFor(senderUpeerId) ?: throw IllegalStateException("unknown peer $senderUpeerId")
+      if (!peer.optString("deviceId").equals(senderDeviceId, ignoreCase = true)) {
+        throw IllegalArgumentException("CHAT announced an unknown sender device")
+      }
+      senderIdentityKey = peer.optString("devicePublicKey")
+      if (!DhtLocation.isHex(senderIdentityKey, 32)) throw IllegalArgumentException("peer device key is unavailable")
+      metadataJSON = activeBridge.validateLinkedSignedPacket(payload, senderIdentityKey, senderUpeerId)
+    } else {
+      senderIdentityKey = publicKey
+      metadataJSON = activeBridge.validateSignedPacket(payload, publicKey)
+    }
     val metadata = JSONObject(metadataJSON)
     if (!allow(metadata, sourceAddress)) return rateLimited(metadata)
-    state.rememberPeer(metadata)
+    if (!isDevicePacket) state.rememberPeer(metadata)
     val messageID = packet.optString("id")
     if (!ReplayPolicy.validMessageID(messageID)) throw IllegalArgumentException("CHAT message id must be a UUID")
     val existingOwner = state.messageOwner(messageID)
@@ -112,7 +170,13 @@ internal class YggdrasilProtocol(
       scheduleAck(activeBridge, senderUpeerId, messageID)
       return metadataJSON
     }
-    decryptChat(activeBridge, packet, senderUpeerId, publicKey)
+    val decrypted = chatDecryptor.decrypt(packet, senderUpeerId, senderIdentityKey, isDevicePacket)
+    if (decrypted.messageID.isNotEmpty()) scheduleAck(activeBridge, senderUpeerId, decrypted.messageID)
+    try {
+      onInboundMessage(senderUpeerId, state.peerFor(senderUpeerId)?.optString("alias").orEmpty(), decrypted.plaintext)
+    } catch (cause: Exception) {
+      Log.w(TAG, "No se pudo notificar el mensaje de $senderUpeerId: ${message(cause)}")
+    }
     return metadataJSON
   }
 
@@ -183,61 +247,6 @@ internal class YggdrasilProtocol(
     .put("type", type)
     .put("rateLimited", true)
     .toString()
-
-  private fun decryptChat(activeBridge: Bridge, packet: JSONObject, senderUpeerId: String, publicKey: String) {
-    val content = packet.optString("content")
-    val nonce = packet.optString("nonce")
-    val ratchetHeader = packet.optJSONObject("ratchetHeader")
-    if (content.isEmpty() || nonce.isEmpty() || ratchetHeader == null) {
-      outbox.sendDrReset(senderUpeerId)
-      throw IllegalArgumentException("CHAT is missing ratchet fields")
-    }
-    val currentIdentity = identity.current() ?: throw IllegalStateException("uPeer identity is not available")
-    val existingSession = state.sessionFor(senderUpeerId)
-    val message = JSONObject()
-      .put("content", content)
-      .put("nonce", nonce)
-      .put("ratchetHeader", ratchetHeader)
-      .toString()
-    val x3dhInit = packet.optJSONObject("x3dhInit")
-    var resultJSON: String? = null
-    if (existingSession != null) {
-      resultJSON = runCatching { currentIdentity.ratchetDecrypt(existingSession, message) }.getOrNull()
-    }
-    if (resultJSON == null && x3dhInit != null) {
-      val spkSecret = signedPreKeys.secretFor(x3dhInit.optLong("spkId"))
-      if (spkSecret != null) {
-        val freshSession = currentIdentity.acceptInboundSession(publicKey, x3dhInit.toString(), spkSecret)
-        resultJSON = currentIdentity.ratchetDecrypt(freshSession, message)
-        if (existingSession != null) Log.i(TAG, "Sesión X3DH reiniciada para $senderUpeerId")
-      }
-    }
-    if (resultJSON == null) {
-      outbox.sendDrReset(senderUpeerId)
-      throw IllegalStateException("CHAT has no usable ratchet session")
-    }
-    val result = JSONObject(resultJSON)
-    val plaintext = YggdrasilPayloadCodec.decompress(YggdrasilPayloadCodec.hexToBytes(result.optString("plaintextHex")))
-    state.saveSession(senderUpeerId, result.optString("session"))
-    state.saveMessage(
-      JSONObject()
-        .put("id", packet.optString("id"))
-        .put("upeerId", senderUpeerId)
-        .put("isMine", false)
-        .put("content", plaintext)
-        .put("status", "delivered")
-        .put("timestamp", packet.optLong("timestamp", System.currentTimeMillis()))
-        .put("receivedAt", System.currentTimeMillis()),
-    )
-    Log.i(TAG, "CHAT descifrado de $senderUpeerId id=${packet.optString("id")} (${plaintext.length} caracteres)")
-    val messageID = packet.optString("id")
-    if (messageID.isNotEmpty()) scheduleAck(activeBridge, senderUpeerId, messageID)
-    try {
-      onInboundMessage(senderUpeerId, state.peerFor(senderUpeerId)?.optString("alias").orEmpty(), plaintext)
-    } catch (cause: Exception) {
-      Log.w(TAG, "No se pudo notificar el mensaje de $senderUpeerId: ${message(cause)}")
-    }
-  }
 
   private fun scheduleAck(activeBridge: Bridge, senderUpeerId: String, messageID: String) {
     val ackThread = Thread({ sendAck(activeBridge, senderUpeerId, messageID) }, "upeer-ack")

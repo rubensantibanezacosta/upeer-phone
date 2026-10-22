@@ -3,6 +3,7 @@ package app.upeer.transport
 import android.util.Log
 import app.upeer.transport.dht.ContactAdmissionException
 import app.upeer.transport.dht.ContactEncryptionAdmission
+import app.upeer.transport.dht.ExpectedContactDevice
 import app.upeer.transportbridge.transportbridge.Bridge
 import org.json.JSONObject
 import java.util.UUID
@@ -13,6 +14,8 @@ import java.util.concurrent.ThreadFactory
 internal class YggdrasilOutbox(
   private val identity: YggdrasilIdentity,
   private val signedPreKeys: SignedPreKeyStore,
+  private val deviceSignedPreKeys: DeviceSignedPreKeyStore,
+  private val deviceBindings: DeviceMessagingBindings,
   private val state: ProtocolStateStore,
   private val outbox: OutboxStore,
   private val admission: DeviceAdmissionGuard,
@@ -25,6 +28,7 @@ internal class YggdrasilOutbox(
   private val sendPool = Executors.newFixedThreadPool(MAX_PARALLEL_SENDS, ThreadFactory { task ->
     Thread(task, "upeer-outbox-send").apply { isDaemon = true }
   })
+  private val link = OutboxLink(identity, signedPreKeys, deviceSignedPreKeys, deviceBindings) { selfAddress }
   private var bridge: Bridge? = null
   private var selfAddress = ""
   private var worker: Thread? = null
@@ -109,7 +113,7 @@ internal class YggdrasilOutbox(
     if (address.isBlank()) return
     try {
       val packet = currentIdentity.buildDrReset(selfAddress, signedPreKeys.currentJSON(currentIdentity), "direct")
-      if (sendPacket(activeBridge, address, packet)) Log.i(TAG, "DR_RESET enviado a $address")
+      if (link.sendPacket(activeBridge, address, packet)) Log.i(TAG, "DR_RESET enviado a $address")
     } catch (cause: Exception) {
       Log.w(TAG, "No se pudo enviar DR_RESET a $address: ${message(cause)}")
     }
@@ -174,48 +178,74 @@ internal class YggdrasilOutbox(
       return
     }
     if (publicKey.length != 64) {
-      sendHandshakeRequest(activeBridge, address)
+      link.sendHandshakeRequest(activeBridge, address)
       retry(messageID, entry, "handshake pendiente")
       return
     }
+    val deviceBinding = deviceBindings.bindingFor(peer, upeerId)
     try {
-      contactAdmission.requireAdmitted(upeerId)
+      contactAdmission.requireAdmitted(
+        upeerId,
+        deviceBinding?.let { ExpectedContactDevice(it.deviceId, it.devicePublicKey) },
+      )
     } catch (cause: ContactAdmissionException) {
       retry(messageID, entry, message(cause))
       return
     }
     val packet = entry.optString("packet")
     if (packet.isNotEmpty()) {
-      if (sendPacket(activeBridge, address, packet)) markSent(messageID, entry) else retry(messageID, entry, "writeFrame falló")
+      if (link.sendPacket(activeBridge, address, packet)) markSent(messageID, entry) else retry(messageID, entry, "writeFrame falló")
       return
     }
     val session = state.sessionFor(upeerId)
     val signedPreKey = peer.optJSONObject("signedPreKey")
-    if (session == null && signedPreKey == null) {
-      sendHandshakeRequest(activeBridge, address)
-      retry(messageID, entry, "handshake pendiente")
-      return
-    }
-    Log.i(TAG, "Entregando $messageID a $upeerId (sesión=${session != null}, spk=${signedPreKey?.optLong("spkId") ?: 0})")
     val currentIdentity = identity.current()
     if (currentIdentity == null) {
       retry(messageID, entry, "identidad no disponible")
       return
     }
+    val currentDevice = deviceBinding?.let { identity.currentDevice() }
+      ?.takeIf { it.accountUpeerId == currentIdentity.upeerID() }
+    val useDevice = deviceBinding != null && currentDevice != null
+    val recipientSpk = if (useDevice) deviceBinding?.signedPreKey else signedPreKey
+    if (session == null && recipientSpk == null) {
+      link.sendHandshakeRequest(activeBridge, address)
+      retry(messageID, entry, "handshake pendiente")
+      return
+    }
+    Log.i(
+      TAG,
+      "Entregando $messageID a $upeerId (sesión=${session != null}, device=${useDevice}, " +
+        "spk=${recipientSpk?.optLong("spkId") ?: 0})",
+    )
     try {
-      val result = JSONObject(
-        currentIdentity.buildChat(
+      val result = if (deviceBinding != null && currentDevice != null) {
+        OutboxPacketFactory.chat(
+          currentIdentity,
+          currentDevice,
+          deviceBinding,
           selfAddress,
-          publicKey,
-          signedPreKey?.optString("spkPub").orEmpty(),
           session.orEmpty(),
           entry.optString("content"),
           messageID,
           entry.optString("replyTo"),
-          signedPreKey?.optLong("spkId") ?: 0L,
           entry.optLong("timestamp"),
-        ),
-      )
+        )
+      } else {
+        JSONObject(
+          currentIdentity.buildChat(
+            selfAddress,
+            publicKey,
+            signedPreKey?.optString("spkPub").orEmpty(),
+            session.orEmpty(),
+            entry.optString("content"),
+            messageID,
+            entry.optString("replyTo"),
+            signedPreKey?.optLong("spkId") ?: 0L,
+            entry.optLong("timestamp"),
+          ),
+        )
+      }
       val nextSession = result.optString("session")
       val nextPacket = result.optString("packet")
       if (nextSession.isEmpty() || nextPacket.isEmpty()) {
@@ -224,39 +254,9 @@ internal class YggdrasilOutbox(
       }
       state.saveSession(upeerId, nextSession)
       outbox.setPacket(messageID, nextPacket)
-      if (sendPacket(activeBridge, address, nextPacket)) markSent(messageID, entry) else retry(messageID, entry, "writeFrame falló")
+      if (link.sendPacket(activeBridge, address, nextPacket)) markSent(messageID, entry) else retry(messageID, entry, "writeFrame falló")
     } catch (cause: Exception) {
       retry(messageID, entry, message(cause))
-    }
-  }
-
-  private fun sendHandshakeRequest(activeBridge: Bridge, address: String) {
-    val currentIdentity = identity.current() ?: return
-    try {
-      val packet = currentIdentity.buildHandshakeRequest(selfAddress, signedPreKeys.currentJSON(currentIdentity), "")
-      if (sendPacket(activeBridge, address, packet)) Log.i(TAG, "HANDSHAKE_REQ enviado a $address")
-    } catch (cause: Exception) {
-      Log.w(TAG, "No se pudo enviar HANDSHAKE_REQ a $address: ${message(cause)}")
-    }
-  }
-
-  private fun sendPacket(activeBridge: Bridge, address: String, packet: String): Boolean {
-    var connectionID = 0
-    return try {
-      connectionID = activeBridge.dialTCP(address, PORT)
-      activeBridge.writeFrame(connectionID, packet.toByteArray(Charsets.UTF_8))
-      true
-    } catch (cause: Exception) {
-      Log.w(TAG, "No se pudo enviar paquete a $address: ${message(cause)}")
-      false
-    } finally {
-      if (connectionID != 0) {
-        try {
-          activeBridge.closeConnection(connectionID)
-        } catch (cause: Exception) {
-          Log.w(TAG, "No se pudo cerrar la conexión saliente: ${message(cause)}")
-        }
-      }
     }
   }
 
@@ -283,7 +283,6 @@ internal class YggdrasilOutbox(
 
   private companion object {
     private const val TAG = "UPeerTransport"
-    private const val PORT = 50005L
     private const val MAX_BATCH = 8
     private const val MAX_PARALLEL_SENDS = 12
     private const val MAX_ATTEMPTS = 30

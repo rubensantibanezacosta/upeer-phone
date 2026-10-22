@@ -56,4 +56,5 @@ public abstract class Transportbridge {
 	public static native boolean verifyDevicePairingRequest(String requestJSON, String expectedAccountUpeerID, long nowMillis) throws Exception;
 	public static native boolean verifyLocationBlock(String blockJSON, String publicKeyHex, long nowMillis) throws Exception;
 	public static native String verifySignedPacket(String packetJSON, String publicKeyHex) throws Exception;
+	public static native boolean verifySignedPreKey(String publicKeyHex, String spkPubHex, String spkSigHex);
 }

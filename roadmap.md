@@ -315,6 +315,8 @@ La lógica nueva de DHT va en `transport-bridge/dht/`; la raíz conserva solo lo
 - [ ] Ejecutar fuzzing de códec y pruebas de amplificación, replay, Sybil básico y contactos maliciosos.
 - [ ] Medir batería, datos y latencia de bootstrap en dispositivo real durante 24 h.
 - [ ] Verificar migración de estado y ausencia de secretos en logs.
+- [x] Android anuncia y consume el contrato de mensajería por dispositivo en CHAT directo: `devicePublicKey`/`deviceId`/`deviceCertificate`/SPK firmada por dispositivo en handshake, binding por contacto con invalidación de sesión al cambiar de dispositivo, firma y sealed con clave de dispositivo, resolución de SPK entrante y fallback a la identidad de cuenta.
+- [ ] Probar el roaming real Desktop↔móvil con mensajería por dispositivo y extender la ruta a `CHAT_UPDATE`, `DR_RESET`, grupos, vault y sincronización multi-dispositivo.
 - [ ] No habilitar sincronización multidispositivo, punteros de vault ni presencia compartida: corresponden a B6 y B10.
 
 **Salida:** pruebas mixtas repetibles, límites medidos y ningún bloqueo de UI; a partir de aquí se abre la paridad de producto, salvo el Producto 6, que espera a B10.

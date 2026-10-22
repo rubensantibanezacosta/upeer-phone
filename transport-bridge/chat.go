@@ -125,31 +125,7 @@ func (identity *CryptoIdentity) BuildChat(
 }
 
 func (identity *CryptoIdentity) BuildHandshakeRequest(senderYggAddress, signedPreKeyJSON, alias string) (string, error) {
-	if !isYggdrasilAddress(net.ParseIP(senderYggAddress)) {
-		return "", errors.New("senderYggAddress must be a Yggdrasil IPv6 address")
-	}
-	signedPreKey, err := identity.validatedSignedPreKey(signedPreKeyJSON)
-	if err != nil {
-		return "", err
-	}
-	alias = strings.TrimSpace(alias)
-	if len(alias) > 100 {
-		return "", errors.New("alias must be at most 100 characters")
-	}
-	data := map[string]any{
-		"type":           handshakeRequest,
-		"publicKey":      identity.PublicKeyHex(),
-		"isInternalSync": false,
-		"signedPreKey": map[string]any{
-			"spkPub": signedPreKey.SPKPub,
-			"spkSig": signedPreKey.SPKSig,
-			"spkId":  json.Number(strconv.Itoa(signedPreKey.SPKID)),
-		},
-	}
-	if alias != "" {
-		data["alias"] = alias
-	}
-	return identity.buildSignedPacket(data, senderYggAddress)
+	return identity.buildHandshakeRequest(senderYggAddress, signedPreKeyJSON, alias, nil)
 }
 
 func (identity *CryptoIdentity) BuildDrReset(senderYggAddress, signedPreKeyJSON, ratchetContext string) (string, error) {

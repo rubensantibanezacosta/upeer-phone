@@ -35,7 +35,10 @@ public final class CryptoIdentity implements Seq.Proxy {
 	public native String buildDevicePairingRequest(String optionsJSON) throws Exception;
 	public native String buildDrReset(String senderYggAddress, String signedPreKeyJSON, String ratchetContext) throws Exception;
 	public native String buildHandshakeAccept(String senderYggAddress, String signedPreKeyJSON, String alias) throws Exception;
+	public native String buildHandshakeAcceptWithDevice(String senderYggAddress, String signedPreKeyJSON, String alias, String deviceJSON) throws Exception;
 	public native String buildHandshakeRequest(String senderYggAddress, String signedPreKeyJSON, String alias) throws Exception;
+	public native String buildHandshakeRequestWithDevice(String senderYggAddress, String signedPreKeyJSON, String alias, String deviceJSON) throws Exception;
+	public native String buildLinkedChat(String accountUpeerID, String senderYggAddress, String peerPublicKeyHex, String peerSPKPublicKeyHex, String sessionJSON, String plaintext, String messageID, String replyTo, long peerSPKID, long timestamp, String deviceID) throws Exception;
 	public native String buildLocationBlock(String addressesJSON, long dhtSeq, long ttlMillis, String deviceID) throws Exception;
 	public native String buildSignedPacket(String senderYggAddress, String packetJSON) throws Exception;
 	public native String createSignedPreKey(long spkID) throws Exception;

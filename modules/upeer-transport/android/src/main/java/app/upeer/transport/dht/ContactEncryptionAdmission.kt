@@ -12,6 +12,8 @@ internal enum class LegacyContactPolicy {
 
 internal class ContactAdmissionException(message: String) : IllegalStateException(message)
 
+internal data class ExpectedContactDevice(val deviceId: String, val devicePublicKey: String)
+
 internal class ContactEncryptionAdmission(
   private val publicKeyFor: (String) -> String?,
   private val locationFor: (String) -> String?,
@@ -24,41 +26,68 @@ internal class ContactEncryptionAdmission(
   },
   private val warn: (String) -> Unit = { message -> Log.w(TAG, message) },
 ) {
-  private data class Decision(val epoch: Long, val expiresAt: Long)
+  private data class Decision(
+    val epoch: Long,
+    val expiresAt: Long,
+    val deviceId: String,
+    val devicePublicKey: String,
+  )
 
   private val lock = Any()
   private val decisions = LinkedHashMap<String, Decision>(16, 0.75f, true)
   private val lastRefresh = HashMap<String, Long>()
   private val auditedLegacy = HashSet<String>()
 
-  fun requireAdmitted(upeerId: String) {
+  fun requireAdmitted(upeerId: String, expectedDevice: ExpectedContactDevice? = null) {
     val account = upeerId.trim().lowercase()
     if (!DhtLocation.isHex(account, ACCOUNT_BYTES)) {
       throw ContactAdmissionException("contact id is invalid")
     }
+    val expectedDeviceId = expectedDevice?.deviceId?.lowercase().orEmpty()
+    val expectedDevicePublicKey = expectedDevice?.devicePublicKey?.lowercase().orEmpty()
     val now = nowMillis()
     val registry = registryFor(account)
     val epoch = registry?.epoch ?: UNKNOWN_EPOCH
     val decision = synchronized(lock) { decisions[account] }
-    if (decision != null && decision.epoch == epoch && now < decision.expiresAt) return
-    if (registry == null) return allowLegacy(account, null, now, "account registry is unavailable")
+    if (decision != null &&
+      decision.epoch == epoch &&
+      decision.deviceId == expectedDeviceId &&
+      decision.devicePublicKey == expectedDevicePublicKey &&
+      now < decision.expiresAt
+    ) return
+    if (registry == null) return allowLegacy(account, null, now, "account registry is unavailable", expectedDeviceId, expectedDevicePublicKey)
     if (registry.expiresAt <= now) deny(account, now, "account registry is expired")
     val publicKey = publicKeyFor(account)
     if (publicKey.isNullOrBlank()) deny(account, now, "contact public key is unavailable")
     val location = locationFor(account)
-    if (location.isNullOrBlank()) return allowLegacy(account, registry, now, "contact has no verified location")
+    if (location.isNullOrBlank()) {
+      return allowLegacy(account, registry, now, "contact has no verified location", expectedDeviceId, expectedDevicePublicKey)
+    }
     val block = runCatching { JSONObject(location) }.getOrNull()
       ?: deny(account, now, "contact location is invalid")
     if (!block.has("deviceCertificate")) {
-      return allowLegacy(account, registry, now, "contact location has no device certificate")
+      return allowLegacy(account, registry, now, "contact location has no device certificate", expectedDeviceId, expectedDevicePublicKey)
     }
     val verified = DhtContactLocation.verifyOne(location, account, publicKey, registry.registryJSON, now, verify)
       ?: deny(account, now, "contact device is not admitted")
+    val certificate = runCatching { JSONObject(verified.certificateJSON) }.getOrNull()
+      ?: deny(account, now, "contact device certificate is invalid")
+    if (expectedDeviceId.isNotEmpty() && !certificate.optString("deviceId").equals(expectedDeviceId, ignoreCase = true)) {
+      deny(account, now, "contact device does not match the advertised messaging device")
+    }
+    if (expectedDevicePublicKey.isNotEmpty() &&
+      !certificate.optString("devicePublicKey").equals(expectedDevicePublicKey, ignoreCase = true)
+    ) {
+      deny(account, now, "contact device key does not match the advertised messaging key")
+    }
     if (verified.deviceId.lowercase() in registry.revoked) deny(account, now, "contact device is revoked")
     val confirmed = registryFor(account)
     if (confirmed == null || confirmed.epoch != registry.epoch) deny(account, now, "account registry changed during admission")
     if (verified.deviceId.lowercase() in confirmed.revoked) deny(account, now, "contact device is revoked")
-    remember(account, Decision(confirmed.epoch, decisionExpiry(confirmed.expiresAt, now)))
+    remember(
+      account,
+      Decision(confirmed.epoch, decisionExpiry(confirmed.expiresAt, now), expectedDeviceId, expectedDevicePublicKey),
+    )
   }
 
   fun clear() = synchronized(lock) {
@@ -67,7 +96,14 @@ internal class ContactEncryptionAdmission(
     auditedLegacy.clear()
   }
 
-  private fun allowLegacy(account: String, registry: ContactRegistrySnapshot?, now: Long, reason: String) {
+  private fun allowLegacy(
+    account: String,
+    registry: ContactRegistrySnapshot?,
+    now: Long,
+    reason: String,
+    deviceId: String,
+    devicePublicKey: String,
+  ) {
     if (legacyPolicy == LegacyContactPolicy.REJECT) deny(account, now, reason)
     requestRefresh(account, now)
     val epoch = registry?.epoch ?: UNKNOWN_EPOCH
@@ -77,7 +113,10 @@ internal class ContactEncryptionAdmission(
       auditedLegacy.add(auditKey)
     }
     if (first) warn("Contacto admitido por política legacy: $reason")
-    remember(account, Decision(epoch, decisionExpiry(registry?.expiresAt ?: now + DECISION_TTL_MS, now)))
+    remember(
+      account,
+      Decision(epoch, decisionExpiry(registry?.expiresAt ?: now + DECISION_TTL_MS, now), deviceId, devicePublicKey),
+    )
   }
 
   private fun deny(account: String, now: Long, reason: String): Nothing {

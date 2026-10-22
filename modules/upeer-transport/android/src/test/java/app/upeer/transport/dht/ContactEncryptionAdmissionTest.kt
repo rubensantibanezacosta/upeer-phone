@@ -11,6 +11,7 @@ import org.junit.Test
 class ContactEncryptionAdmissionTest {
   private val account = "ab".repeat(32)
   private val device = "cd".repeat(32)
+  private val devicePublicKey = "ef".repeat(32)
   private val publicKey = "11".repeat(32)
   private val now = 1_800_000_000_000L
 
@@ -132,6 +133,41 @@ class ContactEncryptionAdmissionTest {
     assertEquals(2, locationCalls)
   }
 
+  @Test
+  fun admitsTheAdvertisedMessagingDeviceAndCachesByDevice() {
+    val admission = admission()
+    val expected = ExpectedContactDevice(device, devicePublicKey)
+
+    admission.requireAdmitted(account)
+    admission.requireAdmitted(account, expected)
+    admission.requireAdmitted(account, expected)
+
+    assertEquals(2, locationCalls)
+  }
+
+  @Test
+  fun rejectsAMessagingDeviceThatDoesNotMatchTheCertificate() {
+    val admission = admission()
+
+    assertThrows(ContactAdmissionException::class.java) {
+      admission.requireAdmitted(account, ExpectedContactDevice("12".repeat(32), devicePublicKey))
+    }
+    assertThrows(ContactAdmissionException::class.java) {
+      admission.requireAdmitted(account, ExpectedContactDevice(device, "34".repeat(32)))
+    }
+  }
+
+  @Test
+  fun revalidatesExpectedDeviceAfterRegistryEpochChanges() {
+    val admission = admission()
+    admission.requireAdmitted(account, ExpectedContactDevice(device, devicePublicKey))
+    registry = snapshot(epoch = 2)
+
+    admission.requireAdmitted(account, ExpectedContactDevice(device, devicePublicKey))
+
+    assertEquals(2, locationCalls)
+  }
+
   private fun admission(policy: LegacyContactPolicy = LegacyContactPolicy.REJECT) = ContactEncryptionAdmission(
     { publicKey },
     { locationCalls += 1; location },
@@ -165,5 +201,5 @@ class ContactEncryptionAdmissionTest {
     .put("expiresAt", now + 86_400_000L)
     .put("signature", "aa".repeat(64))
     .put("deviceId", device)
-    .put("deviceCertificate", JSONObject().put("accountUpeerId", account).put("deviceId", device))
+    .put("deviceCertificate", JSONObject().put("accountUpeerId", account).put("deviceId", device).put("devicePublicKey", devicePublicKey))
 }

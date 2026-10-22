@@ -2,6 +2,7 @@ package app.upeer.transport
 
 import android.content.Context
 import android.util.Log
+import app.upeer.transport.dht.DhtLocation
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -25,7 +26,18 @@ internal class ProtocolStateStore(context: Context) {
       val existing = peers.optJSONObject(upeerId) ?: JSONObject()
       val previousKey = existing.optString("publicKey")
       val keyChanged = previousKey.isNotEmpty() && previousKey != publicKey
-      if (keyChanged) {
+      val devicePublicKey = metadata.optString("devicePublicKey").lowercase()
+      val deviceId = metadata.optString("deviceId").lowercase()
+      val deviceSignedPreKey = metadata.optJSONObject("deviceSignedPreKey")
+      val hasDevice = DhtLocation.isHex(devicePublicKey, 32) &&
+        DhtLocation.isHex(deviceId, 32) &&
+        deviceSignedPreKey != null &&
+        validSignedPreKey(deviceSignedPreKey)
+      val deviceChanged = hasDevice && (
+        !existing.optString("devicePublicKey").equals(devicePublicKey, ignoreCase = true) ||
+          !existing.optString("deviceId").equals(deviceId, ignoreCase = true)
+        )
+      if (keyChanged || deviceChanged) {
         state.optJSONObject("sessions")?.remove(upeerId)
         existing.remove("signedPreKey")
       }
@@ -37,10 +49,16 @@ internal class ProtocolStateStore(context: Context) {
       if (signedPreKey != null && validSignedPreKey(signedPreKey) && (keyChanged || isNewerSignedPreKey(existing, signedPreKey))) {
         existing.put("signedPreKey", copy(signedPreKey))
       }
+      if (hasDevice) {
+        existing.put("devicePublicKey", devicePublicKey)
+        existing.put("deviceId", deviceId)
+        existing.put("deviceSignedPreKey", copy(deviceSignedPreKey))
+        metadata.optJSONObject("deviceCertificate")?.let { existing.put("deviceCertificate", copy(it)) }
+      }
       peers.put(upeerId, existing)
       state.put("peers", peers)
       persist()
-      keyChanged
+      keyChanged || deviceChanged
     }
   }
 
@@ -174,32 +192,10 @@ internal class ProtocolStateStore(context: Context) {
   }
 
   fun conversationsJSON(): String = synchronized(lock) {
-    val messages = state.optJSONArray("messages") ?: JSONArray()
-    val peers = state.optJSONObject("peers") ?: JSONObject()
-    val latest = LinkedHashMap<String, JSONObject>()
-    for (index in 0 until messages.length()) {
-      val message = messages.optJSONObject(index) ?: continue
-      val upeerId = message.optString("upeerId")
-      if (upeerId.isBlank()) continue
-      val current = latest[upeerId]
-      if (current == null || message.optLong("timestamp") >= current.optLong("timestamp")) latest[upeerId] = message
-    }
-    val result = latest.map { (upeerId, message) ->
-      var unread = 0
-      for (index in 0 until messages.length()) {
-        val candidate = messages.optJSONObject(index) ?: continue
-        if (candidate.optString("upeerId") == upeerId && !candidate.optBoolean("isMine") && candidate.optString("status") == "delivered") unread++
-      }
-      JSONObject()
-        .put("upeerId", upeerId)
-        .put("alias", peers.optJSONObject(upeerId)?.optString("alias").orEmpty())
-        .put("lastMessage", message.optString("content"))
-        .put("lastStatus", message.optString("status"))
-        .put("lastTimestamp", message.optLong("timestamp"))
-        .put("lastIsMine", message.optBoolean("isMine"))
-        .put("unread", unread)
-    }.sortedByDescending { it.optLong("lastTimestamp") }
-    JSONArray(result).toString()
+    ProtocolConversations.build(
+      state.optJSONArray("messages") ?: JSONArray(),
+      state.optJSONObject("peers") ?: JSONObject(),
+    )
   }
 
   fun markConversationRead(upeerId: String) {
@@ -240,7 +236,6 @@ internal class ProtocolStateStore(context: Context) {
       .put("unread", unread)
       .toString()
   }
-
 
   private fun findMessageLocked(messageID: String): JSONObject? {
     val messages = state.optJSONArray("messages") ?: return null

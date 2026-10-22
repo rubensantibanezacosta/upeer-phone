@@ -57,6 +57,7 @@ public final class Bridge implements Seq.Proxy {
 	public native void startWithPeers(String peersJSON, byte[] seed) throws Exception;
 	public native void stop() throws Exception;
 	public native String validateControlFrame(byte[] payload) throws Exception;
+	public native String validateLinkedSignedPacket(byte[] payload, String publicKeyHex, String senderUpeerId) throws Exception;
 	public native String validateSignedPacket(byte[] payload, String publicKeyHex) throws Exception;
 	public native void write(int connectionID, byte[] payload) throws Exception;
 	public native void writeCallMediaDatagram(int connectionID, byte[] payload) throws Exception;

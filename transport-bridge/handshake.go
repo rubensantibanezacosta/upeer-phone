@@ -8,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
-	"strings"
 
 	"golang.org/x/crypto/nacl/box"
 )
@@ -43,62 +41,7 @@ func (identity *CryptoIdentity) CreateSignedPreKey(spkID int) (string, error) {
 }
 
 func (identity *CryptoIdentity) BuildHandshakeAccept(senderYggAddress, signedPreKeyJSON, alias string) (string, error) {
-	if !isYggdrasilAddress(net.ParseIP(senderYggAddress)) {
-		return "", errors.New("senderYggAddress must be a Yggdrasil IPv6 address")
-	}
-	var signedPreKey signedPreKeyState
-	if err := json.Unmarshal([]byte(signedPreKeyJSON), &signedPreKey); err != nil {
-		return "", fmt.Errorf("decode signed pre-key: %w", err)
-	}
-	if signedPreKey.SPKID <= 0 || !validHex(signedPreKey.SPKPub, 32) || !validHex(signedPreKey.SPKSig, ed25519.SignatureSize) {
-		return "", errors.New("signed pre-key state is invalid")
-	}
-	spkPublicKey, err := hex.DecodeString(signedPreKey.SPKPub)
-	if err != nil {
-		return "", fmt.Errorf("decode signed pre-key public key: %w", err)
-	}
-	spkSignature, err := hex.DecodeString(signedPreKey.SPKSig)
-	if err != nil {
-		return "", fmt.Errorf("decode signed pre-key signature: %w", err)
-	}
-	if !ed25519.Verify(identity.publicKey, spkPublicKey, spkSignature) {
-		return "", errors.New("signed pre-key signature does not match identity")
-	}
-	alias = strings.TrimSpace(alias)
-	if len(alias) > 100 {
-		return "", errors.New("alias must be at most 100 characters")
-	}
-	senderUpeerID := identity.UpeerID()
-	data := map[string]any{
-		"type":           handshakeAccept,
-		"publicKey":      identity.PublicKeyHex(),
-		"isInternalSync": false,
-		"signedPreKey": map[string]any{
-			"spkPub": signedPreKey.SPKPub,
-			"spkSig": signedPreKey.SPKSig,
-			"spkId":  json.Number(strconv.Itoa(signedPreKey.SPKID)),
-		},
-	}
-	if alias != "" {
-		data["alias"] = alias
-	}
-	payload := cloneStringMap(data)
-	payload["senderUpeerId"] = senderUpeerID
-	payload["senderYggAddress"] = senderYggAddress
-	canonical, err := canonicalStringify(payload)
-	if err != nil {
-		return "", fmt.Errorf("canonicalize handshake accept: %w", err)
-	}
-	signature := hex.EncodeToString(ed25519.Sign(identity.secretKey, []byte(canonical)))
-	packet := cloneStringMap(data)
-	packet["senderUpeerId"] = senderUpeerID
-	packet["senderYggAddress"] = senderYggAddress
-	packet["signature"] = signature
-	encoded, err := json.Marshal(packet)
-	if err != nil {
-		return "", fmt.Errorf("encode handshake accept: %w", err)
-	}
-	return string(encoded), nil
+	return identity.buildHandshakeAccept(senderYggAddress, signedPreKeyJSON, alias, nil)
 }
 
 func (identity *CryptoIdentity) BuildAck(senderYggAddress, messageID, status string) (string, error) {
