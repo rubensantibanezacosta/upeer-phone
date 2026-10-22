@@ -1,6 +1,8 @@
 package app.upeer.transport
 
 import android.util.Log
+import app.upeer.transport.dht.ContactAdmissionException
+import app.upeer.transport.dht.ContactEncryptionAdmission
 import app.upeer.transportbridge.transportbridge.Bridge
 import org.json.JSONObject
 import java.util.UUID
@@ -14,6 +16,7 @@ internal class YggdrasilOutbox(
   private val state: ProtocolStateStore,
   private val outbox: OutboxStore,
   private val admission: DeviceAdmissionGuard,
+  private val contactAdmission: ContactEncryptionAdmission,
 ) {
   private val lock = Any()
   private val wakeLock = Object()
@@ -173,6 +176,12 @@ internal class YggdrasilOutbox(
     if (publicKey.length != 64) {
       sendHandshakeRequest(activeBridge, address)
       retry(messageID, entry, "handshake pendiente")
+      return
+    }
+    try {
+      contactAdmission.requireAdmitted(upeerId)
+    } catch (cause: ContactAdmissionException) {
+      retry(messageID, entry, message(cause))
       return
     }
     val packet = entry.optString("packet")

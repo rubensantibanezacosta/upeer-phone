@@ -4,7 +4,9 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
+import app.upeer.transport.dht.ContactEncryptionAdmission
 import app.upeer.transport.dht.DhtLocationStore
+import app.upeer.transport.dht.LegacyContactPolicy
 import app.upeer.transportbridge.transportbridge.Bridge
 import app.upeer.transportbridge.transportbridge.Transportbridge
 import org.json.JSONObject
@@ -36,6 +38,7 @@ class YggdrasilTransportService : Service() {
   private lateinit var dhtBindings: YggdrasilDhtBindings
   private lateinit var bridgeBindings: YggdrasilBridgeBindings
   private lateinit var contactRegistries: ContactRegistryStore
+  private lateinit var contactAdmission: ContactEncryptionAdmission
   private lateinit var dhtRuntime: YggdrasilDhtRuntime
   private var bridge: Bridge? = null
 
@@ -138,6 +141,7 @@ class YggdrasilTransportService : Service() {
       } finally {
         secretKey.fill(0)
       }
+      contactAdmission.clear()
       if (bridge != null) dhtRuntime.start()
     }
     override fun clearIdentity() {
@@ -210,14 +214,6 @@ class YggdrasilTransportService : Service() {
       }
     }
     protocolState = ProtocolStateStore(this)
-    protocol = YggdrasilProtocol(
-      identity,
-      signedPreKeys,
-      protocolState,
-      OutboxStore(this),
-      notifications::notifyMessage,
-      admissionGuard,
-    )
     dhtBindings = YggdrasilDhtBindings(
       identity,
       accountRegistry,
@@ -231,9 +227,25 @@ class YggdrasilTransportService : Service() {
       this, identity, accountRegistry, contactRegistries, { bridge }, { requireBridge().address() },
       { admissionGuard.ensure(identity::requireDeviceAdmission) },
       { dhtBindings.locationBlockJSON(0) },
-      { upeerId -> protocol.peerPublicKey(upeerId) },
+      { upeerId -> protocolState.publicKeyFor(upeerId) },
       { protocolState.peersJSON() },
       locationStore = dhtLocation,
+    )
+    contactAdmission = ContactEncryptionAdmission(
+      { upeerId -> protocolState.publicKeyFor(upeerId) },
+      { upeerId -> dhtRuntime.lookupContactLocation(upeerId) },
+      { upeerId -> contactRegistries.current(upeerId) },
+      { upeerId -> dhtRuntime.requestContactRefresh(upeerId) },
+      legacyPolicy = LegacyContactPolicy.ALLOW_WITH_AUDIT,
+    )
+    protocol = YggdrasilProtocol(
+      identity,
+      signedPreKeys,
+      protocolState,
+      OutboxStore(this),
+      notifications::notifyMessage,
+      admissionGuard,
+      contactAdmission,
     )
   }
 

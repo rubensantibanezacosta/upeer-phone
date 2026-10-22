@@ -221,6 +221,14 @@ internal class YggdrasilDhtRuntime(
     return current.locations.refresh(accountUpeerId)
   }
 
+  fun requestContactRefresh(accountUpeerId: String) {
+    val current = synchronized(lock) { state } ?: return
+    current.executor.execute {
+      runCatching { refreshRegistry(accountUpeerId) }
+      runCatching { current.locations.refresh(accountUpeerId) }
+    }
+  }
+
   private fun attemptBootstrap() {
     val current = synchronized(lock) { state } ?: return
     val seeds = runCatching { current.loader.load().seeds }.getOrElse { cause ->

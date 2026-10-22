@@ -1,11 +1,9 @@
 package app.upeer.transport
 
-import android.util.Base64
 import android.util.Log
+import app.upeer.transport.dht.ContactEncryptionAdmission
 import app.upeer.transportbridge.transportbridge.Bridge
 import org.json.JSONObject
-import java.io.ByteArrayInputStream
-import java.util.zip.GZIPInputStream
 
 internal class YggdrasilProtocol(
   private val identity: YggdrasilIdentity,
@@ -14,10 +12,11 @@ internal class YggdrasilProtocol(
   private val outboxStore: OutboxStore,
   private val onInboundMessage: (String, String, String) -> Unit,
   private val admission: DeviceAdmissionGuard,
+  private val contactAdmission: ContactEncryptionAdmission,
   private val rateLimiter: InboundRateLimiter = InboundRateLimiter(),
 ) {
   private val handshake = YggdrasilHandshake(identity, signedPreKeys)
-  private val outbox = YggdrasilOutbox(identity, signedPreKeys, state, outboxStore, admission)
+  private val outbox = YggdrasilOutbox(identity, signedPreKeys, state, outboxStore, admission, contactAdmission)
   private val resetCache = DrResetReplayCache()
 
   fun start(activeBridge: Bridge) = outbox.start(activeBridge)
@@ -29,6 +28,7 @@ internal class YggdrasilProtocol(
     handshake.clear()
     outboxStore.clear()
     resetCache.clear()
+    contactAdmission.clear()
     state.clear()
   }
 
@@ -217,7 +217,7 @@ internal class YggdrasilProtocol(
       throw IllegalStateException("CHAT has no usable ratchet session")
     }
     val result = JSONObject(resultJSON)
-    val plaintext = decompress(hexToBytes(result.optString("plaintextHex")))
+    val plaintext = YggdrasilPayloadCodec.decompress(YggdrasilPayloadCodec.hexToBytes(result.optString("plaintextHex")))
     state.saveSession(senderUpeerId, result.optString("session"))
     state.saveMessage(
       JSONObject()
@@ -267,33 +267,10 @@ internal class YggdrasilProtocol(
     }
   }
 
-  private fun decompress(value: ByteArray): String {
-    val text = String(value, Charsets.UTF_8)
-    if (!text.startsWith(COMPRESSION_PREFIX)) return text
-    return try {
-      val compressed = Base64.decode(text.substring(COMPRESSION_PREFIX.length), Base64.DEFAULT)
-      GZIPInputStream(ByteArrayInputStream(compressed)).use { it.readBytes().toString(Charsets.UTF_8) }
-    } catch (cause: Exception) {
-      Log.w(TAG, "No se pudo descomprimir el mensaje: ${message(cause)}")
-      text
-    }
-  }
-
-  private fun hexToBytes(value: String): ByteArray {
-    if (value.length % 2 != 0) throw IllegalArgumentException("invalid plaintext hex")
-    return ByteArray(value.length / 2) { index ->
-      val high = Character.digit(value[index * 2], 16)
-      val low = Character.digit(value[index * 2 + 1], 16)
-      if (high < 0 || low < 0) throw IllegalArgumentException("invalid plaintext hex")
-      ((high shl 4) or low).toByte()
-    }
-  }
-
   private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
 
   private companion object {
     private const val TAG = "UPeerTransport"
-    private const val COMPRESSION_PREFIX = "\u2763UP\u2763"
     private const val PORT = 50005L
     private val GROUP_CONTEXT = Regex("^group:[^:]+$")
   }
