@@ -109,13 +109,9 @@ internal class YggdrasilOutbox(
     val activeBridge = synchronized(lock) { bridge } ?: return
     val peer = state.peerFor(upeerId) ?: return
     val address = peer.optString("address")
-    val currentIdentity = identity.current() ?: return
     if (address.isBlank()) return
-    try {
-      val packet = currentIdentity.buildDrReset(selfAddress, signedPreKeys.currentJSON(currentIdentity), "direct")
-      if (link.sendPacket(activeBridge, address, packet)) Log.i(TAG, "DR_RESET enviado a $address")
-    } catch (cause: Exception) {
-      Log.w(TAG, "No se pudo enviar DR_RESET a $address: ${message(cause)}")
+    if (!link.sendDrReset(activeBridge, address, upeerId, peer)) {
+      Log.w(TAG, "DR_RESET no enviado a $upeerId")
     }
   }
 

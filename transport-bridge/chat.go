@@ -132,21 +132,29 @@ func (identity *CryptoIdentity) BuildDrReset(senderYggAddress, signedPreKeyJSON,
 	if !isYggdrasilAddress(net.ParseIP(senderYggAddress)) {
 		return "", errors.New("senderYggAddress must be a Yggdrasil IPv6 address")
 	}
-	signedPreKey, err := identity.validatedSignedPreKey(signedPreKeyJSON)
+	data, err := identity.buildDrResetData(signedPreKeyJSON, ratchetContext)
 	if err != nil {
 		return "", err
+	}
+	return identity.buildSignedPacket(data, senderYggAddress)
+}
+
+func (identity *CryptoIdentity) buildDrResetData(signedPreKeyJSON, ratchetContext string) (map[string]any, error) {
+	signedPreKey, err := identity.validatedSignedPreKey(signedPreKeyJSON)
+	if err != nil {
+		return nil, err
 	}
 	if ratchetContext == "" {
 		ratchetContext = directRatchetContext
 	}
 	if !validRatchetContext(ratchetContext) {
-		return "", errors.New("ratchetContext must be direct or group:<id>")
+		return nil, errors.New("ratchetContext must be direct or group:<id>")
 	}
 	resetID, err := newResetID()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	data := map[string]any{
+	return map[string]any{
 		"type":    "DR_RESET",
 		"resetId": resetID,
 		"signedPreKey": map[string]any{
@@ -156,8 +164,7 @@ func (identity *CryptoIdentity) BuildDrReset(senderYggAddress, signedPreKeyJSON,
 		},
 		"ratchetContext": ratchetContext,
 		"isInternalSync": false,
-	}
-	return identity.buildSignedPacket(data, senderYggAddress)
+	}, nil
 }
 
 func (identity *CryptoIdentity) VerifySignedPreKey(peerPublicKeyHex, spkPubHex, spkSigHex string) bool {

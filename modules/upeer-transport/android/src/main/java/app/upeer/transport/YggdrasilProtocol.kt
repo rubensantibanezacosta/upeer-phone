@@ -29,7 +29,7 @@ internal class YggdrasilProtocol(
     admission,
     contactAdmission,
   )
-  private val resetCache = DrResetReplayCache()
+  private val controlReplies = ControlReplies(identity, deviceBindings, state, outbox, rateLimiter)
   private val chatDecryptor = YggdrasilChatDecryptor(
     identity,
     signedPreKeys,
@@ -37,7 +37,6 @@ internal class YggdrasilProtocol(
     state,
     outbox::sendDrReset,
   )
-
   fun start(activeBridge: Bridge) = outbox.start(activeBridge)
 
   fun stop() = outbox.stop()
@@ -46,7 +45,7 @@ internal class YggdrasilProtocol(
     outbox.stop()
     handshake.clear()
     outboxStore.clear()
-    resetCache.clear()
+    controlReplies.clear()
     contactAdmission.clear()
     state.clear()
   }
@@ -137,7 +136,9 @@ internal class YggdrasilProtocol(
       }
       return metadataJSON
     }
-    if (type == "ACK" || type == "DR_RESET") return handleControlReply(activeBridge, payload, packet, type, sourceAddress)
+    if (type == "ACK" || type == "DR_RESET") {
+      return controlReplies.handle(activeBridge, payload, packet, type, sourceAddress)
+    }
     if (type != "CHAT") throw IllegalArgumentException("unsupported packet type $type")
     val senderUpeerId = packet.optString("senderUpeerId").lowercase()
     val publicKey = state.publicKeyFor(senderUpeerId)
@@ -177,58 +178,6 @@ internal class YggdrasilProtocol(
     } catch (cause: Exception) {
       Log.w(TAG, "No se pudo notificar el mensaje de $senderUpeerId: ${message(cause)}")
     }
-    return metadataJSON
-  }
-
-  private fun handleControlReply(
-    activeBridge: Bridge,
-    payload: ByteArray,
-    packet: JSONObject,
-    type: String,
-    sourceAddress: String,
-  ): String {
-    val senderUpeerId = packet.optString("senderUpeerId").lowercase()
-    val publicKey = state.publicKeyFor(senderUpeerId)
-      ?: throw IllegalStateException("unknown peer $senderUpeerId")
-    val metadataJSON = activeBridge.validateSignedPacket(payload, publicKey)
-    val metadata = JSONObject(metadataJSON)
-    if (!allow(metadata, sourceAddress)) return rateLimited(metadata)
-    state.rememberPeer(metadata)
-    if (type == "ACK") {
-      val messageID = packet.optString("id")
-      if (!ReplayPolicy.validMessageID(messageID)) {
-        Log.w(TAG, "ACK ignorado con id inválido de $senderUpeerId")
-        return metadataJSON
-      }
-      val status = packet.optString("status")
-      if (!outbox.onAck(senderUpeerId, messageID, status)) {
-        Log.w(TAG, "ACK ignorado de $senderUpeerId para $messageID ($status)")
-      }
-      return metadataJSON
-    }
-    val ratchetContext = packet.optString("ratchetContext", "direct")
-    if (ratchetContext != "direct" && !GROUP_CONTEXT.matches(ratchetContext)) {
-      throw IllegalArgumentException("invalid DR_RESET ratchet context")
-    }
-    if (ratchetContext != "direct") return metadataJSON
-    val signedPreKey = packet.optJSONObject("signedPreKey")
-      ?: throw IllegalArgumentException("DR_RESET is missing signedPreKey")
-    val currentIdentity = identity.current() ?: throw IllegalStateException("uPeer identity is not available")
-    if (!currentIdentity.verifySignedPreKey(publicKey, signedPreKey.optString("spkPub"), signedPreKey.optString("spkSig"))) {
-      throw IllegalArgumentException("DR_RESET signed pre-key signature is invalid")
-    }
-    val resetId = packet.optString("resetId")
-    if (resetId.isNotEmpty() && !DrResetPolicy.validResetId(resetId)) throw IllegalArgumentException("invalid DR_RESET resetId")
-    if (resetId.isNotEmpty() && !resetCache.accept(senderUpeerId, resetId)) {
-      Log.i(TAG, "DR_RESET duplicado ignorado para $senderUpeerId")
-      return metadataJSON
-    }
-    val update = state.updateSignedPreKey(senderUpeerId, signedPreKey)
-    if (update == SignedPreKeyUpdate.STALE || update == SignedPreKeyUpdate.INVALID) {
-      Log.w(TAG, "DR_RESET no aplicado para $senderUpeerId: $update")
-      return metadataJSON
-    }
-    outbox.onPeerReset(senderUpeerId)
     return metadataJSON
   }
 
@@ -281,6 +230,5 @@ internal class YggdrasilProtocol(
   private companion object {
     private const val TAG = "UPeerTransport"
     private const val PORT = 50005L
-    private val GROUP_CONTEXT = Regex("^group:[^:]+$")
   }
 }

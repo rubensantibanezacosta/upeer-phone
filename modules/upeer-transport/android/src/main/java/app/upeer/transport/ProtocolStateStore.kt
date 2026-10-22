@@ -32,7 +32,7 @@ internal class ProtocolStateStore(context: Context) {
       val hasDevice = DhtLocation.isHex(devicePublicKey, 32) &&
         DhtLocation.isHex(deviceId, 32) &&
         deviceSignedPreKey != null &&
-        validSignedPreKey(deviceSignedPreKey)
+        SignedPreKeyFields.valid(deviceSignedPreKey)
       val deviceChanged = hasDevice && (
         !existing.optString("devicePublicKey").equals(devicePublicKey, ignoreCase = true) ||
           !existing.optString("deviceId").equals(deviceId, ignoreCase = true)
@@ -46,7 +46,9 @@ internal class ProtocolStateStore(context: Context) {
       val alias = metadata.optString("alias").trim()
       if (alias.isNotEmpty()) existing.put("alias", alias.take(100))
       val signedPreKey = metadata.optJSONObject("signedPreKey")
-      if (signedPreKey != null && validSignedPreKey(signedPreKey) && (keyChanged || isNewerSignedPreKey(existing, signedPreKey))) {
+      if (signedPreKey != null && SignedPreKeyFields.valid(signedPreKey) &&
+        (keyChanged || SignedPreKeyFields.isNewer(existing.optJSONObject("signedPreKey"), signedPreKey))
+      ) {
         existing.put("signedPreKey", copy(signedPreKey))
       }
       if (hasDevice) {
@@ -68,7 +70,7 @@ internal class ProtocolStateStore(context: Context) {
     val signedPreKey = signedPreKeyJSON?.takeIf(String::isNotBlank)?.let {
       runCatching { JSONObject(it) }.getOrNull()
     }
-    if (signedPreKey != null && !validSignedPreKey(signedPreKey)) return false
+    if (signedPreKey != null && !SignedPreKeyFields.valid(signedPreKey)) return false
     synchronized(lock) {
       val peers = state.optJSONObject("peers") ?: JSONObject()
       val existing = peers.optJSONObject(upeerId) ?: JSONObject()
@@ -80,7 +82,7 @@ internal class ProtocolStateStore(context: Context) {
       }
       existing.put("address", address).put("lastSeen", System.currentTimeMillis())
       if (publicKey.isNotEmpty()) existing.put("publicKey", publicKey)
-      if (signedPreKey != null && (keyChanged || isNewerSignedPreKey(existing, signedPreKey))) {
+      if (signedPreKey != null && (keyChanged || SignedPreKeyFields.isNewer(existing.optJSONObject("signedPreKey"), signedPreKey))) {
         existing.put("signedPreKey", copy(signedPreKey))
       }
       peers.put(upeerId, existing)
@@ -90,20 +92,24 @@ internal class ProtocolStateStore(context: Context) {
     return true
   }
 
-  fun updateSignedPreKey(upeerId: String, signedPreKey: JSONObject): SignedPreKeyUpdate {
-    if (!validId(upeerId) || !validSignedPreKey(signedPreKey)) return SignedPreKeyUpdate.INVALID
+  fun updateSignedPreKey(upeerId: String, signedPreKey: JSONObject): SignedPreKeyUpdate =
+    updatePeerSignedPreKey(upeerId, "signedPreKey", signedPreKey)
+
+  fun updateDeviceSignedPreKey(upeerId: String, signedPreKey: JSONObject): SignedPreKeyUpdate =
+    updatePeerSignedPreKey(upeerId, "deviceSignedPreKey", signedPreKey)
+
+  private fun updatePeerSignedPreKey(
+    upeerId: String,
+    field: String,
+    signedPreKey: JSONObject,
+  ): SignedPreKeyUpdate {
+    if (!validId(upeerId) || !SignedPreKeyFields.valid(signedPreKey)) return SignedPreKeyUpdate.INVALID
     return synchronized(lock) {
       val peers = state.optJSONObject("peers") ?: return@synchronized SignedPreKeyUpdate.INVALID
       val existing = peers.optJSONObject(upeerId) ?: return@synchronized SignedPreKeyUpdate.INVALID
-      val current = existing.optJSONObject("signedPreKey")
-      val decision = DrResetPolicy.classifySignedPreKey(
-        current?.optLong("spkId") ?: 0L,
-        current?.optString("spkPub").orEmpty(),
-        signedPreKey.optLong("spkId"),
-        signedPreKey.optString("spkPub"),
-      )
+      val decision = SignedPreKeyFields.classify(existing.optJSONObject(field), signedPreKey)
       if (decision != SignedPreKeyUpdate.UPDATED) return@synchronized decision
-      existing.put("signedPreKey", copy(signedPreKey))
+      existing.put(field, copy(signedPreKey))
       state.put("peers", peers)
       persist()
       SignedPreKeyUpdate.UPDATED
@@ -260,24 +266,9 @@ internal class ProtocolStateStore(context: Context) {
     state.put("messages", trimmed)
   }
 
-  private fun isNewerSignedPreKey(target: JSONObject, candidate: JSONObject): Boolean {
-    val current = target.optJSONObject("signedPreKey")
-    return DrResetPolicy.classifySignedPreKey(
-      current?.optLong("spkId") ?: 0L,
-      current?.optString("spkPub").orEmpty(),
-      candidate.optLong("spkId"),
-      candidate.optString("spkPub"),
-    ) == SignedPreKeyUpdate.UPDATED
-  }
-
   private fun copy(value: JSONObject): JSONObject = JSONObject(value.toString())
 
   private fun validId(value: String): Boolean = value.length == 64 && value.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
-
-  private fun validSignedPreKey(value: JSONObject): Boolean =
-    value.optString("spkPub").length == 64 &&
-      value.optString("spkSig").length == 128 &&
-      value.optLong("spkId") > 0
 
   private fun persist() {
     try {

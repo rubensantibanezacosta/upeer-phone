@@ -47,4 +47,17 @@ internal object OutboxPacketFactory {
       device.deviceId,
     ),
   )
+
+  fun drReset(
+    identity: CryptoIdentity,
+    device: DeviceIdentity,
+    selfAddress: String,
+    deviceSignedPreKeys: DeviceSignedPreKeyStore,
+  ): String = device.crypto.buildLinkedDrReset(
+    identity.upeerID(),
+    selfAddress,
+    deviceSignedPreKeys.currentJSON(device),
+    "direct",
+    device.deviceId,
+  )
 }
