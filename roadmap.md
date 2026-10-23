@@ -669,7 +669,7 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Chats · menú contextual | Parcial | Silenciar, fijar, archivar y borrar avisan de «próximamente»; solo «marcar como leído» actúa |
 | Chats · nueva conversación | Parcial | «Nueva conversación» y «Nuevo grupo» avisan de «próximamente»; la lista de contactos sí abre el chat |
 | Contactos · alta | Hecha | Faltan reputación real y la tarjeta propia en QR |
-| Chats · solicitudes | Hecha | Los mensajes de remitentes sin contacto aparecen en «Solicitudes de mensaje» con Aceptar/Bloquear; el remitente no hace nada distinto |
+| Chats · solicitudes | Hecha | El primer mensaje de un remitente sin contacto entra en la lista como una conversación más; al abrirla, el cuerpo muestra la pantalla de solicitud con Bloquear y Aceptar y conectar. Si ya existía conversación, se acepta sola |
 | Chats · bloqueo | Hecha | Bloquear desde una solicitud o desde la ficha oculta la conversación y el servicio descarta sus paquetes antes de descifrar, sin notificar |
 | Contactos · tarjeta propia en QR | Pendiente | El móvil debe poder mostrar su tarjeta de contacto en QR para que el escritorio la escanee, además del QR de identidad que ya vive en Perfil |
 | Contactos · sincronización | Pendiente | Altas y cambios de alias viajan por `CONTACT_PROFILE` de B10: falta emitirlos desde Android |
@@ -686,7 +686,7 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Ajustes · almacenamiento | Placeholder | Sin uso real, caché ni limpieza |
 | Ajustes · acerca de | Placeholder | Sin versión, licencia ni enlaces |
 | Perfil · revocar dispositivo | Pendiente | El bridge expone `revokeAccountDevice`; falta el botón y la confirmación en la lista de dispositivos |
-| Chat · cabecera | Parcial | «Info. del contacto» abre la ficha completa; videollamada, llamada de voz y buscar en la conversación avisan «pendiente» |
+| Chat · cabecera | Parcial | «Info. del contacto» abre la ficha completa; videollamada, llamada de voz y buscar en la conversación avisan «pendiente». Cuando la conversación es una solicitud solo quedan volver, avatar y menú |
 | Ficha del contacto | Hecha | Pantalla completa `/contact/[upeerId]` con la distribución de escritorio: hero (avatar 96, alias, identidad, presencia y reputación), fila Llamar·Vídeo·Buscar, identidad y dirección copiables, acciones de conversación y zona de riesgo. Bloquear/desbloquear y eliminar son reales; compartir, silenciar, archivar, favoritos, cifrado y vaciar chat se muestran atenuados con «Pronto» |
 | Ficha de grupo | Pendiente | No hay grupos en el móvil; cuando existan `GROUP_*` debe replicar la misma pantalla con miembros y administración |
 | Chat · composer | Parcial | Adjuntar archivo y nota de voz avisan «pendiente» |
@@ -699,7 +699,10 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 Modelo acordado: **la lista de contactos es la autoridad**. No hay paquete nuevo ni paso extra para el remitente; el cliente que escribe no hace nada distinto.
 
 - Al borrar un contacto se purga también su conversación: `deleteContactAndConversation` borra la fila de `upeer.db` y llama a `deleteConversation` del puente nativo, que vacía los mensajes de ese `upeerId` en el estado cifrado. Se conservan `peers` y `sessions` para que un mensaje posterior siga descifrando.
-- Si vuelve a escribir, la conversación reaparece **sin ficha de contacto** y `classifyConversations` la clasifica como **solicitud de mensaje**: aparece en Chats bajo «Solicitudes de mensaje» con su alias, la vista previa y dos acciones, «Aceptar» (crea el contacto como `connected`) y «Bloquear» (lo crea como `blocked`). No hace falta que él envíe ninguna solicitud: su propio mensaje lo es.
+- Si vuelve a escribir, la conversación reaparece **sin ficha de contacto** y `classifyConversations` la marca como **solicitud de mensaje**. La solicitud **no es una tarjeta en la lista ni un botón en la cabecera**: entra como una conversación más en Chats y, al abrirla, **el cuerpo del chat se sustituye** por la pantalla de solicitud, igual que `IncomingRequestChat` en escritorio. Solo la ve quien la recibe; el remitente ve una conversación normal.
+- La pantalla de solicitud sigue la distribución de escritorio: avatar con anillo, título «Solicitud de conexión», párrafo explicativo con el alias en negrita, «Solicitud recibida · fecha» cuando hay mensaje, tarjeta de confianza y los botones **Bloquear** y **Aceptar y conectar**. La cabecera durante una solicitud solo deja volver, avatar y menú; el compositor se oculta.
+- **La solicitud es automática y solo del primer contacto.** `decideRequestState({contactStatus, hasOutgoing, hasIncoming})` decide entre `none`, `request` y `auto-accept`: si la conversación ya existía (hay algún mensaje saliente nuestro), el contacto se crea solo como `connected` al abrir el chat, sin pedir nada. Así, borrar y volver a escribir nunca deja al remitente esperando.
+- «Aceptar y conectar» crea el contacto como `connected`; «Bloquear» lo crea como `blocked`. No hace falta que el remitente envíe ninguna solicitud: su propio mensaje lo es.
 - Las conversaciones cuyo contacto está `blocked` se ocultan de la lista.
 - **El bloqueo ya es efectivo en el servicio.** `setBlockedPeers` (AIDL → servicio → estado nativo) guarda la lista en `blocked`; `YggdrasilProtocol.handleSignedPacket` descarta antes de descifrar cualquier `HANDSHAKE_*`, `CHAT` o `CHAT_UPDATE` cuyo `senderUpeerId` esté bloqueado, así que no se guarda el mensaje ni se notifica. La lista se sincroniza al guardar o borrar un contacto y al arrancar la sesión (`pushBlockedPeers`). `BlockedPeerList` normaliza y compara sin distinguir mayúsculas, con pruebas Kotlin.
 - Purga disponible: `deleteConversation` en AIDL, servicio y TS, con `ProtocolMessageState.withoutConversation` cubierto por pruebas Kotlin.
@@ -707,8 +710,9 @@ Modelo acordado: **la lista de contactos es la autoridad**. No hay paquete nuevo
 Queda pendiente:
 
 1. «Eliminar sólo el contacto» como acción separada de «Eliminar contacto y chat» en la ficha.
-2. La solicitud como estado del mensaje y no solo como sección, para distinguir «primer mensaje» de «conversación aceptada».
+2. Reflejar en la solicitud el historial previo cuando el contacto se borró pero su conversación no: hoy el cuerpo de la solicitud oculta los mensajes anteriores; decidir si se muestra un resumen o se mantiene la pantalla limpia.
 3. Verificar en dispositivo el descarte de paquetes bloqueados con dos nodos reales: la comprobación previa a la firma usa el `senderUpeerId` declarado, que no está autenticado (un tercero solo puede hacerse descartar a sí mismo, pero conviene cubrirlo con una prueba de integración).
+4. Un test de integración que recorra el ciclo completo: A escribe a B sin contacto → B ve la solicitud en el cuerpo → acepta → los mensajes siguientes llegan como conversación normal.
 
 Reglas de estilo acordadas para toda pantalla nueva:
 

@@ -10,12 +10,14 @@ import { ChatDateSeparator } from '@/components/chat/chat-date-separator';
 import { ChatEmptyState } from '@/components/chat/chat-empty-state';
 import { ChatHeader } from '@/components/chat/chat-header';
 import { ChatMessageBubble } from '@/components/chat/chat-message-bubble';
+import { ChatRequestScreen } from '@/components/chat/chat-request-screen';
 import { ChatScrollButton } from '@/components/chat/chat-scroll-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useSnackbar } from '@/components/snackbar';
 import { buildChatTimeline, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
+import { decideRequestState } from '@/domain/message-request';
 import { useTheme } from '@/hooks/use-theme';
-import { getContacts, type UPeerContact } from '@/storage/contact-store';
+import { getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
 import type { ProtocolMessage } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
 import { editChat, getMessages, getConversations, markConversationRead, sendChat } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
 
@@ -36,6 +38,8 @@ export default function ChatRoute() {
   const [messages, setMessages] = useState<ProtocolMessage[]>([]);
   const [alias, setAlias] = useState('');
   const [contactStatus, setContactStatus] = useState<UPeerContact['status']>('offline');
+  const [isRequest, setIsRequest] = useState(false);
+  const [requestReceivedAt, setRequestReceivedAt] = useState(0);
   const [text, setText] = useState('');
   const [editing, setEditing] = useState<ProtocolMessage | null>(null);
   const [error, setError] = useState('');
@@ -49,7 +53,18 @@ export default function ChatRoute() {
     const contact = contacts.find((item) => item.upeerId === upeerId);
     const conversationAlias = conversations.find((conversation) => conversation.upeerId === upeerId)?.alias;
     setAlias(contact?.name || conversationAlias || upeerId.slice(0, 12));
+    const decision = decideRequestState({
+      contactStatus: contact?.status,
+      hasIncoming: nextMessages.some((message) => !message.isMine),
+      hasOutgoing: nextMessages.some((message) => message.isMine),
+    });
     setContactStatus(contact?.status ?? 'offline');
+    setIsRequest(decision === 'request');
+    setRequestReceivedAt(nextMessages.find((message) => !message.isMine)?.timestamp ?? 0);
+    if (decision === 'auto-accept') {
+      await saveContact({ address: '', createdAt: Date.now(), name: contact?.name || conversationAlias || upeerId.slice(0, 12), publicKey: null, status: 'connected', upeerId });
+      setContactStatus('connected');
+    }
     await markConversationRead(upeerId);
   }, [upeerId]);
 
@@ -113,6 +128,23 @@ export default function ChatRoute() {
     setText('');
   }, []);
 
+  const resolveRequest = useCallback((status: UPeerContact['status'], message: string) => {
+    if (!upeerId) return;
+    saveContact({ address: '', createdAt: Date.now(), name: alias || upeerId.slice(0, 12), publicKey: null, status, upeerId })
+      .then(() => {
+        setIsRequest(false);
+        setContactStatus(status);
+        showSnackbar(message);
+      })
+      .catch((cause: unknown) => {
+        console.warn('No se pudo resolver la solicitud de mensaje.', cause);
+        showSnackbar('No se pudo resolver la solicitud');
+      });
+  }, [alias, showSnackbar, upeerId]);
+
+  const acceptRequest = useCallback(() => resolveRequest('connected', 'Solicitud aceptada'), [resolveRequest]);
+  const blockRequest = useCallback(() => resolveRequest('blocked', 'Remitente bloqueado'), [resolveRequest]);
+
   const showUnavailable = useCallback((label: string) => {
     showSnackbar(`${label}: pendiente en el roadmap`);
   }, [showSnackbar]);
@@ -139,9 +171,9 @@ export default function ChatRoute() {
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
-        <ChatHeader alias={alias || 'Conversación'} onBack={() => router.back()} onOpenInfo={() => router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } })} onUnavailable={showUnavailable} status={contactStatus} upeerId={upeerId ?? ''} />
+        <ChatHeader alias={alias || 'Conversación'} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={() => router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } })} onUnavailable={showUnavailable} status={contactStatus} upeerId={upeerId ?? ''} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
-          <View style={styles.timeline}>
+          {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} /> : <View style={styles.timeline}>
             {timeline.length === 0 ? <ChatEmptyState /> : (
               <FlatList
                 ref={listRef}
@@ -163,7 +195,7 @@ export default function ChatRoute() {
               />
             )}
             {showScrollButton && timeline.length > 0 ? <ChatScrollButton onPress={scrollToLatest} /> : null}
-          </View>
+          </View>}
           {!!error && (
             <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={7} paddingHorizontal={14} paddingVertical={7}>
               <CircleAlert color={theme.danger} size={15} />
@@ -179,7 +211,7 @@ export default function ChatRoute() {
               </NativeRipplePressable>
             </XStack>
           ) : null}
-          <ChatComposer onChange={setText} onSend={() => { void submit(); }} onUnavailable={showUnavailable} value={text} />
+          {isRequest ? null : <ChatComposer onChange={setText} onSend={() => { void submit(); }} onUnavailable={showUnavailable} value={text} />}
         </KeyboardAvoidingView>
       </SafeAreaView>
       {insets.bottom > 0 ? (

@@ -41,6 +41,10 @@ export function classifyConversations<T extends Identifiable>(conversations: T[]
   return { accepted, hidden, requests };
 }
 
+export function isMessageRequest(contact: ContactCandidate | undefined): boolean {
+  return !contact || contact.status === 'incoming';
+}
+
 export function requestLabel(conversation: Identifiable & { alias?: string }): string {
   const alias = conversation.alias?.trim();
   if (alias) return alias;
