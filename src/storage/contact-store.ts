@@ -1,5 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 
+import { deleteConversation as deleteNativeConversation } from '../../modules/upeer-transport/src/UPeerTransportModule';
+
 export type UPeerContact = {
   upeerId: string;
   address: string;
@@ -40,6 +42,15 @@ export async function saveContact(contact: UPeerContact): Promise<void> {
 export async function deleteContact(upeerId: string): Promise<void> {
   const db = await getDatabase();
   await db.runAsync('DELETE FROM contacts WHERE upeerId = ?', upeerId);
+}
+
+export async function deleteContactAndConversation(upeerId: string): Promise<void> {
+  await deleteContact(upeerId);
+  try {
+    await deleteNativeConversation(upeerId);
+  } catch (cause) {
+    console.warn('El contacto se eliminó, pero la conversación nativa no se pudo purgar.', cause);
+  }
 }
 
 export async function clearContacts(): Promise<void> {

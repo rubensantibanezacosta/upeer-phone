@@ -64,6 +64,8 @@ internal class YggdrasilProtocol(
   fun peerPublicKey(upeerId: String): String? = state.publicKeyFor(upeerId)
   fun markConversationRead(upeerId: String) = state.markConversationRead(upeerId)
 
+  fun deleteConversation(upeerId: String): Boolean = state.deleteConversation(upeerId)
+
   fun messagesJSON(upeerId: String, limit: Int): String = state.messagesJSON(upeerId, limit)
 
   fun conversationsJSON(): String = state.conversationsJSON()

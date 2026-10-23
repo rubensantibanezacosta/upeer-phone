@@ -173,6 +173,7 @@ class YggdrasilTransportService : Service() {
       protocol.markConversationRead(upeerId)
       notifications.clearConversation(upeerId)
     }
+    override fun deleteConversation(upeerId: String): Boolean = protocol.deleteConversation(upeerId)
     override fun registerPeer(upeerId: String, address: String, publicKey: String, signedPreKeyJSON: String): Boolean =
       protocol.registerPeer(upeerId, address, publicKey, signedPreKeyJSON)
     override fun flushOutbox() = protocol.flushOutbox()

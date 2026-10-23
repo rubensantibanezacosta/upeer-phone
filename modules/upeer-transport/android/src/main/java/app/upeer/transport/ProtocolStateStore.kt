@@ -231,6 +231,15 @@ internal class ProtocolStateStore(context: Context) {
     )
   }
 
+  fun deleteConversation(upeerId: String): Boolean = synchronized(lock) {
+    val messages = state.optJSONArray("messages") ?: return@synchronized false
+    val remaining = ProtocolMessageState.withoutConversation(messages, upeerId)
+    if (remaining.length() == messages.length()) return@synchronized false
+    state.put("messages", remaining)
+    persist()
+    true
+  }
+
   fun markConversationRead(upeerId: String) {
     synchronized(lock) {
       val messages = state.optJSONArray("messages") ?: return@synchronized

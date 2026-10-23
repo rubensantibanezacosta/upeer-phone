@@ -11,7 +11,7 @@ import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { registerPeer as registerNativePeer } from '../../modules/upeer-transport/src/UPeerTransportModule';
-import { deleteContact, getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
+import { deleteContactAndConversation, getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
 import { useTheme } from '@/hooks/use-theme';
 
 type ContactsScreenProps = { identity: UPeerIdentity };
@@ -60,9 +60,9 @@ export function ContactsScreen({ identity }: ContactsScreenProps) {
   };
 
   const confirmRemove = (contact: UPeerContact) => {
-    Alert.alert('Eliminar contacto', `¿Quieres eliminar a ${contact.name} de tus contactos?`, [
+    Alert.alert('Eliminar contacto', `¿Quieres eliminar a ${contact.name}? Se borrará también la conversación y, si vuelve a escribir, aparecerá como solicitud.`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => { deleteContact(contact.upeerId).then(loadContacts).catch(reportLoadFailure); } },
+      { text: 'Eliminar', style: 'destructive', onPress: () => { deleteContactAndConversation(contact.upeerId).then(loadContacts).catch(reportLoadFailure); } },
     ]);
   };
 

@@ -57,6 +57,30 @@ class ProtocolMessageStateTest {
   }
 
   @Test
+  fun `removes every message of a conversation and keeps the rest`() {
+    val other = "bb".repeat(32)
+    val messages = JSONArray()
+      .put(message())
+      .put(JSONObject(message().toString()).put("id", "aaaaaaaa-1111-1111-1111-111111111111"))
+      .put(JSONObject(message().toString()).put("id", "cccccccc-1111-1111-1111-111111111111").put("upeerId", other))
+
+    val remaining = ProtocolMessageState.withoutConversation(messages, peerID)
+
+    assertEquals(1, remaining.length())
+    assertEquals(other, remaining.optJSONObject(0)?.optString("upeerId"))
+    assertEquals(3, messages.length())
+  }
+
+  @Test
+  fun `keeps the array untouched when the conversation is unknown`() {
+    val messages = JSONArray().put(message())
+
+    val remaining = ProtocolMessageState.withoutConversation(messages, "cc".repeat(32))
+
+    assertEquals(1, remaining.length())
+  }
+
+  @Test
   fun `chat edit policy plans versions and rejects invalid edits`() {
     val pending = message().put("isMine", true).put("status", "pending")
     val plan = ChatEditPolicy.plan(pending, peerID, messageID, "  nuevo  ")

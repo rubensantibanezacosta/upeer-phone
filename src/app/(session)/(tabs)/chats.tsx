@@ -10,10 +10,12 @@ import { BottomSheet } from '@/components/bottom-sheet';
 import { NewConversationList } from '@/components/new-conversation-list';
 import { ChatListItem, type ChatListEntry } from '@/components/chat-list-item';
 import { CHAT_LIST_FILTERS, filterChatEntries, isChatFilterActive, type ChatListFilter } from '@/domain/chat-list-filters';
+import { classifyConversations, requestLabel, type ConversationCandidate } from '@/domain/incoming-requests';
+import { MessageRequestList } from '@/components/message-request-list';
 import { useSnackbar } from '@/components/snackbar';
 import { useTheme } from '@/hooks/use-theme';
 import type { UPeerContact } from '@/storage/contact-store';
-import { getContacts } from '@/storage/contact-store';
+import { getContacts, saveContact } from '@/storage/contact-store';
 import type { ProtocolConversation } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
 import { getConversations, markConversationRead } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
@@ -48,8 +50,17 @@ export default function ChatsRoute() {
     return () => clearInterval(timer);
   }, []);
 
-  const entries: ChatListEntry[] = useMemo(() => (conversations.length > 0
-    ? conversations.map((conversation) => ({
+  const partition = useMemo(() => classifyConversations(conversations, contacts), [contacts, conversations]);
+
+  const requests: ConversationCandidate[] = useMemo(() => partition.requests.map((conversation) => ({
+    alias: conversation.alias || conversation.upeerId.slice(0, 12),
+    preview: conversation.lastMessage.replace(/^__SYS__\|/, '') || 'Quiere escribirte',
+    timestamp: conversation.lastTimestamp,
+    upeerId: conversation.upeerId,
+  })), [partition.requests]);
+
+  const entries: ChatListEntry[] = useMemo(() => (partition.accepted.length > 0
+    ? partition.accepted.map((conversation) => ({
       upeerId: conversation.upeerId,
       title: conversation.alias || conversation.upeerId.slice(0, 12),
       preview: conversation.lastMessage.replace(/^__SYS__\|/, '') || 'Sin mensajes',
@@ -58,7 +69,7 @@ export default function ChatsRoute() {
       isMine: conversation.lastIsMine === true,
       lastStatus: conversation.lastStatus ?? null,
     }))
-    : contacts.map((contact) => ({
+    : contacts.filter((contact) => contact.status !== 'blocked').map((contact) => ({
       upeerId: contact.upeerId,
       title: contact.name,
       preview: contactStatusLabels[contact.status],
@@ -68,10 +79,38 @@ export default function ChatsRoute() {
       lastStatus: null,
       pending: contact.status === 'pending',
       incoming: contact.status === 'incoming',
-    }))), [contacts, conversations]);
+    }))), [contacts, partition.accepted]);
 
   const visibleEntries = useMemo(() => filterChatEntries(entries, filter, query), [entries, filter, query]);
   const filtering = isChatFilterActive(filter, query);
+
+  const acceptRequest = (request: ConversationCandidate) => {
+    const now = Date.now();
+    saveContact({ address: '', createdAt: now, name: requestLabel(request), publicKey: null, status: 'connected', upeerId: request.upeerId })
+      .then(() => getContacts())
+      .then((list) => {
+        setContacts(list);
+        showSnackbar(`${requestLabel(request)} añadido a contactos`);
+      })
+      .catch((cause: unknown) => {
+        console.warn('No se pudo aceptar la solicitud de mensaje.', cause);
+        showSnackbar('No se pudo aceptar la solicitud');
+      });
+  };
+
+  const blockRequest = (request: ConversationCandidate) => {
+    const now = Date.now();
+    saveContact({ address: '', createdAt: now, name: requestLabel(request), publicKey: null, status: 'blocked', upeerId: request.upeerId })
+      .then(() => getContacts())
+      .then((list) => {
+        setContacts(list);
+        showSnackbar(`${requestLabel(request)} bloqueado`);
+      })
+      .catch((cause: unknown) => {
+        console.warn('No se pudo bloquear la solicitud de mensaje.', cause);
+        showSnackbar('No se pudo bloquear el remitente');
+      });
+  };
 
   const openChat = (entry: ChatListEntry) => {
     setSelectedEntry(null);
@@ -114,6 +153,8 @@ export default function ChatsRoute() {
           {CHAT_LIST_FILTERS.map((item) => <NativeRipplePressable key={item.id} onPress={() => setFilter(item.id)} style={[styles.chatFilterChip, { backgroundColor: filter === item.id ? theme.backgroundSelected : theme.background, borderColor: filter === item.id ? theme.accent : theme.border }]}><Text color={filter === item.id ? theme.accent : theme.placeholder} fontSize={11} fontWeight={filter === item.id ? '700' : '500'}>{item.label}</Text>
           </NativeRipplePressable>)}
         </ScrollView>
+        <MessageRequestList onAccept={acceptRequest} onBlock={blockRequest} requests={requests} />
+        {requests.length > 0 && visibleEntries.length > 0 ? <Text color={theme.placeholder} fontSize={12} fontWeight="600">Conversaciones</Text> : null}
         {visibleEntries.length > 0 ? (
           <YStack marginTop={2}>
             {visibleEntries.map((entry) => <ChatListItem entry={entry} key={entry.upeerId} onOpen={openChat} onOpenMenu={openContextMenu} />)}

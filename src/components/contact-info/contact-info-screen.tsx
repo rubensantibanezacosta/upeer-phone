@@ -11,7 +11,8 @@ import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useSnackbar } from '@/components/snackbar';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useTheme } from '@/hooks/use-theme';
-import { deleteContact, getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
+import { deleteContactAndConversation, getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
+import { deleteConversation as clearNativeConversation } from '../../../modules/upeer-transport/src/UPeerTransportModule';
 
 type ContactInfoScreenProps = {
   upeerId: string;
@@ -57,15 +58,33 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
     ]);
   };
 
+  const confirmClearChat = () => {
+    Alert.alert('Vaciar chat', 'Se borrarán todos los mensajes de esta conversación en este dispositivo. El contacto se conserva.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Vaciar',
+        style: 'destructive',
+        onPress: () => {
+          clearNativeConversation(upeerId)
+            .then(() => showSnackbar('Conversación vaciada'))
+            .catch((cause: unknown) => {
+              console.warn('No se pudo vaciar la conversación.', cause);
+              showSnackbar('No se pudo vaciar la conversación');
+            });
+        },
+      },
+    ]);
+  };
+
   const confirmDelete = () => {
     if (!contact) return;
-    Alert.alert('Eliminar contacto', `¿Quieres eliminar a ${contact.name} de tus contactos? La conversación se conserva.`, [
+    Alert.alert('Eliminar contacto', `¿Quieres eliminar a ${contact.name}? Se borrará también la conversación y, si vuelve a escribir, aparecerá como solicitud.`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',
         style: 'destructive',
         onPress: () => {
-          deleteContact(upeerId).then(() => {
+          deleteContactAndConversation(upeerId).then(() => {
             showSnackbar('Contacto eliminado');
             onBack();
           }).catch((cause: unknown) => {
@@ -106,7 +125,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
         </YStack>
         <YStack gap={6}>
           <Text color={theme.placeholder} fontSize={12} fontWeight="600">Zona de riesgo</Text>
-          <InteractiveRow disabled hint="Pronto" icon={Trash2} label="Vaciar chat" onPress={pending('Vaciar chat')} />
+          <InteractiveRow icon={Trash2} label="Vaciar chat" onPress={confirmClearChat} />
           <InteractiveRow disabled={!contact} icon={blocked ? LockOpen : Ban} label={blocked ? 'Desbloquear contacto' : `Bloquear a ${alias}`} onPress={toggleBlock} tone="danger" />
           <InteractiveRow disabled={!contact} icon={UserMinus} label="Eliminar contacto" onPress={confirmDelete} tone="danger" />
         </YStack>

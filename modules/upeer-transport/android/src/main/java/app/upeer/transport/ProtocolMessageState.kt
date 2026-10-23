@@ -51,6 +51,16 @@ internal object ProtocolMessageState {
     return applyContent(message, content, version, editedAt)
   }
 
+  fun withoutConversation(messages: JSONArray, upeerId: String): JSONArray {
+    val next = JSONArray()
+    for (index in 0 until messages.length()) {
+      val message = messages.optJSONObject(index) ?: continue
+      if (message.optString("upeerId") == upeerId) continue
+      next.put(message)
+    }
+    return next
+  }
+
   fun snapshot(messages: JSONArray, upeerId: String, limit: Int): String {
     val newest = buildList {
       for (index in 0 until messages.length()) {

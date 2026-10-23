@@ -668,7 +668,9 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Chats · filtros | Hechos | `Todos` y `No leídos` filtran la lista y se combinan con la búsqueda; el estado vacío distingue «sin coincidencias» de «sin conversaciones». `Favoritos` y `Grupos` quedan fuera hasta que exista origen de datos |
 | Chats · menú contextual | Parcial | Silenciar, fijar, archivar y borrar avisan de «próximamente»; solo «marcar como leído» actúa |
 | Chats · nueva conversación | Parcial | «Nueva conversación» y «Nuevo grupo» avisan de «próximamente»; la lista de contactos sí abre el chat |
-| Contactos · alta | Hecha | Faltan solicitudes entrantes, reputación y bloqueo |
+| Contactos · alta | Hecha | Faltan reputación real y la tarjeta propia en QR |
+| Chats · solicitudes | Hecha | Los mensajes de remitentes sin contacto aparecen en «Solicitudes de mensaje» con Aceptar/Bloquear; el remitente no hace nada distinto |
+| Chats · bloqueo | Parcial | La conversación del contacto bloqueado se oculta y no se puede aceptar; el servicio nativo sigue entregando y notificando |
 | Contactos · tarjeta propia en QR | Pendiente | El móvil debe poder mostrar su tarjeta de contacto en QR para que el escritorio la escanee, además del QR de identidad que ya vive en Perfil |
 | Contactos · sincronización | Pendiente | Altas y cambios de alias viajan por `CONTACT_PROFILE` de B10: falta emitirlos desde Android |
 | Llamadas | Sin runtime | La pestaña no tiene motor de llamadas ni historial real |
@@ -692,21 +694,20 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Chat · presencia | Pendiente | Sin «escribiendo…» ni presencia en la cabecera |
 | Accesibilidad | Parcial | Faltan escalas de fuente y revisión con lector de pantalla |
 
-### El borrado de contacto no es un bloqueo (hallazgo 23/10/2026)
+### Borrado, bloqueo y solicitudes de mensaje (23/10/2026)
 
-`deleteContact` solo borra la fila de `upeer.db`. El estado nativo (`peers`, `sessions` y `messages`, cifrado en `upeer_yggdrasil_protocol`) queda intacto, así que hoy:
+Modelo acordado: **la lista de contactos es la autoridad**. No hay paquete nuevo ni paso extra para el remitente; el cliente que escribe no hace nada distinto.
 
-- El contacto borrado puede seguir escribiendo: `handleChat` solo rechaza cuando `publicKeyFor` es nulo, y la clave pública sigue en el registro nativo. El mensaje se descifra, se guarda y la conversación reaparece en Chats con el alias que publica el remitente en sus metadatos, no con el nombre local.
-- El contacto no vuelve a Contactos y no genera solicitud entrante: queda como conversación sin ficha (`contact === null`), con estado «Desconectado», sin dirección y con las acciones de bloquear/eliminar deshabilitadas.
-- Las notificaciones siguen llegando, porque `notifyMessage` no consulta la lista de contactos.
-- `status: 'blocked'` es solo una etiqueta local: ni `YggdrasilProtocol` ni `UPeerNotifications` la leen, así que **bloquear tampoco detiene la entrega**.
-- Un remitente que nunca fue contacto puede crear conversación: `HANDSHAKE_REQ` se valida por firma y `rememberPeer` lo registra sin ninguna admisión por lista de contactos.
+- Al borrar un contacto se purga también su conversación: `deleteContactAndConversation` borra la fila de `upeer.db` y llama a `deleteConversation` del puente nativo, que vacía los mensajes de ese `upeerId` en el estado cifrado. Se conservan `peers` y `sessions` para que un mensaje posterior siga descifrando.
+- Si vuelve a escribir, la conversación reaparece **sin ficha de contacto** y `classifyConversations` la clasifica como **solicitud de mensaje**: aparece en Chats bajo «Solicitudes de mensaje» con su alias, la vista previa y dos acciones, «Aceptar» (crea el contacto como `connected`) y «Bloquear» (lo crea como `blocked`). No hace falta que él envíe ninguna solicitud: su propio mensaje lo es.
+- Las conversaciones cuyo contacto está `blocked` se ocultan de la lista. El remitente sigue entregando en el servicio; el bloqueo efectivo en `YggdrasilProtocol` sigue pendiente (ver abajo).
+- Purga disponible: `deleteConversation` en AIDL, servicio y TS, con `ProtocolMessageState.withoutConversation` cubierto por pruebas Kotlin.
 
-Trabajo derivado, en este orden:
+Sigue pendiente, en este orden:
 
-1. Separar «Eliminar contacto» de «Eliminar contacto y chat»: purgar `messages`, la sesión del ratchet y la entrada de `peers` para el `upeerId` cuando el usuario elija borrar el chat.
-2. Hacer efectivo el bloqueo en el servicio: rechazar `HANDSHAKE_*`, `CHAT` y `CHAT_UPDATE` de un `upeerId` bloqueado, y no notificar. Requiere que el servicio lea la lista de bloqueados (AIDL) o que la UI la replique en el estado nativo.
-3. Introducir solicitudes de contacto para remitentes desconocidos: el primer mensaje de un `upeerId` que no está en Contactos se guarda como solicitud (`incoming`) en lugar de crear una conversación normal, y solo se acepta con acción explícita.
+1. Bloqueo efectivo en el servicio: rechazar `HANDSHAKE_*`, `CHAT` y `CHAT_UPDATE` de un `upeerId` bloqueado y no notificar. Requiere un `setBlockList` por AIDL o mover la lista de bloqueados al estado nativo.
+2. «Vaciar chat» y «Eliminar sólo el contacto» como acciones separadas de la ficha, ahora que existe la purga.
+3. Solicitud visible como estado del mensaje, no solo como sección, para poder distinguir «primer mensaje» de «conversación aceptada».
 
 Reglas de estilo acordadas para toda pantalla nueva:
 
