@@ -4,6 +4,8 @@ _Estado: port en curso a 23 de octubre de 2026. Identidad, perfil local, nodo Yg
 
 > Coordinación móvil↔escritorio: el estado conjunto, las dependencias cruzadas y el trabajo abierto de B6/B7 se mantienen en [`../ROADMAP.md`](../ROADMAP.md) (raíz del workspace, fuera de este repositorio).
 
+> Medida de la brecha: «Inventario de paridad con escritorio (23/10/2026)» lista, paquete por paquete y función por función, qué habla ya el móvil, qué queda por portar y qué no se ha probado nunca entre clientes.
+
 > Documento único de alcance y orden. Las fases **B0–B10** son la secuencia obligatoria de red, identidad de cuenta y sincronización; las **fases de producto 4–10** solo empiezan después de B9 y el **Producto 6** además después de B10. Las secciones «Fase 0» a «Fase 15» del anexo conservan requisitos detallados, pero **no son el orden de ejecución**.
 
 ## Propósito y reglas de uso
@@ -78,8 +80,8 @@ La integración desktop ejecuta `yggstack` y configura SOCKS local en `127.0.0.1
 - **B7 — en curso (store/lookup iterativo, `DHT_UPDATE` bidireccional y secuencia anti-reinstalación).** El `LocationBlock` firmado por dispositivo se publica bajo la clave DHT del `upeerId`, se valida al recibir `DHT_STORE` y se recupera con lookup iterativo, comprobando certificado y admisión contra el registro de cuenta. El store usa `FIND_NODE` previo, K nodos, ACK y reintento acotado; el lookup incorpora nodos nuevos por rondas α=3, fusiona los bloques de varios dispositivos y cachea solo el resultado verificado. `DHT_UPDATE` se envía a contactos íntimos con todas sus direcciones conocidas, solo al cambiar `dhtSeq` o direcciones, y en recepción exige sobre firmado, certificado, registro vigente y `dhtSeq` estrictamente mayor por `(cuenta, deviceId)`; el último aceptado se persiste en Keystore y no se reenvía. Si falta el estado local de secuencia, el worker recupera el propio bloque DHT y se niega a publicar cuando no puede leerlo o verificarlo. Desktop ya emite bloques con certificado y registro de cuenta, y acepta los de Android. La renovación con límite de saltos y la admisión de contactos antes de cifrar ya están implementadas; `ContactEncryptionAdmission` impide cifrar o reutilizar ciphertext hasta validar registro, ubicación, certificado y revocaciones, con caché de 60 s y política legacy auditada. Siguen pendientes la migración de mensajería Desktop y la prueba de roaming real. El trabajo abierto y su orden están en [`../ROADMAP.md`](../ROADMAP.md).
 - **B8 — parcial.** El servicio `:yggdrasil` ya es dueño del nodo, listener, protocolo, ratchets, outbox y persistencia cifrada; falta integrar el trabajador DHT (códec, admisión, núcleo y bootstrap ya disponibles), el `MulticastLock`, la ruta de persistencia de contactos, certificados/epoch y su estado observable.
 - **B9 — no iniciada.** No hay validación DHT Desktop↔móvil, fuzzing de paquetes, presupuesto de batería/red para descubrimiento ni interop del registro de dispositivos.
-- **B10 — enrolamiento del móvil hecho con escaneo QR y autorizador en el bridge, identidad sin raíz y sincronización pendientes.** El bridge Go ya implementa el protocolo OOB sin raíz que usa Desktop: decodifica la invitación, firma la solicitud del dispositivo sobre el payload canónico y la sella con el secreto de un solo uso, y abre y verifica el certificado emitido por la cuenta antes de instalarlo (`ParseEnrollmentInvite`, `CryptoIdentity.BuildEnrollmentRequest`, `OpenEnrollmentCertificate`). También cubre el lado autorizador desde el bridge: `createEnrollmentInvite`, `openEnrollmentRequest` e `issueEnrollmentCertificate` generan la invitación con `inviteId` derivado y TTL acotado, abren la solicitud comprobando cuenta y ventana de 10 min, y firman y sellan el certificado; el vector de `transport-bridge/testdata/enrollment_vectors.json` verifica ambas direcciones, incluida una firma de certificado idéntica byte a byte a la de Desktop. El vector se verifica en ambos clientes. `DeviceEnrollment` guarda el estado en Keystore (solicitud pendiente + certificado instalado), el AIDL y el módulo Expo exponen `deviceEnrollmentBegin`/`…RequestJSON`/`…Finish`/`…Cancel`/`…StatusJSON`, y la pantalla única de recuperación del acceso ejecuta el flujo completo pegando códigos o escaneando con la cámara (`expo-camera`, `CameraView` con `barcodeTypes: ['qr']`) los QR que muestra el escritorio: invitación y certificado de respuesta. El reparto es asimétrico por hardware — el único dispositivo con cámara es el móvil, así que se escanea siempre escritorio → móvil y la solicitud del teléfono se copia. Falta el coordinador Kotlin y la UI del autorizador móvil (que el teléfono emita invitación y certificado para vincular un escritorio), el runtime en modo dispositivo (la app sigue necesitando la raíz para operar), la clave de cuenta pública sin mnemonic y toda la sincronización online/offline, historial y entrega diferida entre dispositivos autorizados.
-- **Fases de producto 4–10 — no iniciadas como paridad.** El chat directo con un contacto ya conocido funciona en ambos sentidos y está expuesto en la UI, pero faltan grupos, archivos, llamadas, vault y notificaciones avanzadas. El Producto 6 (vault/multidispositivo) no empieza hasta B10.
+- **B10 — enrolamiento del móvil hecho con escaneo QR y autorizador en el bridge, identidad sin raíz y sincronización pendientes.** El bridge Go ya implementa el protocolo OOB sin raíz que usa Desktop: decodifica la invitación, firma la solicitud del dispositivo sobre el payload canónico y la sella con el secreto de un solo uso, y abre y verifica el certificado emitido por la cuenta antes de instalarlo (`ParseEnrollmentInvite`, `CryptoIdentity.BuildEnrollmentRequest`, `OpenEnrollmentCertificate`). También cubre el lado autorizador desde el bridge: `createEnrollmentInvite`, `openEnrollmentRequest` e `issueEnrollmentCertificate` generan la invitación con `inviteId` derivado y TTL acotado, abren la solicitud comprobando cuenta y ventana de 10 min, y firman y sellan el certificado; el vector de `transport-bridge/testdata/enrollment_vectors.json` verifica ambas direcciones, incluida una firma de certificado idéntica byte a byte a la de Desktop. El vector se verifica en ambos clientes. `DeviceEnrollment` guarda el estado en Keystore (solicitud pendiente + certificado instalado), el AIDL y el módulo Expo exponen `deviceEnrollmentBegin`/`…RequestJSON`/`…Finish`/`…Cancel`/`…StatusJSON`, y la pantalla única de recuperación del acceso ejecuta el flujo completo pegando códigos o escaneando con la cámara (`expo-camera`, `CameraView` con `barcodeTypes: ['qr']`) los QR que muestra el escritorio: invitación y certificado de respuesta. El reparto es asimétrico por hardware — el único dispositivo con cámara es el móvil, así que se escanea siempre escritorio → móvil y la solicitud del teléfono se copia. El autorizador móvil está cerrado: `DeviceEnrollmentAuthorizer` guarda invitaciones cifradas, abre la solicitud del escritorio, emite el certificado y lo registra, y Perfil ofrece «Dispositivos de la cuenta» con hoja de invitación QR. Falta el runtime en modo dispositivo (la app sigue necesitando la raíz para operar), la clave de cuenta pública sin mnemonic y toda la sincronización online/offline, historial y entrega diferida entre dispositivos autorizados.
+- **Fases de producto 4–10 — no iniciadas como paridad.** El chat directo con un contacto ya conocido funciona en ambos sentidos y está expuesto en la UI, pero faltan grupos, archivos, llamadas, vault y notificaciones avanzadas. El Producto 6 (vault/multidispositivo) no empieza hasta B10. El detalle medido por tipo de paquete y por función de escritorio está en «Inventario de paridad con escritorio»: de los más de 60 tipos de paquete del protocolo (41 en `network/types.ts`, 14 `CALL_*`, 4 `GROUP_*` y los `FILE_*` que solo aparecen en `SEALED_TYPES`), el móvil solo habla hoy `HANDSHAKE_*`, `CHAT`, `ACK`, `CHAT_UPDATE`, `DR_RESET` y los `DHT_*`.
 
 ### Disposición del trabajo local no integrado
 
@@ -325,7 +327,7 @@ La lógica nueva de DHT va en `transport-bridge/dht/`; la raíz conserva solo lo
 
 ### B10 — Sincronización y entrega diferida entre dispositivos
 
-**Estado (23/10/2026): enrolamiento móvil hecho; identidad sin raíz y sincronización pendientes.** `DeviceEnrollment` implementa el lado del dispositivo nuevo del protocolo OOB: decodifica la invitación con el bridge, firma y sella la solicitud, abre el certificado emitido por la cuenta, comprueba que `accountUpeerId` y `deviceId` corresponden a esta clave y persiste solicitud pendiente y certificado en Keystore. El servicio `:yggdrasil` lo expone por AIDL y el módulo Expo por `deviceEnrollmentBegin`, `deviceEnrollmentRequestJSON`, `deviceEnrollmentFinish`, `deviceEnrollmentCancel` y `deviceEnrollmentStatusJSON`, con los códigos convertidos a base64url en TypeScript. La pantalla «Vincular este dispositivo» del acceso ejecuta los tres pasos pegando códigos. Faltan el escaneo QR, el runtime en modo dispositivo (hoy la app sigue exigiendo la raíz para arrancar el nodo) y toda la sincronización.
+**Estado (23/10/2026): enrolamiento completo en las dos direcciones; identidad sin raíz y sincronización pendientes.** `DeviceEnrollment` implementa el lado del dispositivo nuevo del protocolo OOB: decodifica la invitación con el bridge, firma y sella la solicitud, abre el certificado emitido por la cuenta, comprueba que `accountUpeerId` y `deviceId` corresponden a esta clave y persiste solicitud pendiente y certificado en Keystore. El servicio `:yggdrasil` lo expone por AIDL y el módulo Expo por `deviceEnrollmentBegin`, `deviceEnrollmentRequestJSON`, `deviceEnrollmentFinish`, `deviceEnrollmentCancel` y `deviceEnrollmentStatusJSON`, con los códigos convertidos a base64url en TypeScript. `DeviceEnrollmentAuthorizer` cubre la dirección contraria: invitaciones pendientes cifradas en Keystore, apertura de la solicitud del escritorio probando cada invitación viva, emisión del certificado sobre `epoch + 1`, reverificación del certificado y alta en `AccountRegistryStore`, expuesto como `enrollmentAuthorizerCreateInvite`, `AcceptRequest`, `Complete`, `StatusJSON`, `Cancel` y `CancelAll`. La pantalla «Vincular este dispositivo» del acceso ejecuta los tres pasos del lado nuevo, con pegado de códigos y escaneo QR de la invitación y del certificado con la cámara del teléfono; en Perfil, «Dispositivos de la cuenta» lista el registro firmado marcando el dispositivo en uso y abre el autorizador en una hoja inferior con invitación QR, escaneo de la solicitud y pegado manual. La UI se alineó con escritorio: Contactos pasa a cabecera de sección, búsqueda y lista de tarjetas con alta en hoja inferior (`ContactFormSheet`, identidad + alias + `Escanear QR del contacto`), y Chats cambia el botón flotante por la acción de cabecera que abre `NewConversationList`. Faltan el runtime en modo dispositivo (hoy la app sigue exigiendo la raíz para arrancar el nodo), la sincronización multi-dispositivo en el móvil, los estados `pending`/`synced`/`vaulted`/`delivered`/`failed` en la UI y la prueba real Desktop↔móvil. El resto de huecos de interfaz está en «Pendiente en la UI móvil».
 
 **Depende de:** B9. **Bloquea a:** Producto 6.
 
@@ -388,6 +390,9 @@ El objetivo fue cerrar el primer tramo de las fases 0 y 2: que Desktop pudiera a
    - [x] Pérdida de frames y cambios de red sin reiniciar el proceso: frame truncado con cierre controlado y frame válido posterior; Wi-Fi/datos desactivados y reactivados con peers reconectados y chat verificado, mismo PID de `:yggdrasil`.
 8. [ ] DHT Kademlia, bootstrap y roaming. B0–B5 están cerradas localmente; B6 (identidad/registro) es el siguiente bloqueo, B7 es DHT/roaming, B8 el servicio y B9 la interoperabilidad. B10 (sincronización) solo empieza tras B9.
 9. [ ] Paridad social, vault, grupos, archivos y llamadas (fases 4–10, solo tras B9; vault/multidispositivo tras B10).
+   - [ ] Eventos de mensaje que faltan en el protocolo móvil: `READ`, `TYPING`, `CHAT_DELETE`, `CHAT_REACTION` y `CHAT_CONTACT`. Ver «Inventario de paridad con escritorio».
+   - [ ] Sincronización multi-dispositivo con los nueve `SYNC_EVENT_KINDS`, relay y backlog propios del móvil.
+   - [ ] Archivos (`FILE_*`), grupos (`GROUP_*`) y llamadas (`CALL_*`) con interoperabilidad real contra escritorio.
 
 **Estado (22/10/2026):** identidad uPeer cifrada en Keystore, provisionada por la UI y recuperada por `:yggdrasil` tras `force-stop` + reinicio. Las primitivas `SEALED`/X3DH/Double Ratchet pasan vectores de `sodium-native` y sesiones completas en Go. El servicio responde `HANDSHAKE_ACCEPT`, recibe `CHAT`, persiste peers/sesión/mensajes, envía ACK, entrega mensajes salientes con outbox persistente y publica notificaciones locales; el chat en ambos sentidos con un contacto ya conocido, la compresión, `DR_RESET`, el ACK perdido y los duplicados están verificados. Las SPK solo avanzan en handshakes repetidos; un `DR_RESET` con la misma SPK reinicia de forma idempotente mediante `resetId`, y una SPK obsoleta no reinicia el ratchet. El outbox entrega en paralelo por peer y falla entradas agotadas sin bloquear al resto. La pérdida de frames y el cambio de red sin reiniciar el proceso ya están validados en dispositivo.
 
@@ -564,6 +569,139 @@ Portar primero audio 1:1 solo después de tener señalización autenticada, cont
 Completar backup/restauración, controles de privacidad, permisos, accesibilidad, auditoría de seguridad, supply chain, matrices de dispositivos, beta y requisitos de distribución. Decidir iOS a partir de una prueba técnica y revisión de entitlements; no asumir paridad automática con Android.
 
 **Salida:** criterios de seguridad, interoperabilidad, estabilidad, distribución y soporte documentados y aprobados.
+
+## Inventario de paridad con escritorio (23/10/2026)
+
+Cierre de brechas medido contra el código de `upper-desktop`, no contra lo que la UI aparenta. Todo lo que sigue está sin probar entre clientes salvo que se indique lo contrario: las 215 pruebas nativas cubren códec, políticas y DHT, pero **el único flujo verificado de extremo a extremo es el chat de texto de un contacto conocido con su ACK**.
+
+### Tipos de paquete del protocolo
+
+| Paquete | Escritorio | Móvil | Prueba cruzada |
+|---|---|---|---|
+| `HANDSHAKE_REQ` / `HANDSHAKE_ACCEPT` | Sí, con binding de dispositivo | Sí | Vectores de canonicalización y firma; flujo real en dispositivo |
+| `CHAT` | Sí | Sí (`sendChat`) | Verificado en dispositivo contra Desktop |
+| `ACK` | Sí | Sí (`ControlReplies`) | Verificado con el chat |
+| `DR_RESET` | Sí | Sí (`DrResetPolicy`, `DrResetReplayCache`) | Pruebas JVM; sin prueba real de reinicio de ratchet |
+| `CHAT_UPDATE` (edición) | Sí, con `version` y política de conflicto | Sí (`editChat`, `ChatEditPolicy`) | Pruebas JVM; sin prueba cruzada |
+| `READ` (recibo de lectura) | Sí | **No se emite**; el ACK avanza estado pero no se manda `READ` | No probado |
+| `TYPING` (escribiendo) | Sí | **Ausente** | No probado |
+| `CHAT_DELETE` | Sí | **Ausente** | No probado |
+| `CHAT_REACTION` | Sí | **Ausente** | No probado |
+| `CHAT_CONTACT` (tarjeta de contacto) | Sí | **Ausente**: se puede escanear la del escritorio, no recibir ni enviar tarjetas | No probado |
+| `GROUP_MSG` / `GROUP_ACK` / `GROUP_INVITE` / `GROUP_UPDATE` | Sí, con sender keys, epoch y control de admin | **Ausente** | No probado |
+| `FILE_PROPOSAL` / `FILE_START` / `FILE_ACCEPT` / `FILE_CHUNK` / `FILE_CHUNK_ACK` / `FILE_ACK` / `FILE_END` / `FILE_DONE_ACK` / `FILE_CANCEL` | Sí, chunked con AES-256-GCM y progreso | **Ausente** | No probado |
+| `VAULT_STORE` / `VAULT_QUERY` / `VAULT_DELIVERY` / `VAULT_ACK` / `VAULT_SYNC_REQ` / `VAULT_SYNC_RES` / `VAULT_RENEW` | Sí, buzón por dispositivo | **Ausente** | No probado |
+| `CALL_OFFER` / `CALL_RING` / `CALL_ACCEPT` / `CALL_REJECT` / `CALL_BUSY` / `CALL_CANCEL` / `CALL_END` / `CALL_MEDIA` / `CALL_MEDIA_UPDATE` / `CALL_META` | Sí, con relay y grupos | **Ausente** | No probado |
+| `PING` / `PONG` (keepalive de nivel de protocolo) | Sí | **Ausente**; la conexión la mantiene el servicio, no el protocolo | No probado |
+| `DHT_*` (12 tipos) | Sí | Sí, códec y Kademlia con vectores | Vectores Go/JVM y fixtures de Desktop |
+| `SYNC_HELLO` / `SYNC_ENVELOPE` / `SYNC_HISTORY_REQ` / `SYNC_HISTORY_RES` / `SYNC_ACK` | Sí, con relay, firma de origen y backlog | **Ausente** | No probado |
+
+### Sincronización multi-dispositivo: los nueve eventos
+
+`SYNC_EVENT_KINDS` de escritorio son `MESSAGE_UPSERT`, `MESSAGE_STATUS`, `MESSAGE_EDIT`, `MESSAGE_DELETE`, `CHAT_CLEAR`, `REACTION_SET`, `GROUP_UPSERT`, `GROUP_DELETE` y `CONTACT_PROFILE`. El móvil no implementa ninguno: no hay store de eventos, ni cursor, ni ACK por dispositivo. Los estados `pending`/`synced`/`vaulted`/`delivered`/`failed` que el roadmap de B10 da por observables solo existen en escritorio.
+
+### Funciones de escritorio sin equivalente en móvil
+
+| Función | Dónde vive en escritorio | Estado móvil |
+|---|---|---|
+| Llamadas 1:1 de audio y vídeo | `src/features/call/` (señalización, `mediaPipeline`, `webCodecsSession`, codecs, calidad) | Nada: la pestaña Llamadas es un estado vacío |
+| Llamadas de grupo y relay de medios | `callSignaling.ts`, `callManager.ts`, `binaryCallMedia.ts` | Nada |
+| Compartir pantalla | `ScreenSharePicker.tsx` | Nada |
+| Historial de llamadas | `CallsPanel.tsx` | Nada |
+| Mensajes de grupo | `messaging/groups.ts`, `groupControl.ts`, `groupState.ts` | Nada |
+| Llamada de grupo como evento de chat | `messaging/groupCallEvent.ts` | Nada |
+| Archivos, imágenes, PDF y audio | `network/file-transfer/`, `features/chat/file/` | Nada; el clip del composer avisa «pendiente» |
+| Visor de medios y miniaturas | `features/chat/media-viewer/` | Nada |
+| Notas de voz | `features/chat/input/RecordingBar.tsx` | Nada; el micrófono avisa «pendiente» |
+| Responder, reenviar y reaccionar | `MessageReply.tsx`, `ForwardModal.tsx`, `MessageReactions.tsx`, `MessageContextMenu.tsx` | Editar sí; el resto no |
+| Borrar mensaje y vaciar chat | `chatMutations.ts` | Nada |
+| Escribiendo y presencia | `messaging/heartbeat.ts` | Nada |
+| Búsqueda dentro de la conversación | `ChatSearchBar.tsx` | Avisa «pendiente» |
+| Vista previa de enlaces | `og-fetcher.ts`, `LinkPreviewCard.tsx` | Nada |
+| Tarjeta de contacto | `ContactCard.tsx` | Solo se muestra el QR propio en Perfil |
+| Selector de emoji | `EmojiPicker.tsx`, `emojiData.ts` | Nada |
+| Buzón cifrado y vault | `network/vault/` | Nada |
+| Revocar dispositivo propio | IPC `revoke-authorized-device` | El bridge expone `revokeAccountDevice`; la UI no lo llama |
+| Estados de sincronización | `getSyncStatus` + evento `sync-status` | Nada |
+
+### Cobertura de pruebas real
+
+| Qué | Estado |
+|---|---|
+| Chat de texto 1:1, envío, ACK, edición | Verificado en dispositivo contra Desktop |
+| Admisión de dispositivo, certificado y registro | Vector compartido + prueba en dispositivo |
+| Enrolamiento OOB en ambas direcciones | Vector compartido + `androidTest` |
+| DHT: códec, Kademlia, store/lookup, `DHT_UPDATE` | Pruebas JVM y vectores; **sin roaming real móvil↔escritorio** |
+| Llamadas (1:1, grupo, relay, rendimiento, escalabilidad) | Solo en escritorio; el móvil no participa |
+| Grupos (fanout, escala) | Solo en escritorio |
+| Transferencia de archivos | Solo en escritorio |
+| Vault y recuperación | Solo en escritorio |
+| Sincronización multi-dispositivo y relay | Solo en escritorio (`sync-status`, `multi-process`) |
+| Presión de memoria, batería y Doze | Sin medir |
+
+### Lo que tampoco está cerrado en escritorio
+
+No todo lo que el móvil debe alcanzar está terminado en el otro lado. Antes de portar conviene confirmar el contrato:
+
+- `CHAT_REACTION`, `CHAT_DELETE` y `CHAT_UPDATE` siguen anotados como «Preview for phase 11» en `upper-desktop/src/main_process/network/types.ts` aunque ya tienen UI y pruebas de entrega. La anotación está obsoleta o el contrato no se ha declarado congelado.
+- La ventana legacy `ALLOW_WITH_AUDIT` sigue abierta en escritorio para contactos sin claves por dispositivo; cerrarla es requisito de B6 y afecta a cómo el móvil firma y recibe.
+- El modo dispositivo de escritorio ya opera sin raíz, pero la mensajería por dispositivo solo cubre CHAT directo y grupos con binding: cualquier port móvil debe asumir ambos caminos hasta que la migración termine.
+
+### Orden de trabajo para cerrar la paridad
+
+1. **Eventos de mensaje que ya existen en el protocolo** — `READ`, `TYPING`, `CHAT_DELETE`, `CHAT_REACTION`: son los más baratos y desbloquean los mismos nueve eventos de sincronización.
+2. **Estados de entrega reales** — emitir `READ` y reflejar `pending`/`sent`/`delivered`/`read`/`failed` con ACK por dispositivo antes de hablar de `synced`/`vaulted`.
+3. **Sincronización multi-dispositivo en Android** — store de eventos, `SYNC_HELLO`/`SYNC_ENVELOPE`/`SYNC_HISTORY_*`, relay y ACK, con los nueve tipos.
+4. **Archivos** — `FILE_*` con picker, chunked, hash y progreso; es el prerrequisito de las notas de voz.
+5. **Grupos** — `GROUP_*` con sender keys y control de admin.
+6. **Llamadas** — señalización primero (ring/accept/reject/end), luego media UDP, y solo después vídeo y grupos.
+7. **Vault y entrega diferida** — buzón por dispositivo y recuperación.
+8. **Cierre de UI** — notificaciones con enlace profundo al chat, ajustes reales y revocación de dispositivos.
+
+## Pendiente en la UI móvil
+
+Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que falta por crear. Cualquier elemento nuevo entra aquí antes de tocar código.
+
+| Pantalla | Estado | Qué falta |
+|---|---|---|
+| Chats · búsqueda | Decorativa | El campo no filtra: `entries` no se deriva de la consulta |
+| Chats · filtros | Decorativos | `Todos`/`No leídos`/`Favoritos`/`Grupos` solo cambian el chip, no la lista |
+| Chats · menú contextual | Parcial | Silenciar, fijar, archivar y borrar avisan de «próximamente»; solo «marcar como leído» actúa |
+| Chats · nueva conversación | Parcial | «Nueva conversación» y «Nuevo grupo» avisan de «próximamente»; la lista de contactos sí abre el chat |
+| Contactos · alta | Hecha | Faltan solicitudes entrantes, reputación y bloqueo |
+| Contactos · tarjeta propia en QR | Pendiente | El móvil debe poder mostrar su tarjeta de contacto en QR para que el escritorio la escanee, además del QR de identidad que ya vive en Perfil |
+| Contactos · sincronización | Pendiente | Altas y cambios de alias viajan por `CONTACT_PROFILE` de B10: falta emitirlos desde Android |
+| Llamadas | Sin runtime | La pestaña no tiene motor de llamadas ni historial real |
+| Perfil · edición | Parcial | Alias y avatar se guardan; faltan privacidad, notificaciones y backup |
+| Perfil · dispositivos | Hecha | Lista el registro firmado y abre el autorizador de invitación |
+| Mensajes · estados | Pendiente | No se muestran `pending`/`synced`/`vaulted`/`delivered`/`failed` de B10 |
+| Ajustes · índice | Hecho | Existe `/settings` con siete secciones; solo «Conexión» tiene contenido real |
+| Notificaciones | Hecha en el servicio | `UPeerNotifications` publica por conversación con previsualización privada, enlace `upeer://chat/<id>` y acción «Marcar leído»; faltan preferencias por tipo, sonido y agrupación entre conversaciones |
+| Ajustes · privacidad | Placeholder | La sección dice «todavía no está disponible» |
+| Ajustes · seguridad | Placeholder | Debe alojar el registro de dispositivos y la revocación |
+| Ajustes · notificaciones | Placeholder | Sin interruptores de mensajes, solicitudes y sonido |
+| Ajustes · apariencia | Placeholder | El tema sigue al sistema; no hay selector ni tamaño de texto |
+| Ajustes · almacenamiento | Placeholder | Sin uso real, caché ni limpieza |
+| Ajustes · acerca de | Placeholder | Sin versión, licencia ni enlaces |
+| Perfil · revocar dispositivo | Pendiente | El bridge expone `revokeAccountDevice`; falta el botón y la confirmación en la lista de dispositivos |
+| Chat · cabecera | Parcial | Información del contacto, videollamada, llamada de voz y buscar en la conversación avisan «pendiente» |
+| Chat · composer | Parcial | Adjuntar archivo y nota de voz avisan «pendiente» |
+| Chat · mensajes | Parcial | Solo editar; faltan responder, reaccionar, borrar, reenviar y ver estado real de entrega |
+| Chat · presencia | Pendiente | Sin «escribiendo…» ni presencia en la cabecera |
+| Accesibilidad | Parcial | Faltan escalas de fuente y revisión con lector de pantalla |
+
+Reglas de estilo acordadas para toda pantalla nueva:
+
+- Solo tokens de `src/constants/theme.ts`; ningún color literal.
+- El ripple sale de `theme.ripple`. `NativeRippleButton` recorta con `overflow: 'hidden'` por defecto y todo contenedor pulsable con esquinas redondeadas debe recortarlo también, o el ripple se sale de la forma.
+- Los estados vacíos repiten el patrón de «Aún no hay llamadas»: círculo de 64 px con `theme.backgroundElement`, icono de 28 px en `theme.placeholder`, título 17/600 y `Paragraph` centrado; si hace falta una acción, se añade el botón estándar debajo. Nada de bordes discontinuos ni tamaños propios.
+- Las pantallas de primer nivel usan `theme.background`; el círculo del estado vacío necesita ese contraste para verse.
+- Las cabeceras de lista repiten el patrón de Chats: `H1` 24/700 y, a la derecha, acciones de icono de 44×44 (`headerButton`); la búsqueda es la misma caja de 14 de radio con `Input` sin borde propio.
+- Las cuatro pestañas principales comparten el mismo bloque de cabecera y el mismo relleno de contenido (`paddingTop` 20, `paddingHorizontal` 20, `gap` 12); en Llamadas eso queda como `H1` 24/700 sin acción hasta que exista «nueva llamada». Cuando llegue el historial, sus filas reutilizan el item de conversación.
+- Las filas de contacto reutilizan el item de conversación: `ContactTrustAvatar` de 55 px, título 15/600 con el dato secundario a la derecha (hora en chats, estado en contactos), segunda línea de 13 con `numberOfLines={1}`, `minHeight` 80 y separador `hairline` a sangre (`marginHorizontal: -12`). No se inventan tarjetas con borde y fondo propio para listas.
+- El relleno horizontal va en el contenido de cada pantalla, nunca en el `Tabs`.
+- Las cabeceras de sección repiten el patrón icono 16 px + título 14/600 + `Info` + subtítulo 12 px con borde inferior.
+- Los formularios siguen el patrón de escritorio: texto explicativo, campos con etiqueta y ayuda, acción principal deshabilitada hasta que el formulario es válido.
 
 ## Regla para solicitudes de funcionalidad
 
@@ -901,9 +1039,14 @@ Crear una experiencia táctil nativa en lugar de reducir la interfaz desktop.
 
 - [x] Definir navegación principal: chats, contactos, llamadas y ajustes; el alcance de grupos está pendiente.
 - [x] Diseñar onboarding, importación/creación de identidad y estado de red.
-- [ ] Diseñar lista de conversaciones, búsqueda, chat, perfiles, seguridad y ajustes.
+- [x] Diseñar lista de conversaciones, búsqueda, chat, perfiles, seguridad y ajustes.
+- [x] Rediseñar Contactos y el alta de conversación con la referencia de escritorio: cabecera de sección con icono, recuento, búsqueda local, lista de tarjetas, estado vacío con acción y alta en hoja inferior (`ContactFormSheet`) con identidad, alias y `Escanear QR del contacto`.
+- [x] Sustituir el botón flotante de Chats por la acción de cabecera y la hoja `NewConversationList` (nueva conversación, nuevo grupo y contactos filtrables).
 - [ ] Adaptar gestos, teclado, safe areas, orientación, tamaños de texto y lector de pantalla.
 - [x] Implementar temas y tokens visuales compartibles; no portar widgets Joy UI/MUI a React Native.
+- [x] Unificar el chrome del sistema con el tema: `ThemeChrome` aplica `SystemUI.setBackgroundColorAsync` y `NavigationBar.setStyle` en tiempo de ejecución (el cambio de `uiMode` no recrea la Activity) con el plugin `expo-navigation-bar` y `enforceContrast: false`.
+- [x] Tokenizar el ripple: `theme.ripple` (`#0000001F` claro, `#FFFFFF30` oscuro) consumido por `NativeRipplePressable` y `NativeRippleButton`; un color fijo es invisible en superficie clara.
+- [x] Regla de padding: el `Tabs` no aplica relleno horizontal (`sceneStyle` solo pinta fondo) y cada pantalla lo pone en su propio contenido. Un relleno en el navegador deja ver el gris de la escena tras las pantallas que pintan `theme.background`.
 - [x] Diseñar estados vacíos, offline, reconexión, mensajes pendientes y fallos de permiso.
 - [ ] Añadir navegación profunda desde notificaciones a chat/llamada.
 - [ ] Validar uso con una mano, accesibilidad y escalas de fuente.
@@ -922,13 +1065,17 @@ Entregar el núcleo de chat directo seguro con persistencia y reintentos.
 
 #### Tareas
 
-- [ ] Añadir contactos por upeer ID/QR, solicitudes entrantes, reputación y bloqueo.
-- [ ] Portar chat E2EE y ratchet respetando los vectores de interoperabilidad.
-- [ ] Portar respuestas, reacciones, edición, borrado y paginación del historial.
-- [ ] Portar estados de envío, entrega y lectura.
+- [x] Añadir contactos por upeer ID o QR: el alta exige `uPeerID@dirección` (64 hex y prefijo `200:`/`300:`), rechaza el alta propia, registra el peer en el servicio nativo y permite escanear el QR de la tarjeta de contacto del escritorio (`ContactFormSheet` + `QrScannerSheet`); el alias es opcional y, si falta, se derivan los 12 primeros hex.
+- [ ] Generar en el móvil la tarjeta de contacto en QR (hoy solo se muestra la identidad en texto y QR propio en Perfil) y aceptar solicitudes entrantes con reputación y bloqueo.
+- [x] Portar chat E2EE y ratchet respetando los vectores de interoperabilidad: `CHAT` con X3DH/Double Ratchet, `ACK`, `CHAT_UPDATE` y `DR_RESET` funcionan contra Desktop.
+- [x] Portar edición (`CHAT_UPDATE` con `ChatEditPolicy` y `version`).
+- [ ] Portar respuestas (`replyTo` ya viaja en el paquete pero la UI no lo ofrece), reacciones (`CHAT_REACTION`), borrado (`CHAT_DELETE`), reenvío, selector de emoji y paginación real del historial (hoy se piden 200 mensajes sin cursor).
+- [ ] Portar estados de envío, entrega y lectura: la UI pinta `pending`/`sent`/`delivered`/`read`/`failed`, pero el móvil no emite `READ`, así que el estado real se queda en `sent`.
 - [ ] Implementar outbox durable para envío cuando se recupere conectividad.
-- [ ] Portar presencia y escritura con intervalos respetuosos con la batería.
-- [ ] Implementar notificaciones locales y acciones compatibles con plataforma.
+- [ ] Portar presencia y escritura (`TYPING` y heartbeat de protocolo, hoy ausentes) con intervalos respetuosos con la batería.
+- [ ] Recibir y enviar tarjetas de contacto (`CHAT_CONTACT`), que hoy solo se pueden escanear desde el QR del escritorio.
+- [ ] Preferencias de notificación (mensajes, solicitudes, sonido) y agrupación entre conversaciones; el enlace profundo al chat y la previsualización privada ya funcionan.
+- [x] Implementar notificaciones locales y acciones compatibles con plataforma: canales «Conexión» y «Mensajes», `notifyMessage` por conversación y acción «Marcar leído».
 - [ ] Permitir ocultar previsualizaciones y controlar privacidad en pantalla bloqueada.
 - [ ] Sincronizar paquetes recibidos por servicio nativo con base de datos y UI al reanudarse.
 - [ ] Probar ACK perdido, mensajes repetidos, offline prolongado, cambios de clave y reintentos.
@@ -941,6 +1088,8 @@ Entregar el núcleo de chat directo seguro con persistencia y reintentos.
 - [ ] La presencia no requiere actividad innecesaria en segundo plano.
 
 ### Fase 10 — Vault, offline y sincronización entre dispositivos
+
+> Estado (23/10/2026): el móvil no implementa ningún `VAULT_*` ni ningún `SYNC_*`. Esta fase sigue entera.
 
 #### Objetivo
 
@@ -967,6 +1116,8 @@ Portar recuperación offline y continuidad multidispositivo sobre B6 y B10. No s
 
 ### Fase 11 — Grupos y roles
 
+> Estado (23/10/2026): el móvil no implementa `GROUP_MSG`, `GROUP_ACK`, `GROUP_INVITE` ni `GROUP_UPDATE`. Esta fase sigue entera.
+
 #### Objetivo
 
 Portar administración y mensajería grupal con seguridad de miembros.
@@ -988,6 +1139,8 @@ Portar administración y mensajería grupal con seguridad de miembros.
 - [ ] Fanout y recovery no producen tormentas de red.
 
 ### Fase 12 — Transferencias, multimedia y notas de voz
+
+> Estado (23/10/2026): el móvil no implementa ningún `FILE_*`. El clip del composer y el micrófono avisan de que la función está pendiente.
 
 #### Objetivo
 
@@ -1013,6 +1166,8 @@ Portar adjuntos cifrados usando APIs móviles de selección, almacenamiento y re
 - [ ] Los permisos se piden en contexto y se tolera selección limitada.
 
 ### Fase 13 — Llamadas de voz/vídeo y compartir pantalla
+
+> Estado (23/10/2026): el móvil no implementa ningún `CALL_*` ni tiene captura, codecs o pipeline de medios. La pestaña Llamadas es un estado vacío y la cabecera del chat ofrece iconos que avisan «pendiente».
 
 #### Objetivo
 
