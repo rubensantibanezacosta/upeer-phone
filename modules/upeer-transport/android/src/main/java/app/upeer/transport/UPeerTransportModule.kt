@@ -110,6 +110,11 @@ class UPeerTransportModule : Module() {
     AsyncFunction("verifyLocationBlock") { blockJSON: String, publicKeyHex: String, nowMillis: Double ->
       service().verifyLocationBlock(blockJSON, publicKeyHex, nowMillis.toLong())
     }
+    AsyncFunction("deviceEnrollmentBegin") { code: String -> service().deviceEnrollmentBegin(code) }
+    AsyncFunction("deviceEnrollmentRequestJSON") { service().deviceEnrollmentRequestJSON() }
+    AsyncFunction("deviceEnrollmentFinish") { sealedResponse: String -> service().deviceEnrollmentFinish(sealedResponse) }
+    AsyncFunction("deviceEnrollmentCancel") { service().deviceEnrollmentCancel() }
+    AsyncFunction("deviceEnrollmentStatusJSON") { service().deviceEnrollmentStatusJSON() }
   }
 
   private fun bind() {

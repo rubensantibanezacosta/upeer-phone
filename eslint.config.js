@@ -5,7 +5,7 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*'],
+    ignores: ['dist/*', 'android/**/*', 'modules/*/android/build/**/*'],
   },
   {
     files: ['transport-bridge/harness/**/*.mjs'],

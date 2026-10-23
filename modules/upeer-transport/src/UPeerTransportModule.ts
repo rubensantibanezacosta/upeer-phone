@@ -5,7 +5,8 @@ import { pbkdf2 } from '@noble/hashes/pbkdf2.js';
 import { sha512 } from '@noble/hashes/sha2.js';
 import { NativeModule, requireNativeModule } from 'expo';
 import { validateMnemonic } from '../../../src/domain/mnemonic';
-import type { AccountRegistryStatus, DeviceIdentityStatus, DhtLocationStatus, IdentityTransportStatus, InboundTransportStatus, LocationBlock, PeerInfo, PeerPoolEntry, ProtocolConversation, ProtocolMessage, ProtocolTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
+import { decodeEnrollmentTransfer, encodeEnrollmentTransfer } from '../../../src/domain/enrollment-transfer';
+import type { AccountRegistryStatus, DeviceEnrollmentBeginResult, DeviceEnrollmentStatus, DeviceIdentityStatus, DhtLocationStatus, EnrollmentCertificateSummary, IdentityTransportStatus, InboundTransportStatus, LocationBlock, PeerInfo, PeerPoolEntry, ProtocolConversation, ProtocolMessage, ProtocolTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
 
 declare class UPeerTransportModule extends NativeModule<{}> {
   start(configJSON: number[]): Promise<YggdrasilNodeInfo>;
@@ -50,6 +51,11 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   dhtLocationStatus(): Promise<string>;
   lookupContactLocation(upeerId: string): Promise<string>;
   verifyLocationBlock(blockJSON: string, publicKeyHex: string, nowMillis: number): Promise<boolean>;
+  deviceEnrollmentBegin(code: string): Promise<string>;
+  deviceEnrollmentRequestJSON(): Promise<string>;
+  deviceEnrollmentFinish(sealedResponse: string): Promise<string>;
+  deviceEnrollmentCancel(): Promise<void>;
+  deviceEnrollmentStatusJSON(): Promise<string>;
   generateNodeSeed(): Promise<number[]>;
 }
 
@@ -291,5 +297,29 @@ export async function lookupContactLocation(upeerId: string): Promise<LocationBl
 
 export async function verifyLocationBlock(blockJSON: string, publicKeyHex: string, nowMillis = Date.now()): Promise<boolean> {
   return nativeModule.verifyLocationBlock(blockJSON, publicKeyHex, nowMillis);
+}
+
+export async function beginDeviceEnrollment(code: string): Promise<DeviceEnrollmentBeginResult & { requestCode: string }> {
+  const result = JSON.parse(await nativeModule.deviceEnrollmentBegin(code)) as DeviceEnrollmentBeginResult;
+  return { ...result, requestCode: encodeEnrollmentTransfer(JSON.parse(result.request) as unknown) };
+}
+
+export async function getDeviceEnrollmentRequest(): Promise<string> {
+  const request = await nativeModule.deviceEnrollmentRequestJSON();
+  return request ? encodeEnrollmentTransfer(JSON.parse(request) as unknown) : '';
+}
+
+export async function finishDeviceEnrollment(sealedCode: string): Promise<EnrollmentCertificateSummary> {
+  const sealed = decodeEnrollmentTransfer(sealedCode);
+  if (!sealed) throw new Error('El código de respuesta no es válido.');
+  return JSON.parse(await nativeModule.deviceEnrollmentFinish(JSON.stringify(sealed))) as EnrollmentCertificateSummary;
+}
+
+export async function cancelDeviceEnrollment(): Promise<void> {
+  return nativeModule.deviceEnrollmentCancel();
+}
+
+export async function getDeviceEnrollmentStatus(): Promise<DeviceEnrollmentStatus> {
+  return JSON.parse(await nativeModule.deviceEnrollmentStatusJSON()) as DeviceEnrollmentStatus;
 }
 

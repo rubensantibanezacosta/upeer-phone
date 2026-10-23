@@ -44,6 +44,16 @@ public abstract class Transportbridge {
 	public static native Bridge newBridge();
 	public static native CryptoIdentity newCryptoIdentity(byte[] secretKey) throws Exception;
 	public static native long nextAccountRegistryEpoch(String registryJSON) throws Exception;
+	/**
+	 * OpenEnrollmentCertificate installs the certificate returned by the account
+	owner, verifying that it belongs to the expected account and invitation.
+	 */
+	public static native String openEnrollmentCertificate(String inviteJSON, String sealedJSON, String expectedAccountUpeerID, long nowMillis) throws Exception;
+	/**
+	 * ParseEnrollmentInvite decodes the out-of-band invitation shown by the account
+	owner and returns the offer plus the one-time secret for the current session.
+	 */
+	public static native String parseEnrollmentInvite(String code, long nowMillis) throws Exception;
 	public static native long probePeer(String uri) throws Exception;
 	public static native long probePeerLatency(String uri);
 	public static native String revokeAccountDevice(String previousRegistryJSON, byte[] accountSecretKey, String deviceID, String reason, long nowMillis) throws Exception;

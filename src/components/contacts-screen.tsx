@@ -99,7 +99,7 @@ export function ContactsScreen({ identity, onSignOut, onContactsChange }: Contac
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#202124' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.screen }}>
       <ScrollView contentContainerStyle={{ alignSelf: 'center', gap: 18, paddingVertical: 20, paddingBottom: 36, width: '100%', maxWidth: 640 }}>
         <YStack gap={8} paddingVertical={12}>
      

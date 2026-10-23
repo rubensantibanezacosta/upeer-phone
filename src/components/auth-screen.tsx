@@ -3,9 +3,10 @@ import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { Copy, ImagePlus } from '@tamagui/lucide-icons-2';
+import { Check, ChevronLeft, Copy, ImagePlus, KeyRound, QrCode, RotateCcw, UserPlus } from '@tamagui/lucide-icons-2';
 import { Card, H1, Input, Paragraph, Separator, SizableText, TextArea, XStack, YStack } from 'tamagui';
 
+import { DevicePairingPanel } from '@/components/device-pairing-panel';
 import { createMnemonic, deriveIdentity, type UPeerIdentity } from '@/domain/identity';
 import { clearIdentity, loadIdentity, saveIdentity, saveProfile } from '@/storage/identity-store';
 import { CopyField } from '@/components/copy-field';
@@ -24,6 +25,7 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
   const [avatar, setAvatar] = useState('');
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [mode, setMode] = useState<'create' | 'recover' | 'unlock' | null>(null);
+  const [pairing, setPairing] = useState(false);
   const [error, setError] = useState('');
   const theme = useTheme();
   const copyToClipboard = useCopyToClipboard();
@@ -80,6 +82,7 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
   const handleMode = (nextMode: 'recover' | 'unlock') => {
     setMnemonic('');
     setAvatar('');
+    setPairing(false);
     setMode(nextMode);
     setError('');
   };
@@ -87,32 +90,34 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
   const matchedPhrase = normalizeMnemonic(mnemonic) === generatedPhrase;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#202124' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.screen }}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24, paddingBottom: 48 }} keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled">
           <YStack alignSelf="center" gap={24} width="100%" maxWidth={480}>
             <YStack gap={8} paddingHorizontal={4}>
           
               <H1 color="color" fontSize={24} fontWeight="700" letterSpacing={-1.5}>uPeer</H1>
-              <Paragraph color="placeholder-color" fontSize={16} lineHeight={24}>Tu identidad. Tus contactos. Tu privacidad.</Paragraph>
+              <Paragraph color="placeholder-color" fontSize={16}>Tu identidad. Tus contactos. Tu privacidad.</Paragraph>
             </YStack>
             <Card borderWidth={1} backgroundColor="color-1" borderColor="border-color" borderRadius={20} padding={24}>
               <YStack gap={20}>
                 <YStack gap={8}>
                   <SizableText color="color" fontSize={21} fontWeight="700">{mode === 'create' ? 'Crea tu identidad' : mode === 'recover' ? 'Recupera tu identidad' : mode === 'unlock' ? 'Desbloquea tu identidad' : 'Empieza a conversar en privado'}</SizableText>
-                  {!mode && <Paragraph color="placeholder-color" lineHeight={24}>{identityExists ? 'Tu identidad está protegida. Introduce tu frase para desbloquearla o recuperar otra cuenta.' : 'Crea una identidad segura o recupérala con tu frase de 12 palabras.'}</Paragraph>}
+                  {!mode && <Paragraph color="placeholder-color">{identityExists ? 'Tu identidad está protegida. Introduce tu frase para desbloquearla o recuperar otra cuenta.' : 'Crea una identidad segura o recupera el acceso a la que ya tienes en otro dispositivo.'}</Paragraph>}
                 </YStack>
                 {generatedPhrase.length > 0 && (
                   <YStack backgroundColor="color-2" borderColor="border-color" borderRadius={14} borderWidth={1} gap={8} padding={16}>
                     <SizableText color="accent-color" fontSize={14} fontWeight="700">GUARDA TU FRASE DE RECUPERACIÓN</SizableText>
                     <CopyField accessibilityLabel="Copiar palabras" onCopy={() => void copyToClipboard(generatedPhrase, 'Palabras copiadas')} value={generatedPhrase} />
                     <Paragraph color="placeholder-color" fontSize={13}>No la compartas. La necesitarás para recuperar tu identidad.</Paragraph>
-                    <NativeRippleButton backgroundColor="transparent" borderColor="border-color" borderWidth={1} color="color" height={44} icon={<Copy color={theme.placeholder} size={15} />} onPress={() => void copyToClipboard(generatedPhrase, 'Palabras copiadas')} width="100%">Copiar palabras</NativeRippleButton>
+                    <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={44} icon={<Copy color={theme.onAccentSoft} size={15} />} onPress={() => void copyToClipboard(generatedPhrase, 'Palabras copiadas')} width="100%">Copiar palabras</NativeRippleButton>
                   </YStack>
                 )}
                 {mode && <>
                   <Separator borderColor="border-color" />
-                  <YStack gap={12}>
+                  {mode === 'recover' && pairing
+                    ? <DevicePairingPanel />
+                    : <YStack gap={12}>
                     <TextArea accessibilityLabel="Frase secreta de 12 palabras" autoCapitalize="none" autoCorrect={false} backgroundColor="color-2" borderColor="border-color" color="color" height={mode === 'create' ? 86 : 112} onChangeText={setMnemonic} placeholder={mode === 'create' ? 'Escribe las 12 palabras para confirmar' : 'Escribe las 12 palabras en orden'} placeholderTextColor="placeholder-color" textAlignVertical="top" value={mnemonic} />
                     {mode === 'create' && <YStack gap={10}>
                       <SizableText color="placeholder-color" fontSize={10} fontWeight="600" letterSpacing={0.7}>FOTO DE PERFIL (OPCIONAL)</SizableText>
@@ -121,23 +126,28 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
                           <ProfileAvatar avatar={avatar || undefined} name={alias || '?'} size={72} />
                         </NativeRipplePressable>
                         <YStack alignItems="flex-start" gap={8}>
-                          <NativeRippleButton backgroundColor="color-2" borderColor="border-color" borderWidth={1} color="color" disabled={avatarBusy} height={38} icon={<ImagePlus color={theme.placeholder} size={15} />} onPress={() => void chooseAvatar()}>{avatarBusy ? 'Procesando…' : avatar ? 'Cambiar foto' : 'Añadir foto'}</NativeRippleButton>
-                          {avatar ? <SizableText accessibilityLabel="Quitar foto de perfil" color="#fb7185" fontSize={12} onPress={() => { setAvatar(''); setError(''); }} paddingHorizontal={4} role="button">Quitar foto</SizableText> : null}
+                          <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} disabled={avatarBusy} height={38} icon={<ImagePlus color={theme.onAccentSoft} size={15} />} onPress={() => void chooseAvatar()}>{avatarBusy ? 'Procesando…' : avatar ? 'Cambiar foto' : 'Añadir foto'}</NativeRippleButton>
+                          {avatar ? <SizableText accessibilityLabel="Quitar foto de perfil" color={theme.danger} fontSize={12} onPress={() => { setAvatar(''); setError(''); }} paddingHorizontal={4} role="button">Quitar foto</SizableText> : null}
                         </YStack>
                       </XStack>
                       <Input accessibilityLabel="Nombre visible" autoCapitalize="words" backgroundColor="color-2" borderColor="border-color" color="color" onChangeText={setAlias} placeholder="Tu nombre" placeholderTextColor="placeholder-color" value={alias} />
                     </YStack>}
-                  </YStack>
+                  </YStack>}
                 </>}
-                {!!error && <Paragraph accessibilityRole="alert" backgroundColor="#3b1118" borderColor="#fb7185" borderRadius={10} borderWidth={1} color="#ffe4e6" padding={12}>{error}</Paragraph>}
+                {!!error && <Paragraph accessibilityRole="alert" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={10} borderWidth={1} color={theme.onDangerSoft} padding={12}>{error}</Paragraph>}
                 {!mode && <YStack gap={12}>
-                  <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} onPress={handleCreate}>Crear identidad nueva</NativeRippleButton>
-                  <NativeRippleButton backgroundColor="color-2" borderColor="border-color" borderWidth={1} color="color" height={50} onPress={() => handleMode(identityExists ? 'unlock' : 'recover')}>{identityExists ? 'Desbloquear con mi frase' : 'Recuperar identidad'}</NativeRippleButton>
+                  <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<UserPlus color={theme.onAccent} size={18} />} onPress={handleCreate}>Crear identidad nueva</NativeRippleButton>
+                  <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={50} icon={<RotateCcw color={theme.onAccentSoft} size={18} />} onPress={() => handleMode(identityExists ? 'unlock' : 'recover')}>{identityExists ? 'Desbloquear con mi frase' : 'Recuperar identidad'}</NativeRippleButton>
                 </YStack>}
                 {mode && <YStack gap={12}>
-                  {(mode === 'recover' || mode === 'unlock') && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} onPress={() => void runWithMnemonic(mnemonic, '')}>{mode === 'recover' ? 'Recuperar identidad' : 'Desbloquear identidad'}</NativeRippleButton>}
-                  {mode === 'create' && matchedPhrase && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} onPress={() => void runWithMnemonic(generatedPhrase, alias, avatar)}>Confirmar frase y continuar</NativeRippleButton>}
-                  <XStack justifyContent="center"><SizableText color="placeholder-color" onPress={() => { setMode(null); setGeneratedPhrase(''); setMnemonic(''); setAvatar(''); setError(''); }} padding={12} role="button">Volver</SizableText></XStack>
+                  {mode === 'recover' && pairing && <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={44} icon={<KeyRound color={theme.onAccentSoft} size={17} />} onPress={() => setPairing(false)}>Usar la frase de recuperación</NativeRippleButton>}
+                  {(mode === 'recover' || mode === 'unlock') && !pairing && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={mode === 'recover' ? <RotateCcw color={theme.onAccent} size={18} /> : <KeyRound color={theme.onAccent} size={18} />} onPress={() => void runWithMnemonic(mnemonic, '')}>{mode === 'recover' ? 'Recuperar identidad' : 'Desbloquear identidad'}</NativeRippleButton>}
+                  {mode === 'recover' && !pairing && <XStack alignItems="center" gap={8} justifyContent="center">
+                    <QrCode color={theme.onAccentSoft} size={15} />
+                    <SizableText accessibilityRole="button" color="placeholder-color" fontSize={13} onPress={() => { setError(''); setMnemonic(''); setPairing(true); }} padding={6}>No tengo la frase: vincular este dispositivo</SizableText>
+                  </XStack>}
+                  {mode === 'create' && matchedPhrase && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<Check color={theme.onAccent} size={18} />} onPress={() => void runWithMnemonic(generatedPhrase, alias, avatar)}>Confirmar frase y continuar</NativeRippleButton>}
+                  <XStack alignItems="center" gap={6} justifyContent="center"><ChevronLeft color={theme.placeholder} size={15} /><SizableText color="placeholder-color" onPress={() => { setMode(null); setPairing(false); setGeneratedPhrase(''); setMnemonic(''); setAvatar(''); setError(''); }} padding={12} role="button">Volver</SizableText></XStack>
                 </YStack>}
               </YStack>
             </Card>

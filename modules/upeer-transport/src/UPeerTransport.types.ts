@@ -114,6 +114,38 @@ export type AccountRegistryStatus = {
   localDeviceAdmitted?: boolean;
 };
 
+export type EnrollmentCertificateSummary = {
+  accountUpeerId: string;
+  accountPublicKey: string;
+  deviceId: string;
+  devicePublicKey: string;
+  epoch: number;
+  issuedAt: number;
+  expiresAt: number;
+  certificate: Record<string, unknown>;
+};
+
+export type DeviceEnrollmentStatus = {
+  pending?: {
+    accountUpeerId: string;
+    authorizerDeviceId: string;
+    expiresAt: number;
+  };
+  installed?: EnrollmentCertificateSummary;
+};
+
+export type DeviceEnrollmentBeginResult = {
+  offer: {
+    version: number;
+    accountUpeerId: string;
+    accountPublicKey: string;
+    authorizerDeviceId: string;
+    inviteId: string;
+    expiresAt: number;
+  };
+  request: string;
+};
+
 export type PeerInfo = {
   URI: string;
   Up: boolean;

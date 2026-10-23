@@ -45,4 +45,9 @@ interface IYggdrasilTransport {
   String revokeAccountDevice(String deviceId, String reason);
   boolean validateDeviceAdmission(String certificateJSON, String registryJSON, String expectedAccountUpeerId, long nowMillis);
   boolean verifyLocationBlock(String blockJSON, String publicKeyHex, long nowMillis);
+  String deviceEnrollmentBegin(String code);
+  String deviceEnrollmentRequestJSON();
+  String deviceEnrollmentFinish(String sealedResponse);
+  void deviceEnrollmentCancel();
+  String deviceEnrollmentStatusJSON();
 }

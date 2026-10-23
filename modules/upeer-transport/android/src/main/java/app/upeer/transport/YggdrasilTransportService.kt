@@ -40,6 +40,7 @@ class YggdrasilTransportService : Service() {
   private lateinit var contactRegistries: ContactRegistryStore
   private lateinit var contactAdmission: ContactEncryptionAdmission
   private lateinit var dhtRuntime: YggdrasilDhtRuntime
+  private lateinit var enrollment: DeviceEnrollment
   private var bridge: Bridge? = null
 
   private val binder = object : IYggdrasilTransport.Stub() {
@@ -192,6 +193,11 @@ class YggdrasilTransportService : Service() {
     override fun lookupContactLocation(upeerId: String): String = dhtRuntime.lookupContactLocation(upeerId).orEmpty()
     override fun verifyLocationBlock(blockJSON: String, publicKeyHex: String, nowMillis: Long): Boolean =
       dhtBindings.verifyLocationBlock(blockJSON, publicKeyHex, nowMillis)
+    override fun deviceEnrollmentBegin(code: String): String = enrollment.begin(code)
+    override fun deviceEnrollmentRequestJSON(): String = enrollment.requestJSON()
+    override fun deviceEnrollmentFinish(sealedResponse: String): String = enrollment.finish(sealedResponse)
+    override fun deviceEnrollmentCancel() = enrollment.cancel()
+    override fun deviceEnrollmentStatusJSON(): String = enrollment.statusJSON()
   }
 
   override fun onCreate() {
@@ -199,6 +205,7 @@ class YggdrasilTransportService : Service() {
     System.loadLibrary("gojni")
     app.upeer.transportbridge.transportbridge.Transportbridge.touch()
     configStore = YggdrasilConfigStore(this)
+    enrollment = DeviceEnrollment(this)
     identity = YggdrasilIdentity(this)
     accountRegistry = AccountRegistryFacade(identity)
     dhtLocation = DhtLocationStore(this)
