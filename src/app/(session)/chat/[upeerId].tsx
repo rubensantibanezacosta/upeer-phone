@@ -41,6 +41,7 @@ export default function ChatRoute() {
   const [error, setError] = useState('');
   const [showScrollButton, setShowScrollButton] = useState(false);
 
+
   const refresh = useCallback(async () => {
     if (!upeerId) return;
     const [nextMessages, contacts, conversations] = await Promise.all([getMessages(upeerId, MESSAGE_LIMIT), getContacts(), getConversations()]);
@@ -138,7 +139,7 @@ export default function ChatRoute() {
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
-        <ChatHeader alias={alias || 'Conversación'} onBack={() => router.back()} onUnavailable={showUnavailable} status={contactStatus} upeerId={upeerId ?? ''} />
+        <ChatHeader alias={alias || 'Conversación'} onBack={() => router.back()} onOpenInfo={() => router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } })} onUnavailable={showUnavailable} status={contactStatus} upeerId={upeerId ?? ''} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
           <View style={styles.timeline}>
             {timeline.length === 0 ? <ChatEmptyState /> : (

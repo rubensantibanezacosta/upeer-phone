@@ -6,6 +6,7 @@ import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { CONTACT_STATUS_LABELS } from '@/domain/contact-labels';
 import { getTrustLabel } from '@/domain/trust';
 import { useTheme } from '@/hooks/use-theme';
 import type { UPeerContact } from '@/storage/contact-store';
@@ -16,15 +17,8 @@ type ChatHeaderProps = {
   status: UPeerContact['status'];
   vouchScore?: number;
   onBack: () => void;
+  onOpenInfo: () => void;
   onUnavailable: (label: string) => void;
-};
-
-const statusLabels: Record<UPeerContact['status'], string> = {
-  pending: 'Esperando que acepte…',
-  incoming: 'Solicitud de contacto',
-  connected: 'En línea',
-  offline: 'Desconectado',
-  blocked: 'Bloqueado',
 };
 
 function HeaderAction({ label, onPress, children }: { label: string; onPress: () => void; children: React.ReactNode }) {
@@ -35,7 +29,7 @@ function HeaderAction({ label, onPress, children }: { label: string; onPress: ()
   );
 }
 
-export function ChatHeader({ alias, upeerId, status, vouchScore, onBack, onUnavailable }: ChatHeaderProps) {
+export function ChatHeader({ alias, upeerId, status, vouchScore, onBack, onOpenInfo, onUnavailable }: ChatHeaderProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -53,13 +47,13 @@ export function ChatHeader({ alias, upeerId, status, vouchScore, onBack, onUnava
           accessibilityHint={`Identidad ${upeerId}`}
           accessibilityLabel={`Información de ${alias}. ${getTrustLabel(vouchScore)}`}
           accessibilityRole="button"
-          onPress={() => onUnavailable('Información del contacto')}
+          onPress={onOpenInfo}
           style={styles.identity}
         >
           <ContactTrustAvatar name={alias} size={40} vouchScore={vouchScore} />
           <YStack flex={1} gap={2} minWidth={0}>
             <SizableText color={theme.text} fontSize={16} fontWeight="500" numberOfLines={1}>{alias}</SizableText>
-            <Text color={theme.placeholder} fontSize={12} numberOfLines={1}>{statusLabels[status]}</Text>
+            <Text color={theme.placeholder} fontSize={12} numberOfLines={1}>{CONTACT_STATUS_LABELS[status]}</Text>
           </YStack>
         </NativeRipplePressable>
         <HeaderAction label="Videollamada" onPress={() => onUnavailable('Videollamada')}><Video color={theme.text} size={24} /></HeaderAction>

@@ -684,7 +684,9 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Ajustes · almacenamiento | Placeholder | Sin uso real, caché ni limpieza |
 | Ajustes · acerca de | Placeholder | Sin versión, licencia ni enlaces |
 | Perfil · revocar dispositivo | Pendiente | El bridge expone `revokeAccountDevice`; falta el botón y la confirmación en la lista de dispositivos |
-| Chat · cabecera | Parcial | Información del contacto, videollamada, llamada de voz y buscar en la conversación avisan «pendiente» |
+| Chat · cabecera | Parcial | «Info. del contacto» abre la ficha completa; videollamada, llamada de voz y buscar en la conversación avisan «pendiente» |
+| Ficha del contacto | Hecha | Pantalla completa `/contact/[upeerId]` con la distribución de escritorio: hero (avatar 96, alias, identidad, presencia y reputación), fila Llamar·Vídeo·Buscar, identidad y dirección copiables, acciones de conversación y zona de riesgo. Bloquear/desbloquear y eliminar son reales; compartir, silenciar, archivar, favoritos, cifrado y vaciar chat se muestran atenuados con «Pronto» |
+| Ficha de grupo | Pendiente | No hay grupos en el móvil; cuando existan `GROUP_*` debe replicar la misma pantalla con miembros y administración |
 | Chat · composer | Parcial | Adjuntar archivo y nota de voz avisan «pendiente» |
 | Chat · mensajes | Parcial | Solo editar; faltan responder, reaccionar, borrar, reenviar y ver estado real de entrega |
 | Chat · presencia | Pendiente | Sin «escribiendo…» ni presencia en la cabecera |
@@ -697,6 +699,7 @@ Reglas de estilo acordadas para toda pantalla nueva:
 - Los estados vacíos repiten el patrón de «Aún no hay llamadas»: círculo de 64 px con `theme.backgroundElement`, icono de 28 px en `theme.placeholder`, título 17/600 y `Paragraph` centrado; si hace falta una acción, se añade el botón estándar debajo. Nada de bordes discontinuos ni tamaños propios.
 - Las pantallas de primer nivel usan `theme.background`; el círculo del estado vacío necesita ese contraste para verse.
 - Las cabeceras de lista repiten el patrón de Chats: `H1` 24/700 y, a la derecha, acciones de icono de 44×44 (`headerButton`); la búsqueda es la misma caja de 14 de radio con `Input` sin borde propio.
+- Las fichas de contacto y de grupo son pantallas completas empujadas al stack (`/contact/[upeerId]`), no hojas inferiores: cabecera de 44×44 con `ArrowLeft` y título 17/700, hero centrado con avatar 96, fila de tres acciones circulares de 52, campos copiables y listas de filas de 58 con icono 22. Las acciones que aún no existen se muestran atenuadas (`opacity` 0.45) con la etiqueta «Pronto», siguiendo la distribución de `ContactInfoPanelMainView` de escritorio, en vez de ocultarlas.
 - Las cuatro pestañas principales comparten el mismo bloque de cabecera y el mismo relleno de contenido (`paddingTop` 20, `paddingHorizontal` 20, `gap` 12); en Llamadas eso queda como `H1` 24/700 sin acción hasta que exista «nueva llamada». Cuando llegue el historial, sus filas reutilizan el item de conversación.
 - Las filas de contacto reutilizan el item de conversación: `ContactTrustAvatar` de 55 px, título 15/600 con el dato secundario a la derecha (hora en chats, estado en contactos), segunda línea de 13 con `numberOfLines={1}`, `minHeight` 80 y separador `hairline` a sangre (`marginHorizontal: -12`). No se inventan tarjetas con borde y fondo propio para listas.
 - El relleno horizontal va en el contenido de cada pantalla, nunca en el `Tabs`.

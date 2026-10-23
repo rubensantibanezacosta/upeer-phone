@@ -29,6 +29,7 @@ export default function AuthenticatedLayout() {
     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     <Stack.Screen name="settings" options={{ headerShown: false }} />
     <Stack.Screen name="chat/[upeerId]" options={{ headerShown: false }} />
+    <Stack.Screen name="contact/[upeerId]" options={{ headerShown: false }} />
   </Stack></SessionShell>;
 }
 
