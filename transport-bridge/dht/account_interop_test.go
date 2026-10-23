@@ -15,12 +15,12 @@ type accountInteropVector struct {
 	AccountSecretKeySeed string          `json:"accountSecretKeySeed"`
 	AccountPublicKey     string          `json:"accountPublicKey"`
 	AccountUpeerID       string          `json:"accountUpeerId"`
-	DevicePublicKey  string          `json:"devicePublicKey"`
-	DeviceID         string          `json:"deviceId"`
-	RegistryKey      string          `json:"registryKey"`
-	Certificate      json.RawMessage `json:"certificate"`
-	Registry         json.RawMessage `json:"registry"`
-	LocationBlock    json.RawMessage `json:"locationBlock"`
+	DevicePublicKey      string          `json:"devicePublicKey"`
+	DeviceID             string          `json:"deviceId"`
+	RegistryKey          string          `json:"registryKey"`
+	Certificate          json.RawMessage `json:"certificate"`
+	Registry             json.RawMessage `json:"registry"`
+	LocationBlock        json.RawMessage `json:"locationBlock"`
 }
 
 func loadAccountInteropVector(t *testing.T) accountInteropVector {

@@ -45,7 +45,10 @@ public final class CryptoIdentity implements Seq.Proxy {
 	public native String buildLinkedDrReset(String accountUpeerID, String senderYggAddress, String signedPreKeyJSON, String ratchetContext, String deviceID) throws Exception;
 	public native String buildLocationBlock(String addressesJSON, long dhtSeq, long ttlMillis, String deviceID) throws Exception;
 	public native String buildSignedPacket(String senderYggAddress, String packetJSON) throws Exception;
+	public native String createEnrollmentInvite(long ttlMillis, long nowMillis) throws Exception;
 	public native String createSignedPreKey(long spkID) throws Exception;
+	public native String issueEnrollmentCertificate(String inviteJSON, String requestJSON, long epoch, long issuedAt, long ttlMillis) throws Exception;
+	public native String openEnrollmentRequest(String inviteJSON, String sealedJSON, long nowMillis) throws Exception;
 	public native byte[] openSealed(String ciphertextHex) throws Exception;
 	public native String publicKeyHex();
 	public native String ratchetDecrypt(String sessionJSON, String messageJSON) throws Exception;
