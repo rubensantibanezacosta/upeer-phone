@@ -27,10 +27,12 @@ export const Colors = {
     dangerSoft: '#FDECEC',
     dangerBorder: '#F3C4C4',
     onDangerSoft: '#8C1D18',
+    qrSurface: '#FFFFFF',
     backdrop: '#0000008C',
     bubbleMine: '#E1EFFF',
     bubbleMineText: '#0B4F99',
     receiptRead: '#0B6BCB',
+    ripple: '#0000001F',
   },
   dark: {
     text: '#ffffff',
@@ -51,10 +53,12 @@ export const Colors = {
     dangerSoft: '#2A1315',
     dangerBorder: '#5C2A2C',
     onDangerSoft: '#FFD5D3',
+    qrSurface: '#FFFFFF',
     backdrop: '#000000B3',
     bubbleMine: '#13293F',
     bubbleMineText: '#D7E9FF',
     receiptRead: '#53BDEB',
+    ripple: '#FFFFFF30',
   },
 } as const;
 

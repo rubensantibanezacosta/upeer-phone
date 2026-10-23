@@ -71,7 +71,7 @@ export function ChatListItem({ entry, onOpen, onOpenMenu }: ChatListItemProps) {
       delayLongPress={350}
       onLongPress={handleLongPress}
       onPress={handlePress}
-      style={[styles.item]}
+      style={[styles.item, { borderBottomColor: theme.border }]}
     >
       <XStack alignItems="center" gap={12} minHeight={80} paddingVertical={0}>
         <ContactTrustAvatar name={entry.title} size={55} vouchScore={entry.vouchScore} />

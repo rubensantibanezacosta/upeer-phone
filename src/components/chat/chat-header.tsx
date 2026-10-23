@@ -82,7 +82,7 @@ export function ChatHeader({ alias, upeerId, status, vouchScore, onBack, onUnava
 }
 
 const styles = StyleSheet.create({
-  action: { alignItems: 'center', borderRadius: 8, height: 40, justifyContent: 'center', width: 40 },
+  action: { alignItems: 'center', borderRadius: 8, height: 40, justifyContent: 'center', overflow: 'hidden', width: 40 },
   identity: { alignItems: 'center', borderRadius: 12, flex: 1, flexDirection: 'row', gap: 12, minHeight: 48, minWidth: 0, paddingHorizontal: 6, paddingVertical: 4 },
   overlay: { flex: 1 },
   menu: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, elevation: 8, paddingVertical: 6, position: 'absolute', right: 8, shadowColor: '#000', shadowOffset: { height: 6, width: 0 }, shadowOpacity: 0.28, shadowRadius: 14, width: 248 },

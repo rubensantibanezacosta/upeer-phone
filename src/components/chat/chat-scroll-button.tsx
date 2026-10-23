@@ -19,5 +19,5 @@ export function ChatScrollButton({ onPress }: { onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  button: { alignItems: 'center', borderRadius: 8, bottom: 14, elevation: 6, height: 40, justifyContent: 'center', position: 'absolute', right: 16, shadowColor: '#000', shadowOffset: { height: 2, width: 0 }, shadowOpacity: 0.3, shadowRadius: 8, width: 40 },
+  button: { alignItems: 'center', borderRadius: 8, bottom: 14, elevation: 6, height: 40, justifyContent: 'center', overflow: 'hidden', position: 'absolute', right: 16, shadowColor: '#000', shadowOffset: { height: 2, width: 0 }, shadowOpacity: 0.3, shadowRadius: 8, width: 40 },
 });

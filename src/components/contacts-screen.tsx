@@ -1,145 +1,118 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, H1, Input, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
+import { Search, UserPlus, Users } from '@tamagui/lucide-icons-2';
+import { H1, Input, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 import type { UPeerIdentity } from '@/domain/identity';
+import { BottomSheet } from '@/components/bottom-sheet';
+import { ContactFormSheet, type ContactDraft } from '@/components/contact-form-sheet';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { registerPeer as registerNativePeer } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { deleteContact, getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
-import { loadProfile, saveProfile } from '@/storage/identity-store';
 import { useTheme } from '@/hooks/use-theme';
 
-type ContactsScreenProps = { identity: UPeerIdentity; onSignOut: () => void; onContactsChange?: (contacts: UPeerContact[]) => void };
+type ContactsScreenProps = { identity: UPeerIdentity };
 
-export function ContactsScreen({ identity, onSignOut, onContactsChange }: ContactsScreenProps) {
+const statusLabels: Record<UPeerContact['status'], string> = {
+  pending: 'Esperando respuesta',
+  incoming: 'Solicitud recibida',
+  connected: 'Conectado',
+  offline: 'Desconectado',
+  blocked: 'Bloqueado',
+};
+
+export function ContactsScreen({ identity }: ContactsScreenProps) {
   const theme = useTheme();
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
-  const [contactInput, setContactInput] = useState('');
-  const [alias, setAlias] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState('');
+  const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
 
-  const refresh = useCallback(async () => {
-    const nextContacts = await getContacts();
-    setContacts(nextContacts);
-    onContactsChange?.(nextContacts);
-  }, [onContactsChange]);
+  const loadContacts = useCallback(() => getContacts().then(setContacts), []);
+
+  const reportLoadFailure = useCallback((cause: unknown) => {
+    console.warn('No se pudieron cargar los contactos.', cause);
+    setError(cause instanceof Error ? cause.message : 'No se pudieron cargar los contactos.');
+  }, []);
 
   useEffect(() => {
-    void (async () => {
-      try {
-        await refresh();
-        const profile = await loadProfile();
-        setAlias(profile?.alias ?? '');
-      } catch (cause) {
-        setError(cause instanceof Error ? cause.message : 'No se pudieron cargar los contactos y el perfil.');
-      }
-    })();
-  }, [refresh]);
+    loadContacts().catch(reportLoadFailure);
+  }, [loadContacts, reportLoadFailure]);
 
-  const addContact = async () => {
-    const separator = contactInput.indexOf('@');
-    const upeerId = contactInput.slice(0, separator).trim();
-    const address = contactInput.slice(separator + 1).trim();
-    if (separator < 1 || !/^[0-9a-f]{64}$/i.test(upeerId) || !/^([23][0-9a-f]{2}:)/i.test(address)) {
-      setError('Formato esperado: uPeerID de 64 caracteres hexadecimales@dirección IPv6 200::/7 o 300::/8.');
-      return;
-    }
-    if (upeerId.toLowerCase() === identity.upeerId) {
-      setError('No puedes añadirte como contacto.');
-      return;
-    }
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return contacts;
+    return contacts.filter((contact) => contact.name.toLowerCase().includes(needle) || contact.upeerId.toLowerCase().includes(needle));
+  }, [contacts, query]);
+
+  const addContact = async (draft: ContactDraft) => {
+    if (draft.upeerId === identity.upeerId.toLowerCase()) throw new Error('No puedes añadirte como contacto.');
+    await saveContact({ upeerId: draft.upeerId, address: draft.address, name: draft.name, publicKey: null, status: 'pending', createdAt: Date.now() });
     try {
-      const normalizedId = upeerId.toLowerCase();
-      await saveContact({ upeerId: normalizedId, address, name: upeerId.slice(0, 12), publicKey: null, status: 'pending', createdAt: Date.now() });
-      try {
-        await registerNativePeer(normalizedId, address, '', '');
-      } catch (cause) {
-        console.warn('El contacto se guardó, pero el servicio nativo no lo registró.', cause);
-      }
-      await refresh();
-      setContactInput('');
-      Alert.alert('Contacto guardado', 'El contacto se guardó en este dispositivo.');
+      await registerNativePeer(draft.upeerId, draft.address, '', '');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No se pudo guardar el contacto.');
+      console.warn('El contacto se guardó, pero el servicio nativo no lo registró.', cause);
     }
+    await loadContacts();
   };
 
-  const saveAlias = async () => {
-    await saveProfile({ upeerId: identity.upeerId, publicKey: identity.publicKey, alias: alias.trim().slice(0, 64) });
+  const confirmRemove = (contact: UPeerContact) => {
+    Alert.alert('Eliminar contacto', `¿Quieres eliminar a ${contact.name} de tus contactos?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: () => { deleteContact(contact.upeerId).then(loadContacts).catch(reportLoadFailure); } },
+    ]);
   };
 
-  const removeContact = async (upeerId: string) => {
-    await deleteContact(upeerId);
-    await refresh();
-  };
-
-  const performSignOut = async () => {
-    setBusy(true);
-    setError('');
-    try {
-      onSignOut();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No se pudieron borrar los datos de la cuenta.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const lockIdentity = () => {
-    Alert.alert(
-      'Cerrar sesión',
-      'Se borrarán tu identidad y todos los datos locales de este dispositivo. Esta acción no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Cerrar sesión', style: 'destructive', onPress: () => void performSignOut() },
-      ],
-    );
-  };
+  const openChat = (contact: UPeerContact) => router.push({ pathname: '/chat/[upeerId]', params: { upeerId: contact.upeerId } });
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.screen }}>
-      <ScrollView contentContainerStyle={{ alignSelf: 'center', gap: 18, paddingVertical: 20, paddingBottom: 36, width: '100%', maxWidth: 640 }}>
-        <YStack gap={8} paddingVertical={12}>
-     
-          <H1 color="color" fontSize={24} fontWeight="700">Contactos</H1>
-          <Paragraph color="placeholder-color">Gestiona tu identidad y mantén tu red privada conectada.</Paragraph>
-        </YStack>
-        <Card borderWidth={1} backgroundColor="color-1" borderColor="border-color" borderRadius={18} padding={18}>
-          <YStack gap={12}>
-            <SizableText color="color" fontSize={17} fontWeight="700">Tu perfil</SizableText>
-            <Input accessibilityLabel="Nombre visible" autoCapitalize="words" backgroundColor="color-2" borderColor="border-color" color="color" onBlur={() => { void saveAlias(); }} onChangeText={setAlias} placeholder="Tu nombre" placeholderTextColor="placeholder-color" value={alias} />
-            <Text color="placeholder-color" style={{ fontFamily: 'monospace', userSelect: 'text' }} fontSize={12}>{identity.upeerId}</Text>
+    <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: theme.background }]}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <XStack alignItems="center" justifyContent="space-between">
+          <H1 color={theme.text} fontSize={24} fontWeight="700">Contactos</H1>
+          <NativeRipplePressable accessibilityLabel="Añadir contacto" accessibilityRole="button" onPress={() => setAdding(true)} style={styles.headerButton}><UserPlus color={theme.text} size={21} /></NativeRipplePressable>
+        </XStack>
+        <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={10} paddingHorizontal={14} paddingVertical={11}>
+          <Search color={theme.placeholder} size={17} />
+          <Input backgroundColor="transparent" borderWidth={0} color={theme.text} flex={1} fontSize={14} height={22} onChangeText={setQuery} padding={0} placeholder="Buscar contactos" placeholderTextColor={theme.placeholder} value={query} />
+        </XStack>
+        {error ? <Paragraph accessibilityRole="alert" color={theme.danger} fontSize={12}>{error}</Paragraph> : null}
+        {filtered.length === 0
+          ? <YStack alignItems="center" flex={1} gap={12} justifyContent="center" padding={24}>
+            <YStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={32} height={64} justifyContent="center" width={64}>
+              <Users color={theme.placeholder} size={28} /></YStack>
+            <SizableText color={theme.text} fontSize={17} fontWeight="600">{contacts.length === 0 ? 'Aún no hay contactos' : 'Sin resultados'}</SizableText>
+            <Paragraph color={theme.placeholder} textAlign="center">{contacts.length === 0 ? 'Añade una identidad para iniciar una conversación cifrada.' : 'Prueba con otro nombre o identidad.'}</Paragraph>
+            {contacts.length === 0 ? <NativeRippleButton onPress={() => setAdding(true)}>Añadir contacto</NativeRippleButton> : null}
           </YStack>
-        </Card>
-        <Card borderWidth={1} backgroundColor="color-1" borderColor="border-color" borderRadius={18} padding={18}>
-          <YStack gap={12}>
-            <SizableText color="color" fontSize={17} fontWeight="700">Añadir contacto</SizableText>
-            <Input accessibilityLabel="uPeerID y dirección de red del contacto" autoCapitalize="none" autoCorrect={false} backgroundColor="color-2" borderColor="border-color" color="color" onChangeText={setContactInput} placeholder="uPeerID@200::…" placeholderTextColor="placeholder-color" value={contactInput} />
-            <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={48} onPress={() => void addContact()}>Guardar contacto</NativeRippleButton>
-          </YStack>
-        </Card>
-        {!!error && <Paragraph accessibilityRole="alert" color="danger">{error}</Paragraph>}
-        <YStack gap={12}>
-          <SizableText color="color" fontSize={18} fontWeight="700">Tus contactos <SizableText color="placeholder-color" fontSize={15}>({contacts.length})</SizableText></SizableText>
-          {contacts.length === 0 ? <Card borderWidth={1} backgroundColor="color-1" borderColor="border-color" borderRadius={18} padding={18}><Paragraph color="placeholder-color">Aún no tienes contactos. Añade uno para empezar.</Paragraph></Card> : contacts.map((contact) => (
-            <Card key={contact.upeerId} borderWidth={1} backgroundColor="color-1" borderColor="border-color" borderRadius={14} padding={16}>
-              <XStack alignItems="center" gap={12}>
-                <YStack alignItems="center" backgroundColor="color-3" borderRadius={99} height={42} justifyContent="center" width={42}><SizableText color="accent-color" fontSize={17} fontWeight="700">{contact.name.charAt(0).toUpperCase()}</SizableText></YStack>
+          : <YStack marginTop={2}>{filtered.map((contact) => (
+            <NativeRipplePressable accessibilityHint="Mantén pulsado para eliminar el contacto" accessibilityLabel={`Abrir conversación con ${contact.name}`} accessibilityRole="button" delayLongPress={350} key={contact.upeerId} onLongPress={() => confirmRemove(contact)} onPress={() => openChat(contact)} style={[styles.item, { borderBottomColor: theme.border }]}>
+              <XStack alignItems="center" gap={12} minHeight={80} paddingVertical={10}>
+                <ContactTrustAvatar name={contact.name} size={55} />
                 <YStack flex={1} gap={4}>
-                  <SizableText color="color" fontSize={15} fontWeight="700">{contact.name}</SizableText>
-                  <Text color="placeholder-color" style={{ fontFamily: 'monospace' }} fontSize={11}>{contact.upeerId.slice(0, 20)}…</Text>
-                  <Paragraph color="placeholder-color" fontSize={12}>{contact.status}</Paragraph>
+                  <XStack alignItems="center" gap={8}>
+                    <SizableText color={theme.text} flex={1} fontSize={15} fontWeight="600" numberOfLines={1}>{contact.name}</SizableText>
+                    <Text color={theme.placeholder} fontSize={11} fontWeight="500" numberOfLines={1}>{statusLabels[contact.status]}</Text>
+                  </XStack>
+                  <Text color={theme.placeholder} fontFamily="monospace" fontSize={13} numberOfLines={1}>{contact.upeerId}</Text>
                 </YStack>
-                <NativeRipplePressable accessibilityRole="button" onPress={() => void removeContact(contact.upeerId)}><SizableText color="danger" fontSize={13} fontWeight="600">Eliminar</SizableText></NativeRipplePressable>
               </XStack>
-            </Card>
-          ))}
-        </YStack>
-        <NativeRippleButton backgroundColor="transparent" borderColor="border-color" borderWidth={1} color="danger" disabled={busy} height={48} onPress={lockIdentity}>Cerrar sesión y borrar datos locales</NativeRippleButton>
+            </NativeRipplePressable>
+          ))}</YStack>}
       </ScrollView>
+      <BottomSheet icon={<UserPlus color={theme.accent} size={20} />} onClose={() => setAdding(false)} title="Añadir contacto" visible={adding}>
+        <ContactFormSheet onAdd={addContact} onDone={() => setAdding(false)} />
+      </BottomSheet>
     </SafeAreaView>
   );
 }
 
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  item: { borderBottomWidth: StyleSheet.hairlineWidth, marginHorizontal: -12, overflow: 'hidden', paddingHorizontal: 12 },
+  content: { flexGrow: 1, gap: 12, paddingBottom: 24, paddingHorizontal: 20, paddingTop: 20 },
+  headerButton: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', overflow: 'hidden', width: 44 },
+});

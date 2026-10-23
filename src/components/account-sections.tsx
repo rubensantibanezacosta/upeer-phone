@@ -12,6 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { loadProfile, saveProfile } from '@/storage/identity-store';
+import { DeviceAuthorizerPanel } from '@/components/device-authorizer-panel';
 import { profileHelpContent, type ProfileInfoKey } from '@/components/profile-help-content';
 import { ProfileAddressSection, ProfileHeroSection, ProfileStatsSection, ProfileTechnicalSection } from '@/components/profile-sections';
 
@@ -19,8 +20,10 @@ export function CallsScreen() {
   const theme = useTheme();
   return (
     <YStack flex={1} backgroundColor={theme.background}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <H1 color={theme.text} fontSize={24}>Llamadas</H1>
+      <ScrollView contentContainerStyle={styles.callsContent}>
+        <XStack alignItems="center" justifyContent="space-between">
+          <H1 color={theme.text} fontSize={24} fontWeight="700">Llamadas</H1>
+        </XStack>
         <YStack alignItems="center" flex={1} gap={12} justifyContent="center" padding={24}>
           <YStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={32} height={64} justifyContent="center" width={64}>
             <Clock3 color={theme.placeholder} size={28} /></YStack>
@@ -112,6 +115,7 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
           <Paragraph accessibilityRole="alert" color="danger">{error}</Paragraph> : null}
         <ProfileStatsSection reputation={null} vaultStats={null} onInfo={setInfo} />
         <ProfileAddressSection fullId={fullId} onCopy={copyProfileAddress} onShowQr={() => setQrOpen(true)} onInfo={() => setInfo('direccion')} />
+        <DeviceAuthorizerPanel onInfo={() => setInfo('dispositivos')} />
         <ProfileTechnicalSection identity={identity} address={address} onInfo={setInfo} onCopy={copyProfileValue} />
         <YStack paddingHorizontal={20}><NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.danger} height={48} icon={<LogOut color={theme.danger} size={18} />} onPress={confirmSignOut}>Cerrar sesión y borrar datos locales</NativeRippleButton></YStack>
       </ScrollView>
@@ -157,4 +161,4 @@ function ProfileInfoModal({ info, onClose }: { info: ProfileInfoKey | null; onCl
   );
 }
 
-const styles = StyleSheet.create({ content: { flexGrow: 1, paddingBottom: 24 }, modalBackdrop: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 20 }, qrDialog: { alignItems: 'center', borderRadius: 16, borderWidth: 1, gap: 14, maxWidth: 380, padding: 22, width: '100%' }, qrCanvas: { alignItems: 'center', borderRadius: 12, justifyContent: 'center', minHeight: 250, padding: 15, width: 250 }, infoDialog: { borderRadius: 16, borderWidth: 1, maxHeight: '82%', maxWidth: 480, padding: 20, width: '100%' }, infoContent: { gap: 14, paddingVertical: 18 } });
+const styles = StyleSheet.create({ content: { flexGrow: 1, paddingBottom: 24 }, callsContent: { flexGrow: 1, gap: 12, paddingBottom: 24, paddingHorizontal: 20, paddingTop: 20 }, modalBackdrop: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 20 }, qrDialog: { alignItems: 'center', borderRadius: 16, borderWidth: 1, gap: 14, maxWidth: 380, padding: 22, width: '100%' }, qrCanvas: { alignItems: 'center', borderRadius: 12, justifyContent: 'center', minHeight: 250, padding: 15, width: 250 }, infoDialog: { borderRadius: 16, borderWidth: 1, maxHeight: '82%', maxWidth: 480, padding: 20, width: '100%' }, infoContent: { gap: 14, paddingVertical: 18 } });

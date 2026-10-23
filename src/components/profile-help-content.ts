@@ -1,4 +1,4 @@
-export type ProfileInfoKey = 'reputacion' | 'almacenamiento' | 'direccion' | 'id' | 'clave' | 'red';
+export type ProfileInfoKey = 'reputacion' | 'almacenamiento' | 'direccion' | 'dispositivos' | 'id' | 'clave' | 'red';
 
 export const profileHelpContent: Record<ProfileInfoKey, { title: string; description: string; items: { label: string; description: string }[] }> = {
   reputacion: {
@@ -26,6 +26,16 @@ export const profileHelpContent: Record<ProfileInfoKey, { title: string; descrip
     items: [
       { label: '¿Cómo se comparte?', description: 'Puedes copiarla y pegarla donde quieras, o mostrar el código QR para que alguien la escanee directamente con su móvil.' },
       { label: '¿Es segura?', description: 'Sí, puedes compartirla libremente. Solo sirve para que te encuentren en la app, no da acceso a tus mensajes ni a tu cuenta.' },
+    ],
+  },
+  dispositivos: {
+    title: 'Dispositivos de la cuenta',
+    description: 'Son los dispositivos que pueden usar tu cuenta sin que les copies la frase de recuperación. Cada uno guarda su propia clave en el almacén seguro del sistema.',
+    items: [
+      { label: 'Vincular un dispositivo', description: 'Genera una invitación y ábrela en el dispositivo nuevo. Ese dispositivo crea su clave, te enseña su solicitud y tú firmas su certificado desde aquí.' },
+      { label: 'Este dispositivo', description: 'Es el que estás usando ahora. Aparece marcado en la lista para que sepas cuál es cuál cuando haya varios.' },
+      { label: 'Qué no viaja', description: 'Ni la frase de recuperación ni la clave de la cuenta salen del dispositivo que autoriza. El dispositivo nuevo solo recibe su certificado.' },
+      { label: 'Caducidad', description: 'La invitación caduca a los pocos minutos y solo sirve una vez. Si no la usas, desaparece sola.' },
     ],
   },
   id: {

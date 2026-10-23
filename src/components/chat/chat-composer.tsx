@@ -56,7 +56,7 @@ export function ChatComposer({ value, onChange, onSend, onUnavailable }: ChatCom
 }
 
 const styles = StyleSheet.create({
-  action: { alignItems: 'center', borderRadius: 8, height: 48, justifyContent: 'center', width: 48 },
+  action: { alignItems: 'center', borderRadius: 8, height: 48, justifyContent: 'center', overflow: 'hidden', width: 48 },
   input: { paddingHorizontal: 16, paddingVertical: 12, textAlignVertical: 'center' },
   send: { alignItems: 'center', borderRadius: 8, height: 48, justifyContent: 'center', width: 48 },
 });

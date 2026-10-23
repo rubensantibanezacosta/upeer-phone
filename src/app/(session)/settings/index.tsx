@@ -29,7 +29,7 @@ export default function SettingsIndexRoute() {
       </Link>
       <YStack gap={4} paddingBottom={8}><H1 color={theme.text} fontSize={24}>Configuración</H1><Text color={theme.placeholder} fontSize={14}>Elige una sección para administrar tu cuenta</Text></YStack>
       <YStack gap={4}>{settingsSections.map((item) => <Link key={item.id} href={{ pathname: '/settings/[section]', params: { section: item.id } }} asChild>
-        <NativeRipplePressable accessibilityRole="button" android_ripple={{ color: theme.backgroundSelected }} style={StyleSheet.flatten([styles.row, { backgroundColor: theme.backgroundElement }])}>
+        <NativeRipplePressable accessibilityRole="button" style={StyleSheet.flatten([styles.row, { backgroundColor: theme.backgroundElement }])}>
           <item.icon color={theme.placeholder} size={22} /><YStack flex={1} gap={3}><SizableText color={theme.text} fontSize={15} fontWeight="600">{item.label}</SizableText><Text color={theme.placeholder} fontSize={12}>{item.description}</Text></YStack><ChevronRight color={theme.placeholder} size={15} />
         </NativeRipplePressable>
       </Link>)}</YStack>
