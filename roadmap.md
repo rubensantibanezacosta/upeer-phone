@@ -664,8 +664,8 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 
 | Pantalla | Estado | Qué falta |
 |---|---|---|
-| Chats · búsqueda | Decorativa | El campo no filtra: `entries` no se deriva de la consulta |
-| Chats · filtros | Decorativos | `Todos`/`No leídos`/`Favoritos`/`Grupos` solo cambian el chip, no la lista |
+| Chats · búsqueda | Hecha | `Input` real que filtra por título, identidad y vista previa con `filterChatEntries` |
+| Chats · filtros | Hechos | `Todos` y `No leídos` filtran la lista y se combinan con la búsqueda; el estado vacío distingue «sin coincidencias» de «sin conversaciones». `Favoritos` y `Grupos` quedan fuera hasta que exista origen de datos |
 | Chats · menú contextual | Parcial | Silenciar, fijar, archivar y borrar avisan de «próximamente»; solo «marcar como leído» actúa |
 | Chats · nueva conversación | Parcial | «Nueva conversación» y «Nuevo grupo» avisan de «próximamente»; la lista de contactos sí abre el chat |
 | Contactos · alta | Hecha | Faltan solicitudes entrantes, reputación y bloqueo |

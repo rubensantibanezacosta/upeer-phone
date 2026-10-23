@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ellipsis, MessageCircle, MessageSquarePlus, Search, Settings, Users } from '@tamagui/lucide-icons-2';
-import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
+import { H1, Input, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ChatContextMenu } from '@/components/chat-context-menu';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { NewConversationList } from '@/components/new-conversation-list';
 import { ChatListItem, type ChatListEntry } from '@/components/chat-list-item';
+import { CHAT_LIST_FILTERS, filterChatEntries, isChatFilterActive, type ChatListFilter } from '@/domain/chat-list-filters';
 import { useSnackbar } from '@/components/snackbar';
 import { useTheme } from '@/hooks/use-theme';
 import type { UPeerContact } from '@/storage/contact-store';
@@ -34,7 +35,8 @@ export default function ChatsRoute() {
   const [selectedEntry, setSelectedEntry] = useState<ChatListEntry | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
-  const [filter, setFilter] = useState<'Todos' | 'No leídos' | 'Favoritos' | 'Grupos'>('Todos');
+  const [filter, setFilter] = useState<ChatListFilter>('all');
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     getContacts().then(setContacts).catch((cause: unknown) => console.warn('No se pudieron cargar los contactos para Chats.', cause));
@@ -46,7 +48,7 @@ export default function ChatsRoute() {
     return () => clearInterval(timer);
   }, []);
 
-  const entries: ChatListEntry[] = conversations.length > 0
+  const entries: ChatListEntry[] = useMemo(() => (conversations.length > 0
     ? conversations.map((conversation) => ({
       upeerId: conversation.upeerId,
       title: conversation.alias || conversation.upeerId.slice(0, 12),
@@ -66,7 +68,10 @@ export default function ChatsRoute() {
       lastStatus: null,
       pending: contact.status === 'pending',
       incoming: contact.status === 'incoming',
-    }));
+    }))), [contacts, conversations]);
+
+  const visibleEntries = useMemo(() => filterChatEntries(entries, filter, query), [entries, filter, query]);
+  const filtering = isChatFilterActive(filter, query);
 
   const openChat = (entry: ChatListEntry) => {
     setSelectedEntry(null);
@@ -101,24 +106,32 @@ export default function ChatsRoute() {
             <NativeRipplePressable accessibilityLabel="Más opciones" accessibilityRole="button" onPress={() => setMenuOpen((value) => !value)} style={styles.chatMenuButton}><Ellipsis color={theme.text} size={22} /></NativeRipplePressable>
           </XStack>
         </XStack>
-        <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={10} paddingHorizontal={14} paddingVertical={11}><Search color={theme.placeholder} size={17} /><Text color={theme.placeholder} fontSize={14}>Buscar conversaciones</Text></XStack>
+        <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={10} paddingHorizontal={14} paddingVertical={11}>
+          <Search color={theme.placeholder} size={17} />
+          <Input backgroundColor="transparent" borderWidth={0} color={theme.text} flex={1} fontSize={14} height={22} onChangeText={setQuery} padding={0} placeholder="Buscar conversaciones" placeholderTextColor={theme.placeholder} value={query} />
+        </XStack>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chatFiltersScroll} contentContainerStyle={styles.chatFilters}>
-          {(['Todos', 'No leídos', 'Favoritos', 'Grupos'] as const).map((item) => <NativeRipplePressable key={item} onPress={() => setFilter(item)} style={[styles.chatFilterChip, { backgroundColor: filter === item ? theme.backgroundSelected : theme.background, borderColor: filter === item ? theme.accent : theme.border }]}><Text color={filter === item ? theme.accent : theme.placeholder} fontSize={11} fontWeight={filter === item ? '700' : '500'}>{item}</Text>
+          {CHAT_LIST_FILTERS.map((item) => <NativeRipplePressable key={item.id} onPress={() => setFilter(item.id)} style={[styles.chatFilterChip, { backgroundColor: filter === item.id ? theme.backgroundSelected : theme.background, borderColor: filter === item.id ? theme.accent : theme.border }]}><Text color={filter === item.id ? theme.accent : theme.placeholder} fontSize={11} fontWeight={filter === item.id ? '700' : '500'}>{item.label}</Text>
           </NativeRipplePressable>)}
         </ScrollView>
-        {entries.length > 0 ? (
+        {visibleEntries.length > 0 ? (
           <YStack marginTop={2}>
-            {entries.map((entry) => <ChatListItem entry={entry} key={entry.upeerId} onOpen={openChat} onOpenMenu={openContextMenu} />)}
+            {visibleEntries.map((entry) => <ChatListItem entry={entry} key={entry.upeerId} onOpen={openChat} onOpenMenu={openContextMenu} />)}
           </YStack>
         ) : (
           <YStack alignItems="center" flex={1} gap={12} justifyContent="center" padding={24}>
             <View style={[styles.emptyAvatar, { backgroundColor: theme.backgroundElement }]}>
               <MessageCircle color={theme.placeholder} size={28} />
             </View>
-            <SizableText color={theme.text} fontSize={17} fontWeight="600">Tus conversaciones</SizableText>
-            <Paragraph color={theme.placeholder} lineHeight={24} textAlign="center">Añade un contacto para empezar. Tus mensajes y conversaciones se mostrarán en esta lista.</Paragraph>
-            <NativeRippleButton onPress={() => setComposerOpen(true)}>Nueva conversación</NativeRippleButton>
-            <NativeRipplePressable accessibilityRole="button" onPress={() => router.navigate('/contacts')}><Text color={theme.accent} fontSize={13} fontWeight="600">Ver contactos</Text></NativeRipplePressable>
+            {filtering ? <>
+              <SizableText color={theme.text} fontSize={17} fontWeight="600">Sin coincidencias</SizableText>
+              <Paragraph color={theme.placeholder} lineHeight={24} textAlign="center">Ninguna conversación coincide con la búsqueda o el filtro activo.</Paragraph>
+            </> : <>
+              <SizableText color={theme.text} fontSize={17} fontWeight="600">Tus conversaciones</SizableText>
+              <Paragraph color={theme.placeholder} lineHeight={24} textAlign="center">Añade un contacto para empezar. Tus mensajes y conversaciones se mostrarán en esta lista.</Paragraph>
+              <NativeRippleButton onPress={() => setComposerOpen(true)}>Nueva conversación</NativeRippleButton>
+              <NativeRipplePressable accessibilityRole="button" onPress={() => router.navigate('/contacts')}><Text color={theme.accent} fontSize={13} fontWeight="600">Ver contactos</Text></NativeRipplePressable>
+            </>}
           </YStack>
         )}
       </ScrollView>
