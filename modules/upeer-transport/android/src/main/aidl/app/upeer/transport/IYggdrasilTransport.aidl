@@ -50,4 +50,10 @@ interface IYggdrasilTransport {
   String deviceEnrollmentFinish(String sealedResponse);
   void deviceEnrollmentCancel();
   String deviceEnrollmentStatusJSON();
+  String enrollmentAuthorizerCreateInvite(long ttlMillis);
+  String enrollmentAuthorizerAcceptRequest(String requestCode);
+  String enrollmentAuthorizerComplete(String enrollmentJSON, long ttlMillis);
+  String enrollmentAuthorizerStatusJSON();
+  void enrollmentAuthorizerCancel(String inviteId);
+  void enrollmentAuthorizerCancelAll();
 }

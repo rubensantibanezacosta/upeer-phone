@@ -22,6 +22,9 @@ android {
   lintOptions {
     abortOnError false
   }
+  testOptions {
+    unitTests.returnDefaultValues = true
+  }
 }
 
 android.sourceSets.main.java.srcDirs += "$projectDir/src/main/java"

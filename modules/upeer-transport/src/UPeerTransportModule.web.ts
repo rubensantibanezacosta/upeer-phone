@@ -51,6 +51,12 @@ class UPeerTransportModule extends NativeModule<{}> {
   async deviceEnrollmentFinish(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async deviceEnrollmentCancel(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async deviceEnrollmentStatusJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async enrollmentAuthorizerCreateInvite(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async enrollmentAuthorizerAcceptRequest(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async enrollmentAuthorizerComplete(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async enrollmentAuthorizerStatusJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async enrollmentAuthorizerCancel(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async enrollmentAuthorizerCancelAll(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
 }
 
 export default registerWebModule(UPeerTransportModule, 'UPeerTransport');

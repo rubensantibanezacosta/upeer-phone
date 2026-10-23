@@ -6,7 +6,7 @@ import { sha512 } from '@noble/hashes/sha2.js';
 import { NativeModule, requireNativeModule } from 'expo';
 import { validateMnemonic } from '../../../src/domain/mnemonic';
 import { decodeEnrollmentTransfer, encodeEnrollmentTransfer } from '../../../src/domain/enrollment-transfer';
-import type { AccountRegistryStatus, DeviceEnrollmentBeginResult, DeviceEnrollmentStatus, DeviceIdentityStatus, DhtLocationStatus, EnrollmentCertificateSummary, IdentityTransportStatus, InboundTransportStatus, LocationBlock, PeerInfo, PeerPoolEntry, ProtocolConversation, ProtocolMessage, ProtocolTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
+import type { AccountRegistryDocument, AccountRegistryStatus, DeviceEnrollmentBeginResult, DeviceEnrollmentStatus, DeviceIdentityStatus, DhtLocationStatus, EnrollmentAuthorizerInvite, EnrollmentAuthorizerIssued, EnrollmentAuthorizerRequest, EnrollmentAuthorizerStatus, EnrollmentCertificateSummary, IdentityTransportStatus, InboundTransportStatus, LocationBlock, PeerInfo, PeerPoolEntry, ProtocolConversation, ProtocolMessage, ProtocolTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
 
 declare class UPeerTransportModule extends NativeModule<{}> {
   start(configJSON: number[]): Promise<YggdrasilNodeInfo>;
@@ -56,6 +56,12 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   deviceEnrollmentFinish(sealedResponse: string): Promise<string>;
   deviceEnrollmentCancel(): Promise<void>;
   deviceEnrollmentStatusJSON(): Promise<string>;
+  enrollmentAuthorizerCreateInvite(ttlMillis: number): Promise<string>;
+  enrollmentAuthorizerAcceptRequest(requestCode: string): Promise<string>;
+  enrollmentAuthorizerComplete(enrollmentJSON: string, ttlMillis: number): Promise<string>;
+  enrollmentAuthorizerStatusJSON(): Promise<string>;
+  enrollmentAuthorizerCancel(inviteId: string): Promise<void>;
+  enrollmentAuthorizerCancelAll(): Promise<void>;
   generateNodeSeed(): Promise<number[]>;
 }
 
@@ -269,6 +275,10 @@ export async function getAccountRegistry(): Promise<string> {
   return nativeModule.accountRegistry();
 }
 
+export async function getAccountRegistryDocument(): Promise<AccountRegistryDocument> {
+  return JSON.parse(await nativeModule.accountRegistry()) as AccountRegistryDocument;
+}
+
 export async function getAccountRegistryStatus(): Promise<AccountRegistryStatus> {
   return JSON.parse(await nativeModule.accountRegistryStatus()) as AccountRegistryStatus;
 }
@@ -321,5 +331,37 @@ export async function cancelDeviceEnrollment(): Promise<void> {
 
 export async function getDeviceEnrollmentStatus(): Promise<DeviceEnrollmentStatus> {
   return JSON.parse(await nativeModule.deviceEnrollmentStatusJSON()) as DeviceEnrollmentStatus;
+}
+
+export async function createEnrollmentInvite(ttlMillis = 0): Promise<EnrollmentAuthorizerInvite> {
+  return JSON.parse(await nativeModule.enrollmentAuthorizerCreateInvite(ttlMillis)) as EnrollmentAuthorizerInvite;
+}
+
+export async function acceptEnrollmentRequest(requestCode: string): Promise<EnrollmentAuthorizerRequest> {
+  const sealed = decodeEnrollmentTransfer(requestCode);
+  if (!sealed) throw new Error('El código de solicitud no es válido.');
+  return JSON.parse(await nativeModule.enrollmentAuthorizerAcceptRequest(JSON.stringify(sealed))) as EnrollmentAuthorizerRequest;
+}
+
+export async function completeEnrollmentAuthorization(
+  enrollment: EnrollmentAuthorizerRequest,
+  ttlMillis = 0,
+): Promise<EnrollmentAuthorizerIssued & { responseCode: string }> {
+  const issued = JSON.parse(
+    await nativeModule.enrollmentAuthorizerComplete(JSON.stringify(enrollment), ttlMillis),
+  ) as EnrollmentAuthorizerIssued;
+  return { ...issued, responseCode: encodeEnrollmentTransfer(JSON.parse(issued.code) as unknown) };
+}
+
+export async function getEnrollmentAuthorizerStatus(): Promise<EnrollmentAuthorizerStatus> {
+  return JSON.parse(await nativeModule.enrollmentAuthorizerStatusJSON()) as EnrollmentAuthorizerStatus;
+}
+
+export async function cancelEnrollmentInvite(inviteId: string): Promise<void> {
+  return nativeModule.enrollmentAuthorizerCancel(inviteId);
+}
+
+export async function cancelAllEnrollmentInvites(): Promise<void> {
+  return nativeModule.enrollmentAuthorizerCancelAll();
 }
 

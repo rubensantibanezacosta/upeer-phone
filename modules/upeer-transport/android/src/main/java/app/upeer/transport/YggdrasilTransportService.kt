@@ -41,6 +41,7 @@ class YggdrasilTransportService : Service() {
   private lateinit var contactAdmission: ContactEncryptionAdmission
   private lateinit var dhtRuntime: YggdrasilDhtRuntime
   private lateinit var enrollment: DeviceEnrollment
+  private lateinit var enrollmentAuthorizer: DeviceEnrollmentAuthorizer
   private var bridge: Bridge? = null
 
   private val binder = object : IYggdrasilTransport.Stub() {
@@ -198,6 +199,13 @@ class YggdrasilTransportService : Service() {
     override fun deviceEnrollmentFinish(sealedResponse: String): String = enrollment.finish(sealedResponse)
     override fun deviceEnrollmentCancel() = enrollment.cancel()
     override fun deviceEnrollmentStatusJSON(): String = enrollment.statusJSON()
+    override fun enrollmentAuthorizerCreateInvite(ttlMillis: Long): String = enrollmentAuthorizer.createInvite(ttlMillis)
+    override fun enrollmentAuthorizerAcceptRequest(requestCode: String): String = enrollmentAuthorizer.acceptRequest(requestCode)
+    override fun enrollmentAuthorizerComplete(enrollmentJSON: String, ttlMillis: Long): String =
+      enrollmentAuthorizer.complete(enrollmentJSON, ttlMillis)
+    override fun enrollmentAuthorizerStatusJSON(): String = enrollmentAuthorizer.pendingJSON()
+    override fun enrollmentAuthorizerCancel(inviteId: String) = enrollmentAuthorizer.cancel(inviteId)
+    override fun enrollmentAuthorizerCancelAll() = enrollmentAuthorizer.cancelAll()
   }
 
   override fun onCreate() {
@@ -207,6 +215,7 @@ class YggdrasilTransportService : Service() {
     configStore = YggdrasilConfigStore(this)
     enrollment = DeviceEnrollment(this)
     identity = YggdrasilIdentity(this)
+    enrollmentAuthorizer = DeviceEnrollmentAuthorizer(this) { identity.authorizerAccount() }
     accountRegistry = AccountRegistryFacade(identity)
     dhtLocation = DhtLocationStore(this)
     contactRegistries = ContactRegistryStore(this)

@@ -115,6 +115,14 @@ class UPeerTransportModule : Module() {
     AsyncFunction("deviceEnrollmentFinish") { sealedResponse: String -> service().deviceEnrollmentFinish(sealedResponse) }
     AsyncFunction("deviceEnrollmentCancel") { service().deviceEnrollmentCancel() }
     AsyncFunction("deviceEnrollmentStatusJSON") { service().deviceEnrollmentStatusJSON() }
+    AsyncFunction("enrollmentAuthorizerCreateInvite") { ttlMillis: Double -> service().enrollmentAuthorizerCreateInvite(ttlMillis.toLong()) }
+    AsyncFunction("enrollmentAuthorizerAcceptRequest") { requestCode: String -> service().enrollmentAuthorizerAcceptRequest(requestCode) }
+    AsyncFunction("enrollmentAuthorizerComplete") { enrollmentJSON: String, ttlMillis: Double ->
+      service().enrollmentAuthorizerComplete(enrollmentJSON, ttlMillis.toLong())
+    }
+    AsyncFunction("enrollmentAuthorizerStatusJSON") { service().enrollmentAuthorizerStatusJSON() }
+    AsyncFunction("enrollmentAuthorizerCancel") { inviteId: String -> service().enrollmentAuthorizerCancel(inviteId) }
+    AsyncFunction("enrollmentAuthorizerCancelAll") { service().enrollmentAuthorizerCancelAll() }
   }
 
   private fun bind() {

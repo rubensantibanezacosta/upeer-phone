@@ -103,6 +103,12 @@ internal class YggdrasilIdentity(context: Context) {
     nowMillis: Long,
   ): Boolean = Transportbridge.validateDeviceAdmission(certificateJSON, registryJSON, expectedAccountUpeerId, nowMillis)
 
+  fun authorizerAccount(): EnrollmentAuthorizerAccount? {
+    val account = current() ?: return null
+    val device = devices.current()?.takeIf { it.accountUpeerId == account.upeerID() } ?: return null
+    return RegistryEnrollmentAuthorizerAccount(account, device, registries)
+  }
+
   fun statusJSON(): String = synchronized(lock) {
     val activeIdentity = identity
     if (activeIdentity == null) {

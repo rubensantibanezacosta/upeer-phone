@@ -114,6 +114,35 @@ export type AccountRegistryStatus = {
   localDeviceAdmitted?: boolean;
 };
 
+export type AccountRegistryDevice = {
+  deviceId: string;
+  devicePublicKey: string;
+  staticX25519PublicKey?: string;
+  platform?: string;
+  capabilities?: string[];
+  authorizedAt: number;
+  expiresAt: number;
+  epoch: number;
+};
+
+export type AccountRevocation = {
+  deviceId: string;
+  revokedAt: number;
+  reason: string;
+};
+
+export type AccountRegistryDocument = {
+  version: number;
+  accountUpeerId: string;
+  accountPublicKey: string;
+  epoch: number;
+  issuedAt: number;
+  expiresAt: number;
+  devices: AccountRegistryDevice[];
+  revoked: AccountRevocation[];
+  signature: string;
+};
+
 export type EnrollmentCertificateSummary = {
   accountUpeerId: string;
   accountPublicKey: string;
@@ -146,8 +175,46 @@ export type DeviceEnrollmentBeginResult = {
   request: string;
 };
 
-export type PeerInfo = {
-  URI: string;
+export type EnrollmentAuthorizerInvite = {
+  code: string;
+  inviteId: string;
+  expiresAt: number;
+  accountUpeerId: string;
+  authorizerDeviceId: string;
+};
+
+export type EnrollmentAuthorizerRequest = {
+  inviteId: string;
+  inviteJSON: string;
+  requestJSON: string;
+  deviceId: string;
+  devicePublicKey: string;
+  platform: string;
+  capabilities: string[];
+  expiresAt: number;
+};
+
+export type EnrollmentAuthorizerIssued = {
+  code: string;
+  accountUpeerId: string;
+  deviceId: string;
+  devicePublicKey: string;
+  platform: string;
+  epoch: number;
+  issuedAt: number;
+  expiresAt: number;
+};
+
+export type EnrollmentAuthorizerStatus = {
+  invites: {
+    inviteId: string;
+    accountUpeerId: string;
+    authorizerDeviceId: string;
+    expiresAt: number;
+  }[];
+};
+
+export type PeerInfo = {  URI: string;
   Up: boolean;
   Inbound: boolean;
   Port: number;

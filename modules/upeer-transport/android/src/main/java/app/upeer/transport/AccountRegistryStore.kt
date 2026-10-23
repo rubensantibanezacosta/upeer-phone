@@ -99,6 +99,34 @@ internal class AccountRegistryStore(
 
   fun currentRegistryJSON(): String = synchronized(lock) { cached?.registryJSON.orEmpty() }
 
+  fun addDevice(
+    accountUpeerId: String,
+    localCertificateJSON: String,
+    deviceCertificateJSON: String,
+    signer: AccountRegistrySigner,
+  ): AccountRegistrySnapshot = synchronized(lock) {
+    val current = ensure(accountUpeerId, localCertificateJSON, signer)
+    val certificate = deviceCertificateInfo(deviceCertificateJSON)
+      ?: throw IllegalArgumentException("device certificate is invalid")
+    require(certificate.accountUpeerId == current.accountUpeerId) {
+      "device certificate does not belong to the account"
+    }
+    if (certificate.deviceId in current.revoked) {
+      throw IllegalArgumentException("device certificate has been revoked")
+    }
+    val certificates = mergeDeviceCertificate(current.certificates, deviceCertificateJSON, certificate.deviceId)
+    if (certificates == current.certificates) return@synchronized current
+    rebuild(
+      signer,
+      current.accountUpeerId,
+      certificates,
+      revocationJSON(current.registryJSON),
+      maxOf(current.epoch + 1, certificate.epoch),
+      nowMillis(),
+      current.localDeviceId,
+    )
+  }
+
   fun currentAdmission(accountUpeerId: String, deviceId: String): Boolean? = synchronized(lock) {
     val current = cached ?: return@synchronized null
     if (current.accountUpeerId != accountUpeerId.trim().lowercase()) return@synchronized null
