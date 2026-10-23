@@ -692,6 +692,22 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Chat · presencia | Pendiente | Sin «escribiendo…» ni presencia en la cabecera |
 | Accesibilidad | Parcial | Faltan escalas de fuente y revisión con lector de pantalla |
 
+### El borrado de contacto no es un bloqueo (hallazgo 23/10/2026)
+
+`deleteContact` solo borra la fila de `upeer.db`. El estado nativo (`peers`, `sessions` y `messages`, cifrado en `upeer_yggdrasil_protocol`) queda intacto, así que hoy:
+
+- El contacto borrado puede seguir escribiendo: `handleChat` solo rechaza cuando `publicKeyFor` es nulo, y la clave pública sigue en el registro nativo. El mensaje se descifra, se guarda y la conversación reaparece en Chats con el alias que publica el remitente en sus metadatos, no con el nombre local.
+- El contacto no vuelve a Contactos y no genera solicitud entrante: queda como conversación sin ficha (`contact === null`), con estado «Desconectado», sin dirección y con las acciones de bloquear/eliminar deshabilitadas.
+- Las notificaciones siguen llegando, porque `notifyMessage` no consulta la lista de contactos.
+- `status: 'blocked'` es solo una etiqueta local: ni `YggdrasilProtocol` ni `UPeerNotifications` la leen, así que **bloquear tampoco detiene la entrega**.
+- Un remitente que nunca fue contacto puede crear conversación: `HANDSHAKE_REQ` se valida por firma y `rememberPeer` lo registra sin ninguna admisión por lista de contactos.
+
+Trabajo derivado, en este orden:
+
+1. Separar «Eliminar contacto» de «Eliminar contacto y chat»: purgar `messages`, la sesión del ratchet y la entrada de `peers` para el `upeerId` cuando el usuario elija borrar el chat.
+2. Hacer efectivo el bloqueo en el servicio: rechazar `HANDSHAKE_*`, `CHAT` y `CHAT_UPDATE` de un `upeerId` bloqueado, y no notificar. Requiere que el servicio lea la lista de bloqueados (AIDL) o que la UI la replique en el estado nativo.
+3. Introducir solicitudes de contacto para remitentes desconocidos: el primer mensaje de un `upeerId` que no está en Contactos se guarda como solicitud (`incoming`) en lugar de crear una conversación normal, y solo se acepta con acción explícita.
+
 Reglas de estilo acordadas para toda pantalla nueva:
 
 - Solo tokens de `src/constants/theme.ts`; ningún color literal.
