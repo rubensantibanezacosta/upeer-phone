@@ -670,7 +670,7 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Chats · nueva conversación | Parcial | «Nueva conversación» y «Nuevo grupo» avisan de «próximamente»; la lista de contactos sí abre el chat |
 | Contactos · alta | Hecha | Faltan reputación real y la tarjeta propia en QR |
 | Chats · solicitudes | Hecha | Los mensajes de remitentes sin contacto aparecen en «Solicitudes de mensaje» con Aceptar/Bloquear; el remitente no hace nada distinto |
-| Chats · bloqueo | Parcial | La conversación del contacto bloqueado se oculta y no se puede aceptar; el servicio nativo sigue entregando y notificando |
+| Chats · bloqueo | Hecha | Bloquear desde una solicitud o desde la ficha oculta la conversación y el servicio descarta sus paquetes antes de descifrar, sin notificar |
 | Contactos · tarjeta propia en QR | Pendiente | El móvil debe poder mostrar su tarjeta de contacto en QR para que el escritorio la escanee, además del QR de identidad que ya vive en Perfil |
 | Contactos · sincronización | Pendiente | Altas y cambios de alias viajan por `CONTACT_PROFILE` de B10: falta emitirlos desde Android |
 | Llamadas | Sin runtime | La pestaña no tiene motor de llamadas ni historial real |
@@ -700,14 +700,15 @@ Modelo acordado: **la lista de contactos es la autoridad**. No hay paquete nuevo
 
 - Al borrar un contacto se purga también su conversación: `deleteContactAndConversation` borra la fila de `upeer.db` y llama a `deleteConversation` del puente nativo, que vacía los mensajes de ese `upeerId` en el estado cifrado. Se conservan `peers` y `sessions` para que un mensaje posterior siga descifrando.
 - Si vuelve a escribir, la conversación reaparece **sin ficha de contacto** y `classifyConversations` la clasifica como **solicitud de mensaje**: aparece en Chats bajo «Solicitudes de mensaje» con su alias, la vista previa y dos acciones, «Aceptar» (crea el contacto como `connected`) y «Bloquear» (lo crea como `blocked`). No hace falta que él envíe ninguna solicitud: su propio mensaje lo es.
-- Las conversaciones cuyo contacto está `blocked` se ocultan de la lista. El remitente sigue entregando en el servicio; el bloqueo efectivo en `YggdrasilProtocol` sigue pendiente (ver abajo).
+- Las conversaciones cuyo contacto está `blocked` se ocultan de la lista.
+- **El bloqueo ya es efectivo en el servicio.** `setBlockedPeers` (AIDL → servicio → estado nativo) guarda la lista en `blocked`; `YggdrasilProtocol.handleSignedPacket` descarta antes de descifrar cualquier `HANDSHAKE_*`, `CHAT` o `CHAT_UPDATE` cuyo `senderUpeerId` esté bloqueado, así que no se guarda el mensaje ni se notifica. La lista se sincroniza al guardar o borrar un contacto y al arrancar la sesión (`pushBlockedPeers`). `BlockedPeerList` normaliza y compara sin distinguir mayúsculas, con pruebas Kotlin.
 - Purga disponible: `deleteConversation` en AIDL, servicio y TS, con `ProtocolMessageState.withoutConversation` cubierto por pruebas Kotlin.
 
-Sigue pendiente, en este orden:
+Queda pendiente:
 
-1. Bloqueo efectivo en el servicio: rechazar `HANDSHAKE_*`, `CHAT` y `CHAT_UPDATE` de un `upeerId` bloqueado y no notificar. Requiere un `setBlockList` por AIDL o mover la lista de bloqueados al estado nativo.
-2. «Vaciar chat» y «Eliminar sólo el contacto» como acciones separadas de la ficha, ahora que existe la purga.
-3. Solicitud visible como estado del mensaje, no solo como sección, para poder distinguir «primer mensaje» de «conversación aceptada».
+1. «Eliminar sólo el contacto» como acción separada de «Eliminar contacto y chat» en la ficha.
+2. La solicitud como estado del mensaje y no solo como sección, para distinguir «primer mensaje» de «conversación aceptada».
+3. Verificar en dispositivo el descarte de paquetes bloqueados con dos nodos reales: la comprobación previa a la firma usa el `senderUpeerId` declarado, que no está autenticado (un tercero solo puede hacerse descartar a sí mismo, pero conviene cubrirlo con una prueba de integración).
 
 Reglas de estilo acordadas para toda pantalla nueva:
 

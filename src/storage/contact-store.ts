@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
-import { deleteConversation as deleteNativeConversation } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import { deleteConversation as deleteNativeConversation, setBlockedPeers } from '../../modules/upeer-transport/src/UPeerTransportModule';
 
 export type UPeerContact = {
   upeerId: string;
@@ -34,14 +34,26 @@ export async function getContacts(): Promise<UPeerContact[]> {
   return db.getAllAsync<UPeerContact>('SELECT * FROM contacts ORDER BY name COLLATE NOCASE, createdAt DESC');
 }
 
+export async function pushBlockedPeers(): Promise<void> {
+  await syncBlockedPeers().catch((cause: unknown) => console.warn('No se pudo enviar la lista de bloqueados al servicio.', cause));
+}
+
+async function syncBlockedPeers(): Promise<void> {
+  const contacts = await getContacts();
+  const blocked = contacts.filter((contact) => contact.status === 'blocked').map((contact) => contact.upeerId);
+  await setBlockedPeers(JSON.stringify(blocked));
+}
+
 export async function saveContact(contact: UPeerContact): Promise<void> {
   const db = await getDatabase();
   await db.runAsync('INSERT INTO contacts (upeerId, address, name, publicKey, status, createdAt) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(upeerId) DO UPDATE SET address = excluded.address, name = excluded.name, publicKey = excluded.publicKey, status = excluded.status', contact.upeerId, contact.address, contact.name, contact.publicKey, contact.status, contact.createdAt);
+  await syncBlockedPeers().catch((cause: unknown) => console.warn('El contacto se guardó, pero el servicio no recibió la lista de bloqueados.', cause));
 }
 
 export async function deleteContact(upeerId: string): Promise<void> {
   const db = await getDatabase();
   await db.runAsync('DELETE FROM contacts WHERE upeerId = ?', upeerId);
+  await syncBlockedPeers().catch((cause: unknown) => console.warn('El contacto se eliminó, pero el servicio no recibió la lista de bloqueados.', cause));
 }
 
 export async function deleteContactAndConversation(upeerId: string): Promise<void> {

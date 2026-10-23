@@ -6,6 +6,7 @@ import { SessionScreen, type ConnectionSnapshot } from '@/components/session-scr
 import { clearIdentity as clearTransportIdentity, setIdentity as setTransportIdentity, stop } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { clearIdentity, loadProfile, type IdentityProfile } from '@/storage/identity-store';
 import { EMPTY_PEER_MANAGEMENT } from '@/domain/yggdrasil-peers';
+import { pushBlockedPeers } from '@/storage/contact-store';
 
 export type SessionContextValue = {
   identity: UPeerIdentity;
@@ -42,6 +43,11 @@ export function SessionShell({ identity, onSignOut, children }: {
   useEffect(() => {
     loadProfile().then(setProfile).catch((cause: unknown) => {
       console.warn('No se pudo cargar el perfil de la sesión.', cause);
+    });
+  }, []);
+  useEffect(() => {
+    pushBlockedPeers().catch((cause: unknown) => {
+      console.warn('No se pudo sincronizar la lista de bloqueados al iniciar la sesión.', cause);
     });
   }, []);
   useEffect(() => {

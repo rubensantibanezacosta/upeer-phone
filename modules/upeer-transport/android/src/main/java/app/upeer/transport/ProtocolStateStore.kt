@@ -231,6 +231,22 @@ internal class ProtocolStateStore(context: Context) {
     )
   }
 
+  fun blockedPeers(): List<String> = synchronized(lock) {
+    val blocked = state.optJSONArray("blocked") ?: JSONArray()
+    BlockedPeerList.normalize(List(blocked.length()) { blocked.optString(it) })
+  }
+
+  fun isBlocked(upeerId: String): Boolean = BlockedPeerList.contains(blockedPeers(), upeerId)
+
+  fun setBlockedPeers(upeerIds: List<String>) {
+    synchronized(lock) {
+      val next = JSONArray()
+      BlockedPeerList.normalize(upeerIds).forEach(next::put)
+      state.put("blocked", next)
+      persist()
+    }
+  }
+
   fun deleteConversation(upeerId: String): Boolean = synchronized(lock) {
     val messages = state.optJSONArray("messages") ?: return@synchronized false
     val remaining = ProtocolMessageState.withoutConversation(messages, upeerId)

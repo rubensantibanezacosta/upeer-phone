@@ -9,6 +9,7 @@ import app.upeer.transport.dht.DhtLocationStore
 import app.upeer.transport.dht.LegacyContactPolicy
 import app.upeer.transportbridge.transportbridge.Bridge
 import app.upeer.transportbridge.transportbridge.Transportbridge
+import org.json.JSONArray
 import org.json.JSONObject
 import java.security.SecureRandom
 
@@ -174,6 +175,10 @@ class YggdrasilTransportService : Service() {
       notifications.clearConversation(upeerId)
     }
     override fun deleteConversation(upeerId: String): Boolean = protocol.deleteConversation(upeerId)
+    override fun setBlockedPeers(blockedJSON: String) {
+      val parsed = JSONArray(blockedJSON.ifBlank { "[]" })
+      protocol.setBlockedPeers(buildList { for (index in 0 until parsed.length()) add(parsed.optString(index)) })
+    }
     override fun registerPeer(upeerId: String, address: String, publicKey: String, signedPreKeyJSON: String): Boolean =
       protocol.registerPeer(upeerId, address, publicKey, signedPreKeyJSON)
     override fun flushOutbox() = protocol.flushOutbox()

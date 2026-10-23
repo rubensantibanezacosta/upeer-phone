@@ -34,6 +34,7 @@ interface IYggdrasilTransport {
   String conversationsJSON();
   void markConversationRead(String upeerId);
   boolean deleteConversation(String upeerId);
+  void setBlockedPeers(String blockedJSON);
   boolean registerPeer(String upeerId, String address, String publicKey, String signedPreKeyJSON);
   void flushOutbox();
   String protocolStatusJSON();

@@ -66,6 +66,8 @@ internal class YggdrasilProtocol(
 
   fun deleteConversation(upeerId: String): Boolean = state.deleteConversation(upeerId)
 
+  fun setBlockedPeers(upeerIds: List<String>) = state.setBlockedPeers(upeerIds)
+
   fun messagesJSON(upeerId: String, limit: Int): String = state.messagesJSON(upeerId, limit)
 
   fun conversationsJSON(): String = state.conversationsJSON()
@@ -113,6 +115,11 @@ internal class YggdrasilProtocol(
   private fun handleSignedPacket(activeBridge: Bridge, payload: ByteArray, sourceAddress: String): String {
     val packet = JSONObject(String(payload, Charsets.UTF_8))
     val type = packet.optString("type")
+    val declaredSender = packet.optString("senderUpeerId").lowercase()
+    if (declaredSender.isNotEmpty() && state.isBlocked(declaredSender)) {
+      Log.i(TAG, "Paquete $type descartado: $declaredSender está bloqueado")
+      return blockedMetadata(packet, declaredSender)
+    }
     if (type == "HANDSHAKE_REQ" || type == "HANDSHAKE_ACCEPT") {
       val metadataJSON = activeBridge.validateControlFrame(payload)
       val metadata = JSONObject(metadataJSON)
@@ -240,6 +247,12 @@ internal class YggdrasilProtocol(
     Log.w(TAG, "Límite de recepción alcanzado para ${metadata.optString("type")} de ${metadata.optString("senderUpeerId")}")
     return JSONObject(metadata.toString()).put("rateLimited", true).toString()
   }
+
+  private fun blockedMetadata(packet: JSONObject, senderUpeerId: String): String = JSONObject()
+    .put("type", packet.optString("type"))
+    .put("senderUpeerId", senderUpeerId)
+    .put("blocked", true)
+    .toString()
 
   private fun rateLimitedMetadata(type: String): String = JSONObject()
     .put("type", type)

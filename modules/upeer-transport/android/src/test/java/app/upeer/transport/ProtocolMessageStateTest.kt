@@ -81,6 +81,22 @@ class ProtocolMessageStateTest {
   }
 
   @Test
+  fun `block list keeps unique lowercase identities`() {
+    val result = BlockedPeerList.normalize(listOf(peerID.uppercase(), "  $peerID  ", "", "bb".repeat(32)))
+
+    assertEquals(listOf(peerID, "bb".repeat(32)), result)
+  }
+
+  @Test
+  fun `blocked identity matches regardless of case`() {
+    val blocked = BlockedPeerList.normalize(listOf(peerID))
+
+    assertTrue(BlockedPeerList.contains(blocked, peerID.uppercase()))
+    assertTrue(BlockedPeerList.contains(blocked, " $peerID "))
+    assertFalse(BlockedPeerList.contains(blocked, "cc".repeat(32)))
+  }
+
+  @Test
   fun `chat edit policy plans versions and rejects invalid edits`() {
     val pending = message().put("isMine", true).put("status", "pending")
     val plan = ChatEditPolicy.plan(pending, peerID, messageID, "  nuevo  ")
