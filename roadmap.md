@@ -422,7 +422,7 @@ El objetivo fue cerrar el primer tramo de las fases 0 y 2: que Desktop pudiera a
    - [x] Pérdida de frames y cambios de red sin reiniciar el proceso: frame truncado con cierre controlado y frame válido posterior; Wi-Fi/datos desactivados y reactivados con peers reconectados y chat verificado, mismo PID de `:yggdrasil`.
 8. [ ] DHT Kademlia, bootstrap y roaming. B0–B5 están cerradas localmente; B6 (identidad/registro) es el siguiente bloqueo, B7 es DHT/roaming, B8 el servicio y B9 la interoperabilidad. B10 (sincronización) solo empieza tras B9.
 9. [ ] Paridad social, vault, grupos, archivos y llamadas (fases 4–10, solo tras B9; vault/multidispositivo tras B10).
-   - [ ] Eventos de mensaje que faltan en el protocolo móvil: `CHAT_DELETE`, `CHAT_REACTION` y `CHAT_CONTACT`; `READ` y `TYPING` ya se emiten y se aplican. Ver «Inventario de paridad con escritorio».
+   - [x] Eventos de mensaje del protocolo móvil: `READ`, `TYPING`, `CHAT_DELETE`, `CHAT_REACTION` y la tarjeta de contacto (como contenido de `CHAT`). Ver «Inventario de paridad con escritorio».
    - [ ] Sincronización multi-dispositivo con los nueve `SYNC_EVENT_KINDS`, relay y backlog propios del móvil.
    - [ ] Archivos (`FILE_*`), grupos (`GROUP_*`) y llamadas (`CALL_*`) con interoperabilidad real contra escritorio.
 
@@ -649,7 +649,7 @@ Cierre de brechas medido contra el código de `upper-desktop`, no contra lo que 
 | `TYPING` (escribiendo) | Sí | Sí (`TypingIndicators`, `ControlReplies`) | Pruebas JVM; falta prueba cruzada real |
 | `CHAT_DELETE` | Sí | **Ausente** | No probado |
 | `CHAT_REACTION` | Sí | **Ausente** | No probado |
-| `CHAT_CONTACT` (tarjeta de contacto) | Sí | **Ausente**: se puede escanear la del escritorio, no recibir ni enviar tarjetas | No probado |
+| `CHAT_CONTACT` (tarjeta de contacto) | Sí | **Hecho como contenido de `CHAT`**: se envía y se pinta la tarjeta, y el resumen de la lista lo dice. El paquete `CHAT_CONTACT` de escritorio no se emite en ningún sitio, así que no se implementa | Falta la prueba con escritorio real |
 | `GROUP_MSG` / `GROUP_ACK` / `GROUP_INVITE` / `GROUP_UPDATE` | Sí, con sender keys, epoch y control de admin | **Ausente** | No probado |
 | `FILE_PROPOSAL` / `FILE_START` / `FILE_ACCEPT` / `FILE_CHUNK` / `FILE_CHUNK_ACK` / `FILE_ACK` / `FILE_END` / `FILE_DONE_ACK` / `FILE_CANCEL` | Sí, chunked con AES-256-GCM y progreso | **Ausente** | No probado |
 | `VAULT_STORE` / `VAULT_QUERY` / `VAULT_DELIVERY` / `VAULT_ACK` / `VAULT_SYNC_REQ` / `VAULT_SYNC_RES` / `VAULT_RENEW` | Sí, buzón por dispositivo | **Ausente** | No probado |
@@ -832,6 +832,15 @@ Fijar, silenciar y archivar dejan de ser avisos y pasan a tener efecto:
 - **Borrar es local y explícito.** `ProtocolMessageList.delete`/`deleteLocally` quitan la entrada de la lista en vez de marcarla; el mensaje desaparece del hilo, del último mensaje de la conversación y del contador de no leídos sin dejar hueco.
 - **La UI no inventa lenguaje visual.** Pulsación larga sobre cualquier burbuja abre `ChatMessageActions` —misma hoja que el menú de conversación— con seis reacciones rápidas, copiar y «Eliminar para todos»; las reacciones se pintan como fichas bajo la burbuja (`ChatReactionRow`), alineadas al lado del mensaje y en `theme.accent` cuando la reacción es propia. Editar sigue en el mismo menú para los mensajes propios.
 - **`ProtocolStateStore` dejó de crecer.** La lista de mensajes se extrajo a `ProtocolMessageList.kt` (294 líneas el store) y los envíos de control a `ControlSender.kt` (`YggdrasilProtocol` baja de 368 a 292), sin archivos de reexportación.
+
+### Tarjetas de contacto (24/10/2026)
+
+- **No hay paquete nuevo, y es a propósito.** Escritorio declara `CHAT_CONTACT` en el router y tiene handler, pero **ningún sitio lo emite**: `sendContactCard` en `chatInteractions.ts` manda un `CHAT` normal cuyo cuerpo es el JSON de la tarjeta y su renderer lo parsea en `messageItemSupport.ts`. Añadir el paquete en Android sería código que nadie ejerce y que además exigiría otra regla de rate limit y otra rama de admisión. Se implementa como **contenido de `CHAT`**, así que funciona en los dos sentidos con el código que ya existía: outbox, ACK, deduplicación por UUID, RECIBOS y notificaciones son los de un mensaje más.
+- **El formato es el de escritorio, sin inventar campos.** `serializeContactCard` emite `{ type: "contact_card", text: "", contact: { name, address, upeerId, publicKey, avatar } }`, exactamente lo que produce `serializeContactCardMessage` en `handlers/chatContact.ts`, de modo que una tarjeta del móvil se pinta en escritorio y viceversa.
+- **Se valida al parsear, no al confiar.** `parseContactCard` exige `type`, un `upeerId` de 64 hex y recorta nombre y dirección a 100 caracteres; descarta el `publicKey` si no mide 64 y el `avatar` si no es `data:image/` o pasa de 64 KB. Ese tope no es arbitrario: `YggdrasilOutbox` rechaza cualquier `CHAT` de más de 256 KB, así que un avatar enorme haría la tarjeta inenviable y engordaría el estado cifrado. Lo que no parsea se pinta como texto normal, sin romper el hilo.
+- **La lista de chats no enseña JSON.** `messageSummary` convierte la tarjeta en «Tarjeta de contacto: <nombre>» en la vista previa, igual que el `getContactCardSummary` de escritorio.
+- **Añadir desde la tarjeta es explícito.** Pulsar una tarjeta de alguien que no está en la agenda pide confirmación, guarda el contacto con `status: 'pending'` y lo registra en el servicio nativo con `registerPeer`, los mismos dos pasos que el alta manual. Si ya existe, abre su ficha. No se acepta sola ni se salta la solicitud de mensaje: eso sigue siendo cosa del primer contacto.
+- **Compartir es una hoja, no una pantalla.** La fila «Compartir contacto» de la ficha abre `ContactShareSheet` con el mismo buscador de contactos que «Nueva conversación» (`ContactPicker`, extraído para no duplicar la lista), excluyendo al propio contacto.
 
 ### Transporte local sin internet: paridad con Briar (24/10/2026)
 
@@ -1230,7 +1239,7 @@ Entregar el núcleo de chat directo seguro con persistencia y reintentos.
 - [x] Estados de envío, entrega y lectura: el móvil emite `READ` al abrir la conversación y aplica el `READ` entrante como `read` en los mensajes propios, así que la UI pinta `delivered` y `read` reales. `synced`/`vaulted` siguen fuera hasta que exista la sincronización.
 - [ ] Implementar outbox durable para envío cuando se recupere conectividad.
 - [ ] Portar presencia y escritura (`TYPING` y heartbeat de protocolo, hoy ausentes) con intervalos respetuosos con la batería.
-- [ ] Recibir y enviar tarjetas de contacto (`CHAT_CONTACT`), que hoy solo se pueden escanear desde el QR del escritorio.
+- [x] Recibir y enviar tarjetas de contacto: se envían como contenido de un `CHAT` normal y se pintan como tarjeta, con «Añadir a contactos» si no están en la agenda. No hay paquete `CHAT_CONTACT` porque escritorio no lo emite: `sendContactCard` manda un `CHAT` con el JSON de la tarjeta y su renderer lo parsea.
 - [ ] Preferencias de notificación (mensajes, solicitudes, sonido) y agrupación entre conversaciones; el enlace profundo al chat y la previsualización privada ya funcionan.
 - [x] Implementar notificaciones locales y acciones compatibles con plataforma: canales «Conexión» y «Mensajes», `notifyMessage` por conversación y acción «Marcar leído».
 - [ ] Permitir ocultar previsualizaciones y controlar privacidad en pantalla bloqueada.
