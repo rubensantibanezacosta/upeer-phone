@@ -9,7 +9,10 @@ export type UPeerContact = {
   publicKey: string | null;
   status: 'pending' | 'incoming' | 'connected' | 'offline' | 'blocked';
   createdAt: number;
+  isFavorite?: boolean;
 };
+
+type ContactRow = Omit<UPeerContact, 'isFavorite'> & { isFavorite: number };
 
 let database: Promise<SQLite.SQLiteDatabase> | null = null;
 let databaseGeneration = 0;
@@ -18,7 +21,11 @@ async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (!database) {
     const generation = databaseGeneration;
     database = SQLite.openDatabaseAsync('upeer.db').then(async (db) => {
-    await db.execAsync('PRAGMA journal_mode = WAL; CREATE TABLE IF NOT EXISTS contacts (upeerId TEXT PRIMARY KEY NOT NULL, address TEXT NOT NULL, name TEXT NOT NULL, publicKey TEXT, status TEXT NOT NULL, createdAt INTEGER NOT NULL);');
+    await db.execAsync('PRAGMA journal_mode = WAL; CREATE TABLE IF NOT EXISTS contacts (upeerId TEXT PRIMARY KEY NOT NULL, address TEXT NOT NULL, name TEXT NOT NULL, publicKey TEXT, status TEXT NOT NULL, createdAt INTEGER NOT NULL, isFavorite INTEGER NOT NULL DEFAULT 0);');
+    const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(contacts)');
+    if (!columns.some((column) => column.name === 'isFavorite')) {
+      await db.execAsync('ALTER TABLE contacts ADD COLUMN isFavorite INTEGER NOT NULL DEFAULT 0');
+    }
     if (generation !== databaseGeneration) {
       await db.closeAsync();
       throw new Error('La sesión cambió durante la apertura de la base de contactos.');
@@ -31,7 +38,13 @@ async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
 export async function getContacts(): Promise<UPeerContact[]> {
   const db = await getDatabase();
-  return db.getAllAsync<UPeerContact>('SELECT * FROM contacts ORDER BY name COLLATE NOCASE, createdAt DESC');
+  const rows = await db.getAllAsync<ContactRow>('SELECT * FROM contacts ORDER BY name COLLATE NOCASE, createdAt DESC');
+  return rows.map((row) => ({ ...row, isFavorite: row.isFavorite === 1 }));
+}
+
+export async function setContactFavorite(upeerId: string, isFavorite: boolean): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync('UPDATE contacts SET isFavorite = ? WHERE upeerId = ?', isFavorite ? 1 : 0, upeerId);
 }
 
 export async function pushBlockedPeers(): Promise<void> {

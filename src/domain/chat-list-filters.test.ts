@@ -4,7 +4,7 @@ import { filterChatEntries, isChatFilterActive, matchesChatQuery } from './chat-
 const entries = [
   { upeerId: 'a1b2c3d4e5f60718', title: 'Ana', preview: 'Hola, ¿qué tal?', unread: 2 },
   { upeerId: 'ff00ff00ff00ff00', title: 'Bruno', preview: '__SYS__|Contacto conectado', unread: 0 },
-  { upeerId: '0102030405060708', title: 'Carla', preview: 'Nos vemos luego', unread: 1 },
+  { upeerId: '0102030405060708', title: 'Carla', preview: 'Nos vemos luego', unread: 1, favorite: true },
   { upeerId: '1111222233334444', title: 'Diego', preview: 'Archivada', unread: 0, archived: true },
 ];
 
@@ -20,6 +20,16 @@ describe('chat list filters', () => {
 
   it('shows only archived conversations under the archived filter', () => {
     expect(filterChatEntries(entries, 'archived', '').map((entry) => entry.title)).toEqual(['Diego']);
+  });
+
+  it('shows only favorites under the favorites filter, archived excluded', () => {
+    expect(filterChatEntries(entries, 'favorites', '').map((entry) => entry.title)).toEqual(['Carla']);
+  });
+
+  it('combines the favorites filter with the query and unread state', () => {
+    expect(filterChatEntries(entries, 'favorites', 'carla')).toHaveLength(1);
+    expect(filterChatEntries(entries, 'favorites', 'bruno')).toHaveLength(0);
+    expect(filterChatEntries([...entries.filter((entry) => entry.favorite !== true)], 'favorites', '')).toHaveLength(0);
   });
 
   it('ignores surrounding whitespace and case in the query', () => {

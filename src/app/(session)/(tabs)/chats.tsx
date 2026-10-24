@@ -18,7 +18,7 @@ import { classifyConversations } from '@/domain/incoming-requests';
 import { useSnackbar } from '@/components/snackbar';
 import { useTheme } from '@/hooks/use-theme';
 import type { UPeerContact } from '@/storage/contact-store';
-import { getContacts } from '@/storage/contact-store';
+import { getContacts, setContactFavorite } from '@/storage/contact-store';
 import type { ProtocolConversation } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
 import { getConversations, markConversationRead } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
@@ -69,11 +69,13 @@ export default function ChatsRoute() {
         isMine: conversation.lastIsMine === true,
         lastStatus: conversation.lastStatus ?? null,
         incoming: requestIds.has(conversation.upeerId),
+        favorite: contacts.some((contact) => contact.upeerId === conversation.upeerId && contact.isFavorite === true),
         ...flagsFor(conversationFlags, conversation.upeerId),
       }))
     : contacts.filter((contact) => contact.status !== 'blocked').map((contact) => ({
       upeerId: contact.upeerId,
       title: contact.name,
+      favorite: contact.isFavorite === true,
       preview: contactStatusLabels[contact.status],
       timestamp: 0,
       unread: 0,
@@ -106,6 +108,20 @@ export default function ChatsRoute() {
       .catch((cause: unknown) => {
         console.warn('No se pudo cambiar el ajuste de la conversación.', cause);
         showSnackbar('No se pudo cambiar el ajuste de la conversación');
+      });
+  };
+
+  const toggleEntryFavorite = (entry: ChatListEntry) => {
+    setSelectedEntry(null);
+    setContactFavorite(entry.upeerId, entry.favorite !== true)
+      .then(() => getContacts())
+      .then((list) => {
+        setContacts(list);
+        showSnackbar(entry.favorite ? 'Quitado de Favoritos' : 'Añadido a Favoritos');
+      })
+      .catch((cause: unknown) => {
+        console.warn('No se pudo cambiar el favorito de la conversación.', cause);
+        showSnackbar('No se pudo cambiar el favorito');
       });
   };
 
@@ -159,7 +175,7 @@ export default function ChatsRoute() {
           </YStack>
         )}
       </ScrollView>
-      <ChatContextMenu entry={selectedEntry} onClose={() => setSelectedEntry(null)} onMarkRead={markEntryRead} onToggleFlag={toggleEntryFlag} onUnavailable={showUnavailableAction} />
+      <ChatContextMenu entry={selectedEntry} onClose={() => setSelectedEntry(null)} onMarkRead={markEntryRead} onToggleFavorite={toggleEntryFavorite} onToggleFlag={toggleEntryFlag} onUnavailable={showUnavailableAction} />
       {menuOpen ? <><Pressable accessibilityLabel="Cerrar menú" onPress={() => setMenuOpen(false)} style={styles.menuDismiss} /><View style={[styles.chatMenu, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}><NativeRipplePressable accessibilityRole="button" onPress={() => { setMenuOpen(false); router.navigate('/contacts'); }} style={styles.chatMenuItem}><Users color={theme.text} size={18} /><Text color={theme.text} fontSize={14}>Contactos</Text></NativeRipplePressable><NativeRipplePressable accessibilityRole="button" onPress={() => { setMenuOpen(false); router.navigate('/settings'); }} style={styles.chatMenuItem}><Settings color={theme.text} size={18} /><Text color={theme.text} fontSize={14}>Configuración</Text></NativeRipplePressable></View></> : null}
       <BottomSheet icon={<MessageSquarePlus color={theme.accent} size={20} />} onClose={() => setComposerOpen(false)} title="Nueva conversación" visible={composerOpen}>
         <NewConversationList contacts={contacts} onPick={(contact) => { setComposerOpen(false); router.push({ pathname: '/chat/[upeerId]', params: { upeerId: contact.upeerId } }); }} onUnavailable={(label) => { setComposerOpen(false); showSnackbar(`${label} estará disponible próximamente`); }} />

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Archive, BellOff, CheckCheck, Heart, Pin, Trash2, X } from '@tamagui/lucide-icons-2';
+import { Archive, BellOff, CheckCheck, Pin, Star, Trash2, X } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import type { ChatListEntry } from '@/components/chat-list-item';
@@ -14,6 +14,7 @@ type ChatContextMenuProps = {
   entry: ChatListEntry | null;
   onClose: () => void;
   onMarkRead: (entry: ChatListEntry) => void;
+  onToggleFavorite: (entry: ChatListEntry) => void;
   onToggleFlag: (entry: ChatListEntry, flag: ConversationFlag) => void;
   onUnavailable: (label: string) => void;
 };
@@ -35,7 +36,7 @@ function MenuAction({ color, disabled = false, icon, label, onPress }: MenuActio
   );
 }
 
-export function ChatContextMenu({ entry, onClose, onMarkRead, onToggleFlag, onUnavailable }: ChatContextMenuProps) {
+export function ChatContextMenu({ entry, onClose, onMarkRead, onToggleFavorite, onToggleFlag, onUnavailable }: ChatContextMenuProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   if (!entry) return null;
@@ -66,7 +67,7 @@ export function ChatContextMenu({ entry, onClose, onMarkRead, onToggleFlag, onUn
             label="Marcar como leído"
             onPress={() => onMarkRead(entry)}
           />
-          <MenuAction color={theme.text} icon={<Heart color={theme.text} size={19} />} label="Añadir a Favoritos" onPress={() => onUnavailable('Añadir a Favoritos')} />
+          <MenuAction color={theme.text} icon={<Star color={theme.text} size={19} />} label={entry.favorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={() => onToggleFavorite(entry)} />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <MenuAction color={theme.danger} icon={<Trash2 color={theme.danger} size={19} />} label="Vaciar chat" onPress={() => onUnavailable('Vaciar chat')} />
         </View>

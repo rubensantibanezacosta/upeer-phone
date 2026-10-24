@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Archive, ArrowLeft, Ban, BellOff, LockKeyhole, LockOpen, Share2, Star, Trash2, UserMinus } from '@tamagui/lucide-icons-2';
+import { Archive, ArchiveRestore, ArrowLeft, Ban, Bell, BellOff, LockKeyhole, LockOpen, Share2, Star, Trash2, UserMinus } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactInfoHero } from '@/components/contact-info/contact-info-hero';
@@ -12,7 +12,10 @@ import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useSnackbar } from '@/components/snackbar';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useTheme } from '@/hooks/use-theme';
-import { deleteContactAndConversation, getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
+import { useConversationFlags } from '@/hooks/use-conversation-flags';
+import { flagMessage, flagsFor, type ConversationFlag } from '@/domain/conversation-flags';
+import { setConversationFlag } from '@/storage/conversation-flags-store';
+import { deleteContactAndConversation, getContacts, saveContact, setContactFavorite, type UPeerContact } from '@/storage/contact-store';
 import { deleteConversation as clearNativeConversation } from '../../../modules/upeer-transport/src/UPeerTransportModule';
 
 type ContactInfoScreenProps = {
@@ -26,6 +29,8 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
   const copyToClipboard = useCopyToClipboard();
   const [contact, setContact] = useState<UPeerContact | null | undefined>(undefined);
   const [sharing, setSharing] = useState(false);
+  const conversationFlags = useConversationFlags();
+  const flags = flagsFor(conversationFlags, upeerId);
 
   const reportFailure = useCallback((cause: unknown) => {
     console.warn('No se pudo cargar la ficha del contacto.', cause);
@@ -98,6 +103,27 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
     ]);
   };
 
+  const toggleFavorite = () => {
+    if (!contact) return;
+    const next = contact.isFavorite !== true;
+    setContactFavorite(contact.upeerId, next)
+      .then(load)
+      .then(() => showSnackbar(next ? 'Añadido a Favoritos' : 'Quitado de Favoritos'))
+      .catch((cause: unknown) => {
+        console.warn('No se pudo cambiar el favorito del contacto.', cause);
+        showSnackbar('No se pudo cambiar el favorito');
+      });
+  };
+
+  const toggleFlag = (flag: ConversationFlag) => {
+    setConversationFlag(upeerId, flag)
+      .then(() => showSnackbar(flagMessage(flag, !flags[flag])))
+      .catch((cause: unknown) => {
+        console.warn('No se pudo cambiar el ajuste de la conversación.', cause);
+        showSnackbar('No se pudo cambiar el ajuste de la conversación');
+      });
+  };
+
   const pending = (label: string) => () => showSnackbar(`${label}: pendiente en el roadmap`);
   const alias = contact?.name || upeerId.slice(0, 12);
   const blocked = contact?.status === 'blocked';
@@ -120,9 +146,9 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
         <YStack gap={6}>
           <Text color={theme.placeholder} fontSize={12} fontWeight="600">Conversación</Text>
           <InteractiveRow disabled={!contact} icon={Share2} label="Compartir contacto" onPress={() => setSharing(true)} />
-          <InteractiveRow disabled hint="Pronto" icon={BellOff} label="Silenciar notificaciones" onPress={pending('Silenciar notificaciones')} />
-          <InteractiveRow disabled hint="Pronto" icon={Archive} label="Archivar chat" onPress={pending('Archivar chat')} />
-          <InteractiveRow disabled hint="Pronto" icon={Star} label="Añadir a Favoritos" onPress={pending('Favoritos')} />
+          <InteractiveRow icon={flags.muted ? Bell : BellOff} label={flags.muted ? 'Activar notificaciones' : 'Silenciar notificaciones'} onPress={() => toggleFlag('muted')} />
+          <InteractiveRow icon={flags.archived ? ArchiveRestore : Archive} label={flags.archived ? 'Desarchivar chat' : 'Archivar chat'} onPress={() => toggleFlag('archived')} />
+          <InteractiveRow icon={Star} label={contact?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />
           <InteractiveRow disabled hint="Pronto" icon={LockKeyhole} label="Cifrado" onPress={pending('Detalles de cifrado')} />
         </YStack>
         <YStack gap={6}>
