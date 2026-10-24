@@ -10,6 +10,9 @@ import { BottomSheet } from '@/components/bottom-sheet';
 import { NewConversationList } from '@/components/new-conversation-list';
 import { ChatListItem, type ChatListEntry } from '@/components/chat-list-item';
 import { CHAT_LIST_FILTERS, filterChatEntries, isChatFilterActive, type ChatListFilter } from '@/domain/chat-list-filters';
+import { flagMessage, flagsFor, orderByPinned, type ConversationFlag } from '@/domain/conversation-flags';
+import { useConversationFlags } from '@/hooks/use-conversation-flags';
+import { setConversationFlag } from '@/storage/conversation-flags-store';
 import { classifyConversations } from '@/domain/incoming-requests';
 import { useSnackbar } from '@/components/snackbar';
 import { useTheme } from '@/hooks/use-theme';
@@ -31,6 +34,7 @@ const contactStatusLabels: Record<UPeerContact['status'], string> = {
 export default function ChatsRoute() {
   const theme = useTheme();
   const { showSnackbar } = useSnackbar();
+  const conversationFlags = useConversationFlags();
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const [conversations, setConversations] = useState<ProtocolConversation[]>([]);
   const [selectedEntry, setSelectedEntry] = useState<ChatListEntry | null>(null);
@@ -64,6 +68,7 @@ export default function ChatsRoute() {
         isMine: conversation.lastIsMine === true,
         lastStatus: conversation.lastStatus ?? null,
         incoming: requestIds.has(conversation.upeerId),
+        ...flagsFor(conversationFlags, conversation.upeerId),
       }))
     : contacts.filter((contact) => contact.status !== 'blocked').map((contact) => ({
       upeerId: contact.upeerId,
@@ -75,9 +80,10 @@ export default function ChatsRoute() {
       lastStatus: null,
       pending: contact.status === 'pending',
       incoming: contact.status === 'incoming',
-    }))), [contacts, conversations, partition.hidden, requestIds]);
+      ...flagsFor(conversationFlags, contact.upeerId),
+    }))), [contacts, conversationFlags, conversations, partition.hidden, requestIds]);
 
-  const visibleEntries = useMemo(() => filterChatEntries(entries, filter, query), [entries, filter, query]);
+  const visibleEntries = useMemo(() => orderByPinned(filterChatEntries(entries, filter, query), conversationFlags), [conversationFlags, entries, filter, query]);
   const filtering = isChatFilterActive(filter, query);
 
   const openChat = (entry: ChatListEntry) => {
@@ -90,6 +96,16 @@ export default function ChatsRoute() {
   const showUnavailableAction = (label: string) => {
     setSelectedEntry(null);
     showSnackbar(`${label} estará disponible próximamente`);
+  };
+
+  const toggleEntryFlag = (entry: ChatListEntry, flag: ConversationFlag) => {
+    setSelectedEntry(null);
+    setConversationFlag(entry.upeerId, flag)
+      .then(() => showSnackbar(flagMessage(flag, !entry[flag])))
+      .catch((cause: unknown) => {
+        console.warn('No se pudo cambiar el ajuste de la conversación.', cause);
+        showSnackbar('No se pudo cambiar el ajuste de la conversación');
+      });
   };
 
   const markEntryRead = (entry: ChatListEntry) => {
@@ -142,7 +158,7 @@ export default function ChatsRoute() {
           </YStack>
         )}
       </ScrollView>
-      <ChatContextMenu entry={selectedEntry} onClose={() => setSelectedEntry(null)} onMarkRead={markEntryRead} onUnavailable={showUnavailableAction} />
+      <ChatContextMenu entry={selectedEntry} onClose={() => setSelectedEntry(null)} onMarkRead={markEntryRead} onToggleFlag={toggleEntryFlag} onUnavailable={showUnavailableAction} />
       {menuOpen ? <><Pressable accessibilityLabel="Cerrar menú" onPress={() => setMenuOpen(false)} style={styles.menuDismiss} /><View style={[styles.chatMenu, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}><NativeRipplePressable accessibilityRole="button" onPress={() => { setMenuOpen(false); router.navigate('/contacts'); }} style={styles.chatMenuItem}><Users color={theme.text} size={18} /><Text color={theme.text} fontSize={14}>Contactos</Text></NativeRipplePressable><NativeRipplePressable accessibilityRole="button" onPress={() => { setMenuOpen(false); router.navigate('/settings'); }} style={styles.chatMenuItem}><Settings color={theme.text} size={18} /><Text color={theme.text} fontSize={14}>Configuración</Text></NativeRipplePressable></View></> : null}
       <BottomSheet icon={<MessageSquarePlus color={theme.accent} size={20} />} onClose={() => setComposerOpen(false)} title="Nueva conversación" visible={composerOpen}>
         <NewConversationList contacts={contacts} onPick={(contact) => { setComposerOpen(false); router.push({ pathname: '/chat/[upeerId]', params: { upeerId: contact.upeerId } }); }} onUnavailable={(label) => { setComposerOpen(false); showSnackbar(`${label} estará disponible próximamente`); }} />

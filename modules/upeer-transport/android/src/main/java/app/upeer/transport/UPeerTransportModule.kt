@@ -96,6 +96,7 @@ class UPeerTransportModule : Module() {
     AsyncFunction("setBlockedPeers") { blockedJSON: String -> service().setBlockedPeers(blockedJSON) }
     AsyncFunction("setKnownContacts") { knownJSON: String -> service().setKnownContacts(knownJSON) }
     AsyncFunction("setNotificationPrefs") { prefsJSON: String -> service().setNotificationPrefs(prefsJSON) }
+    AsyncFunction("setMutedPeers") { mutedJSON: String -> service().setMutedPeers(mutedJSON) }
     AsyncFunction("registerPeer") { upeerId: String, address: String, publicKey: String, signedPreKeyJSON: String ->
       service().registerPeer(upeerId, address, publicKey, signedPreKeyJSON)
     }

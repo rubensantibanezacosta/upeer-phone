@@ -5,11 +5,21 @@ const entries = [
   { upeerId: 'a1b2c3d4e5f60718', title: 'Ana', preview: 'Hola, ¿qué tal?', unread: 2 },
   { upeerId: 'ff00ff00ff00ff00', title: 'Bruno', preview: '__SYS__|Contacto conectado', unread: 0 },
   { upeerId: '0102030405060708', title: 'Carla', preview: 'Nos vemos luego', unread: 1 },
+  { upeerId: '1111222233334444', title: 'Diego', preview: 'Archivada', unread: 0, archived: true },
 ];
 
 describe('chat list filters', () => {
-  it('keeps every entry when the query is empty', () => {
+  it('keeps every visible entry when the query is empty', () => {
     expect(filterChatEntries(entries, 'all', '')).toHaveLength(3);
+  });
+
+  it('hides archived conversations outside the archived filter', () => {
+    expect(filterChatEntries(entries, 'all', '').map((entry) => entry.title)).toEqual(['Ana', 'Bruno', 'Carla']);
+    expect(filterChatEntries(entries, 'unread', '').map((entry) => entry.title)).toEqual(['Ana', 'Carla']);
+  });
+
+  it('shows only archived conversations under the archived filter', () => {
+    expect(filterChatEntries(entries, 'archived', '').map((entry) => entry.title)).toEqual(['Diego']);
   });
 
   it('ignores surrounding whitespace and case in the query', () => {
@@ -35,6 +45,7 @@ describe('chat list filters', () => {
   it('reports whether the list is being narrowed', () => {
     expect(isChatFilterActive('all', '   ')).toBe(false);
     expect(isChatFilterActive('unread', '')).toBe(true);
+    expect(isChatFilterActive('archived', '')).toBe(true);
     expect(isChatFilterActive('all', 'ana')).toBe(true);
   });
 });

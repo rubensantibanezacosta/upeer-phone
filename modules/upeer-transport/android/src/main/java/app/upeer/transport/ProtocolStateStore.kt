@@ -267,6 +267,22 @@ internal class ProtocolStateStore(context: Context) {
     NotificationPrefs.parse(state.optString("notificationPrefs"))
   }
 
+  fun mutedPeers(): List<String> = synchronized(lock) {
+    val muted = state.optJSONArray("muted") ?: JSONArray()
+    PeerIdList.normalize(List(muted.length()) { muted.optString(it) })
+  }
+
+  fun isMuted(upeerId: String): Boolean = PeerIdList.contains(mutedPeers(), upeerId)
+
+  fun setMutedPeers(upeerIds: List<String>) {
+    synchronized(lock) {
+      val next = JSONArray()
+      PeerIdList.normalize(upeerIds).forEach(next::put)
+      state.put("muted", next)
+      persist()
+    }
+  }
+
   fun setNotificationPrefs(prefs: NotificationPrefs) {
     synchronized(lock) {
       state.put("notificationPrefs", prefs.toJSON())

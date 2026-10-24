@@ -665,8 +665,8 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Pantalla | Estado | Qué falta |
 |---|---|---|
 | Chats · búsqueda | Hecha | `Input` real que filtra por título, identidad y vista previa con `filterChatEntries` |
-| Chats · filtros | Hechos | `Todos` y `No leídos` filtran la lista y se combinan con la búsqueda; el estado vacío distingue «sin coincidencias» de «sin conversaciones». `Favoritos` y `Grupos` quedan fuera hasta que exista origen de datos |
-| Chats · menú contextual | Parcial | Silenciar, fijar, archivar y borrar avisan de «próximamente»; solo «marcar como leído» actúa |
+| Chats · filtros | Hechos | `Todos`, `No leídos` y `Archivados` filtran la lista y se combinan con la búsqueda; el estado vacío distingue «sin coincidencias» de «sin conversaciones». `Favoritos` y `Grupos` quedan fuera hasta que exista origen de datos |
+| Chats · menú contextual | Hecha | Fijar, silenciar y archivar se guardan por conversación en `upeer.conversationFlags`: los fijados suben al principio con su chincheta, los silenciados muestran la campana tachada y el servicio omite sus notificaciones, y los archivados salen de «Todos» con un filtro «Archivados» propio. «Marcar como leído» actúa; «Favoritos» y «Vaciar chat» siguen avisando de «próximamente» |
 | Chats · nueva conversación | Parcial | «Nueva conversación» y «Nuevo grupo» avisan de «próximamente»; la lista de contactos sí abre el chat |
 | Contactos · alta | Hecha | Faltan reputación real y la tarjeta propia en QR |
 | Chats · solicitudes | Hecha | El primer mensaje de un remitente sin contacto entra en la lista como una conversación más; al abrirla, el cuerpo muestra la pantalla de solicitud con Bloquear y Aceptar y conectar. Si ya existía conversación, se acepta sola |
@@ -736,6 +736,16 @@ Queda pendiente en Ajustes:
 3. Almacenamiento: el móvil no tiene bridge de vault (`getVaultStats`, `cleanupVaultExpired`) ni historial de archivos como `FileHistoryExplorer`.
 4. Seguridad de escritorio pendiente de bridge: PIN de bloqueo, revelar la frase con PIN y borrado de cuenta. La lista de dispositivos y la revocación ya son reales.
 5. Sección «Perfil» dentro de ajustes: en el móvil el perfil es una pestaña propia, así que no se duplica.
+
+### Acciones de conversación reales (24/10/2026)
+
+Fijar, silenciar y archivar dejan de ser avisos y pasan a tener efecto:
+
+- **Un solo mapa por conversación.** `src/domain/conversation-flags.ts` define `ConversationFlags` (`archived`, `muted`, `pinned`), `toggleFlag` borra la entrada cuando los tres quedan apagados y `orderByPinned` sube los fijados sin tocar el orden del resto. `parseConversationFlags` descarta identidades vacías y marcas que no sean `true`, así que un JSON corrupto deja la lista sin ajustes en vez de romper Chats.
+- **Persistencia sin nativo.** `src/storage/conversation-flags-store.ts` guarda el mapa en `expo-sqlite/kv-store` bajo `upeer.conversationFlags` y expone `useConversationFlags` como `useSyncExternalStore`; el mismo patrón que las preferencias.
+- **El silencio llega al servicio.** Al cargar y en cada cambio, el store envía la lista de silenciados con `setMutedPeers`; `ProtocolStateStore` la normaliza con `PeerIdList` y `UPeerNotifications` descarta la notificación con un log. Sin eso, «Silenciar» sería decorativo.
+- **Un filtro más, no un estado oculto.** `ChatListFilter` gana `archived`: `Todos` y `No leídos` ocultan lo archivado y `Archivados` muestra solo eso, de modo que nada desaparece sin salida.
+- **Las filas dicen su estado.** El item de conversación pinta `Pin` y `BellOff` antes del alias y lo anuncia en `accessibilityLabel`, siguiendo la distribución de la lista de escritorio.
 
 Reglas de estilo acordadas para toda pantalla nueva:
 

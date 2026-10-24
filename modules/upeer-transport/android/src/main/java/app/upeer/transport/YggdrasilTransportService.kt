@@ -185,6 +185,12 @@ class YggdrasilTransportService : Service() {
       protocolState.setKnownContacts(known)
       Log.i(TAG, "Contactos conocidos sincronizados: ${known.size}")
     }
+    override fun setMutedPeers(mutedJSON: String) {
+      val parsed = JSONArray(mutedJSON.ifBlank { "[]" })
+      val muted = buildList { for (index in 0 until parsed.length()) add(parsed.optString(index)) }
+      protocolState.setMutedPeers(muted)
+      Log.i(TAG, "Conversaciones silenciadas: ${muted.size}")
+    }
     override fun setNotificationPrefs(prefsJSON: String) {
       val prefs = NotificationPrefs.parse(prefsJSON)
       protocolState.setNotificationPrefs(prefs)
@@ -236,7 +242,7 @@ class YggdrasilTransportService : Service() {
     accountRegistry = AccountRegistryFacade(identity)
     dhtLocation = DhtLocationStore(this)
     contactRegistries = ContactRegistryStore(this)
-    notifications = UPeerNotifications(this, { protocolState.notificationPrefs() }, { upeerId -> protocolState.isKnownContact(upeerId) })
+    notifications = UPeerNotifications(this, { protocolState.notificationPrefs() }, { upeerId -> protocolState.isKnownContact(upeerId) }, { upeerId -> protocolState.isMuted(upeerId) })
     notifications.createChannels()
     val signedPreKeys = SignedPreKeyStore(this)
     admissionGuard = DeviceAdmissionGuard({ identity.currentDeviceAdmission() }) {

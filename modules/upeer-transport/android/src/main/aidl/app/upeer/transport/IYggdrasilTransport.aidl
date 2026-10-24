@@ -37,6 +37,7 @@ interface IYggdrasilTransport {
   void setBlockedPeers(String blockedJSON);
   void setKnownContacts(String knownJSON);
   void setNotificationPrefs(String prefsJSON);
+  void setMutedPeers(String mutedJSON);
   boolean registerPeer(String upeerId, String address, String publicKey, String signedPreKeyJSON);
   void flushOutbox();
   String protocolStatusJSON();

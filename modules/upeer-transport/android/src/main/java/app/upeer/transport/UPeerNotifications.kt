@@ -17,6 +17,7 @@ internal class UPeerNotifications(
   private val context: Context,
   private val prefs: () -> NotificationPrefs = { NotificationPrefs.DEFAULT },
   private val isKnownContact: (String) -> Boolean = { true },
+  private val isMuted: (String) -> Boolean = { false },
 ) {
   private val activeMessageIds = mutableSetOf<Int>()
   private val idLock = Any()
@@ -63,6 +64,10 @@ internal class UPeerNotifications(
   fun notifyMessage(upeerId: String, alias: String, content: String) {
     if (!canPostNotifications()) {
       Log.w(TAG, "No se muestra la notificación de $upeerId: POST_NOTIFICATIONS no está concedido")
+      return
+    }
+    if (isMuted(upeerId)) {
+      Log.i(TAG, "Notificación de $upeerId omitida: conversación silenciada")
       return
     }
     val current = prefs()

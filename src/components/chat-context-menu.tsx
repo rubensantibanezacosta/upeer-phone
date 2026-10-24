@@ -5,6 +5,7 @@ import { Archive, BellOff, CheckCheck, Heart, Pin, Trash2, X } from '@tamagui/lu
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import type { ChatListEntry } from '@/components/chat-list-item';
+import type { ConversationFlag } from '@/domain/conversation-flags';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ProfileAvatar } from '@/components/profile-avatar';
 import { useTheme } from '@/hooks/use-theme';
@@ -13,6 +14,7 @@ type ChatContextMenuProps = {
   entry: ChatListEntry | null;
   onClose: () => void;
   onMarkRead: (entry: ChatListEntry) => void;
+  onToggleFlag: (entry: ChatListEntry, flag: ConversationFlag) => void;
   onUnavailable: (label: string) => void;
 };
 
@@ -33,7 +35,7 @@ function MenuAction({ color, disabled = false, icon, label, onPress }: MenuActio
   );
 }
 
-export function ChatContextMenu({ entry, onClose, onMarkRead, onUnavailable }: ChatContextMenuProps) {
+export function ChatContextMenu({ entry, onClose, onMarkRead, onToggleFlag, onUnavailable }: ChatContextMenuProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   if (!entry) return null;
@@ -53,9 +55,9 @@ export function ChatContextMenu({ entry, onClose, onMarkRead, onUnavailable }: C
             <NativeRipplePressable accessibilityLabel="Cerrar menú" onPress={onClose} style={styles.closeButton}><X color={theme.placeholder} size={18} /></NativeRipplePressable>
           </XStack>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <MenuAction color={theme.text} icon={<Archive color={theme.text} size={19} />} label="Archivar chat" onPress={() => onUnavailable('Archivar chat')} />
-          <MenuAction color={theme.text} icon={<BellOff color={theme.text} size={19} />} label="Silenciar notificaciones" onPress={() => onUnavailable('Silenciar notificaciones')} />
-          <MenuAction color={theme.text} icon={<Pin color={theme.text} size={19} />} label="Fijar chat" onPress={() => onUnavailable('Fijar chat')} />
+          <MenuAction color={theme.text} icon={<Archive color={theme.text} size={19} />} label={entry.archived ? 'Desarchivar chat' : 'Archivar chat'} onPress={() => onToggleFlag(entry, 'archived')} />
+          <MenuAction color={theme.text} icon={<BellOff color={theme.text} size={19} />} label={entry.muted ? 'Activar notificaciones' : 'Silenciar notificaciones'} onPress={() => onToggleFlag(entry, 'muted')} />
+          <MenuAction color={theme.text} icon={<Pin color={theme.text} size={19} />} label={entry.pinned ? 'Desfijar chat' : 'Fijar chat'} onPress={() => onToggleFlag(entry, 'pinned')} />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <MenuAction
             color={canMarkRead ? theme.text : theme.placeholder}

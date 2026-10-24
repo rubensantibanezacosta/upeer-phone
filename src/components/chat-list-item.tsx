@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { StyleSheet } from 'react-native';
-import { Check, CheckCheck, CircleAlert, Clock3 } from '@tamagui/lucide-icons-2';
+import { BellOff, Check, CheckCheck, CircleAlert, Clock3, Pin } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
@@ -20,6 +20,9 @@ export type ChatListEntry = {
   pending?: boolean;
   incoming?: boolean;
   vouchScore?: number;
+  archived?: boolean;
+  muted?: boolean;
+  pinned?: boolean;
 };
 
 type ChatListItemProps = {
@@ -66,7 +69,7 @@ export function ChatListItem({ entry, onOpen, onOpenMenu }: ChatListItemProps) {
   return (
     <NativeRipplePressable
       accessibilityHint="Mantén pulsado para abrir las opciones de la conversación"
-      accessibilityLabel={`${entry.title}${isUnread ? `, ${entry.unread} mensajes sin leer` : ''}, ${getTrustLabel(entry.vouchScore)}`}
+      accessibilityLabel={`${entry.title}${entry.pinned ? ', fijada' : ''}${entry.muted ? ', silenciada' : ''}${isUnread ? `, ${entry.unread} mensajes sin leer` : ''}, ${getTrustLabel(entry.vouchScore)}`}
       accessibilityRole="button"
       delayLongPress={350}
       onLongPress={handleLongPress}
@@ -77,7 +80,9 @@ export function ChatListItem({ entry, onOpen, onOpenMenu }: ChatListItemProps) {
         <ContactTrustAvatar name={entry.title} size={55} vouchScore={entry.vouchScore} />
         <YStack flex={1} gap={4}>
           <XStack alignItems="center" gap={8}>
+            {entry.pinned ? <Pin color={theme.placeholder} size={13} strokeWidth={2.2} /> : null}
             <SizableText color={theme.text} flex={1} fontSize={15} fontWeight={isEmphasized ? '700' : '600'} numberOfLines={1}>{entry.title}</SizableText>
+            {entry.muted ? <BellOff accessibilityLabel="Silenciada" color={theme.placeholder} size={13} strokeWidth={2.2} /> : null}
             {!!time && <Text color={isEmphasized ? theme.accent : theme.placeholder} fontSize={11} fontWeight={isEmphasized ? '700' : '500'}>{time}</Text>}
           </XStack>
           <XStack alignItems="center" gap={5}>
