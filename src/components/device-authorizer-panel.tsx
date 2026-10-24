@@ -4,6 +4,8 @@ import { Ban, Info, ShieldAlert, Smartphone, Trash2, UserPlus } from '@tamagui/l
 import { Card, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { DeviceInviteSheet } from '@/components/device-invite-sheet';
+import { DevicePairingPanel } from '@/components/device-pairing-panel';
+import { BottomSheet } from '@/components/bottom-sheet';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useAccountDevices } from '@/hooks/use-account-devices';
@@ -14,6 +16,7 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
   const theme = useTheme();
   const { state, refresh } = useAccountDevices();
   const [sheetVisible, setSheetVisible] = useState(false);
+  const [pairingVisible, setPairingVisible] = useState(false);
   const [busyId, setBusyId] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -54,10 +57,13 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
     </XStack>
     <Text color={theme.placeholder} fontSize={12}>Estos dispositivos pueden usar tu cuenta sin tu frase de recuperación</Text>
 
-    {state.localAdmitted ? null : <XStack alignItems="center" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={10} borderWidth={1} gap={8} padding={10}>
-      <ShieldAlert color={theme.onDangerSoft} size={16} />
-      <Text color={theme.onDangerSoft} flex={1} fontSize={12}>Este dispositivo fue revocado y ya no puede enviar ni recibir mensajes de la cuenta.</Text>
-    </XStack>}
+    {state.localAdmitted ? null : <YStack gap={8}>
+      <XStack alignItems="center" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={10} borderWidth={1} gap={8} padding={10}>
+        <ShieldAlert color={theme.onDangerSoft} size={16} />
+        <Text color={theme.onDangerSoft} flex={1} fontSize={12}>Este dispositivo fue revocado y ya no puede enviar ni recibir mensajes de la cuenta.</Text>
+      </XStack>
+      <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={44} icon={<UserPlus color={theme.onAccentSoft} size={16} />} onPress={() => setPairingVisible(true)}>Volver a vincular este dispositivo</NativeRippleButton>
+    </YStack>}
 
     <YStack gap={8}>
       {state.loading && state.devices.length === 0
@@ -97,6 +103,10 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
     </YStack> : null}
 
     <DeviceInviteSheet onAuthorized={() => void refresh()} onClose={() => setSheetVisible(false)} visible={sheetVisible} />
+    <BottomSheet icon={<Smartphone color={theme.accent} size={20} />} onClose={() => { setPairingVisible(false); void refresh(); }} title="Vincular este dispositivo" visible={pairingVisible}>
+      <Paragraph color={theme.placeholder} fontSize={12}>Pide a otro dispositivo de tu cuenta una invitación nueva. Al terminar, cierra y abre la sesión otra vez con tu frase de recuperación.</Paragraph>
+      <DevicePairingPanel />
+    </BottomSheet>
   </YStack>;
 }
 
