@@ -19,6 +19,7 @@ import { buildChatTimeline, toInvertedChatTimeline, type ChatTimelineEntry } fro
 import { summarizeReactions } from '@/domain/chat-reactions';
 import { decideRequestState } from '@/domain/message-request';
 import { useMessageActions } from '@/hooks/use-message-actions';
+import { useContactCard } from '@/hooks/use-contact-card';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useTheme } from '@/hooks/use-theme';
 import { getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
@@ -50,6 +51,7 @@ export default function ChatRoute() {
   const [error, setError] = useState('');
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
+  const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const typingSentAtRef = useRef(0);
 
 
@@ -57,6 +59,7 @@ export default function ChatRoute() {
     if (!upeerId) return;
     const [nextMessages, contacts, conversations] = await Promise.all([getMessages(upeerId, MESSAGE_LIMIT), getContacts(), getConversations()]);
     setMessages(nextMessages);
+    setContacts(contacts);
     const contact = contacts.find((item) => item.upeerId === upeerId);
     const ownConversation = conversations.find((conversation) => conversation.upeerId === upeerId);
     const conversationAlias = ownConversation?.alias;
@@ -165,6 +168,14 @@ export default function ChatRoute() {
     void copy(message.content);
   }, [closeActions, copy]);
 
+  const openContactInfo = useCallback((target: string) => {
+    router.push({ pathname: '/contact/[upeerId]', params: { upeerId: target } });
+  }, []);
+  const reloadContacts = useCallback(() => refresh().catch((cause: unknown) => console.warn('No se pudo recargar la agenda.', cause)), [refresh]);
+  const contactCard = useContactCard({ contacts, onOpenContact: openContactInfo, onSaved: reloadContacts });
+  const openCard = contactCard.open;
+  const savedContactIds = contactCard.savedIds;
+
   const resolveRequest = useCallback((status: UPeerContact['status'], message: string) => {
     if (!upeerId) return;
     saveContact({ address: '', createdAt: Date.now(), name: alias || upeerId.slice(0, 12), publicKey: null, status, upeerId })
@@ -204,11 +215,13 @@ export default function ChatRoute() {
       <ChatMessageBubble
         entry={item}
         onLongPress={openActions}
+        onOpenCard={openCard}
         onToggleReaction={toggleReaction}
         reactions={summarizeReactions(item.message.reactions, selfUpeerId)}
+        savedContacts={savedContactIds}
       />
     </View>
-  ), [openActions, selfUpeerId, toggleReaction]);
+  ), [openActions, openCard, savedContactIds, selfUpeerId, toggleReaction]);
 
   return (
     <View style={styles.root}>

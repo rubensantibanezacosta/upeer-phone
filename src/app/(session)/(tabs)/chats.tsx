@@ -10,6 +10,7 @@ import { BottomSheet } from '@/components/bottom-sheet';
 import { NewConversationList } from '@/components/new-conversation-list';
 import { ChatListItem, type ChatListEntry } from '@/components/chat-list-item';
 import { CHAT_LIST_FILTERS, filterChatEntries, isChatFilterActive, type ChatListFilter } from '@/domain/chat-list-filters';
+import { messageSummary } from '@/domain/contact-card';
 import { flagMessage, flagsFor, orderByPinned, type ConversationFlag } from '@/domain/conversation-flags';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
 import { setConversationFlag } from '@/storage/conversation-flags-store';
@@ -62,7 +63,7 @@ export default function ChatsRoute() {
       .map((conversation) => ({
         upeerId: conversation.upeerId,
         title: conversation.alias || conversation.upeerId.slice(0, 12),
-        preview: conversation.lastMessage.replace(/^__SYS__\|/, '') || 'Sin mensajes',
+        preview: messageSummary(conversation.lastMessage.replace(/^__SYS__\|/, '')) || 'Sin mensajes',
         timestamp: conversation.lastTimestamp,
         unread: conversation.unread,
         isMine: conversation.lastIsMine === true,

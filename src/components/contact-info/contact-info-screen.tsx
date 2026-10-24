@@ -5,6 +5,7 @@ import { Archive, ArrowLeft, Ban, BellOff, LockKeyhole, LockOpen, Share2, Star, 
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactInfoHero } from '@/components/contact-info/contact-info-hero';
+import { ContactShareSheet } from '@/components/chat/contact-share-sheet';
 import { InteractiveRow } from '@/components/contact-info/interactive-row';
 import { CopyField } from '@/components/copy-field';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
@@ -24,6 +25,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
   const { showSnackbar } = useSnackbar();
   const copyToClipboard = useCopyToClipboard();
   const [contact, setContact] = useState<UPeerContact | null | undefined>(undefined);
+  const [sharing, setSharing] = useState(false);
 
   const reportFailure = useCallback((cause: unknown) => {
     console.warn('No se pudo cargar la ficha del contacto.', cause);
@@ -117,7 +119,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
         </YStack>
         <YStack gap={6}>
           <Text color={theme.placeholder} fontSize={12} fontWeight="600">Conversación</Text>
-          <InteractiveRow disabled hint="Pronto" icon={Share2} label="Compartir contacto" onPress={pending('Compartir contacto')} />
+          <InteractiveRow disabled={!contact} icon={Share2} label="Compartir contacto" onPress={() => setSharing(true)} />
           <InteractiveRow disabled hint="Pronto" icon={BellOff} label="Silenciar notificaciones" onPress={pending('Silenciar notificaciones')} />
           <InteractiveRow disabled hint="Pronto" icon={Archive} label="Archivar chat" onPress={pending('Archivar chat')} />
           <InteractiveRow disabled hint="Pronto" icon={Star} label="Añadir a Favoritos" onPress={pending('Favoritos')} />
@@ -130,6 +132,13 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
           <InteractiveRow disabled={!contact} icon={UserMinus} label="Eliminar contacto" onPress={confirmDelete} tone="danger" />
         </YStack>
       </ScrollView>
+      <ContactShareSheet
+        contact={contact ?? null}
+        onClose={() => setSharing(false)}
+        onError={showSnackbar}
+        onSent={(target) => showSnackbar(`Contacto compartido con ${target.name}`)}
+        visible={sharing}
+      />
     </SafeAreaView>
   );
 }
