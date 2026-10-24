@@ -37,9 +37,18 @@ internal class YggdrasilProtocol(
     state,
     outbox::sendDrReset,
   )
-  fun start(activeBridge: Bridge) = outbox.start(activeBridge)
+  @Volatile
+  private var bridge: Bridge? = null
 
-  fun stop() = outbox.stop()
+  fun start(activeBridge: Bridge) {
+    bridge = activeBridge
+    outbox.start(activeBridge)
+  }
+
+  fun stop() {
+    bridge = null
+    outbox.stop()
+  }
 
   fun clear() {
     outbox.stop()
@@ -62,7 +71,10 @@ internal class YggdrasilProtocol(
 
   fun flushOutbox() = outbox.flush()
   fun peerPublicKey(upeerId: String): String? = state.publicKeyFor(upeerId)
-  fun markConversationRead(upeerId: String) = state.markConversationRead(upeerId)
+  fun markConversationRead(upeerId: String) {
+    val transitioned = state.markConversationRead(upeerId)
+    if (transitioned.isNotEmpty()) sendReadReceipts(upeerId, transitioned)
+  }
 
   fun deleteConversation(upeerId: String): Boolean = state.deleteConversation(upeerId)
 
@@ -147,7 +159,7 @@ internal class YggdrasilProtocol(
       }
       return metadataJSON
     }
-    if (type == "ACK" || type == "DR_RESET") {
+    if (type == "ACK" || type == "DR_RESET" || type == "READ") {
       return controlReplies.handle(activeBridge, payload, packet, type, sourceAddress)
     }
     if (type != "CHAT" && type != "CHAT_UPDATE") throw IllegalArgumentException("unsupported packet type $type")
@@ -263,6 +275,38 @@ internal class YggdrasilProtocol(
     val ackThread = Thread({ sendAck(activeBridge, senderUpeerId, messageID) }, "upeer-ack")
     ackThread.isDaemon = true
     ackThread.start()
+  }
+
+  private fun sendReadReceipts(upeerId: String, messageIDs: List<String>) {
+    val activeBridge = bridge ?: return
+    val address = state.addressFor(upeerId) ?: return
+    val peerPublicKey = state.publicKeyFor(upeerId) ?: return
+    val thread = Thread({
+      val currentIdentity = identity.current() ?: return@Thread
+      var connectionID = 0
+      try {
+        connectionID = activeBridge.dialTCP(address, PORT)
+        var sent = 0
+        for (messageID in messageIDs.take(ReadReceipts.MAX_PER_CONVERSATION)) {
+          val frame = ReadReceipts.frame(currentIdentity, activeBridge.address(), peerPublicKey, messageID, System.currentTimeMillis())
+          activeBridge.writeFrame(connectionID, frame.toByteArray(Charsets.UTF_8))
+          sent += 1
+        }
+        Log.i(TAG, "READ enviado a $address para $sent mensajes")
+      } catch (cause: Exception) {
+        Log.w(TAG, "No se pudo enviar READ a $address: ${message(cause)}")
+      } finally {
+        if (connectionID != 0) {
+          try {
+            activeBridge.closeConnection(connectionID)
+          } catch (cause: Exception) {
+            Log.w(TAG, "No se pudo cerrar la conexión de READ: ${message(cause)}")
+          }
+        }
+      }
+    }, "upeer-read")
+    thread.isDaemon = true
+    thread.start()
   }
 
   private fun sendAck(activeBridge: Bridge, senderUpeerId: String, messageID: String) {

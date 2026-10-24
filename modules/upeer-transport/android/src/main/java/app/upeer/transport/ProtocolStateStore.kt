@@ -299,17 +299,18 @@ internal class ProtocolStateStore(context: Context) {
     true
   }
 
-  fun markConversationRead(upeerId: String) {
-    synchronized(lock) {
-      val messages = state.optJSONArray("messages") ?: return@synchronized
-      for (index in 0 until messages.length()) {
-        val message = messages.optJSONObject(index) ?: continue
-        if (message.optString("upeerId") == upeerId && !message.optBoolean("isMine") && message.optString("status") == "delivered") {
-          message.put("status", "read")
-        }
+  fun markConversationRead(upeerId: String): List<String> = synchronized(lock) {
+    val messages = state.optJSONArray("messages") ?: return@synchronized emptyList()
+    val transitioned = mutableListOf<String>()
+    for (index in 0 until messages.length()) {
+      val message = messages.optJSONObject(index) ?: continue
+      if (message.optString("upeerId") == upeerId && !message.optBoolean("isMine") && message.optString("status") == "delivered") {
+        message.put("status", "read")
+        transitioned.add(message.optString("id"))
       }
-      persist()
     }
+    if (transitioned.isNotEmpty()) persist()
+    transitioned
   }
 
   fun clear() {

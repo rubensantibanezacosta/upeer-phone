@@ -39,6 +39,10 @@ internal class ControlReplies(
       handleAck(senderUpeerId, packet)
       return metadataJSON
     }
+    if (type == "READ") {
+      handleRead(senderUpeerId, packet)
+      return metadataJSON
+    }
     handleReset(packet, senderUpeerId, publicKey, deviceBinding)
     return metadataJSON
   }
@@ -68,6 +72,19 @@ internal class ControlReplies(
     val status = packet.optString("status")
     if (!outbox.onAck(senderUpeerId, messageID, status)) {
       Log.w(TAG, "ACK ignorado de $senderUpeerId para $messageID ($status)")
+    }
+  }
+
+  private fun handleRead(senderUpeerId: String, packet: JSONObject) {
+    val messageID = ReadReceipts.messageID(packet)
+    if (messageID == null) {
+      Log.w(TAG, "READ ignorado con id inválido de $senderUpeerId")
+      return
+    }
+    if (state.ackMessage(messageID, senderUpeerId, "read")) {
+      Log.i(TAG, "READ aplicado a $messageID de $senderUpeerId")
+    } else {
+      Log.w(TAG, "READ ignorado de $senderUpeerId para $messageID")
     }
   }
 

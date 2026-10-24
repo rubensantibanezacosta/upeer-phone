@@ -390,7 +390,7 @@ El objetivo fue cerrar el primer tramo de las fases 0 y 2: que Desktop pudiera a
    - [x] Pérdida de frames y cambios de red sin reiniciar el proceso: frame truncado con cierre controlado y frame válido posterior; Wi-Fi/datos desactivados y reactivados con peers reconectados y chat verificado, mismo PID de `:yggdrasil`.
 8. [ ] DHT Kademlia, bootstrap y roaming. B0–B5 están cerradas localmente; B6 (identidad/registro) es el siguiente bloqueo, B7 es DHT/roaming, B8 el servicio y B9 la interoperabilidad. B10 (sincronización) solo empieza tras B9.
 9. [ ] Paridad social, vault, grupos, archivos y llamadas (fases 4–10, solo tras B9; vault/multidispositivo tras B10).
-   - [ ] Eventos de mensaje que faltan en el protocolo móvil: `READ`, `TYPING`, `CHAT_DELETE`, `CHAT_REACTION` y `CHAT_CONTACT`. Ver «Inventario de paridad con escritorio».
+   - [ ] Eventos de mensaje que faltan en el protocolo móvil: `TYPING`, `CHAT_DELETE`, `CHAT_REACTION` y `CHAT_CONTACT`; `READ` ya se emite y se aplica. Ver «Inventario de paridad con escritorio».
    - [ ] Sincronización multi-dispositivo con los nueve `SYNC_EVENT_KINDS`, relay y backlog propios del móvil.
    - [ ] Archivos (`FILE_*`), grupos (`GROUP_*`) y llamadas (`CALL_*`) con interoperabilidad real contra escritorio.
 
@@ -435,7 +435,7 @@ Este apartado fija el contrato observado en `upper-desktop/src/main_process` que
 
 ### ACK, `DR_RESET` y recepción
 
-- Tras validar la firma, descifrar y persistir un `CHAT`, se responde con `{ type: "ACK", id, status: "delivered" }` firmado con la identidad propia. `READ` es un paquete distinto para recibos de lectura.
+- Tras validar la firma, descifrar y persistir un `CHAT`, se responde con `{ type: "ACK", id, status: "delivered" }` firmado con la identidad propia. El recibo de lectura es un `READ` aparte, firmado y sellado, que se envía al abrir la conversación.
 - El `ACK` y el `DR_RESET` no se envían como respuesta en el mismo socket TCP entrante: se abre una conexión saliente al `senderYggAddress` autenticado y se escribe un frame nuevo. No se sellan en la ruta actual; el receptor debe validar su firma como cualquier paquete firmado.
 - `DR_RESET` contiene `type`, `resetId` UUID, `signedPreKey: { spkPub, spkSig, spkId }` y `ratchetContext: "direct"`. Se valida la firma de la SPK, el UUID y la secuencia: una SPK con `spkId` menor se ignora; un `spkId` igual con la misma SPK reinicia la sesión de forma idempotente; un `spkId` igual con otra SPK se rechaza; un `spkId` mayor actualiza la SPK. Un `DR_RESET` legacy sin `resetId` se acepta por compatibilidad, pero no se deduplica.
 - La caché de `resetId` es por peer, con TTL y límite de entradas. Un reset repetido no vuelve a reiniciar el ratchet ni el outbox.
@@ -583,7 +583,7 @@ Cierre de brechas medido contra el código de `upper-desktop`, no contra lo que 
 | `ACK` | Sí | Sí (`ControlReplies`) | Verificado con el chat |
 | `DR_RESET` | Sí | Sí (`DrResetPolicy`, `DrResetReplayCache`) | Pruebas JVM; sin prueba real de reinicio de ratchet |
 | `CHAT_UPDATE` (edición) | Sí, con `version` y política de conflicto | Sí (`editChat`, `ChatEditPolicy`) | Pruebas JVM; sin prueba cruzada |
-| `READ` (recibo de lectura) | Sí | **No se emite**; el ACK avanza estado pero no se manda `READ` | No probado |
+| `READ` (recibo de lectura) | Sí | Sí (`ReadReceipts`, `ControlReplies`) | Pruebas JVM del frame; falta prueba cruzada real |
 | `TYPING` (escribiendo) | Sí | **Ausente** | No probado |
 | `CHAT_DELETE` | Sí | **Ausente** | No probado |
 | `CHAT_REACTION` | Sí | **Ausente** | No probado |
@@ -676,10 +676,10 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Llamadas | Sin runtime | La pestaña no tiene motor de llamadas ni historial real |
 | Perfil · edición | Parcial | Alias y avatar se guardan; faltan privacidad, notificaciones y backup |
 | Perfil · dispositivos | Hecha | Lista el registro firmado y abre el autorizador de invitación |
-| Mensajes · estados | Pendiente | No se muestran `pending`/`synced`/`vaulted`/`delivered`/`failed` de B10 |
+| Mensajes · estados | Parcial | `pending`/`sent`/`delivered`/`read`/`failed` son reales: el ACK marca `delivered` y el `READ` marca `read` en ambos sentidos. `synced` y `vaulted` siguen pendientes de la sincronización multi-dispositivo |
 | Ajustes · índice | Hecho | Ocho secciones con contenido real salvo «Almacenamiento»: Privacidad, Seguridad, Bloqueados, Notificaciones, Apariencia, Conexión, Acerca de |
 | Notificaciones | Hecha | `UPeerNotifications` publica por conversación con previsualización privada, enlace `upeer://chat/<id>` y acción «Marcar leído», y respeta las preferencias: mensajes de contactos, solicitudes de desconocidos y sonido. Faltan agrupación entre conversaciones y presencia |
-| Ajustes · privacidad | Parcial | Tres interruptores de escritorio (lecturas, conectado, última vez) persistidos en el dispositivo; el servicio aún no emite presencia ni `READ`, así que todavía no cambian lo que ven los contactos |
+| Ajustes · privacidad | Parcial | Tres interruptores de escritorio (lecturas, conectado, última vez) persistidos en el dispositivo; el servicio ya emite `READ`, pero todavía no lo condiciona a `lecturas` ni envía presencia, así que aún no cambian lo que ven los contactos |
 | Ajustes · seguridad | Hecha | Estado del registro, lista de dispositivos con revocación confirmada y ayuda en popup; faltan PIN, revelar frase y borrado de cuenta, que necesitan bridge nativo |
 | Ajustes · bloqueados | Hecha | Lista real desde `contact-store` con desbloqueo confirmado; el servicio recibe la lista al desbloquear |
 | Ajustes · notificaciones | Hecha | Los tres interruptores se persisten y viajan al servicio (`setNotificationPrefs`); el canal de sonido se elige por preferencia y la notificación se omite si el tipo está apagado |
@@ -746,6 +746,15 @@ Fijar, silenciar y archivar dejan de ser avisos y pasan a tener efecto:
 - **El silencio llega al servicio.** Al cargar y en cada cambio, el store envía la lista de silenciados con `setMutedPeers`; `ProtocolStateStore` la normaliza con `PeerIdList` y `UPeerNotifications` descarta la notificación con un log. Sin eso, «Silenciar» sería decorativo.
 - **Un filtro más, no un estado oculto.** `ChatListFilter` gana `archived`: `Todos` y `No leídos` ocultan lo archivado y `Archivados` muestra solo eso, de modo que nada desaparece sin salida.
 - **Las filas dicen su estado.** El item de conversación pinta `Pin` y `BellOff` antes del alias y lo anuncia en `accessibilityLabel`, siguiendo la distribución de la lista de escritorio.
+
+### Recibos de lectura (24/10/2026)
+
+`READ` deja de ser una fila ausente del inventario:
+
+- **Frame propio, mínimo y firmado.** `ReadReceipts` construye `{ type: "READ", id, timestamp }`, lo firma con `buildSignedPacket` —que añade `senderUpeerId`, `senderYggAddress` y `signature`, y rechaza que el llamante los aporte— y lo envuelve en un `SEALED` con la clave del contacto, igual que hace escritorio en `sendReadReceipt`. Así el recibo no viaja en claro aunque el ACK sí.
+- **Se envía al abrir la conversación.** `ProtocolStateStore.markConversationRead` ahora devuelve los `id` que pasaron de `delivered` a `read`; el protocolo los manda en una sola conexión TCP, con tope de 50 por conversación (`ReadReceipts.MAX_PER_CONVERSATION`) para que un hilo largo no abra un envío sin fin. El protocolo guarda el `Bridge` en `start()` porque hasta ahora solo lo pasaba al outbox.
+- **Se aplica solo al mensaje propio y del peer correcto.** El `READ` entrante pasa por `ControlReplies` como el `ACK`, verifica la firma contra la clave del remitente —o la del dispositivo si el paquete viene ligado—, se limita a 200/min por origen y por identidad, y usa `ackMessage` con `ReplayPolicy.validAck`, que exige `isMine` y que el dueño del mensaje sea el remitente. Un `READ` de un tercero no puede marcar mis mensajes.
+- **La UI ya sabía pintarlo.** El estado `read` sale con el doble check en `theme.receiptRead` en la burbuja y en la lista de chats; lo que faltaba era que el móvil emitiera y aceptara el recibo.
 
 Reglas de estilo acordadas para toda pantalla nueva:
 
@@ -1128,7 +1137,7 @@ Entregar el núcleo de chat directo seguro con persistencia y reintentos.
 - [x] Portar chat E2EE y ratchet respetando los vectores de interoperabilidad: `CHAT` con X3DH/Double Ratchet, `ACK`, `CHAT_UPDATE` y `DR_RESET` funcionan contra Desktop.
 - [x] Portar edición (`CHAT_UPDATE` con `ChatEditPolicy` y `version`).
 - [ ] Portar respuestas (`replyTo` ya viaja en el paquete pero la UI no lo ofrece), reacciones (`CHAT_REACTION`), borrado (`CHAT_DELETE`), reenvío, selector de emoji y paginación real del historial (hoy se piden 200 mensajes sin cursor).
-- [ ] Portar estados de envío, entrega y lectura: la UI pinta `pending`/`sent`/`delivered`/`read`/`failed`, pero el móvil no emite `READ`, así que el estado real se queda en `sent`.
+- [x] Estados de envío, entrega y lectura: el móvil emite `READ` al abrir la conversación y aplica el `READ` entrante como `read` en los mensajes propios, así que la UI pinta `delivered` y `read` reales. `synced`/`vaulted` siguen fuera hasta que exista la sincronización.
 - [ ] Implementar outbox durable para envío cuando se recupere conectividad.
 - [ ] Portar presencia y escritura (`TYPING` y heartbeat de protocolo, hoy ausentes) con intervalos respetuosos con la batería.
 - [ ] Recibir y enviar tarjetas de contacto (`CHAT_CONTACT`), que hoy solo se pueden escanear desde el QR del escritorio.

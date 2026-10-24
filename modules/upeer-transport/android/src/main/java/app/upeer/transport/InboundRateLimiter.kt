@@ -54,6 +54,7 @@ internal class InboundRateLimiter(
       "HANDSHAKE_ACCEPT" to Rule(windowMs = 60_000, maxTokens = 50),
       "CHAT" to Rule(windowMs = 60_000, maxTokens = 100),
       "ACK" to Rule(windowMs = 60_000, maxTokens = 200),
+      "READ" to Rule(windowMs = 60_000, maxTokens = 200),
       "DR_RESET" to Rule(windowMs = 60_000, maxTokens = 20),
       "DHT_QUERY" to Rule(windowMs = 30_000, maxTokens = 20),
       "DHT_RESPONSE" to Rule(windowMs = 30_000, maxTokens = 40),
