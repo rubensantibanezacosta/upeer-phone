@@ -773,7 +773,7 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Ficha de grupo | Pendiente | No hay grupos en el móvil; cuando existan `GROUP_*` debe replicar la misma pantalla con miembros y administración |
 | Chat · composer | Parcial | Adjuntar archivo y nota de voz avisan «pendiente». **No hay ningún `FILE_*` en el móvil**: adjuntos, imágenes, vídeo, audio y documentos no existen, así que tampoco hay reintento de archivos que probar |
 | Chat · mensajes | Hecha | Editar, reaccionar, borrar para todos, responder (cita con autor y extracto), reenviar a uno o varios contactos y **reintentar un envío fallido**; el estado de entrega es real (`pending`/`sent`/`delivered`/`read`/`failed`), con 8 reenvíos sin ACK antes de darse por fallido |
-| Chat · presencia | Hecha | «Escribiendo…» real en la cabecera y en la vista previa de la lista, y presencia real (`En línea` dentro de 65 s y `Última vez …` después) desde `lastSeen` del servicio |
+| Chat · presencia | Parcial | «Escribiendo…» real en la cabecera y en la vista previa de la lista, y presencia (`En línea` dentro de 65 s y `Última vez …` después) desde `lastSeen` del servicio. Pendiente: `lastSeen` mide alcanzabilidad del nodo, no actividad del usuario |
 | Accesibilidad | Parcial | El tamaño de texto de Apariencia ya escala toda la app; falta revisión con lector de pantalla |
 
 ### Borrado, bloqueo y solicitudes de mensaje (23/10/2026)
@@ -922,6 +922,21 @@ Tres fallos vistos en vivo con los dos clientes conectados: el mensaje borrado d
 - **La hora vuelve a la fila de metadatos.** La cita estaba *dentro* de la fila `body` junto al texto y el bloque de metadatos, así que con cita el contenedor pasaba a columna y la hora caía debajo. Ahora la cita es un bloque propio a ancho completo (`styles.quote`) y `body` sigue siendo una fila con el texto y `meta` alineado a la derecha. Es la maquetación de escritorio: cita arriba, texto y hora en la misma línea.
 - **El PING no se contestaba.** El heartbeat de escritorio manda `PING` cada ~10 s a los contactos de las últimas 24 h, y el móvil lo rechazaba con «unsupported packet type PING», así que escritorio solo refrescaba `lastSeen` con tráfico real y a los cuatro minutos de inactividad daba al móvil por desconectado. Ahora `PING` entra por `ControlReplies`, cuenta como presencia (`touchPresence`) y responde `PONG` con `ControlPings.pong()` y `ControlSender.sendPong`, en un hilo propio como el resto de controles. El rate limit del móvil gana la regla `PING` (60 por 10 s, la misma que escritorio).
 - **Verificado en vivo:** con el móvil parado más de 85 s, escritorio sigue mostrando «En línea». La ficha de contacto de escritorio deja de contradecirse: la tarjeta «Última Actividad» escribe «Ahora mismo» cuando el contacto está en línea en lugar de una hora relativa vieja.
+
+### Presencia = actividad del usuario, no del nodo (26/10/2026)
+
+Decisión de producto: **«En línea» significa que la persona ha estado activa, no que su nodo esté encendido.** Que el servicio, el daemon o la VPN del par estén levantados es un detalle técnico de transporte; el usuario no tiene por qué saber que existen y no debe verlo traducido a un punto verde. La entrada anterior del `PING` queda así **matizada**: aquel arreglo evitaba que escritorio diera por desconectado un móvil alcanzable, pero un nodo que contesta no es una persona delante de la pantalla.
+
+- **Qué mide hoy `lastSeen`, y por qué no sirve.** `ProtocolStateStore.touchPresence` se ejecuta en cualquier paquete entrante autenticado: `CHAT`, `CHAT_UPDATE`, `ACK`, `DR_RESET` y también el `PING` del heartbeat de escritorio, que llega cada ~10 s. `ONLINE_WINDOW_MS = 65_000` sobre ese valor mide **alcanzabilidad**: un móvil con la app cerrada pero el servicio vivo contesta `PONG` y se queda «En línea» de forma indefinida.
+- **Dos datos, no uno.** `lastSeen` se queda como está, en el servicio, para diagnóstico y para el reintento/reachability del outbox. La etiqueta del usuario pasa a derivarse de `lastActive`, que **solo avanza con actividad humana real**: abrir la app, volver a primer plano, abrir una conversación, escribir, enviar, leer o reaccionar. El `PING`/`PONG`, los ACK, los `DR_RESET` y cualquier tráfico de protocolo **no** tocan `lastActive`.
+- **La ventana no cambia, el dato sí.** `ONLINE_WINDOW_MS` se aplica a `lastActive`: dentro de 65 s es «En línea»; después, «Última vez …» con la hora de la última acción real. `describePresence` no necesita cambios; cambia de dónde sale su entrada.
+- **Nada de estados técnicos en la UI.** No se expone «nodo conectado», «servicio activo» ni equivalentes en la lista, la cabecera ni la ficha del contacto. El estado de red y DHT sigue viviendo solo en Ajustes › Diagnóstico.
+- **Pendiente de implementar** (esto es la decisión, no el código):
+  1. Campo `lastActive` por peer en el estado nativo, con su `touchActive` separado de `touchPresence`, y `lastActive` en el payload de `ProtocolConversations`.
+  2. Marcarlo desde la app: arranque de sesión, `AppState` a `active`, apertura de conversación, envío, lectura, reacción, edición y borrado propios.
+  3. Escritorio: emitir su propia actividad por la misma vía y dejar de considerar `lastSeen` como presencia humana en `topHeaderSupport` y `ContactsPanelDetails`.
+  4. Pruebas: `presence.test.ts` con «el nodo contestó pero no hubo actividad → `Última vez`» y un caso Kotlin de que `PING` no mueve `lastActive`.
+  5. Ajustes › Privacidad sigue mandando: «Conectado» apagado oculta la etiqueta en línea; «Última vez» apagado oculta la hora.
 
 ### Buscar en la conversación (26/10/2026)
 
