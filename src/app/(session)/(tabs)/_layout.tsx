@@ -1,13 +1,13 @@
 import { Tabs } from 'expo-router';
-import { useColorScheme as useNativeColorScheme, Pressable, type PressableProps } from 'react-native';
+import { Pressable, type PressableProps } from 'react-native';
 import { MessageCircle, Phone, Users } from '@tamagui/lucide-icons-2';
 import { Colors } from '@/constants/theme';
 import { ProfileAvatar } from '@/components/profile-avatar';
 import { useSession } from '@/components/session-shell';
+import { useResolvedColorScheme } from '@/hooks/use-resolved-color-scheme';
 
 export default function SessionTabsLayout() {
-  const colorScheme = useNativeColorScheme();
-  const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+  const theme = Colors[useResolvedColorScheme()];
   const { identity, profile } = useSession();
   const profileName = profile?.alias || identity.upeerId;
   const scene = (backgroundColor: string) => ({ backgroundColor });

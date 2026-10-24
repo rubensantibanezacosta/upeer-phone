@@ -4,27 +4,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from '@tamagui/lucide-icons-2';
 import { Card, Paragraph, SizableText, Text } from 'tamagui';
 
-import { ConnectionSettingsSection } from '@/components/connection-settings-section';
+import { renderSettingsSection, SETTINGS_SECTION_LABELS } from '@/components/settings-sections';
 import { useSession } from '@/components/session-shell';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useTheme } from '@/hooks/use-theme';
-
-const sectionLabels: Record<string, string> = {
-  privacidad: 'Privacidad',
-  seguridad: 'Seguridad',
-  notificaciones: 'Notificaciones',
-  apariencia: 'Apariencia',
-  almacenamiento: 'Almacenamiento',
-  red: 'Conexión',
-  acerca: 'Acerca de',
-};
 
 export default function SettingsSectionRoute() {
   const theme = useTheme();
   const copyToClipboard = useCopyToClipboard();
   const { connection } = useSession();
   const { section } = useLocalSearchParams<{ section: string }>();
-  const label = sectionLabels[section] ?? 'Configuración';
+  const label = SETTINGS_SECTION_LABELS[section] ?? 'Configuración';
+  const rendered = renderSettingsSection({ section, connection, onCopy: (value) => { void copyToClipboard(value, 'Dirección copiada'); } });
 
   return <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
     <ScrollView contentContainerStyle={styles.content}>
@@ -33,7 +24,7 @@ export default function SettingsSectionRoute() {
           <ArrowLeft color={theme.text} size={18} /><Text color={theme.text} fontSize={15}>Volver a configuración</Text>
         </Pressable>
       </Link>
-      {section === 'red' ? <ConnectionSettingsSection {...connection} onCopy={(value) => { void copyToClipboard(value, 'Dirección copiada'); }} /> : <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={8} padding={16}><SizableText color={theme.text} fontSize={22} fontWeight="700">{label}</SizableText><Paragraph color={theme.placeholder}>Esta sección todavía no está disponible en la app móvil.</Paragraph></Card>}
+      {rendered ?? <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={8} padding={16}><SizableText color={theme.text} fontSize={22} fontWeight="700">{label}</SizableText><Paragraph color={theme.placeholder}>Esta sección todavía no está disponible en la app móvil.</Paragraph></Card>}
     </ScrollView>
   </SafeAreaView>;
 }

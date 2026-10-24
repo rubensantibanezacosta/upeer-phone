@@ -3,7 +3,7 @@ import { Alert, Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import QRCode from 'react-native-qrcode-svg';
-import { Clock3, Copy, Info, LogOut, X } from '@tamagui/lucide-icons-2';
+import { Clock3, Copy, LogOut, X } from '@tamagui/lucide-icons-2';
 import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import type { UPeerIdentity } from '@/domain/identity';
@@ -13,6 +13,7 @@ import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { loadProfile, saveProfile } from '@/storage/identity-store';
 import { DeviceAuthorizerPanel } from '@/components/device-authorizer-panel';
+import { InfoDialog } from '@/components/info-dialog';
 import { profileHelpContent, type ProfileInfoKey } from '@/components/profile-help-content';
 import { ProfileAddressSection, ProfileHeroSection, ProfileStatsSection, ProfileTechnicalSection } from '@/components/profile-sections';
 
@@ -143,22 +144,7 @@ function ProfileQrModal({ visible, fullId, onClose, onCopy }: { visible: boolean
 }
 
 function ProfileInfoModal({ info, onClose }: { info: ProfileInfoKey | null; onClose: () => void }) {
-  const theme = useTheme();
-  if (!info) return null;
-  const content = profileHelpContent[info];
-  return (
-    <Modal animationType="fade" onRequestClose={onClose} transparent visible>
-      <NativeRipplePressable android_ripple={{ color: 'transparent' }} onPress={onClose} style={[styles.modalBackdrop, { backgroundColor: theme.backdrop }]}>
-        <NativeRipplePressable onPress={(event) => event.stopPropagation()} style={[styles.infoDialog, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
-          <XStack alignItems="center" borderBottomColor={theme.border} borderBottomWidth={1} gap={12} paddingBottom={14}><Info color={theme.placeholder} size={18} /><SizableText color={theme.text} flex={1} fontSize={17} fontWeight="700">{content.title}</SizableText><NativeRipplePressable accessibilityLabel="Cerrar" onPress={onClose}><X color={theme.placeholder} size={20} /></NativeRipplePressable></XStack>
-          <ScrollView contentContainerStyle={styles.infoContent}>
-            <Text color={theme.placeholder} fontSize={14}>{content.description}</Text>
-            {content.items.map((item) => <YStack key={item.label} gap={4}><SizableText color={theme.text} fontSize={14} fontWeight="600">{item.label}</SizableText><Text color={theme.placeholder} fontSize={13}>{item.description}</Text></YStack>)}
-          </ScrollView>
-        </NativeRipplePressable>
-      </NativeRipplePressable>
-    </Modal>
-  );
+  return <InfoDialog content={info ? profileHelpContent[info] : null} onClose={onClose} />;
 }
 
-const styles = StyleSheet.create({ content: { flexGrow: 1, paddingBottom: 24 }, callsContent: { flexGrow: 1, gap: 12, paddingBottom: 24, paddingHorizontal: 20, paddingTop: 20 }, modalBackdrop: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 20 }, qrDialog: { alignItems: 'center', borderRadius: 16, borderWidth: 1, gap: 14, maxWidth: 380, padding: 22, width: '100%' }, qrCanvas: { alignItems: 'center', borderRadius: 12, justifyContent: 'center', minHeight: 250, padding: 15, width: 250 }, infoDialog: { borderRadius: 16, borderWidth: 1, maxHeight: '82%', maxWidth: 480, padding: 20, width: '100%' }, infoContent: { gap: 14, paddingVertical: 18 } });
+const styles = StyleSheet.create({ content: { flexGrow: 1, paddingBottom: 24 }, callsContent: { flexGrow: 1, gap: 12, paddingBottom: 24, paddingHorizontal: 20, paddingTop: 20 }, modalBackdrop: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 20 }, qrDialog: { alignItems: 'center', borderRadius: 16, borderWidth: 1, gap: 14, maxWidth: 380, padding: 22, width: '100%' }, qrCanvas: { alignItems: 'center', borderRadius: 12, justifyContent: 'center', minHeight: 250, padding: 15, width: 250 } });

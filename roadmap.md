@@ -677,14 +677,15 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Perfil · edición | Parcial | Alias y avatar se guardan; faltan privacidad, notificaciones y backup |
 | Perfil · dispositivos | Hecha | Lista el registro firmado y abre el autorizador de invitación |
 | Mensajes · estados | Pendiente | No se muestran `pending`/`synced`/`vaulted`/`delivered`/`failed` de B10 |
-| Ajustes · índice | Hecho | Existe `/settings` con siete secciones; solo «Conexión» tiene contenido real |
+| Ajustes · índice | Hecho | Ocho secciones con contenido real salvo «Almacenamiento»: Privacidad, Seguridad, Bloqueados, Notificaciones, Apariencia, Conexión, Acerca de |
 | Notificaciones | Hecha en el servicio | `UPeerNotifications` publica por conversación con previsualización privada, enlace `upeer://chat/<id>` y acción «Marcar leído»; faltan preferencias por tipo, sonido y agrupación entre conversaciones |
-| Ajustes · privacidad | Placeholder | La sección dice «todavía no está disponible» |
-| Ajustes · seguridad | Placeholder | Debe alojar el registro de dispositivos y la revocación |
-| Ajustes · notificaciones | Placeholder | Sin interruptores de mensajes, solicitudes y sonido |
-| Ajustes · apariencia | Placeholder | El tema sigue al sistema; no hay selector ni tamaño de texto |
-| Ajustes · almacenamiento | Placeholder | Sin uso real, caché ni limpieza |
-| Ajustes · acerca de | Placeholder | Sin versión, licencia ni enlaces |
+| Ajustes · privacidad | Parcial | Tres interruptores de escritorio (lecturas, conectado, última vez) persistidos en el dispositivo; el servicio aún no emite presencia ni `READ`, así que todavía no cambian lo que ven los contactos |
+| Ajustes · seguridad | Hecha | Estado del registro, lista de dispositivos con revocación confirmada y ayuda en popup; faltan PIN, revelar frase y borrado de cuenta, que necesitan bridge nativo |
+| Ajustes · bloqueados | Hecha | Lista real desde `contact-store` con desbloqueo confirmado; el servicio recibe la lista al desbloquear |
+| Ajustes · notificaciones | Parcial | Interruptores de mensajes, solicitudes y sonido persistidos; el servicio todavía no los lee, así que las notificaciones siguen saliendo siempre |
+| Ajustes · apariencia | Hecha | Selector Sistema/Claro/Oscuro aplicado al instante en Tamagui, pestañas, barra de estado y chrome del sistema, y recordado entre arranques. El tamaño de texto sigue pendiente |
+| Ajustes · almacenamiento | Placeholder | El móvil no tiene vault: falta bridge de estadísticas y limpieza, e historial de archivos |
+| Ajustes · acerca de | Hecha | Versión real desde `expo-constants`, licencia GPLv3, código abierto, sin publicidad y sin datos recopilados |
 | Perfil · revocar dispositivo | Hecha | Cada dispositivo que no es el actual lleva un icono de papelera que pide confirmación, llama a `revokeAccountDevice` y refresca la lista; los revocados se listan debajo con su fecha. Falta que la revocación viaje por B10 al resto de dispositivos |
 | Chat · cabecera | Parcial | «Info. del contacto» abre la ficha completa; videollamada, llamada de voz y buscar en la conversación avisan «pendiente». Cuando la conversación es una solicitud solo quedan volver, avatar y menú |
 | Ficha del contacto | Hecha | Pantalla completa `/contact/[upeerId]` con la distribución de escritorio: hero (avatar 96, alias, identidad, presencia y reputación), fila Llamar·Vídeo·Buscar, identidad y dirección copiables, acciones de conversación y zona de riesgo. Bloquear/desbloquear y eliminar son reales; compartir, silenciar, archivar, favoritos, cifrado y vaciar chat se muestran atenuados con «Pronto» |
@@ -715,6 +716,24 @@ Queda pendiente:
 3. Verificar en dispositivo el descarte de paquetes bloqueados con dos nodos reales: la comprobación previa a la firma usa el `senderUpeerId` declarado, que no está autenticado (un tercero solo puede hacerse descartar a sí mismo, pero conviene cubrirlo con una prueba de integración).
 4. Un test de integración que recorra el ciclo completo: A escribe a B sin contacto → B ve la solicitud en el cuerpo → acepta → los mensajes siguientes llegan como conversación normal.
 5. Revocación efectiva en el servicio: hoy `revokeAccountDevice` actualiza el registro firmado, pero ninguna ruta de `YggdrasilProtocol` consulta la lista `revoked` antes de aceptar un paquete, y B10 aún no propaga el registro a los demás dispositivos.
+
+### Ajustes móviles con paridad de escritorio (24/10/2026)
+
+Los ajustes del móvil se alinean con `src/components/ui/settings` de escritorio. Reglas:
+
+- **Todo panel informativo es un popup, nunca un desplegable dentro de la página.** `InfoDialog` (`src/components/info-dialog.tsx`) es el único componente de ayuda: fondo `theme.backdrop`, tarjeta `theme.backgroundElement` de radio 16, cabecera con icono, título 17/700 y aspa de cierre, y contenido desplazable. Lo usan el icono ⓘ de Perfil y el de Seguridad, de modo que la misma ayuda se ve igual en los dos sitios; antes Seguridad la expandía inline y rompía la gramática.
+- **Filas de ajuste compartidas.** `settings-rows.tsx` define las dos únicas filas: `SettingsToggleRow` (64 de alto, título 15/500, descripción 12 en `theme.placeholder` y conmutador propio) y `SettingsInfoRow` (etiqueta a la izquierda, valor a la derecha). El conmutador es propio —pista de 48×28, pulgar de 20— porque el `Switch` de React Native se recorta dentro de contenedores con `overflow: hidden`; el riel usa `theme.accent` encendido y `theme.backgroundSelected` apagado, el pulgar `theme.onAccent`/`theme.background`.
+- **Preferencias persistidas en un solo sitio.** `src/domain/preferences.ts` valida el JSON y `src/storage/preferences-store.ts` lo guarda en `expo-sqlite/kv-store` bajo `upeer.preferences`; `usePreferences` es un `useSyncExternalStore`, así que un cambio se propaga a todas las pantallas sin recargar.
+- **El tema se resuelve una sola vez.** `useResolvedColorScheme` combina la preferencia (`system`/`light`/`dark`) con el esquema del sistema; `useTheme`, el `TamaguiProvider` de `_layout`, las pestañas, `app-tabs` y `ThemeChrome` consumen ese valor, por lo que el cambio alcanza también la barra de pestañas, la barra de estado y el chrome del sistema.
+- **Contenido por sección, portado de escritorio:** Privacidad (lecturas, conectado, última vez), Notificaciones (mensajes, solicitudes, sonido), Apariencia (Sistema/Claro/Oscuro), Bloqueados (lista real de `contact-store` con desbloqueo) y Acerca de (versión, licencia, código abierto, publicidad, datos).
+
+Queda pendiente en Ajustes:
+
+1. Tamaño de texto (`small`/`medium`/`large`): necesita una escala común aplicada a todas las pantallas, no un valor guardado que nadie lee.
+2. Que el servicio lea las preferencias de notificaciones y privacidad: hoy solo se guardan. Requiere `setNotificationPrefs` en AIDL y que `UPeerNotifications` lo consulte, y que lleguen `READ` y presencia para las tres de privacidad.
+3. Almacenamiento: el móvil no tiene bridge de vault (`getVaultStats`, `cleanupVaultExpired`) ni historial de archivos como `FileHistoryExplorer`.
+4. Seguridad de escritorio pendiente de bridge: PIN de bloqueo, revelar la frase con PIN y borrado de cuenta. La lista de dispositivos y la revocación ya son reales.
+5. Sección «Perfil» dentro de ajustes: en el móvil el perfil es una pestaña propia, así que no se duplica.
 
 Reglas de estilo acordadas para toda pantalla nueva:
 

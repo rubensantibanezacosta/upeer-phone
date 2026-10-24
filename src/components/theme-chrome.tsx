@@ -5,7 +5,7 @@ import * as SystemUI from 'expo-system-ui';
 import * as NavigationBar from 'expo-navigation-bar';
 
 import { useTheme } from '@/hooks/use-theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Colors } from '@/constants/theme';
 
 function applyNavigationBar(dark: boolean) {
   if (Platform.OS !== 'android') return;
@@ -18,7 +18,7 @@ function applyNavigationBar(dark: boolean) {
 
 export function ThemeChrome() {
   const theme = useTheme();
-  const dark = useColorScheme() === 'dark';
+  const dark = theme === Colors.dark;
 
   useEffect(() => {
     if (Platform.OS === 'web') return;

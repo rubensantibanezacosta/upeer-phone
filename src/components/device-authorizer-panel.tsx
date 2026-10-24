@@ -10,7 +10,7 @@ import { useAccountDevices } from '@/hooks/use-account-devices';
 import { useTheme } from '@/hooks/use-theme';
 import { revokeAccountDevice } from '../../modules/upeer-transport/src/UPeerTransportModule';
 
-export function DeviceAuthorizerPanel({ onInfo }: { onInfo: () => void }) {
+export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
   const theme = useTheme();
   const { state, refresh } = useAccountDevices();
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -49,7 +49,7 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo: () => void }) {
     <XStack alignItems="center" gap={8}>
       <Smartphone color={theme.placeholder} size={16} />
       <SizableText color={theme.text} flex={1} fontSize={14} fontWeight="600">Dispositivos de la cuenta</SizableText>
-      <NativeRipplePressable accessibilityLabel="¿Qué son los dispositivos de la cuenta?" onPress={onInfo}><Info color={theme.placeholder} size={16} /></NativeRipplePressable>
+      {onInfo ? <NativeRipplePressable accessibilityLabel="¿Qué son los dispositivos de la cuenta?" onPress={onInfo}><Info color={theme.placeholder} size={16} /></NativeRipplePressable> : null}
     </XStack>
     <Text color={theme.placeholder} fontSize={12}>Estos dispositivos pueden usar tu cuenta sin tu frase de recuperación</Text>
 

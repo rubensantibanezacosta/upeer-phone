@@ -1,17 +1,18 @@
 import { Link } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Bell, ChevronRight, HardDrive, Info, LockKeyhole, Network, Palette, ShieldCheck } from '@tamagui/lucide-icons-2';
+import { ArrowLeft, Bell, ChevronRight, HardDrive, Info, LockKeyhole, Network, Palette, ShieldCheck, ShieldOff } from '@tamagui/lucide-icons-2';
 import { H1, SizableText, Text, YStack } from 'tamagui';
 
 import { useTheme } from '@/hooks/use-theme';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 
 const settingsSections = [
-  { id: 'privacidad', label: 'Privacidad', description: 'Confirmaciones y estado de conexión', icon: LockKeyhole },
-  { id: 'seguridad', label: 'Seguridad', description: 'Protección de la cuenta', icon: ShieldCheck },
+  { id: 'privacidad', label: 'Privacidad', description: 'Lecturas, presencia y última vez', icon: LockKeyhole },
+  { id: 'seguridad', label: 'Seguridad', description: 'Dispositivos y acceso a la cuenta', icon: ShieldCheck },
+  { id: 'bloqueados', label: 'Bloqueados', description: 'Contactos que no pueden escribirte', icon: ShieldOff },
   { id: 'notificaciones', label: 'Notificaciones', description: 'Mensajes, solicitudes y sonidos', icon: Bell },
-  { id: 'apariencia', label: 'Apariencia', description: 'Tema y tamaño de texto', icon: Palette },
+  { id: 'apariencia', label: 'Apariencia', description: 'Tema de la aplicación', icon: Palette },
   { id: 'almacenamiento', label: 'Almacenamiento', description: 'Mensajes guardados y archivos', icon: HardDrive },
   { id: 'red', label: 'Conexión', description: 'Estado y dirección de red', icon: Network },
   { id: 'acerca', label: 'Acerca de', description: 'Versión y licencia', icon: Info },
