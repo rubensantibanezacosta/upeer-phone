@@ -4,9 +4,11 @@ import { Ban, Clock3, UserCheck, UserPlus } from '@tamagui/lucide-icons-2';
 import { Text } from 'tamagui';
 
 import { BottomSheet } from '@/components/bottom-sheet';
+import { CopyField } from '@/components/copy-field';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { ProfileAvatar } from '@/components/profile-avatar';
 import type { ContactCard } from '@/domain/contact-card';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ContactCardAction = {
@@ -32,25 +34,33 @@ export function ContactCardSheet({ action, card, error, onClose, visible }: {
   visible: boolean;
 }) {
   const theme = useTheme();
+  const copyToClipboard = useCopyToClipboard();
   if (!card) return null;
-  const identity = card.address ? `${card.upeerId}@${card.address}` : card.upeerId;
   const name = card.name || card.upeerId.slice(0, 12);
 
   return <BottomSheet onClose={onClose} title="Tarjeta de contacto" visible={visible}>
     <View style={styles.identity}>
       <ProfileAvatar avatar={card.avatar} name={name} size={56} />
-      <View style={styles.heading}>
-        <Text color={theme.text} fontSize={16} fontWeight="700" numberOfLines={1}>{name}</Text>
-        <Text color={theme.placeholder} fontSize={11}>Tarjeta de contacto</Text>
-      </View>
+      <Text color={theme.text} flex={1} fontSize={16} fontWeight="700" numberOfLines={1}>{name}</Text>
     </View>
 
-    <View style={[styles.detail, { backgroundColor: theme.background, borderColor: theme.border }]}>
-      <Text color={theme.textSecondary} fontFamily="monospace" fontSize={11}>{identity}</Text>
-    </View>
+    <CopyField
+      accessibilityLabel="Copiar identidad uPeer"
+      onCopy={() => { void copyToClipboard(card.upeerId, 'Identidad copiada'); }}
+      truncate
+      value={card.upeerId}
+    />
+    {card.address ? (
+      <CopyField
+        accessibilityLabel="Copiar dirección de red"
+        onCopy={() => { void copyToClipboard(card.address, 'Dirección copiada'); }}
+        truncate
+        value={card.address}
+      />
+    ) : null}
 
     <View style={[styles.qrCanvas, { borderColor: theme.border }]}>
-      <QRCode ecl="M" size={180} value={identity} />
+      <QRCode ecl="M" size={180} value={card.address ? `${card.upeerId}@${card.address}` : card.upeerId} />
     </View>
 
     <NativeRippleButton
@@ -73,7 +83,5 @@ export function ContactCardSheet({ action, card, error, onClose, visible }: {
 
 const styles = StyleSheet.create({
   identity: { alignItems: 'center', flexDirection: 'row', gap: 14 },
-  heading: { flex: 1, gap: 2 },
-  detail: { alignItems: 'center', borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, padding: 12 },
   qrCanvas: { alignItems: 'center', alignSelf: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, padding: 16 },
 });
