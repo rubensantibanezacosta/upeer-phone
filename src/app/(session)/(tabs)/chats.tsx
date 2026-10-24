@@ -13,6 +13,7 @@ import { CHAT_LIST_FILTERS, filterChatEntries, isChatFilterActive, type ChatList
 import { messageSummary } from '@/domain/contact-card';
 import { flagMessage, flagsFor, orderByPinned, type ConversationFlag } from '@/domain/conversation-flags';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
+import { useNow } from '@/hooks/use-now';
 import { setConversationFlag } from '@/storage/conversation-flags-store';
 import { classifyConversations } from '@/domain/incoming-requests';
 import { useSnackbar } from '@/components/snackbar';
@@ -36,6 +37,7 @@ export default function ChatsRoute() {
   const theme = useTheme();
   const { showSnackbar } = useSnackbar();
   const conversationFlags = useConversationFlags();
+  const now = useNow();
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const [conversations, setConversations] = useState<ProtocolConversation[]>([]);
   const [selectedEntry, setSelectedEntry] = useState<ChatListEntry | null>(null);
@@ -70,6 +72,8 @@ export default function ChatsRoute() {
         lastStatus: conversation.lastStatus ?? null,
         incoming: requestIds.has(conversation.upeerId),
         favorite: contacts.some((contact) => contact.upeerId === conversation.upeerId && contact.isFavorite === true),
+        typing: conversation.typing === true,
+        lastSeen: conversation.lastSeen,
         ...flagsFor(conversationFlags, conversation.upeerId),
       }))
     : contacts.filter((contact) => contact.status !== 'blocked').map((contact) => ({
@@ -156,7 +160,7 @@ export default function ChatsRoute() {
         </ScrollView>
         {visibleEntries.length > 0 ? (
           <YStack marginTop={2}>
-            {visibleEntries.map((entry) => <ChatListItem entry={entry} key={entry.upeerId} onOpen={openChat} onOpenMenu={openContextMenu} />)}
+            {visibleEntries.map((entry) => <ChatListItem entry={entry} key={entry.upeerId} now={now} onOpen={openChat} onOpenMenu={openContextMenu} />)}
           </YStack>
         ) : (
           <YStack alignItems="center" flex={1} gap={12} justifyContent="center" padding={24}>
