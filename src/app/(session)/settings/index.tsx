@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Bell, ChevronRight, HardDrive, Info, LockKeyhole, Network, Palette, ShieldCheck, ShieldOff } from '@tamagui/lucide-icons-2';
 import { H1, SizableText, Text, YStack } from 'tamagui';
 
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 
@@ -20,18 +21,19 @@ const settingsSections = [
 
 export default function SettingsIndexRoute() {
   const theme = useTheme();
+  const scale = useTextScale();
 
   return <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]}>
     <ScrollView contentContainerStyle={styles.content}>
       <Link href="/chats" asChild>
         <Pressable accessibilityRole="button" style={styles.back}>
-          <ArrowLeft color={theme.text} size={18} /><Text color={theme.text} fontSize={15}>Volver a chats</Text>
+          <ArrowLeft color={theme.text} size={18} /><Text color={theme.text} fontSize={scale(15)}>Volver a chats</Text>
         </Pressable>
       </Link>
-      <YStack gap={4} paddingBottom={8}><H1 color={theme.text} fontSize={24}>Configuración</H1><Text color={theme.placeholder} fontSize={14}>Elige una sección para administrar tu cuenta</Text></YStack>
+      <YStack gap={4} paddingBottom={8}><H1 color={theme.text} fontSize={scale(24)}>Configuración</H1><Text color={theme.placeholder} fontSize={scale(14)}>Elige una sección para administrar tu cuenta</Text></YStack>
       <YStack gap={4}>{settingsSections.map((item) => <Link key={item.id} href={{ pathname: '/settings/[section]', params: { section: item.id } }} asChild>
         <NativeRipplePressable accessibilityRole="button" style={StyleSheet.flatten([styles.row, { backgroundColor: theme.backgroundElement }])}>
-          <item.icon color={theme.placeholder} size={22} /><YStack flex={1} gap={3}><SizableText color={theme.text} fontSize={15} fontWeight="600">{item.label}</SizableText><Text color={theme.placeholder} fontSize={12}>{item.description}</Text></YStack><ChevronRight color={theme.placeholder} size={15} />
+          <item.icon color={theme.placeholder} size={22} /><YStack flex={1} gap={3}><SizableText color={theme.text} fontSize={scale(15)} fontWeight="600">{item.label}</SizableText><Text color={theme.placeholder} fontSize={scale(12)}>{item.description}</Text></YStack><ChevronRight color={theme.placeholder} size={15} />
         </NativeRipplePressable>
       </Link>)}</YStack>
     </ScrollView>

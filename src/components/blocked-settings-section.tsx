@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { ShieldOff } from '@tamagui/lucide-icons-2';
-import { Card, Paragraph, SizableText, Text, YStack } from 'tamagui';
+import { Paragraph, SizableText, Text, YStack } from 'tamagui';
 
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { SettingsNote, SettingsSectionHeader } from '@/components/settings-section-parts';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
 
 export function BlockedSettingsSection() {
   const theme = useTheme();
+  const scale = useTextScale();
   const [blocked, setBlocked] = useState<UPeerContact[]>([]);
   const [error, setError] = useState('');
 
@@ -56,17 +59,14 @@ export function BlockedSettingsSection() {
   };
 
   return <YStack gap={12}>
-    <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={6} padding={16}>
-      <SizableText color={theme.text} fontSize={22} fontWeight="700">Bloqueados</SizableText>
-      <Paragraph color={theme.placeholder} fontSize={13}>Estos contactos no pueden enviarte mensajes nuevos. El servicio descarta sus paquetes antes de descifrarlos.</Paragraph>
-    </Card>
+    <SettingsSectionHeader title="Bloqueados">Estos contactos no pueden enviarte mensajes nuevos. El servicio descarta sus paquetes antes de descifrarlos.</SettingsSectionHeader>
 
-    {error ? <Paragraph accessibilityRole="alert" color={theme.danger} fontSize={12}>{error}</Paragraph> : null}
+    {error ? <Paragraph accessibilityRole="alert" color={theme.danger} fontSize={scale(12)}>{error}</Paragraph> : null}
 
     {blocked.length === 0 ? <YStack alignItems="center" gap={10} paddingHorizontal={24} paddingTop={32}>
       <View style={[styles.circle, { backgroundColor: theme.backgroundElement }]}><ShieldOff color={theme.placeholder} size={26} /></View>
-      <SizableText color={theme.text} fontSize={17} fontWeight="600">No has bloqueado a nadie</SizableText>
-      <Paragraph color={theme.placeholder} fontSize={13} textAlign="center">Puedes bloquear desde la ficha de un contacto o desde una solicitud de mensaje.</Paragraph>
+      <SizableText color={theme.text} fontSize={scale(17)} fontWeight="600">No has bloqueado a nadie</SizableText>
+      <Paragraph color={theme.placeholder} fontSize={scale(13)} textAlign="center">Puedes bloquear desde la ficha de un contacto o desde una solicitud de mensaje.</Paragraph>
     </YStack> : <YStack borderColor={theme.border} borderRadius={14} borderWidth={1} overflow="hidden">
       {blocked.map((contact) => (
         <NativeRipplePressable
@@ -79,15 +79,15 @@ export function BlockedSettingsSection() {
         >
           <ContactTrustAvatar name={contact.name} size={40} />
           <YStack flex={1} gap={1}>
-            <SizableText color={theme.text} fontSize={15} fontWeight="600">{contact.name}</SizableText>
-            <Text color={theme.placeholder} fontFamily="monospace" fontSize={11} numberOfLines={1}>{contact.upeerId}</Text>
+            <SizableText color={theme.text} fontSize={scale(15)} fontWeight="600">{contact.name}</SizableText>
+            <Text color={theme.placeholder} fontFamily="monospace" fontSize={scale(11)} numberOfLines={1}>{contact.upeerId}</Text>
           </YStack>
-          <Text color={theme.accent} fontSize={13} fontWeight="600">Desbloquear</Text>
+          <Text color={theme.accent} fontSize={scale(13)} fontWeight="600">Desbloquear</Text>
         </NativeRipplePressable>
       ))}
     </YStack>}
 
-    {blocked.length === 0 ? null : <Paragraph color={theme.placeholder} fontSize={12}>Pulsa un contacto para desbloquearlo. La conversación no reaparece hasta que esa persona vuelva a escribir.</Paragraph>}
+    {blocked.length === 0 ? null : <SettingsNote>Pulsa un contacto para desbloquearlo. La conversación no reaparece hasta que esa persona vuelva a escribir.</SettingsNote>}
   </YStack>;
 }
 

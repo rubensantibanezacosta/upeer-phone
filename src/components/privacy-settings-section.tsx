@@ -1,5 +1,6 @@
-import { Card, Paragraph, SizableText, YStack } from 'tamagui';
+import { YStack } from 'tamagui';
 
+import { SettingsNote, SettingsSectionHeader } from '@/components/settings-section-parts';
 import { SettingsToggleRow } from '@/components/settings-rows';
 import { usePreferences } from '@/hooks/use-preferences';
 import { useTheme } from '@/hooks/use-theme';
@@ -10,10 +11,7 @@ export function PrivacySettingsSection() {
   const preferences = usePreferences();
 
   return <YStack gap={12}>
-    <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={6} padding={16}>
-      <SizableText color={theme.text} fontSize={22} fontWeight="700">Privacidad</SizableText>
-      <Paragraph color={theme.placeholder} fontSize={13}>Qué comparte la app sobre tu actividad. Si desactivas algo, tus contactos dejan de verlo.</Paragraph>
-    </Card>
+    <SettingsSectionHeader title="Privacidad">Qué comparte la app sobre tu actividad. Si desactivas algo, tus contactos dejan de verlo.</SettingsSectionHeader>
 
     <YStack borderColor={theme.border} borderRadius={14} borderWidth={1} overflow="hidden">
       <SettingsToggleRow
@@ -36,6 +34,6 @@ export function PrivacySettingsSection() {
       />
     </YStack>
 
-    <Paragraph color={theme.placeholder} fontSize={12}>Las confirmaciones de lectura ya se aplican en el servicio de red: al desactivarlas, la conversación se marca como leída solo en este dispositivo y no se envía el mensaje `READ`. Conectado y última vez se aplicarán cuando el protocolo transporte presencia.</Paragraph>
+    <SettingsNote>Las confirmaciones de lectura ya se aplican en el servicio de red: al desactivarlas, la conversación se marca como leída solo en este dispositivo y no se envía el mensaje `READ`. Conectado y última vez usan la presencia real que ya viaja con los paquetes.</SettingsNote>
   </YStack>;
 }

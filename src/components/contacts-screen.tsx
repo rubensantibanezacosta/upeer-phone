@@ -12,6 +12,7 @@ import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { registerPeer as registerNativePeer } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { deleteContactAndConversation, getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type ContactsScreenProps = { identity: UPeerIdentity };
@@ -26,6 +27,7 @@ const statusLabels: Record<UPeerContact['status'], string> = {
 
 export function ContactsScreen({ identity }: ContactsScreenProps) {
   const theme = useTheme();
+  const scale = useTextScale();
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState(false);
@@ -72,19 +74,19 @@ export function ContactsScreen({ identity }: ContactsScreenProps) {
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <XStack alignItems="center" justifyContent="space-between">
-          <H1 color={theme.text} fontSize={24} fontWeight="700">Contactos</H1>
+          <H1 color={theme.text} fontSize={scale(24)} fontWeight="700">Contactos</H1>
           <NativeRipplePressable accessibilityLabel="Añadir contacto" accessibilityRole="button" onPress={() => setAdding(true)} style={styles.headerButton}><UserPlus color={theme.text} size={21} /></NativeRipplePressable>
         </XStack>
         <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={10} paddingHorizontal={14} paddingVertical={11}>
           <Search color={theme.placeholder} size={17} />
-          <Input backgroundColor="transparent" borderWidth={0} color={theme.text} flex={1} fontSize={14} height={22} onChangeText={setQuery} padding={0} placeholder="Buscar contactos" placeholderTextColor={theme.placeholder} value={query} />
+          <Input backgroundColor="transparent" borderWidth={0} color={theme.text} flex={1} fontSize={scale(14)} height={22} onChangeText={setQuery} padding={0} placeholder="Buscar contactos" placeholderTextColor={theme.placeholder} value={query} />
         </XStack>
-        {error ? <Paragraph accessibilityRole="alert" color={theme.danger} fontSize={12}>{error}</Paragraph> : null}
+        {error ? <Paragraph accessibilityRole="alert" color={theme.danger} fontSize={scale(12)}>{error}</Paragraph> : null}
         {filtered.length === 0
           ? <YStack alignItems="center" flex={1} gap={12} justifyContent="center" padding={24}>
             <YStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={32} height={64} justifyContent="center" width={64}>
               <Users color={theme.placeholder} size={28} /></YStack>
-            <SizableText color={theme.text} fontSize={17} fontWeight="600">{contacts.length === 0 ? 'Aún no hay contactos' : 'Sin resultados'}</SizableText>
+            <SizableText color={theme.text} fontSize={scale(17)} fontWeight="600">{contacts.length === 0 ? 'Aún no hay contactos' : 'Sin resultados'}</SizableText>
             <Paragraph color={theme.placeholder} textAlign="center">{contacts.length === 0 ? 'Añade una identidad para iniciar una conversación cifrada.' : 'Prueba con otro nombre o identidad.'}</Paragraph>
             {contacts.length === 0 ? <NativeRippleButton onPress={() => setAdding(true)}>Añadir contacto</NativeRippleButton> : null}
           </YStack>
@@ -94,10 +96,10 @@ export function ContactsScreen({ identity }: ContactsScreenProps) {
                 <ContactTrustAvatar name={contact.name} size={55} />
                 <YStack flex={1} gap={4}>
                   <XStack alignItems="center" gap={8}>
-                    <SizableText color={theme.text} flex={1} fontSize={15} fontWeight="600" numberOfLines={1}>{contact.name}</SizableText>
-                    <Text color={theme.placeholder} fontSize={11} fontWeight="500" numberOfLines={1}>{statusLabels[contact.status]}</Text>
+                    <SizableText color={theme.text} flex={1} fontSize={scale(15)} fontWeight="600" numberOfLines={1}>{contact.name}</SizableText>
+                    <Text color={theme.placeholder} fontSize={scale(11)} fontWeight="500" numberOfLines={1}>{statusLabels[contact.status]}</Text>
                   </XStack>
-                  <Text color={theme.placeholder} fontFamily="monospace" fontSize={13} numberOfLines={1}>{contact.upeerId}</Text>
+                  <Text color={theme.placeholder} fontFamily="monospace" fontSize={scale(13)} numberOfLines={1}>{contact.upeerId}</Text>
                 </YStack>
               </XStack>
             </NativeRipplePressable>

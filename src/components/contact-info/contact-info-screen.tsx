@@ -14,6 +14,7 @@ import { useSnackbar } from '@/components/snackbar';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { usePresenceLabel } from '@/hooks/use-presence-label';
 import { usePeerSecurity } from '@/hooks/use-peer-security';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
 import { flagMessage, flagsFor, type ConversationFlag } from '@/domain/conversation-flags';
@@ -28,6 +29,7 @@ type ContactInfoScreenProps = {
 
 export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
   const theme = useTheme();
+  const scale = useTextScale();
   const { showSnackbar } = useSnackbar();
   const copyToClipboard = useCopyToClipboard();
   const [contact, setContact] = useState<UPeerContact | null | undefined>(undefined);
@@ -146,17 +148,17 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
         <NativeRipplePressable accessibilityLabel="Volver a la conversación" accessibilityRole="button" onPress={onBack} style={styles.headerButton}>
           <ArrowLeft color={theme.text} size={22} />
         </NativeRipplePressable>
-        <SizableText color={theme.text} flex={1} fontSize={17} fontWeight="700" numberOfLines={1}>Info. del contacto</SizableText>
+        <SizableText color={theme.text} flex={1} fontSize={scale(17)} fontWeight="700" numberOfLines={1}>Info. del contacto</SizableText>
       </XStack>
       <ScrollView contentContainerStyle={styles.content}>
         <ContactInfoHero alias={alias} onCall={pending('Llamada de voz')} onSearch={pending('Buscar en la conversación')} onVideo={pending('Videollamada')} presence={presence} status={contact?.status ?? 'offline'} upeerId={upeerId} vouchScore={undefined} />
         <YStack gap={6}>
-          <Text color={theme.placeholder} fontSize={12} fontWeight="600">Identidad uPeer</Text>
+          <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Identidad uPeer</Text>
           <CopyField accessibilityLabel="Copiar identidad uPeer" onCopy={() => { void copyToClipboard(upeerId, 'Identidad copiada'); }} truncate value={upeerId} />
           {contact ? <CopyField accessibilityLabel="Copiar dirección de red" onCopy={() => { void copyToClipboard(contact.address, 'Dirección copiada'); }} truncate value={contact.address} /> : null}
         </YStack>
         <YStack gap={6}>
-          <Text color={theme.placeholder} fontSize={12} fontWeight="600">Conversación</Text>
+          <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Conversación</Text>
           <InteractiveRow disabled={!contact} icon={Share2} label="Compartir contacto" onPress={() => setSharing(true)} />
           <InteractiveRow icon={flags.muted ? Bell : BellOff} label={flags.muted ? 'Activar notificaciones' : 'Silenciar notificaciones'} onPress={() => toggleFlag('muted')} />
           <InteractiveRow icon={flags.archived ? ArchiveRestore : Archive} label={flags.archived ? 'Desarchivar chat' : 'Archivar chat'} onPress={() => toggleFlag('archived')} />
@@ -164,7 +166,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
           <InteractiveRow icon={LockKeyhole} label="Cifrado" onPress={() => setCipherOpen(true)} />
         </YStack>
         <YStack gap={6}>
-          <Text color={theme.placeholder} fontSize={12} fontWeight="600">Zona de riesgo</Text>
+          <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Zona de riesgo</Text>
           <InteractiveRow icon={Trash2} label="Vaciar chat" onPress={confirmClearChat} />
           <InteractiveRow disabled={!contact} icon={blocked ? LockOpen : Ban} label={blocked ? 'Desbloquear contacto' : `Bloquear a ${alias}`} onPress={toggleBlock} tone="danger" />
           <InteractiveRow disabled={!contact} icon={UserMinus} label="Eliminar contacto" onPress={confirmDelete} tone="danger" />

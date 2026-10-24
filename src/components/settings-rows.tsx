@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { SizableText, Text, YStack } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type SettingsRowProps = {
@@ -11,6 +12,7 @@ type SettingsRowProps = {
 
 export function SettingsToggleRow({ label, description, value, onChange }: SettingsRowProps & { value: boolean; onChange: (value: boolean) => void }) {
   const theme = useTheme();
+  const scale = useTextScale();
   return <NativeRipplePressable
     accessibilityLabel={label}
     accessibilityRole="switch"
@@ -19,8 +21,8 @@ export function SettingsToggleRow({ label, description, value, onChange }: Setti
     style={[styles.row, { borderBottomColor: theme.border }]}
   >
     <YStack flex={1} gap={2}>
-      <SizableText color={theme.text} fontSize={15} fontWeight="500">{label}</SizableText>
-      <Text color={theme.placeholder} fontSize={12}>{description}</Text>
+      <SizableText color={theme.text} fontSize={scale(15)} fontWeight="500">{label}</SizableText>
+      <Text color={theme.placeholder} fontSize={scale(12)}>{description}</Text>
     </YStack>
     <View style={[styles.track, { backgroundColor: value ? theme.accent : theme.backgroundSelected, borderColor: value ? theme.accent : theme.border }]}>
       <View style={[styles.thumb, value ? styles.thumbOn : styles.thumbOff, { backgroundColor: value ? theme.onAccent : theme.background }]} />
@@ -30,9 +32,10 @@ export function SettingsToggleRow({ label, description, value, onChange }: Setti
 
 export function SettingsInfoRow({ label, value }: { label: string; value: string }) {
   const theme = useTheme();
+  const scale = useTextScale();
   return <View style={[styles.row, { borderBottomColor: theme.border }]}>
-    <SizableText color={theme.text} flex={1} fontSize={15} fontWeight="500">{label}</SizableText>
-    <Text color={theme.placeholder} fontSize={13}>{value}</Text>
+    <SizableText color={theme.text} flex={1} fontSize={scale(15)} fontWeight="500">{label}</SizableText>
+    <Text color={theme.placeholder} fontSize={scale(13)}>{value}</Text>
   </View>;
 }
 

@@ -1,5 +1,6 @@
-import { Card, Paragraph, SizableText, YStack } from 'tamagui';
+import { YStack } from 'tamagui';
 
+import { SettingsNote, SettingsSectionHeader } from '@/components/settings-section-parts';
 import { SettingsToggleRow } from '@/components/settings-rows';
 import { usePreferences } from '@/hooks/use-preferences';
 import { useTheme } from '@/hooks/use-theme';
@@ -10,10 +11,7 @@ export function NotificationSettingsSection() {
   const preferences = usePreferences();
 
   return <YStack gap={12}>
-    <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={6} padding={16}>
-      <SizableText color={theme.text} fontSize={22} fontWeight="700">Notificaciones</SizableText>
-      <Paragraph color={theme.placeholder} fontSize={13}>Avisos que llegan mientras la app está en segundo plano. La previsualización del mensaje ya es privada.</Paragraph>
-    </Card>
+    <SettingsSectionHeader title="Notificaciones">Avisos que llegan mientras la app está en segundo plano. La previsualización del mensaje ya es privada.</SettingsSectionHeader>
 
     <YStack borderColor={theme.border} borderRadius={14} borderWidth={1} overflow="hidden">
       <SettingsToggleRow
@@ -36,6 +34,6 @@ export function NotificationSettingsSection() {
       />
     </YStack>
 
-    <Paragraph color={theme.placeholder} fontSize={12}>Se guardan en este dispositivo y se enviarán al servicio con el próximo trabajo de notificaciones; el canal de mensajes ya existe y respeta el permiso del sistema.</Paragraph>
+    <SettingsNote>Se guardan en este dispositivo y se envían al servicio, que ya omite el aviso y el sonido según estas preferencias; el canal de mensajes respeta el permiso del sistema.</SettingsNote>
   </YStack>;
 }

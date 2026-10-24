@@ -7,6 +7,7 @@ import { CopyField } from '@/components/copy-field';
 import { NetworkMap } from '@/components/network-map';
 import type { PeerInfo, PeerPoolEntry } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import type { PeerManagementSnapshot } from '@/domain/yggdrasil-peers';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 
@@ -28,6 +29,7 @@ export function ConnectionSettingsSection({ address, phase, peers, error, manage
   onCopy: (value: string) => void;
 }) {
   const theme = useTheme();
+  const scale = useTextScale();
   const activePeers = useMemo(() => peers.filter((peer) => peer.Up), [peers]);
   const activeCount = activePeers.length;
   const managedPeers = management.peers;
@@ -52,11 +54,11 @@ export function ConnectionSettingsSection({ address, phase, peers, error, manage
               {activeCount ? <Network color={statusColor} size={22} /> : <ActivityIndicator color={statusColor} size="small" />}
             </View>
             <YStack flex={1} gap={3}>
-              <SizableText color={theme.text} fontSize={16} fontWeight="700">{activeCount ? 'Conexión activa' : phase}</SizableText>
-              <Paragraph color={theme.placeholder} fontSize={12}>{activeCount ? 'Tus mensajes viajan cifrados de extremo a extremo.' : statusSubtitle(phase)}</Paragraph>
+              <SizableText color={theme.text} fontSize={scale(16)} fontWeight="700">{activeCount ? 'Conexión activa' : phase}</SizableText>
+              <Paragraph color={theme.placeholder} fontSize={scale(12)}>{activeCount ? 'Tus mensajes viajan cifrados de extremo a extremo.' : statusSubtitle(phase)}</Paragraph>
             </YStack>
           </XStack>
-          {error ? <Paragraph accessibilityRole="alert" color={theme.placeholder} fontSize={12}>{error}</Paragraph> : null}
+          {error ? <Paragraph accessibilityRole="alert" color={theme.placeholder} fontSize={scale(12)}>{error}</Paragraph> : null}
         </YStack>
       </Card>
 
@@ -65,55 +67,55 @@ export function ConnectionSettingsSection({ address, phase, peers, error, manage
         <YStack gap={10} paddingHorizontal={4}>
           <XStack alignItems="center" flexWrap="wrap" gap={8}>
             <Globe2 color={theme.placeholder} size={15} />
-            <SizableText color={theme.placeholder} flex={1} fontSize={11} fontWeight="700" letterSpacing={1}>CONECTADOS A LA RED · {activeCount}</SizableText>
+            <SizableText color={theme.placeholder} flex={1} fontSize={scale(11)} fontWeight="700" letterSpacing={1}>CONECTADOS A LA RED · {activeCount}</SizableText>
             <XStack alignItems="center" gap={5}>
               <View style={[styles.liveDot, { backgroundColor: '#22c55e' }]} />
               <TextSmall color={theme.placeholder}>Ahora mismo</TextSmall>
             </XStack>
           </XStack>
-          <Paragraph color={theme.placeholder} fontSize={12}>Conexiones actuales de tu nodo.</Paragraph>
+          <Paragraph color={theme.placeholder} fontSize={scale(12)}>Conexiones actuales de tu nodo.</Paragraph>
           <XStack flexWrap="wrap" gap={7}>
             {averageLatency !== null && <View style={[styles.chip, { backgroundColor: `${latencyColor(averageLatency)}20` }]}><TextSmall color={latencyColor(averageLatency)}>Media: {averageLatency} ms · {averageLatency < 100 ? 'Excelente' : averageLatency < 250 ? 'Buena' : 'Alta'}</TextSmall></View>}
             {countries.map((country) => <View key={country} style={[styles.chip, { borderColor: theme.border, borderWidth: 1 }]}><TextSmall color={theme.textSecondary}>{country}</TextSmall></View>)}
           </XStack>
           <NetworkMap peers={managedPeers} connectedUris={connectedUris} selfLat={management.selfLat} selfLon={management.selfLon} />
-          <SizableText color={theme.text} fontSize={13} fontWeight="700">Conectados ahora · {connected.length}</SizableText>
-          {connected.length ? connected.map((peer) => <PeerRow key={peer.uri} peer={peer} latencyColor={latencyColor} theme={theme} />) : <Paragraph color={theme.placeholder} fontSize={12}>Sin peers públicos conectados.</Paragraph>}
-          <SizableText color={theme.text} fontSize={13} fontWeight="700">Peers públicos en reserva · {reserve.length}</SizableText>
+          <SizableText color={theme.text} fontSize={scale(13)} fontWeight="700">Conectados ahora · {connected.length}</SizableText>
+          {connected.length ? connected.map((peer) => <PeerRow key={peer.uri} peer={peer} latencyColor={latencyColor} theme={theme} />) : <Paragraph color={theme.placeholder} fontSize={scale(12)}>Sin peers públicos conectados.</Paragraph>}
+          <SizableText color={theme.text} fontSize={scale(13)} fontWeight="700">Peers públicos en reserva · {reserve.length}</SizableText>
           {reserve.length ? <>
             <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false}>
               <XStack gap={8}>
                 {(showAllReserve ? reserve : reserve.slice(0, 5)).map((peer) => <View key={peer.uri} style={{ width: 228 }}>
                   <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={10} borderWidth={1} padding={10}>
-                    <YStack gap={4}><SizableText color={theme.text} fontSize={12} fontWeight="600">{peer.country}</SizableText><TextSmall color={theme.placeholder}>{peer.host}</TextSmall><TextSmall color={theme.placeholder}>{peer.uri}</TextSmall><TextSmall color={theme.placeholder}>{peer.alive ? `${peer.latencyMs ?? '—'} ms · score ${Math.round(peer.score)}` : 'Sin respuesta'}</TextSmall></YStack>
+                    <YStack gap={4}><SizableText color={theme.text} fontSize={scale(12)} fontWeight="600">{peer.country}</SizableText><TextSmall color={theme.placeholder}>{peer.host}</TextSmall><TextSmall color={theme.placeholder}>{peer.uri}</TextSmall><TextSmall color={theme.placeholder}>{peer.alive ? `${peer.latencyMs ?? '—'} ms · score ${Math.round(peer.score)}` : 'Sin respuesta'}</TextSmall></YStack>
                   </Card>
                 </View>)}
               </XStack>
             </ScrollView>
-            {reserve.length > 5 ? <NativeRipplePressable accessibilityRole="button" onPress={() => setShowAllReserve((shown) => !shown)}><SizableText color={theme.accent} fontSize={12}>{showAllReserve ? 'Mostrar menos' : `Ver todos (${reserve.length})`}</SizableText></NativeRipplePressable> : null}
-          </> : <Paragraph color={theme.placeholder} fontSize={12}>No hay peers públicos de reserva.</Paragraph>}
+            {reserve.length > 5 ? <NativeRipplePressable accessibilityRole="button" onPress={() => setShowAllReserve((shown) => !shown)}><SizableText color={theme.accent} fontSize={scale(12)}>{showAllReserve ? 'Mostrar menos' : `Ver todos (${reserve.length})`}</SizableText></NativeRipplePressable> : null}
+          </> : <Paragraph color={theme.placeholder} fontSize={scale(12)}>No hay peers públicos de reserva.</Paragraph>}
         </YStack>
       </> : null}
 
-      {!management.statusAvailable ? <Paragraph color={theme.placeholder} fontSize={12}>Aún no se han podido consultar los datos actuales del pool móvil.</Paragraph> : null}
+      {!management.statusAvailable ? <Paragraph color={theme.placeholder} fontSize={scale(12)}>Aún no se han podido consultar los datos actuales del pool móvil.</Paragraph> : null}
 
       {activeCount > 0 && address ? <>
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
         <YStack gap={8} paddingHorizontal={4}>
-          <SizableText color={theme.text} fontSize={14} fontWeight="700">Tu dirección de red</SizableText>
+          <SizableText color={theme.text} fontSize={scale(14)} fontWeight="700">Tu dirección de red</SizableText>
           <CopyField accessibilityLabel="Copiar dirección de red" onCopy={() => onCopy(address)} value={address} />
         </YStack>
       </> : null}
 
       <View style={[styles.divider, { backgroundColor: theme.border }]} />
       <NativeRipplePressable accessibilityRole="button" accessibilityState={{ expanded: showDetails }} onPress={() => setShowDetails((shown) => !shown)} style={styles.detailsToggle}>
-        <XStack alignItems="center" gap={8}><LockKeyhole color={theme.placeholder} size={15} /><SizableText color={theme.placeholder} fontSize={12} fontWeight="600">Cómo funciona la red</SizableText></XStack>
+        <XStack alignItems="center" gap={8}><LockKeyhole color={theme.placeholder} size={15} /><SizableText color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Cómo funciona la red</SizableText></XStack>
         {showDetails ? <ChevronUp color={theme.placeholder} size={18} /> : <ChevronDown color={theme.placeholder} size={18} />}
       </NativeRipplePressable>
       {showDetails ? <YStack gap={4} paddingHorizontal={4}>
         {TECH_ITEMS.map((item) => <XStack key={item.label} alignItems="flex-start" gap={12} paddingHorizontal={8} paddingVertical={8}>
           <View style={[styles.techIcon, { backgroundColor: `${item.color}20` }]}><Network color={item.color} size={16} /></View>
-          <YStack flex={1} gap={2}><SizableText color={theme.text} fontSize={12} fontWeight="700">{item.label}</SizableText><Paragraph color={theme.placeholder} fontSize={12}>{item.value}</Paragraph></YStack>
+          <YStack flex={1} gap={2}><SizableText color={theme.text} fontSize={scale(12)} fontWeight="700">{item.label}</SizableText><Paragraph color={theme.placeholder} fontSize={scale(12)}>{item.value}</Paragraph></YStack>
         </XStack>)}
       </YStack> : null}
     </YStack>
@@ -121,6 +123,7 @@ export function ConnectionSettingsSection({ address, phase, peers, error, manage
 }
 
 function PeerRow({ peer, latencyColor, theme }: { peer: PeerPoolEntry; latencyColor: (latency: number | null) => string; theme: ReturnType<typeof useTheme> }) {
+  const scale = useTextScale();
   const latency = peer.latencyMs;
   const color = latencyColor(latency);
   const width = `${Math.min(((latency ?? 0) / LATENCY_MAX) * 100, 100)}%` as `${number}%`;
@@ -128,7 +131,7 @@ function PeerRow({ peer, latencyColor, theme }: { peer: PeerPoolEntry; latencyCo
     <YStack gap={8}>
       <XStack alignItems="center" gap={10}>
         <YStack flex={1} gap={2}>
-          <SizableText color={theme.text} fontSize={12} fontWeight="600">{peer.country}</SizableText>
+          <SizableText color={theme.text} fontSize={scale(12)} fontWeight="600">{peer.country}</SizableText>
           <TextSmall color={theme.placeholder}>{peer.host}</TextSmall>
           <TextSmall color={theme.placeholder}>{peer.uri}</TextSmall>
         </YStack>
@@ -140,7 +143,8 @@ function PeerRow({ peer, latencyColor, theme }: { peer: PeerPoolEntry; latencyCo
 }
 
 function TextSmall({ children, color }: { children: React.ReactNode; color: string }) {
-  return <NativeText numberOfLines={2} style={{ color, fontSize: 10, lineHeight: 14 }}>{children}</NativeText>;
+  const scale = useTextScale();
+  return <NativeText numberOfLines={2} style={{ color, fontSize: scale(10), lineHeight: scale(14) }}>{children}</NativeText>;
 }
 
 function statusSubtitle(phase: string): string {

@@ -6,6 +6,7 @@ import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { InteractiveRow } from '@/components/contact-info/interactive-row';
 import { CONTACT_STATUS_LABELS } from '@/domain/contact-labels';
 import { getTrustLabel } from '@/domain/trust';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import type { UPeerContact } from '@/storage/contact-store';
 
@@ -22,18 +23,19 @@ type ContactInfoHeroProps = {
 
 export function ContactInfoHero({ alias, upeerId, status, presence = null, vouchScore, onCall, onVideo, onSearch }: ContactInfoHeroProps) {
   const theme = useTheme();
+  const scale = useTextScale();
   const statusColor = presence === 'En línea' ? theme.success : status === 'blocked' ? theme.danger : theme.placeholder;
 
   return (
     <YStack alignItems="center" gap={5} paddingHorizontal={20} paddingTop={4}>
       <ContactTrustAvatar name={alias} size={96} vouchScore={vouchScore} />
-      <SizableText color={theme.text} fontSize={20} fontWeight="700" numberOfLines={2} textAlign="center">{alias}</SizableText>
-      <Text color={theme.placeholder} ellipsizeMode="middle" fontFamily="monospace" fontSize={12} numberOfLines={1}>{upeerId}</Text>
+      <SizableText color={theme.text} fontSize={scale(20)} fontWeight="700" numberOfLines={2} textAlign="center">{alias}</SizableText>
+      <Text color={theme.placeholder} ellipsizeMode="middle" fontFamily="monospace" fontSize={scale(12)} numberOfLines={1}>{upeerId}</Text>
       <XStack alignItems="center" gap={5}>
         <View style={[styles.dot, { backgroundColor: statusColor }]} />
-        <Text color={statusColor} fontSize={12}>{presence ?? CONTACT_STATUS_LABELS[status]}</Text>
+        <Text color={statusColor} fontSize={scale(12)}>{presence ?? CONTACT_STATUS_LABELS[status]}</Text>
       </XStack>
-      <Text color={theme.placeholder} fontSize={12}>{getTrustLabel(vouchScore)}</Text>
+      <Text color={theme.placeholder} fontSize={scale(12)}>{getTrustLabel(vouchScore)}</Text>
       <XStack gap={18} paddingTop={12}>
         <InteractiveRow accessibilityLabel="Llamar" disabled icon={Phone} label="Llamar" onPress={onCall} variant="action" />
         <InteractiveRow accessibilityLabel="Videollamada" disabled icon={Video} label="Vídeo" onPress={onVideo} variant="action" />

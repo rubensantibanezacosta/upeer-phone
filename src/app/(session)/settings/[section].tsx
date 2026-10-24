@@ -7,10 +7,12 @@ import { Card, Paragraph, SizableText, Text } from 'tamagui';
 import { renderSettingsSection, SETTINGS_SECTION_LABELS } from '@/components/settings-sections';
 import { useSession } from '@/components/session-shell';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function SettingsSectionRoute() {
   const theme = useTheme();
+  const scale = useTextScale();
   const copyToClipboard = useCopyToClipboard();
   const { connection } = useSession();
   const { section } = useLocalSearchParams<{ section: string }>();
@@ -21,10 +23,10 @@ export default function SettingsSectionRoute() {
     <ScrollView contentContainerStyle={styles.content}>
       <Link href="/settings" asChild>
         <Pressable accessibilityRole="button" style={styles.back}>
-          <ArrowLeft color={theme.text} size={18} /><Text color={theme.text} fontSize={15}>Volver a configuración</Text>
+          <ArrowLeft color={theme.text} size={18} /><Text color={theme.text} fontSize={scale(15)}>Volver a configuración</Text>
         </Pressable>
       </Link>
-      {rendered ?? <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={8} padding={16}><SizableText color={theme.text} fontSize={22} fontWeight="700">{label}</SizableText><Paragraph color={theme.placeholder}>Esta sección todavía no está disponible en la app móvil.</Paragraph></Card>}
+      {rendered ?? <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={8} padding={16}><SizableText color={theme.text} fontSize={scale(22)} fontWeight="700">{label}</SizableText><Paragraph color={theme.placeholder}>Esta sección todavía no está disponible en la app móvil.</Paragraph></Card>}
     </ScrollView>
   </SafeAreaView>;
 }
