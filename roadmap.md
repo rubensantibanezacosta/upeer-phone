@@ -81,6 +81,7 @@ La integración desktop ejecuta `yggstack` y configura SOCKS local en `127.0.0.1
 - **B8 — parcial.** El servicio `:yggdrasil` ya es dueño del nodo, listener, protocolo, ratchets, outbox y persistencia cifrada; falta integrar el trabajador DHT (códec, admisión, núcleo y bootstrap ya disponibles), el `MulticastLock`, la ruta de persistencia de contactos, certificados/epoch y su estado observable.
 - **B9 — no iniciada.** No hay validación DHT Desktop↔móvil, fuzzing de paquetes, presupuesto de batería/red para descubrimiento ni interop del registro de dispositivos.
 - **B10 — enrolamiento del móvil hecho con escaneo QR y autorizador en el bridge, identidad sin raíz y sincronización pendientes.** El bridge Go ya implementa el protocolo OOB sin raíz que usa Desktop: decodifica la invitación, firma la solicitud del dispositivo sobre el payload canónico y la sella con el secreto de un solo uso, y abre y verifica el certificado emitido por la cuenta antes de instalarlo (`ParseEnrollmentInvite`, `CryptoIdentity.BuildEnrollmentRequest`, `OpenEnrollmentCertificate`). También cubre el lado autorizador desde el bridge: `createEnrollmentInvite`, `openEnrollmentRequest` e `issueEnrollmentCertificate` generan la invitación con `inviteId` derivado y TTL acotado, abren la solicitud comprobando cuenta y ventana de 10 min, y firman y sellan el certificado; el vector de `transport-bridge/testdata/enrollment_vectors.json` verifica ambas direcciones, incluida una firma de certificado idéntica byte a byte a la de Desktop. El vector se verifica en ambos clientes. `DeviceEnrollment` guarda el estado en Keystore (solicitud pendiente + certificado instalado), el AIDL y el módulo Expo exponen `deviceEnrollmentBegin`/`…RequestJSON`/`…Finish`/`…Cancel`/`…StatusJSON`, y la pantalla única de recuperación del acceso ejecuta el flujo completo pegando códigos o escaneando con la cámara (`expo-camera`, `CameraView` con `barcodeTypes: ['qr']`) los QR que muestra el escritorio: invitación y certificado de respuesta. El reparto es asimétrico por hardware — el único dispositivo con cámara es el móvil, así que se escanea siempre escritorio → móvil y la solicitud del teléfono se copia. El autorizador móvil está cerrado: `DeviceEnrollmentAuthorizer` guarda invitaciones cifradas, abre la solicitud del escritorio, emite el certificado y lo registra, y Perfil ofrece «Dispositivos de la cuenta» con hoja de invitación QR. Falta el runtime en modo dispositivo (la app sigue necesitando la raíz para operar), la clave de cuenta pública sin mnemonic y toda la sincronización online/offline, historial y entrega diferida entre dispositivos autorizados.
+- **B11 — transporte local sin internet: no iniciada.** Sin Yggdrasil no hay nodo, y cada paquete firmado exige `senderYggAddress` IPv6, así que el móvil no puede hablar con el dispositivo de al lado. Falta Bluetooth RFCOMM, LAN local, descubrimiento propio y admisión por dispositivo en vez de por IP. Ver «B11 — Transporte local sin internet».
 - **Fases de producto 4–10 — no iniciadas como paridad.** El chat directo con un contacto ya conocido funciona en ambos sentidos y está expuesto en la UI, pero faltan grupos, archivos, llamadas, vault y notificaciones avanzadas. El Producto 6 (vault/multidispositivo) no empieza hasta B10. El detalle medido por tipo de paquete y por función de escritorio está en «Inventario de paridad con escritorio»: de los más de 60 tipos de paquete del protocolo (41 en `network/types.ts`, 14 `CALL_*`, 4 `GROUP_*` y los `FILE_*` que solo aparecen en `SEALED_TYPES`), el móvil solo habla hoy `HANDSHAKE_*`, `CHAT`, `ACK`, `CHAT_UPDATE`, `DR_RESET` y los `DHT_*`.
 
 ### Disposición del trabajo local no integrado
@@ -96,7 +97,7 @@ Ningún prototipo cuenta como fase completada hasta que tenga vector Desktop, bi
 
 ## Orden por fases bloqueantes
 
-Cada fase B solo puede empezar cuando la anterior tenga su criterio de salida demostrado. Las fases de producto (4–10) no se adelantan para tapar huecos de red: dependen de B9; el Producto 6 depende además de B10.
+Cada fase B solo puede empezar cuando la anterior tenga su criterio de salida demostrado. Las fases de producto (4–10) no se adelantan para tapar huecos de red: dependen de B9; el Producto 6 depende además de B10. B11 es la excepción de orden: puede prototiparse en paralelo porque solo toca el transporte, pero no se cierra antes de B9, cuando el contrato de paquetes ya admite un origen sin dirección Yggdrasil.
 
 | Fase | Bloquea a | Entrega mínima | Estado |
 |---|---|---|---|
@@ -111,6 +112,7 @@ Cada fase B solo puede empezar cuando la anterior tenga su criterio de salida de
 | B8 | B9–B10 | Trabajador DHT, certificados y epoch dentro de `:yggdrasil` | Parcial |
 | B9 | B10, Producto 6 | Interoperabilidad Desktop↔móvil, registro, fuzzing y presupuesto | No iniciada |
 | B10 | Producto 6 | Sincronización online/offline, historial y entrega diferida por dispositivo | En curso (enrolamiento móvil hecho; identidad sin raíz y sincronización pendientes) |
+| B11 | Modo «solo local» | Transporte local sin internet: Bluetooth RFCOMM, LAN y admisión por dispositivo | No iniciada |
 
 ## Regla de organización de archivos
 
@@ -346,6 +348,36 @@ La lógica nueva de DHT va en `transport-bridge/dht/`; la raíz conserva solo lo
 
 **No hacer:** asumir que la DHT entrega mensajes; exigir que ambos dispositivos estén conectados; copiar mnemonic/SPK; ni portar la Fase 10 antes de cerrar B6 y B10.
 
+### B11 — Transporte local sin internet (Bluetooth y LAN)
+
+**Estado (24/10/2026): no iniciada.** Paridad con Briar en lo que hace posible usarlo en un apagón: hablar con el dispositivo que está al lado sin ninguna conectividad IP.
+
+**Depende de:** B9 (contrato de paquetes cerrado) y de la abstracción de enlace. **Bloquea a:** el modo «solo local» y cualquier prueba de mensajería de proximidad.
+
+Base de Briar que se copia, con nombres verificados en `bramble-android`:
+
+- **Bluetooth Classic (RFCOMM), no BLE.** Servidor con `listenUsingInsecureRfcommWithServiceRecord("RFCOMM", uuid)` y cliente con `createInsecureRfcommSocketToServiceRecord(uuid)`. Es un flujo de bytes orientado a conexión, así que el framing de 4 bytes que ya usa el móvil sirve tal cual.
+- **Descubrimiento acotado.** `startDiscovery()` con tope (`MAX_DISCOVERY_MS = 10_000`), `cancelDiscovery()` antes de conectar y receptor de `ACTION_STATE_CHANGED`, `ACTION_SCAN_MODE_CHANGED` y fin de descubrimiento para no dejar el adaptador colgado.
+- **Límite de conexiones.** Briar lo encapsula en `BluetoothConnectionLimiter` con factoría por plataforma (`AndroidBluetoothPlugin`, `JavaBluetoothPlugin`). En uPeer el límite tiene que ser del enlace, no solo del listener TCP de `YggdrasilInbound`.
+- **El transporte es un plugin.** En Bramble la identidad se intercambia dentro del handshake cifrado sobre el mismo flujo y el resto del stack no sabe por dónde llegó el byte stream. uPeer necesita esa misma separación.
+- **Tres modos locales.** Bluetooth, Wi-Fi en la misma red y Wi-Fi Direct cuando no hay router; más el intercambio por tarjeta. Los dos primeros cubren «sin internet, en el mismo sitio».
+
+Trabajo:
+
+- [ ] `TransportLink` en Android (`write`/`read`/cierre/estado/origen) con dos implementaciones: `YggdrasilLink` sobre el bridge actual y `BluetoothLink` sobre RFCOMM. `YggdrasilProtocol.handleFrame` deja de depender del `Bridge` concreto para transportar.
+- [ ] Origen transport-agnóstico en el paquete firmado (`senderEndpoint` sellado o dominio `LOCALv1`) para poder firmar sin Yggdrasil, sin relajar `VerifySignedPacket` cuando la dirección sí existe. Vector JS↔Go↔Kotlin.
+- [ ] Admisión y rate limit por clave de dispositivo y certificado, no por `ip:<addr>`; `InboundRateLimiter` necesita claves por enlace.
+- [ ] Descubrimiento Bluetooth con permisos de Android 12+ (`BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN`, `BLUETOOTH_ADVERTISE`), nombre de dispositivo sin identidad y `upeerId` solo tras el handshake cifrado.
+- [ ] LAN sin internet: sockets locales y anuncio en la subred reutilizando `KademliaSeedLoader`, sin abrir un segundo mecanismo de confianza.
+- [ ] Relleno de longitud constante por enlace, para que el tamaño no revele si es `CHAT`, `READ` o `SYNC_ENVELOPE`.
+- [ ] Modo «solo local» en Ajustes · Conexión y estado del enlace en la cabecera del chat, con comparación de huella para verificar identidad en presencia.
+- [ ] Presupuesto de batería: escaneo por ventanas, cancelación al cerrar y medición de 30 min antes de activarlo por defecto.
+- [ ] Pruebas: dos móviles sin red, móvil↔escritorio en LAN, RFCOMM cortado a mitad de frame, mismo mensaje por dos radios sin duplicar y MAC distinta tras reiniciar el Bluetooth.
+
+**Salida:** dos dispositivos sin conectividad IP intercambian texto y recibo de lectura por Bluetooth, con identidad verificada por huella, relleno constante y batería medida; el mismo mensaje recibido por dos radios no se duplica y el transporte no altera el estado criptográfico del contacto.
+
+**No hacer:** inventar una dirección Yggdrasil falsa para firmar; relajar la verificación para todos los paquetes; tratar el emparejamiento Bluetooth como prueba de identidad; dejar el escaneo siempre encendido; ni presentar Bluetooth como sustituto del vault.
+
 ## Hitos y prioridad vigente
 
 ### Regla de arquitectura: sin UI no se pierde la recepción
@@ -390,7 +422,7 @@ El objetivo fue cerrar el primer tramo de las fases 0 y 2: que Desktop pudiera a
    - [x] Pérdida de frames y cambios de red sin reiniciar el proceso: frame truncado con cierre controlado y frame válido posterior; Wi-Fi/datos desactivados y reactivados con peers reconectados y chat verificado, mismo PID de `:yggdrasil`.
 8. [ ] DHT Kademlia, bootstrap y roaming. B0–B5 están cerradas localmente; B6 (identidad/registro) es el siguiente bloqueo, B7 es DHT/roaming, B8 el servicio y B9 la interoperabilidad. B10 (sincronización) solo empieza tras B9.
 9. [ ] Paridad social, vault, grupos, archivos y llamadas (fases 4–10, solo tras B9; vault/multidispositivo tras B10).
-   - [ ] Eventos de mensaje que faltan en el protocolo móvil: `TYPING`, `CHAT_DELETE`, `CHAT_REACTION` y `CHAT_CONTACT`; `READ` ya se emite y se aplica. Ver «Inventario de paridad con escritorio».
+   - [ ] Eventos de mensaje que faltan en el protocolo móvil: `CHAT_DELETE`, `CHAT_REACTION` y `CHAT_CONTACT`; `READ` y `TYPING` ya se emiten y se aplican. Ver «Inventario de paridad con escritorio».
    - [ ] Sincronización multi-dispositivo con los nueve `SYNC_EVENT_KINDS`, relay y backlog propios del móvil.
    - [ ] Archivos (`FILE_*`), grupos (`GROUP_*`) y llamadas (`CALL_*`) con interoperabilidad real contra escritorio.
 
@@ -584,7 +616,7 @@ Cierre de brechas medido contra el código de `upper-desktop`, no contra lo que 
 | `DR_RESET` | Sí | Sí (`DrResetPolicy`, `DrResetReplayCache`) | Pruebas JVM; sin prueba real de reinicio de ratchet |
 | `CHAT_UPDATE` (edición) | Sí, con `version` y política de conflicto | Sí (`editChat`, `ChatEditPolicy`) | Pruebas JVM; sin prueba cruzada |
 | `READ` (recibo de lectura) | Sí | Sí (`ReadReceipts`, `ControlReplies`) | Pruebas JVM del frame; falta prueba cruzada real |
-| `TYPING` (escribiendo) | Sí | **Ausente** | No probado |
+| `TYPING` (escribiendo) | Sí | Sí (`TypingIndicators`, `ControlReplies`) | Pruebas JVM; falta prueba cruzada real |
 | `CHAT_DELETE` | Sí | **Ausente** | No probado |
 | `CHAT_REACTION` | Sí | **Ausente** | No probado |
 | `CHAT_CONTACT` (tarjeta de contacto) | Sí | **Ausente**: se puede escanear la del escritorio, no recibir ni enviar tarjetas | No probado |
@@ -692,7 +724,7 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Ficha de grupo | Pendiente | No hay grupos en el móvil; cuando existan `GROUP_*` debe replicar la misma pantalla con miembros y administración |
 | Chat · composer | Parcial | Adjuntar archivo y nota de voz avisan «pendiente» |
 | Chat · mensajes | Parcial | Solo editar; faltan responder, reaccionar, borrar, reenviar y ver estado real de entrega |
-| Chat · presencia | Pendiente | Sin «escribiendo…» ni presencia en la cabecera |
+| Chat · presencia | Parcial | «Escribiendo…» real en la cabecera, con ventana de 6 s, envío como máximo cada 3 s y caducidad al recibir un mensaje. Falta presencia (conectado/última vez) y el punto de «escribiendo» en la lista de chats |
 | Accesibilidad | Parcial | Faltan escalas de fuente y revisión con lector de pantalla |
 
 ### Borrado, bloqueo y solicitudes de mensaje (23/10/2026)
@@ -755,6 +787,26 @@ Fijar, silenciar y archivar dejan de ser avisos y pasan a tener efecto:
 - **Se envía al abrir la conversación.** `ProtocolStateStore.markConversationRead` ahora devuelve los `id` que pasaron de `delivered` a `read`; el protocolo los manda en una sola conexión TCP, con tope de 50 por conversación (`ReadReceipts.MAX_PER_CONVERSATION`) para que un hilo largo no abra un envío sin fin. El protocolo guarda el `Bridge` en `start()` porque hasta ahora solo lo pasaba al outbox.
 - **Se aplica solo al mensaje propio y del peer correcto.** El `READ` entrante pasa por `ControlReplies` como el `ACK`, verifica la firma contra la clave del remitente —o la del dispositivo si el paquete viene ligado—, se limita a 200/min por origen y por identidad, y usa `ackMessage` con `ReplayPolicy.validAck`, que exige `isMine` y que el dueño del mensaje sea el remitente. Un `READ` de un tercero no puede marcar mis mensajes.
 - **La UI ya sabía pintarlo.** El estado `read` sale con el doble check en `theme.receiptRead` en la burbuja y en la lista de chats; lo que faltaba era que el móvil emitiera y aceptara el recibo.
+
+### Indicador de escritura (24/10/2026)
+
+- **Mismo sobre cifrado que el recibo.** `SealedControl.frame` firma con `buildSignedPacket` y sella con la clave del contacto; lo comparten `READ` y `TYPING`, así que un `TYPING` no viaja en claro aunque sea un paquete trivial.
+- **El estado caduca solo.** `TypingIndicators` fija una ventana de 6 s y `ProtocolStateStore.typingPeers(now)` poda lo vencido al leer, de modo que un `TYPING` perdido no deja «Escribiendo…» pegado. `ProtocolConversations` añade `typing` a cada conversación, así que la cabecera lo ve con el mismo sondeo de 1,5 s que ya refresca el chat.
+- **El emisor no satura.** La pantalla envía como mucho un `TYPING` cada 3 s mientras el campo tiene texto, y el rate limiter lo corta a 600/min por origen y por identidad.
+- **Se apaga al llegar el mensaje.** Un `CHAT` recibido limpia el indicador antes de descifrar, para no enseñar «Escribiendo…» junto al mensaje que acaba de entrar.
+
+### Transporte local sin internet: paridad con Briar (24/10/2026)
+
+Decisión: el Bluetooth de Briar entra en el roadmap como **B11**, no como una función de una fase de producto, porque no es una pestaña: es un transporte más y obliga a cambiar cómo se firman y se admiten los paquetes.
+
+Hallazgos que condicionan el diseño:
+
+- **El paquete firmado está atado a una dirección IPv6.** `buildSignedPacketObject` exige `senderYggAddress` y `VerifySignedPacket` la valida como dirección de Yggdrasil. Un `CHAT` por RFCOMM no se puede firmar hoy sin inventar una dirección, y relajar esa comprobación afectaría a todos los paquetes y a la admisión de B7.
+- **El rate limit es por IP.** `InboundRateLimiter` indexa `ip:<addr>`; sin IP no hay cubo, y la admisión consulta `LocationBlock`, que tampoco existe en un enlace local.
+- **La red del bridge es IP-céntrica.** `dialTCP`, `listenTCP`, `acceptTCP`, `connectionAddress` y `readFrame`/`writeFrame` son métodos del `Bridge`, que además aporta `address()` para firmar. RFCOMM no tiene equivalente, así que hace falta un `TransportLink` y dejar el `Bridge` solo para criptografía.
+- **El framing ya vale.** Los frames llevan prefijo de longitud de 4 bytes y el lector de `YggdrasilInbound` es agnóstico del socket, así que el flujo de bytes de RFCOMM se puede reutilizar sin tocar el códec.
+- **Lo que Briar aporta y no es obvio:** descubrimiento con tope de 10 s y cancelación explícita, límite de conexiones por enlace (`BluetoothConnectionLimiter`), identidad intercambiada solo tras el handshake cifrado —el nombre de dispositivo no lleva `upeerId`— y el supuesto de que un adversario **sí** puede observar el canal de corto alcance de forma limitada. Ese supuesto implica relleno de longitud constante, que hoy no existe.
+- **El coste real es la MAC.** Es un identificador estable visible para cualquiera que escanee, así que la privacidad del transporte local es peor que la de Yggdrasil por diseño; hay que documentarlo en la UI y no prometer anonimato en modo local.
 
 Reglas de estilo acordadas para toda pantalla nueva:
 
