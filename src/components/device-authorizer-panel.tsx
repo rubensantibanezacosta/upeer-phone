@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Info, Smartphone, UserPlus } from '@tamagui/lucide-icons-2';
+import { useCallback, useState } from 'react';
+import { Alert } from 'react-native';
+import { Ban, Info, Smartphone, Trash2, UserPlus } from '@tamagui/lucide-icons-2';
 import { Card, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { DeviceInviteSheet } from '@/components/device-invite-sheet';
@@ -7,11 +8,42 @@ import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useAccountDevices } from '@/hooks/use-account-devices';
 import { useTheme } from '@/hooks/use-theme';
+import { revokeAccountDevice } from '../../modules/upeer-transport/src/UPeerTransportModule';
 
 export function DeviceAuthorizerPanel({ onInfo }: { onInfo: () => void }) {
   const theme = useTheme();
   const { state, refresh } = useAccountDevices();
   const [sheetVisible, setSheetVisible] = useState(false);
+  const [busyId, setBusyId] = useState('');
+  const [notice, setNotice] = useState('');
+
+  const revoke = useCallback((deviceId: string, platform?: string) => {
+    Alert.alert(
+      'Revocar dispositivo',
+      `Se quitará el acceso de ${platformLabel(platform)} a tu cuenta. Dejará de recibir mensajes nuevos y tendrá que vincularse otra vez con una invitación.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Revocar',
+          style: 'destructive',
+          onPress: () => {
+            setBusyId(deviceId);
+            setNotice('');
+            revokeAccountDevice(deviceId, 'revocado desde el móvil')
+              .then((status) => {
+                setNotice(status.ready ? 'Dispositivo revocado' : 'Revocación registrada, registro pendiente');
+                return refresh();
+              })
+              .catch((cause: unknown) => {
+                console.warn('No se pudo revocar el dispositivo.', cause);
+                setNotice('No se pudo revocar el dispositivo');
+              })
+              .finally(() => setBusyId(''));
+          },
+        },
+      ],
+    );
+  }, [refresh]);
 
   return <YStack borderBottomColor={theme.border} borderBottomWidth={1} gap={12} paddingHorizontal={20} paddingVertical={20}>
     <XStack alignItems="center" gap={8}>
@@ -26,8 +58,10 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo: () => void }) {
         ? <Paragraph color={theme.placeholder} fontSize={13}>Leyendo dispositivos autorizados…</Paragraph>
         : state.devices.map((device) => <DeviceRow
           authorizedAt={device.authorizedAt}
+          busy={busyId === device.deviceId}
           current={device.deviceId === state.localDeviceId}
           key={device.deviceId}
+          onRevoke={() => revoke(device.deviceId, device.platform)}
           platform={device.platform}
           theme={theme}
           value={device.deviceId}
@@ -38,14 +72,26 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo: () => void }) {
     </YStack>
 
     {state.error ? <Paragraph accessibilityRole="alert" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={10} borderWidth={1} color={theme.onDangerSoft} fontSize={12} padding={10}>{state.error}</Paragraph> : null}
+    {notice ? <Text accessibilityLiveRegion="polite" color={notice.startsWith('No se pudo') ? theme.danger : theme.textSecondary} fontSize={12}>{notice}</Text> : null}
 
     <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={46} icon={<UserPlus color={theme.onAccentSoft} size={18} />} onPress={() => setSheetVisible(true)}>Vincular dispositivo</NativeRippleButton>
+
+    {state.revoked.length > 0 ? <YStack gap={6}>
+      <XStack alignItems="center" gap={6}>
+        <Ban color={theme.placeholder} size={13} />
+        <Text color={theme.placeholder} fontSize={11} fontWeight="600">Revocados</Text>
+      </XStack>
+      {state.revoked.slice(0, 3).map((revocation) => <XStack alignItems="center" gap={8} key={revocation.deviceId} opacity={0.6}>
+        <Text color={theme.placeholder} flex={1} fontFamily="monospace" fontSize={11} numberOfLines={1}>{revocation.deviceId}</Text>
+        <Text color={theme.placeholder} fontSize={11}>{authorizedLabel(revocation.revokedAt)}</Text>
+      </XStack>)}
+    </YStack> : null}
 
     <DeviceInviteSheet onAuthorized={() => void refresh()} onClose={() => setSheetVisible(false)} visible={sheetVisible} />
   </YStack>;
 }
 
-function DeviceRow({ authorizedAt, current, platform, theme, value }: { authorizedAt: number; current: boolean; platform?: string; theme: ReturnType<typeof useTheme>; value: string }) {
+function DeviceRow({ authorizedAt, busy, current, onRevoke, platform, theme, value }: { authorizedAt: number; busy: boolean; current: boolean; onRevoke: () => void; platform?: string; theme: ReturnType<typeof useTheme>; value: string }) {
   return <Card backgroundColor={theme.backgroundElement} borderColor={current ? theme.accent : theme.border} borderRadius={12} borderWidth={1} padding={12}>
     <XStack alignItems="center" gap={10}>
       <YStack flex={1} gap={2}>
@@ -59,6 +105,9 @@ function DeviceRow({ authorizedAt, current, platform, theme, value }: { authoriz
         <Text color={theme.placeholder} fontSize={9} fontWeight="600" letterSpacing={0.6}>VINCULADO</Text>
         <Text color={theme.textSecondary} fontSize={11}>{authorizedLabel(authorizedAt)}</Text>
       </YStack>
+      {current ? null : <NativeRipplePressable accessibilityLabel={`Revocar ${platformLabel(platform)}`} onPress={onRevoke} style={{ opacity: busy ? 0.4 : 1 }}>
+        <Trash2 color={theme.danger} size={17} />
+      </NativeRipplePressable>}
     </XStack>
   </Card>;
 }

@@ -685,7 +685,7 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Ajustes · apariencia | Placeholder | El tema sigue al sistema; no hay selector ni tamaño de texto |
 | Ajustes · almacenamiento | Placeholder | Sin uso real, caché ni limpieza |
 | Ajustes · acerca de | Placeholder | Sin versión, licencia ni enlaces |
-| Perfil · revocar dispositivo | Pendiente | El bridge expone `revokeAccountDevice`; falta el botón y la confirmación en la lista de dispositivos |
+| Perfil · revocar dispositivo | Hecha | Cada dispositivo que no es el actual lleva un icono de papelera que pide confirmación, llama a `revokeAccountDevice` y refresca la lista; los revocados se listan debajo con su fecha. Falta que la revocación viaje por B10 al resto de dispositivos |
 | Chat · cabecera | Parcial | «Info. del contacto» abre la ficha completa; videollamada, llamada de voz y buscar en la conversación avisan «pendiente». Cuando la conversación es una solicitud solo quedan volver, avatar y menú |
 | Ficha del contacto | Hecha | Pantalla completa `/contact/[upeerId]` con la distribución de escritorio: hero (avatar 96, alias, identidad, presencia y reputación), fila Llamar·Vídeo·Buscar, identidad y dirección copiables, acciones de conversación y zona de riesgo. Bloquear/desbloquear y eliminar son reales; compartir, silenciar, archivar, favoritos, cifrado y vaciar chat se muestran atenuados con «Pronto» |
 | Ficha de grupo | Pendiente | No hay grupos en el móvil; cuando existan `GROUP_*` debe replicar la misma pantalla con miembros y administración |
@@ -705,6 +705,7 @@ Modelo acordado: **la lista de contactos es la autoridad**. No hay paquete nuevo
 - «Aceptar y conectar» crea el contacto como `connected`; «Bloquear» lo crea como `blocked`. No hace falta que el remitente envíe ninguna solicitud: su propio mensaje lo es.
 - Las conversaciones cuyo contacto está `blocked` se ocultan de la lista.
 - **El bloqueo ya es efectivo en el servicio.** `setBlockedPeers` (AIDL → servicio → estado nativo) guarda la lista en `blocked`; `YggdrasilProtocol.handleSignedPacket` descarta antes de descifrar cualquier `HANDSHAKE_*`, `CHAT` o `CHAT_UPDATE` cuyo `senderUpeerId` esté bloqueado, así que no se guarda el mensaje ni se notifica. La lista se sincroniza al guardar o borrar un contacto y al arrancar la sesión (`pushBlockedPeers`). `BlockedPeerList` normaliza y compara sin distinguir mayúsculas, con pruebas Kotlin.
+- **Revocación desde el móvil.** `DeviceAuthorizerPanel` muestra un icono de papelera en cada dispositivo que no es el local; al pulsarlo pide confirmación, llama a `revokeAccountDevice(deviceId, 'revocado desde el móvil')`, refresca el registro y deja el aviso «Dispositivo revocado». La lista `Revocados` del propio registro se muestra debajo con la fecha, para que la acción sea verificable. `useAccountDevices` expone también `revoked`. Queda pendiente que la revocación se propague al resto de dispositivos (viaja en el registro firmado, pero B10 todavía no lo sincroniza) y que el servicio rechace paquetes de un dispositivo revocado antes de descifrar.
 - Purga disponible: `deleteConversation` en AIDL, servicio y TS, con `ProtocolMessageState.withoutConversation` cubierto por pruebas Kotlin.
 
 Queda pendiente:
@@ -713,6 +714,7 @@ Queda pendiente:
 2. Reflejar en la solicitud el historial previo cuando el contacto se borró pero su conversación no: hoy el cuerpo de la solicitud oculta los mensajes anteriores; decidir si se muestra un resumen o se mantiene la pantalla limpia.
 3. Verificar en dispositivo el descarte de paquetes bloqueados con dos nodos reales: la comprobación previa a la firma usa el `senderUpeerId` declarado, que no está autenticado (un tercero solo puede hacerse descartar a sí mismo, pero conviene cubrirlo con una prueba de integración).
 4. Un test de integración que recorra el ciclo completo: A escribe a B sin contacto → B ve la solicitud en el cuerpo → acepta → los mensajes siguientes llegan como conversación normal.
+5. Revocación efectiva en el servicio: hoy `revokeAccountDevice` actualiza el registro firmado, pero ninguna ruta de `YggdrasilProtocol` consulta la lista `revoked` antes de aceptar un paquete, y B10 aún no propaga el registro a los demás dispositivos.
 
 Reglas de estilo acordadas para toda pantalla nueva:
 
