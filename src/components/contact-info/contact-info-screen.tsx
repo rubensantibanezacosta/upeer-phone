@@ -11,12 +11,13 @@ import { CopyField } from '@/components/copy-field';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useSnackbar } from '@/components/snackbar';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { usePresenceLabel } from '@/hooks/use-presence-label';
 import { useTheme } from '@/hooks/use-theme';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
 import { flagMessage, flagsFor, type ConversationFlag } from '@/domain/conversation-flags';
 import { setConversationFlag } from '@/storage/conversation-flags-store';
 import { deleteContactAndConversation, getContacts, saveContact, setContactFavorite, type UPeerContact } from '@/storage/contact-store';
-import { deleteConversation as clearNativeConversation } from '../../../modules/upeer-transport/src/UPeerTransportModule';
+import { deleteConversation as clearNativeConversation, getConversations } from '../../../modules/upeer-transport/src/UPeerTransportModule';
 
 type ContactInfoScreenProps = {
   upeerId: string;
@@ -28,6 +29,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
   const { showSnackbar } = useSnackbar();
   const copyToClipboard = useCopyToClipboard();
   const [contact, setContact] = useState<UPeerContact | null | undefined>(undefined);
+  const [lastSeen, setLastSeen] = useState<number | undefined>(undefined);
   const [sharing, setSharing] = useState(false);
   const conversationFlags = useConversationFlags();
   const flags = flagsFor(conversationFlags, upeerId);
@@ -37,11 +39,15 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
     showSnackbar('No se pudo cargar la ficha del contacto');
   }, [showSnackbar]);
 
-  const load = useCallback(() => getContacts().then((list) => setContact(list.find((item) => item.upeerId === upeerId) ?? null)), [upeerId]);
+  const load = useCallback(() => Promise.all([getContacts(), getConversations()]).then(([list, conversations]) => {
+    setContact(list.find((item) => item.upeerId === upeerId) ?? null);
+    setLastSeen(conversations.find((conversation) => conversation.upeerId === upeerId)?.lastSeen);
+  }), [upeerId]);
 
   useEffect(() => {
     load().catch(reportFailure);
   }, [load, reportFailure]);
+  const presence = usePresenceLabel(lastSeen);
 
   const toggleBlock = () => {
     if (!contact) return;
@@ -137,7 +143,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
         <SizableText color={theme.text} flex={1} fontSize={17} fontWeight="700" numberOfLines={1}>Info. del contacto</SizableText>
       </XStack>
       <ScrollView contentContainerStyle={styles.content}>
-        <ContactInfoHero alias={alias} onCall={pending('Llamada de voz')} onSearch={pending('Buscar en la conversación')} onVideo={pending('Videollamada')} status={contact?.status ?? 'offline'} upeerId={upeerId} vouchScore={undefined} />
+        <ContactInfoHero alias={alias} onCall={pending('Llamada de voz')} onSearch={pending('Buscar en la conversación')} onVideo={pending('Videollamada')} presence={presence} status={contact?.status ?? 'offline'} upeerId={upeerId} vouchScore={undefined} />
         <YStack gap={6}>
           <Text color={theme.placeholder} fontSize={12} fontWeight="600">Identidad uPeer</Text>
           <CopyField accessibilityLabel="Copiar identidad uPeer" onCopy={() => { void copyToClipboard(upeerId, 'Identidad copiada'); }} truncate value={upeerId} />

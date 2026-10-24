@@ -31,6 +31,7 @@ internal object ProtocolConversations {
         .put("lastIsMine", message.optBoolean("isMine"))
         .put("unread", unread)
         .put("typing", typingPeers.contains(upeerId))
+        .put("lastSeen", peers.optJSONObject(upeerId)?.optLong("lastSeen", 0L) ?: 0L)
     }.sortedByDescending { it.optLong("lastTimestamp") }
     return JSONArray(result).toString()
   }

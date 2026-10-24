@@ -34,6 +34,7 @@ internal class ControlReplies(
     }
     val metadata = JSONObject(metadataJSON)
     if (!allow(metadata, sourceAddress)) return rateLimited(metadata)
+    state.touchPresence(senderUpeerId)
     if (deviceBinding == null) state.rememberPeer(metadata)
     if (type == "ACK") {
       handleAck(senderUpeerId, packet)

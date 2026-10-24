@@ -50,6 +50,7 @@ export type ProtocolConversation = {
   lastIsMine: boolean;
   unread: number;
   typing?: boolean;
+  lastSeen?: number;
 };
 
 export type ProtocolTransportStatus = {

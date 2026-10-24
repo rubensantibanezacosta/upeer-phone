@@ -741,7 +741,7 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Mensajes · estados | Parcial | `pending`/`sent`/`delivered`/`read`/`failed` son reales: el ACK marca `delivered` y el `READ` marca `read` en ambos sentidos. `synced` y `vaulted` siguen pendientes de la sincronización multi-dispositivo |
 | Ajustes · índice | Hecho | Ocho secciones con contenido real salvo «Almacenamiento»: Privacidad, Seguridad, Bloqueados, Notificaciones, Apariencia, Conexión, Acerca de |
 | Notificaciones | Hecha | `UPeerNotifications` publica por conversación con previsualización privada, enlace `upeer://chat/<id>` y acción «Marcar leído», y respeta las preferencias: mensajes de contactos, solicitudes de desconocidos y sonido. Faltan agrupación entre conversaciones y presencia |
-| Ajustes · privacidad | Parcial | «Confirmaciones de lectura» ya se aplica en el servicio: con el interruptor apagado la conversación se marca leída solo en el dispositivo y no sale ningún `READ`. «Conectado» y «última vez» siguen guardados sin efecto porque el protocolo aún no transporta presencia |
+| Ajustes · privacidad | Hecha | «Confirmaciones de lectura» se aplica en el servicio y «Conectado»/«Última vez» deciden qué enseña la cabecera del chat y la ficha con la presencia real derivada de `lastSeen` |
 | Ajustes · seguridad | Hecha | Estado del registro, lista de dispositivos con revocación confirmada y ayuda en popup; faltan PIN, revelar frase y borrado de cuenta, que necesitan bridge nativo |
 | Ajustes · bloqueados | Hecha | Lista real desde `contact-store` con desbloqueo confirmado; el servicio recibe la lista al desbloquear |
 | Ajustes · notificaciones | Hecha | Los tres interruptores se persisten y viajan al servicio (`setNotificationPrefs`); el canal de sonido se elige por preferencia y la notificación se omite si el tipo está apagado |
@@ -754,7 +754,7 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Ficha de grupo | Pendiente | No hay grupos en el móvil; cuando existan `GROUP_*` debe replicar la misma pantalla con miembros y administración |
 | Chat · composer | Parcial | Adjuntar archivo y nota de voz avisan «pendiente» |
 | Chat · mensajes | Parcial | Editar, reaccionar, borrar para todos y responder (cita con autor y extracto) ya funcionan; faltan reenviar y ver estado real de entrega |
-| Chat · presencia | Parcial | «Escribiendo…» real en la cabecera, con ventana de 6 s, envío como máximo cada 3 s y caducidad al recibir un mensaje. Falta presencia (conectado/última vez) y el punto de «escribiendo» en la lista de chats |
+| Chat · presencia | Hecha | «Escribiendo…» real en la cabecera y presencia real (`En línea` dentro de 65 s y `Última vez …` después) desde `lastSeen` del servicio. Falta el punto de «escribiendo» en la lista de chats |
 | Accesibilidad | Parcial | Faltan escalas de fuente y revisión con lector de pantalla |
 
 ### Borrado, bloqueo y solicitudes de mensaje (23/10/2026)
@@ -795,10 +795,11 @@ Los ajustes del móvil se alinean con `src/components/ui/settings` de escritorio
 Queda pendiente en Ajustes:
 
 1. Tamaño de texto (`small`/`medium`/`large`): necesita una escala común aplicada a todas las pantallas, no un valor guardado que nadie lee.
-2. Presencia: «conectado» y «última vez» necesitan un paquete de presencia (`PRESENCE`) que hoy no existe; sin él los dos interruptores no tienen nada que condicionar.
-3. Almacenamiento: el móvil no tiene bridge de vault (`getVaultStats`, `cleanupVaultExpired`) ni historial de archivos como `FileHistoryExplorer`.
-4. Seguridad de escritorio pendiente de bridge: PIN de bloqueo, revelar la frase con PIN y borrado de cuenta. La lista de dispositivos y la revocación ya son reales.
-5. Sección «Perfil» dentro de ajustes: en el móvil el perfil es una pestaña propia, así que no se duplica.
+2. Almacenamiento: el móvil no tiene bridge de vault (`getVaultStats`, `cleanupVaultExpired`) ni historial de archivos como `FileHistoryExplorer`.
+3. Seguridad de escritorio pendiente de bridge: PIN de bloqueo, revelar la frase con PIN y borrado de cuenta. La lista de dispositivos y la revocación ya son reales.
+4. Sección «Perfil» dentro de ajustes: en el móvil el perfil es una pestaña propia, así que no se duplica.
+
+La presencia ya no está en esta lista: «Conectado» y «Última vez» condicionan etiquetas reales derivadas de `lastSeen`.
 
 ### Acciones de conversación reales (24/10/2026)
 
@@ -856,6 +857,16 @@ Fijar, silenciar y archivar dejan de ser avisos y pasan a tener efecto:
 - **La cita es navegable.** Tocar la cita llama a `openQuoted`, que busca el original en la lista cargada y hace `scrollToIndex`; si el original ya no está en memoria no se hace nada, igual que en escritorio. Se implementa con `onResponderRelease` en vez de `Pressable` para no meter un contenedor táctil dentro de otro y romper el long-press que abre las acciones.
 - **El banner del compositor tiene la misma gramática.** `ChatComposerArea` pinta borde izquierdo de acento de 3 px, «Respondiendo a <alias>» a 11/700 en acento y el extracto a 12/0.85, sin `lineHeight`.
 
+
+### Presencia real y última vez (25/10/2026)
+
+La cabecera decía «En línea» siempre porque el estado salía de la agenda (`status === 'connected'`), no del tráfico. Ya hay presencia real:
+
+- **El servicio fecha cada paquete verificado.** `ProtocolStateStore.touchPresence(upeerId)` reescribe `lastSeen` del peer y se llama en `YggdrasilProtocol.handleChat`, `handleChatUpdate` y en `ControlReplies.handle` —después de validar la firma y el rate limit—, de modo que `CHAT`, `CHAT_UPDATE`, `ACK`, `READ`, `TYPING`, `CHAT_REACTION` y `CHAT_DELETE` cuentan como actividad. Los handshakes ya lo hacían vía `rememberPeer`.
+- **La presencia viaja en el payload que ya existía.** `ProtocolConversations.build` añade `lastSeen` a cada conversación, así que la pantalla de chat —que ya refresca cada 1,5 s— y la lista de Chats la reciben sin un canal nuevo. `ProtocolConversationsTest` cubre el paso del dato y el cero cuando el peer no está en el registro.
+- **La ventana es la de escritorio.** `src/domain/presence.ts` define `ONLINE_WINDOW_MS = 65_000`, `isOnline` y `describeLastSeen`, con el mismo texto que `topHeaderSupport` de escritorio: `En línea`, `Última vez hace un momento`, `Última vez hace 5 min`, `Última vez hoy a las 09:00`, `Última vez el 21 oct a las 18:30`. `presence.test.ts` fija los casos.
+- **Las preferencias deciden qué se enseña.** `usePresenceLabel(lastSeen)` cruza `onlineStatus` y `lastSeen` con la hora actual y refresca cada 30 s para que el «En línea» caduque solo. Con «Conectado» apagado se ve la última vez; con «Última vez» apagado, `Desconectado`; con ambos, nada se inventa.
+- **Se aplica en los dos sitios que lo mostraban mal.** `ChatHeader` recibe `presence` (y sigue priorizando `Escribiendo…`), y `ContactInfoHero` también, con el punto en verde solo cuando la etiqueta es `En línea`. La ficha del contacto pide `lastSeen` en su carga junto a la agenda.
 
 ### Revocación efectiva de dispositivos (25/10/2026)
 

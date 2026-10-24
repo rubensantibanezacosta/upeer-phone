@@ -17,6 +17,7 @@ import { buildReplyPreview, type ReplyPreview } from '@/domain/chat-reply';
 import { decideRequestState } from '@/domain/message-request';
 import { useChatMessageSheet } from '@/hooks/use-chat-message-sheet';
 import { useContactCard } from '@/hooks/use-contact-card';
+import { usePresenceLabel } from '@/hooks/use-presence-label';
 import { useTheme } from '@/hooks/use-theme';
 import { getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
 import type { ProtocolMessage } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
@@ -46,6 +47,7 @@ export default function ChatRoute() {
   const [error, setError] = useState('');
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
+  const [peerLastSeen, setPeerLastSeen] = useState<number | undefined>(undefined);
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const typingSentAtRef = useRef(0);
 
@@ -59,6 +61,7 @@ export default function ChatRoute() {
     const ownConversation = conversations.find((conversation) => conversation.upeerId === upeerId);
     const conversationAlias = ownConversation?.alias;
     setPeerTyping(ownConversation?.typing === true);
+    setPeerLastSeen(ownConversation?.lastSeen);
     setAlias(contact?.name || conversationAlias || upeerId.slice(0, 12));
     const decision = decideRequestState({
       contactStatus: contact?.status,
@@ -171,6 +174,7 @@ export default function ChatRoute() {
   }, []);
   const reloadContacts = useCallback(() => refresh().catch((cause: unknown) => console.warn('No se pudo recargar la agenda.', cause)), [refresh]);
   const contactCard = useContactCard({ contacts, onOpenContact: openContactInfo, onSaved: reloadContacts });
+  const presence = usePresenceLabel(peerLastSeen);
   const openCard = contactCard.open;
   const savedContactIds = contactCard.savedIds;
 
@@ -236,7 +240,7 @@ export default function ChatRoute() {
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
-        <ChatHeader alias={alias || 'Conversación'} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={() => router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } })} onUnavailable={showUnavailable} status={contactStatus} typing={peerTyping} upeerId={upeerId ?? ''} />
+        <ChatHeader alias={alias || 'Conversación'} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={() => router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } })} onUnavailable={showUnavailable} presence={presence} status={contactStatus} typing={peerTyping} upeerId={upeerId ?? ''} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
           {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} /> : (
             <ChatTimelineList

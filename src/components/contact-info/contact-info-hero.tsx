@@ -13,15 +13,16 @@ type ContactInfoHeroProps = {
   alias: string;
   upeerId: string;
   status: UPeerContact['status'];
+  presence?: string | null;
   vouchScore?: number;
   onCall: () => void;
   onVideo: () => void;
   onSearch: () => void;
 };
 
-export function ContactInfoHero({ alias, upeerId, status, vouchScore, onCall, onVideo, onSearch }: ContactInfoHeroProps) {
+export function ContactInfoHero({ alias, upeerId, status, presence = null, vouchScore, onCall, onVideo, onSearch }: ContactInfoHeroProps) {
   const theme = useTheme();
-  const statusColor = status === 'connected' ? theme.success : status === 'blocked' ? theme.danger : theme.placeholder;
+  const statusColor = presence === 'En línea' ? theme.success : status === 'blocked' ? theme.danger : theme.placeholder;
 
   return (
     <YStack alignItems="center" gap={5} paddingHorizontal={20} paddingTop={4}>
@@ -30,7 +31,7 @@ export function ContactInfoHero({ alias, upeerId, status, vouchScore, onCall, on
       <Text color={theme.placeholder} ellipsizeMode="middle" fontFamily="monospace" fontSize={12} numberOfLines={1}>{upeerId}</Text>
       <XStack alignItems="center" gap={5}>
         <View style={[styles.dot, { backgroundColor: statusColor }]} />
-        <Text color={statusColor} fontSize={12}>{CONTACT_STATUS_LABELS[status]}</Text>
+        <Text color={statusColor} fontSize={12}>{presence ?? CONTACT_STATUS_LABELS[status]}</Text>
       </XStack>
       <Text color={theme.placeholder} fontSize={12}>{getTrustLabel(vouchScore)}</Text>
       <XStack gap={18} paddingTop={12}>

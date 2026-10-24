@@ -222,6 +222,7 @@ internal class YggdrasilProtocol(
   ): String {
     val messageID = packet.optString("id")
     if (!ReplayPolicy.validMessageID(messageID)) throw IllegalArgumentException("CHAT message id must be a UUID")
+    state.touchPresence(senderUpeerId)
     val existingOwner = state.messages.owner(messageID)
     if (existingOwner != null) {
       if (existingOwner != senderUpeerId) throw IllegalArgumentException("CHAT message ID collision across conversations")
@@ -248,6 +249,7 @@ internal class YggdrasilProtocol(
   ): String {
     val messageID = packet.optString("msgId")
     if (!ReplayPolicy.validMessageID(messageID)) throw IllegalArgumentException("CHAT_UPDATE msgId must be a UUID")
+    state.touchPresence(senderUpeerId)
     val version = packet.optInt("version", 0)
     if (version <= 0) throw IllegalArgumentException("CHAT_UPDATE version must be positive")
     val current = state.messages.find(messageID)

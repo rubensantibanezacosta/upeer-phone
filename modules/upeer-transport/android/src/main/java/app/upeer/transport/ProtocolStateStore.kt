@@ -119,6 +119,18 @@ internal class ProtocolStateStore(context: Context) {
     }
   }
 
+  fun touchPresence(upeerId: String): Boolean {
+    if (!validId(upeerId)) return false
+    return synchronized(lock) {
+      val peers = state.optJSONObject("peers") ?: return@synchronized false
+      val existing = peers.optJSONObject(upeerId) ?: return@synchronized false
+      existing.put("lastSeen", System.currentTimeMillis())
+      state.put("peers", peers)
+      persist()
+      true
+    }
+  }
+
   fun peerFor(upeerId: String): JSONObject? = synchronized(lock) {
     state.optJSONObject("peers")?.optJSONObject(upeerId)?.let(::copy)
   }
