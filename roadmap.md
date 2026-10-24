@@ -753,7 +753,7 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Ficha del contacto | Hecha | Pantalla completa `/contact/[upeerId]` con la distribución de escritorio: hero (avatar 96, alias, identidad, presencia y reputación), fila Llamar·Vídeo·Buscar, identidad y dirección copiables, acciones de conversación y zona de riesgo. Bloquear/desbloquear y eliminar son reales; compartir, silenciar, archivar, favoritos, cifrado y vaciar chat se muestran atenuados con «Pronto» |
 | Ficha de grupo | Pendiente | No hay grupos en el móvil; cuando existan `GROUP_*` debe replicar la misma pantalla con miembros y administración |
 | Chat · composer | Parcial | Adjuntar archivo y nota de voz avisan «pendiente» |
-| Chat · mensajes | Parcial | Editar, reaccionar, borrar para todos y responder (cita con autor y extracto) ya funcionan; faltan reenviar y ver estado real de entrega |
+| Chat · mensajes | Hecha | Editar, reaccionar, borrar para todos, responder (cita con autor y extracto) y reenviar a uno o varios contactos; el estado de entrega es real (`pending`/`sent`/`delivered`/`read`/`failed`) |
 | Chat · presencia | Hecha | «Escribiendo…» real en la cabecera y en la vista previa de la lista, y presencia real (`En línea` dentro de 65 s y `Última vez …` después) desde `lastSeen` del servicio |
 | Accesibilidad | Parcial | Faltan escalas de fuente y revisión con lector de pantalla |
 
@@ -857,6 +857,16 @@ Fijar, silenciar y archivar dejan de ser avisos y pasan a tener efecto:
 - **La cita es navegable.** Tocar la cita llama a `openQuoted`, que busca el original en la lista cargada y hace `scrollToIndex`; si el original ya no está en memoria no se hace nada, igual que en escritorio. Se implementa con `onResponderRelease` en vez de `Pressable` para no meter un contenedor táctil dentro de otro y romper el long-press que abre las acciones.
 - **El banner del compositor tiene la misma gramática.** `ChatComposerArea` pinta borde izquierdo de acento de 3 px, «Respondiendo a <alias>» a 11/700 en acento y el extracto a 12/0.85, sin `lineHeight`.
 
+
+### Reenviar a otros contactos (25/10/2026)
+
+Escritorio tenía `ForwardModal` y `forwardMessageToTargets`; el móvil no ofrecía nada y el roadmap lo daba por pendiente.
+
+- **Reenviar es enviar con otro destinatario, no un paquete nuevo.** Escritorio reenvía el `content` tal cual a cada destino (`sendMessage(target, payload.content, …)`), sin marca de «reenviado» en el cable. El móvil hace lo mismo con `sendChat(upeerId, content, '')`: sin cita, porque el original no viaja y citar un mensaje que el receptor no tiene produciría una cita vacía.
+- **Selección múltiple, como escritorio.** `ChatForwardSheet` monta el `ContactPicker` de siempre en modo selección: dos props opcionales (`onToggle` y `selectedIds`) convierten las filas en casillas con check de acento y `accessibilityState.selected`, sin romper los dos usos que ya había (compartir tarjeta y nueva conversación).
+- **El resumen es una función pura.** `src/domain/forward.ts` concentra `forwardExcerpt` (colapsa espacios y recorta a 120) y `forwardResultMessage` (singular, plural, fallos parciales y «no salió ninguno»), con `forward.test.ts`. La hoja solo pinta.
+- **Los fallos no abortan el resto.** Cada destino se envía en su propio `try`: si uno falla, los demás siguen y el snackbar dice cuántos salieron y cuántos no.
+- **La pantalla de chat no crecía.** `ChatMessageOverlays` agrupa la hoja de acciones y la de reenvío, de modo que `[upeerId].tsx` quedó en 292 líneas con cuatro hojas ya encima de la mesa.
 
 ### Presencia real y última vez (25/10/2026)
 

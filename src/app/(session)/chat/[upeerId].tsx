@@ -6,7 +6,7 @@ import { ChatComposerArea } from '@/components/chat/chat-composer-area';
 import { ContactCardSheet } from '@/components/chat/contact-card-sheet';
 import { ChatDateSeparator } from '@/components/chat/chat-date-separator';
 import { ChatHeader } from '@/components/chat/chat-header';
-import { ChatMessageActions } from '@/components/chat/chat-message-actions';
+import { ChatMessageOverlays } from '@/components/chat/chat-message-overlays';
 import { ChatMessageBubble } from '@/components/chat/chat-message-bubble';
 import { ChatRequestScreen } from '@/components/chat/chat-request-screen';
 import { ChatTimelineList } from '@/components/chat/chat-timeline-list';
@@ -14,6 +14,7 @@ import { useSnackbar } from '@/components/snackbar';
 import { buildChatTimeline, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
 import { summarizeReactions } from '@/domain/chat-reactions';
 import { buildReplyPreview, type ReplyPreview } from '@/domain/chat-reply';
+import { forwardResultMessage } from '@/domain/forward';
 import { decideRequestState } from '@/domain/message-request';
 import { useChatMessageSheet } from '@/hooks/use-chat-message-sheet';
 import { useContactCard } from '@/hooks/use-contact-card';
@@ -44,6 +45,7 @@ export default function ChatRoute() {
   const [text, setText] = useState('');
   const [editing, setEditing] = useState<ProtocolMessage | null>(null);
   const [replyingTo, setReplyingTo] = useState<ProtocolMessage | null>(null);
+  const [forwarding, setForwarding] = useState<ProtocolMessage | null>(null);
   const [error, setError] = useState('');
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
@@ -160,8 +162,18 @@ export default function ChatRoute() {
     setReplyingTo(null);
   }, [editing]);
 
-  const sheet = useChatMessageSheet({ onChanged: refresh, onEdit: startEditing, onError: setError, onReply: startReplying, upeerId });
-  const { open: openActions, selected: actionMessage, selfUpeerId, toggleReaction } = sheet;
+  const startForwarding = useCallback((message: ProtocolMessage) => {
+    setForwarding(message);
+    setError('');
+  }, []);
+
+  const handleForwarded = useCallback((count: number, failed: number) => {
+    setForwarding(null);
+    showSnackbar(forwardResultMessage(count, failed));
+  }, [showSnackbar]);
+
+  const sheet = useChatMessageSheet({ onChanged: refresh, onEdit: startEditing, onError: setError, onForward: startForwarding, onReply: startReplying, upeerId });
+  const { open: openActions, selfUpeerId, toggleReaction } = sheet;
 
   const replyPreviews = useMemo(() => {
     const byID = new Map(messages.map((message) => [message.id, message]));
@@ -269,17 +281,7 @@ export default function ChatRoute() {
         <View pointerEvents="none" style={[styles.nativeBarBackground, { backgroundColor: theme.backgroundElement, height: insets.bottom }]} />
       ) : null}
       <ContactCardSheet action={contactCard.action} card={contactCard.selected} error={contactCard.error} onClose={contactCard.close} visible={contactCard.selected !== null} />
-      <ChatMessageActions
-        canEdit={actionMessage?.isMine === true}
-        message={actionMessage}
-        onClose={sheet.close}
-        onCopy={sheet.copyMessage}
-        onDelete={sheet.remove}
-        onEdit={sheet.editMessage}
-        onReply={sheet.replyMessage}
-        onToggleReaction={toggleReaction}
-        reactions={summarizeReactions(actionMessage?.reactions, selfUpeerId)}
-      />
+      <ChatMessageOverlays contacts={contacts} forwarding={forwarding} onForwardClose={() => setForwarding(null)} onForwarded={handleForwarded} selfUpeerId={selfUpeerId} sheet={sheet} />
     </View>
   );
 }

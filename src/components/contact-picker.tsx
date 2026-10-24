@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
-import { Search } from '@tamagui/lucide-icons-2';
+import { StyleSheet, View, ScrollView } from 'react-native';
+import { Check, Search } from '@tamagui/lucide-icons-2';
 import { Input, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
@@ -12,11 +12,13 @@ type ContactPickerProps = {
   contacts: UPeerContact[];
   emptyLabel?: string;
   excludeUpeerId?: string;
-  onPick: (contact: UPeerContact) => void;
+  onPick?: (contact: UPeerContact) => void;
+  onToggle?: (contact: UPeerContact) => void;
   searchPlaceholder?: string;
+  selectedIds?: string[];
 };
 
-export function ContactPicker({ contacts, emptyLabel = 'Sin contactos que coincidan', excludeUpeerId, onPick, searchPlaceholder = 'Buscar contacto' }: ContactPickerProps) {
+export function ContactPicker({ contacts, emptyLabel = 'Sin contactos que coincidan', excludeUpeerId, onPick, onToggle, searchPlaceholder = 'Buscar contacto', selectedIds = [] }: ContactPickerProps) {
   const theme = useTheme();
   const [query, setQuery] = useState('');
 
@@ -36,17 +38,26 @@ export function ContactPicker({ contacts, emptyLabel = 'Sin contactos que coinci
       <ScrollView contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="handled" style={styles.list}>
         {filtered.length === 0
           ? <Text color={theme.placeholder} fontSize={12} paddingVertical={16} textAlign="center">{emptyLabel}</Text>
-          : filtered.map((contact) => (
-            <NativeRipplePressable accessibilityLabel={`Elegir a ${contact.name}`} key={contact.upeerId} onPress={() => onPick(contact)}>
-              <XStack alignItems="center" gap={10} paddingVertical={8}>
-                <ProfileAvatar name={contact.name} size={36} />
-                <YStack flex={1}>
-                  <SizableText color={theme.text} fontSize={14} fontWeight="600" numberOfLines={1}>{contact.name}</SizableText>
-                  <Text color={theme.placeholder} fontSize={11} numberOfLines={1}>{contact.upeerId}</Text>
-                </YStack>
-              </XStack>
-            </NativeRipplePressable>
-          ))}
+          : filtered.map((contact) => {
+            const selected = selectedIds.includes(contact.upeerId);
+            return (
+              <NativeRipplePressable
+                accessibilityLabel={`${onToggle ? (selected ? 'Quitar' : 'Añadir') : 'Elegir'} a ${contact.name}`}
+                accessibilityState={onToggle ? { selected } : undefined}
+                key={contact.upeerId}
+                onPress={() => (onToggle ? onToggle(contact) : onPick?.(contact))}
+              >
+                <XStack alignItems="center" gap={10} paddingVertical={8}>
+                  <ProfileAvatar name={contact.name} size={36} />
+                  <YStack flex={1}>
+                    <SizableText color={theme.text} fontSize={14} fontWeight="600" numberOfLines={1}>{contact.name}</SizableText>
+                    <Text color={theme.placeholder} fontSize={11} numberOfLines={1}>{contact.upeerId}</Text>
+                  </YStack>
+                  {onToggle ? <View style={[styles.check, { backgroundColor: selected ? theme.accent : 'transparent', borderColor: selected ? theme.accent : theme.border }]}>{selected ? <Check color={theme.onAccent} size={14} strokeWidth={3} /> : null}</View> : null}
+                </XStack>
+              </NativeRipplePressable>
+            );
+          })}
       </ScrollView>
     </YStack>
   );
@@ -55,4 +66,5 @@ export function ContactPicker({ contacts, emptyLabel = 'Sin contactos que coinci
 const styles = StyleSheet.create({
   list: { maxHeight: 240 },
   listContent: { paddingBottom: 4 },
+  check: { alignItems: 'center', borderRadius: 11, borderWidth: 1.5, height: 22, justifyContent: 'center', width: 22 },
 });

@@ -4,15 +4,18 @@ import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useMessageActions } from '@/hooks/use-message-actions';
 import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
 
+export type ChatMessageSheetApi = ReturnType<typeof useChatMessageSheet>;
+
 type ChatMessageSheetOptions = {
   onChanged: () => Promise<void>;
   onEdit: (message: ProtocolMessage) => void;
   onError: (message: string) => void;
+  onForward: (message: ProtocolMessage) => void;
   onReply: (message: ProtocolMessage) => void;
   upeerId: string | undefined;
 };
 
-export function useChatMessageSheet({ onChanged, onEdit, onError, onReply, upeerId }: ChatMessageSheetOptions) {
+export function useChatMessageSheet({ onChanged, onEdit, onError, onForward, onReply, upeerId }: ChatMessageSheetOptions) {
   const copy = useCopyToClipboard();
   const { close, open, remove, selected, selfUpeerId, toggleReaction } = useMessageActions(upeerId, { onChanged, onError });
 
@@ -31,10 +34,16 @@ export function useChatMessageSheet({ onChanged, onEdit, onError, onReply, upeer
     void copy(message.content);
   }, [close, copy]);
 
+  const forwardMessage = useCallback((message: ProtocolMessage) => {
+    close();
+    onForward(message);
+  }, [close, onForward]);
+
   return {
     close,
     copyMessage,
     editMessage,
+    forwardMessage,
     open,
     remove,
     replyMessage,
