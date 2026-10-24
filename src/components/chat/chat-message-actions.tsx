@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 12 },
   menu: { borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, elevation: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { height: 8, width: 0 }, shadowOpacity: 0.32, shadowRadius: 18 },
   action: { alignItems: 'center', flexDirection: 'row', gap: 14, minHeight: 52, paddingHorizontal: 18 },
-  emoji: { alignItems: 'center', borderRadius: 22, borderWidth: StyleSheet.hairlineWidth, flex: 1, height: 44, justifyContent: 'center' },
+  emoji: { alignItems: 'center', borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, flex: 1, height: 44, justifyContent: 'center' },
   closeButton: { alignItems: 'center', borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
   divider: { height: StyleSheet.hairlineWidth, marginHorizontal: 16 },
 });
