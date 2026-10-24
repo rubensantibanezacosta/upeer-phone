@@ -12,6 +12,13 @@ internal class AccountRegistryFacade(private val identity: YggdrasilIdentity) {
 
   fun statusJSON(): String = identity.registryStatusJSON()
 
+  fun revokedDevices(): Set<String> = try {
+    identity.revokedDevices()
+  } catch (cause: Exception) {
+    Log.e(TAG, "No se pudo leer la lista de dispositivos revocados", cause)
+    emptySet()
+  }
+
   fun revoke(deviceId: String, reason: String): String {
     identity.revokeDevice(deviceId, reason)
     return identity.registryStatusJSON()

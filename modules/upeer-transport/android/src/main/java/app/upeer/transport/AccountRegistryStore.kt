@@ -127,6 +127,10 @@ internal class AccountRegistryStore(
     )
   }
 
+  fun revokedDevices(): Set<String> = synchronized(lock) {
+    cached?.revoked?.map(String::lowercase)?.toSet().orEmpty()
+  }
+
   fun currentAdmission(accountUpeerId: String, deviceId: String): Boolean? = synchronized(lock) {
     val current = cached ?: return@synchronized null
     if (current.accountUpeerId != accountUpeerId.trim().lowercase()) return@synchronized null

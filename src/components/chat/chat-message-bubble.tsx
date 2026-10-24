@@ -34,10 +34,11 @@ function MessageStatus({ color, status }: { color: string; status: ProtocolMessa
   return <View accessibilityLabel={`Estado del mensaje: ${statusLabels[status]}`} style={styles.status}>{icon}</View>;
 }
 
-export function ChatMessageBubble({ entry, onLongPress, onOpenCard, onToggleReaction, reactions, reply, savedContacts }: {
+export function ChatMessageBubble({ entry, onLongPress, onOpenCard, onOpenReply, onToggleReaction, reactions, reply, savedContacts }: {
   entry: ChatTimelineEntry;
   onLongPress?: (message: ProtocolMessage) => void;
   onOpenCard?: (card: ContactCard) => void;
+  onOpenReply?: (messageID: string) => void;
   onToggleReaction?: (message: ProtocolMessage, emoji: string) => void;
   reactions?: ReactionSummary[];
   reply?: ReplyPreview | null;
@@ -48,6 +49,8 @@ export function ChatMessageBubble({ entry, onLongPress, onOpenCard, onToggleReac
   const textColor = isMine ? theme.bubbleMineText : theme.text;
   const metaColor = isMine ? theme.bubbleMineText : theme.placeholder;
   const card = parseContactCard(entry.message.content);
+  const quotedID = entry.message.replyTo;
+  const onPressReply = onOpenReply && quotedID ? () => onOpenReply(quotedID) : undefined;
 
   return (
     <View style={[styles.row, { marginTop: entry.startsGroup ? 10 : 4 }, isMine ? styles.rowMine : styles.rowTheirs]}>
@@ -58,7 +61,7 @@ export function ChatMessageBubble({ entry, onLongPress, onOpenCard, onToggleReac
           style={[styles.bubble, { backgroundColor: isMine ? theme.bubbleMine : theme.backgroundElement }, isMine ? styles.bubbleMine : styles.bubbleTheirs]}
         >
           <View style={[styles.body, card || reply ? styles.bodyColumn : null]}>
-            {reply ? <ChatReplyQuote isMine={isMine} reply={reply} /> : null}
+            {reply ? <ChatReplyQuote isMine={isMine} onPress={onPressReply} reply={reply} /> : null}
             {card && onOpenCard ? (
               <ChatContactCard
                 card={card}

@@ -36,10 +36,12 @@ class DeviceMessagingBindingsTest {
   private fun bindings(
     certificateValid: Boolean = true,
     signatureValid: Boolean = true,
+    revoked: Set<String> = emptySet(),
   ) = DeviceMessagingBindings(
     nowMillis = { 1_000L },
     verifyCertificate = { _, _, _ -> certificateValid },
     verifySignedPreKey = { _, _, _ -> signatureValid },
+    revokedFor = { revoked },
   )
 
   @Test
@@ -87,5 +89,29 @@ class DeviceMessagingBindingsTest {
     val metadata = JSONObject().put("type", "HANDSHAKE_REQ")
     assertFalse(bindings().attach(metadata, JSONObject().put("type", "HANDSHAKE_REQ"), account))
     assertFalse(metadata.has("deviceId"))
+  }
+
+  @Test
+  fun parseRejectsARevokedDevice() {
+    assertNull(bindings(revoked = setOf(deviceId)).parse(packet(), account))
+  }
+
+  @Test
+  fun parseRejectsARevokedDeviceRegardlessOfCase() {
+    assertNull(bindings(revoked = setOf(deviceId.uppercase())).parse(packet(), account))
+  }
+
+  @Test
+  fun attachRejectsARevokedDevice() {
+    val metadata = JSONObject().put("type", "HANDSHAKE_REQ").put("senderUpeerId", account)
+    assertFalse(bindings(revoked = setOf(deviceId)).attach(metadata, packet(), account))
+    assertFalse(metadata.has("deviceId"))
+  }
+
+  @Test
+  fun isRevokedNormalizesBothSides() {
+    val subject = bindings(revoked = setOf(deviceId.uppercase()))
+    assertTrue(subject.isRevoked(account.uppercase(), deviceId))
+    assertFalse(subject.isRevoked(account, "ee".repeat(32)))
   }
 }

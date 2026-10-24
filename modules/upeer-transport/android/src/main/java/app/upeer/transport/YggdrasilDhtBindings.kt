@@ -10,7 +10,7 @@ internal class YggdrasilDhtBindings(
   private val dhtLocation: DhtLocationStore,
   private val address: () -> String,
   private val requireAdmission: () -> Unit,
-  private val onRevokedDevice: () -> Unit,
+  private val onRevokedDevice: (String) -> Unit,
 ) {
   fun locationBlockJSON(ttlMillis: Long): String {
     val activeIdentity = identity.current() ?: error("uPeer identity is not ready")
@@ -31,7 +31,7 @@ internal class YggdrasilDhtBindings(
 
   fun revokeAccountDevice(deviceId: String, reason: String): String {
     val status = accountRegistry.revoke(deviceId, reason)
-    onRevokedDevice()
+    onRevokedDevice(deviceId)
     return status
   }
 

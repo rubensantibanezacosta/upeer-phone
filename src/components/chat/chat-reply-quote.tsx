@@ -4,18 +4,39 @@ import { Text } from 'tamagui';
 import type { ReplyPreview } from '@/domain/chat-reply';
 import { useTheme } from '@/hooks/use-theme';
 
-export function ChatReplyQuote({ isMine, reply }: { isMine: boolean; reply: ReplyPreview }) {
+type ChatReplyQuoteProps = {
+  isMine: boolean;
+  onPress?: () => void;
+  reply: ReplyPreview;
+};
+
+export function ChatReplyQuote({ isMine, onPress, reply }: ChatReplyQuoteProps) {
   const theme = useTheme();
-  const barColor = isMine ? theme.bubbleMineText : theme.accent;
+  const authorColor = isMine ? theme.bubbleMineText : theme.accent;
+  const excerptColor = isMine ? theme.bubbleMineText : theme.textSecondary;
+
+  const content = <>
+    <Text color={authorColor} fontSize={11} fontWeight="700" numberOfLines={1}>{reply.author}</Text>
+    <Text color={excerptColor} fontSize={12} numberOfLines={1} opacity={0.85}>{reply.excerpt}</Text>
+  </>;
+
+  const style = [styles.quote, { backgroundColor: theme.backgroundSelected, borderLeftColor: authorColor }];
+  if (!onPress) return <View style={style}>{content}</View>;
 
   return (
-    <View style={[styles.quote, { backgroundColor: theme.backgroundSelected, borderLeftColor: barColor }]}>
-      <Text color={barColor} fontSize={11} fontWeight="700" numberOfLines={1}>{reply.author}</Text>
-      <Text color={theme.textSecondary} fontSize={11} numberOfLines={1}>{reply.excerpt}</Text>
+    <View
+      accessibilityHint="Lleva al mensaje citado"
+      accessibilityLabel={`Respondiendo a ${reply.author}: ${reply.excerpt}`}
+      accessibilityRole="button"
+      onResponderRelease={onPress}
+      onStartShouldSetResponder={() => true}
+      style={style}
+    >
+      {content}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  quote: { borderLeftWidth: 3, borderRadius: 6, gap: 1, maxWidth: '100%', paddingHorizontal: 8, paddingVertical: 4, width: '100%' },
+  quote: { alignSelf: 'stretch', borderLeftWidth: 3, borderRadius: 8, gap: 0, maxWidth: '100%', paddingHorizontal: 8, paddingVertical: 6 },
 });

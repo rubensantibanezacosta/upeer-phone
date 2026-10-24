@@ -683,7 +683,7 @@ Cierre de brechas medido contra el código de `upper-desktop`, no contra lo que 
 | Tarjeta de contacto | `ContactCard.tsx` | Solo se muestra el QR propio en Perfil |
 | Selector de emoji | `EmojiPicker.tsx`, `emojiData.ts` | Nada |
 | Buzón cifrado y vault | `network/vault/` | Nada |
-| Revocar dispositivo propio | IPC `revoke-authorized-device` | El bridge expone `revokeAccountDevice`; la UI no lo llama |
+| Revocar dispositivo propio | IPC `revoke-authorized-device` | Equivalente en Perfil → dispositivos: `revokeAccountDevice` y el servicio descarta sus paquetes |
 | Estados de sincronización | `getSyncStatus` + evento `sync-status` | Nada |
 
 ### Cobertura de pruebas real
@@ -768,7 +768,7 @@ Modelo acordado: **la lista de contactos es la autoridad**. No hay paquete nuevo
 - «Aceptar y conectar» crea el contacto como `connected`; «Bloquear» lo crea como `blocked`. No hace falta que el remitente envíe ninguna solicitud: su propio mensaje lo es.
 - Las conversaciones cuyo contacto está `blocked` se ocultan de la lista.
 - **El bloqueo ya es efectivo en el servicio.** `setBlockedPeers` (AIDL → servicio → estado nativo) guarda la lista en `blocked`; `YggdrasilProtocol.handleSignedPacket` descarta antes de descifrar cualquier `HANDSHAKE_*`, `CHAT` o `CHAT_UPDATE` cuyo `senderUpeerId` esté bloqueado, así que no se guarda el mensaje ni se notifica. La lista se sincroniza al guardar o borrar un contacto y al arrancar la sesión (`pushBlockedPeers`). `BlockedPeerList` normaliza y compara sin distinguir mayúsculas, con pruebas Kotlin.
-- **Revocación desde el móvil.** `DeviceAuthorizerPanel` muestra un icono de papelera en cada dispositivo que no es el local; al pulsarlo pide confirmación, llama a `revokeAccountDevice(deviceId, 'revocado desde el móvil')`, refresca el registro y deja el aviso «Dispositivo revocado». La lista `Revocados` del propio registro se muestra debajo con la fecha, para que la acción sea verificable. `useAccountDevices` expone también `revoked`. Queda pendiente que la revocación se propague al resto de dispositivos (viaja en el registro firmado, pero B10 todavía no lo sincroniza) y que el servicio rechace paquetes de un dispositivo revocado antes de descifrar.
+- **Revocación desde el móvil.** `DeviceAuthorizerPanel` muestra un icono de papelera en cada dispositivo que no es el local; al pulsarlo pide confirmación, llama a `revokeAccountDevice(deviceId, 'revocado desde el móvil')`, refresca el registro y deja el aviso «Dispositivo revocado». La lista `Revocados` del propio registro se muestra debajo con la fecha y el motivo, para que la acción sea verificable. `useAccountDevices` expone también `revoked`, `epoch`, `ready` y `localAdmitted`; si el dispositivo local aparece revocado, el panel abre con un aviso de peligro en lugar de la lista normal.
 - Purga disponible: `deleteConversation` en AIDL, servicio y TS, con `ProtocolMessageState.withoutConversation` cubierto por pruebas Kotlin.
 
 Queda pendiente:
@@ -777,7 +777,7 @@ Queda pendiente:
 2. Reflejar en la solicitud el historial previo cuando el contacto se borró pero su conversación no: hoy el cuerpo de la solicitud oculta los mensajes anteriores; decidir si se muestra un resumen o se mantiene la pantalla limpia.
 3. Verificar en dispositivo el descarte de paquetes bloqueados con dos nodos reales: la comprobación previa a la firma usa el `senderUpeerId` declarado, que no está autenticado (un tercero solo puede hacerse descartar a sí mismo, pero conviene cubrirlo con una prueba de integración).
 4. Un test de integración que recorra el ciclo completo: A escribe a B sin contacto → B ve la solicitud en el cuerpo → acepta → los mensajes siguientes llegan como conversación normal.
-5. Revocación efectiva en el servicio: hoy `revokeAccountDevice` actualiza el registro firmado, pero ninguna ruta de `YggdrasilProtocol` consulta la lista `revoked` antes de aceptar un paquete, y B10 aún no propaga el registro a los demás dispositivos.
+5. Propagación de la revocación entre dispositivos propios: el servicio ya rechaza los paquetes del dispositivo revocado (ver 25/10/2026), pero B10 todavía no envía el registro nuevo a los demás dispositivos de la cuenta, así que un dispositivo revocado que siga abierto en otra máquina no se entera de su propio estado.
 
 ### Ajustes móviles con paridad de escritorio (24/10/2026)
 
@@ -844,14 +844,29 @@ Fijar, silenciar y archivar dejan de ser avisos y pasan a tener efecto:
 - **La lista de chats no enseña JSON.** `messageSummary` convierte la tarjeta en «Tarjeta de contacto: <nombre>» en la vista previa, igual que el `getContactCardSummary` de escritorio.
 - **Añadir desde la tarjeta es explícito.** Pulsar una tarjeta de alguien que no está en la agenda pide confirmación, guarda el contacto con `status: 'pending'` y lo registra en el servicio nativo con `registerPeer`, los mismos dos pasos que el alta manual. Si ya existe, abre su ficha. No se acepta sola ni se salta la solicitud de mensaje: eso sigue siendo cosa del primer contacto.
 - **Compartir es una hoja, no una pantalla.** La fila «Compartir contacto» de la ficha abre `ContactShareSheet` con el mismo buscador de contactos que «Nueva conversación» (`ContactPicker`, extraído para no duplicar la lista), excluyendo al propio contacto.
+- **La tarjeta del hilo y la ficha replican escritorio.** La burbuja (`ChatContactCard`) pinta avatar de 44, nombre, «Tarjeta de contacto», el pie «Toca para ver y guardar» / «En tu agenda» y un chevron, sobre `theme.background` con borde de un hairline. Al pulsarla se abre `ContactCardSheet`, que copia `ContactCard.tsx`: avatar de 56, nombre, «Tarjeta de contacto», la identidad `upeerId@address` en monoespaciada sobre una caja tintada, el QR de 180 dentro de una caja blanca con padding y un botón contorneado a ancho completo. La etiqueta del botón sigue la misma matriz que escritorio: «Guardando…», «Eres tú», «Contacto bloqueado», «Solicitud pendiente», «Ya guardado» o «Guardar contacto».
+
 ### Responder a un mensaje (24/10/2026)
 
 - **El campo ya existía en el cable.** Escritorio mete `replyTo` (UUID del mensaje citado, ≤100) como campo de primer nivel del paquete `CHAT` en `chatDirectDelivery.ts`, y el crate lo firma con el resto. Android ya lo enviaba: `OutboxStore`, `OutboxPacketFactory` y `buildChat`/`buildLinkedChat` lo arrastraban desde el primer día. Lo que faltaba era recibirlo, guardarlo y pintarlo.
 - **Entrada validada antes de guardar.** `YggdrasilChatDecryptor` solo persiste `replyTo` si `ReplayPolicy.validMessageID` lo acepta, de modo que un paquete con basura no ensucia el estado. En salida, `ChatSendPolicy.text` concentra las cuatro comprobaciones de envío (id de 64 hex, cita UUID o vacía, texto no vacío y tope de 256 KB) y es lo que prueba `ChatSendPolicyTest`.
 - **La cita se resuelve en local, no viaja copia del texto.** `buildReplyPreview` busca el mensaje citado entre los cargados y produce `{ author, excerpt }`; si ya no está (historial purgado o mensaje borrado) no se pinta nada, en vez de inventar «mensaje no disponible». `replyExcerpt` colapsa espacios, recorta a 80 caracteres y resume las tarjetas de contacto con el mismo `messageSummary` que la lista de chats.
 - **Un solo banner para los dos contextos.** `ChatComposerArea` sustituye al bloque de edición que vivía dentro de la pantalla y muestra «Editando mensaje» o «Respondiendo a <alias>» con el extracto y una X para cancelar; editar y responder son excluyentes y `submit` limpia ambos. La pantalla baja a 292 líneas porque la gestión de la hoja de acciones se movió a `useChatMessageSheet`.
-- **La cita se lee dentro de la burbuja.** `ChatReplyQuote` pinta una barra de acento con el autor y el extracto en una sola línea cada uno, y la burbuja pasa a columna cuando hay cita para que no compita con el texto.
+- **La cita se lee dentro de la burbuja.** `ChatReplyQuote` copia el `MessageReply` de escritorio: barra de acento de 3 px a la izquierda (`theme.bubbleMineText` en mensajes propios, `theme.accent` en ajenos), fondo translúcido del propio tono, autor a 11/700 y extracto a 12 con opacidad 0.85, **sin `lineHeight`** —fijarlo es lo que convertía la cita en un bloque enorme y desalineado de la altura real del texto— y la burbuja pasa a columna cuando hay cita para que no compita con el texto.
+- **La cita es navegable.** Tocar la cita llama a `openQuoted`, que busca el original en la lista cargada y hace `scrollToIndex`; si el original ya no está en memoria no se hace nada, igual que en escritorio. Se implementa con `onResponderRelease` en vez de `Pressable` para no meter un contenedor táctil dentro de otro y romper el long-press que abre las acciones.
+- **El banner del compositor tiene la misma gramática.** `ChatComposerArea` pinta borde izquierdo de acento de 3 px, «Respondiendo a <alias>» a 11/700 en acento y el extracto a 12/0.85, sin `lineHeight`.
 
+
+### Revocación efectiva de dispositivos (25/10/2026)
+
+El registro firmado ya guardaba los revocados, pero revocar no cambiaba nada en el servicio: ni se purgaban los datos del dispositivo, ni se descartaban sus paquetes.
+
+- **El servicio conoce los revocados.** `AccountRegistryStore.revokedDevices()` publica la lista del registro y `YggdrasilTransportService.revokedDevicesOf(account)` decide de qué registro sale: el propio si la cuenta es la local, el de contactos si no. Esa función es la que alimenta `DeviceMessagingBindings.revokedFor`.
+- **Se descarta antes de descifrar.** `DeviceMessagingBindings.parse` rechaza un handshake cuyo `deviceId` esté revocado, y `YggdrasilProtocol.handleSignedPacket` devuelve `rejectedMetadata(packet)` —el mismo marcador silencioso que `blockedMetadata`— para `HANDSHAKE_*` con identidad inválida o revocada y para `CHAT`/`CHAT_UPDATE` cuyo `senderDeviceId` esté revocado. Ni se guarda, ni se notifica, ni se confirma.
+- **La purga es local y aditiva.** `DevicePurge.apply(state, deviceId)` (función pura sobre el `JSONObject` del estado, con `DevicePurgeTest`) borra `devicePublicKey`, `deviceId`, `deviceCertificate` y `deviceSignedPreKey` de cualquier peer cuyo `deviceId` coincida sin distinguir mayúsculas, y tira su sesión. **Conserva `publicKey`**, así que un emparejamiento posterior vuelve a funcionar sin perder el contacto.
+- **El callback dice qué dispositivo.** `onRevokedDevice` pasa de `() -> Unit` a `(String) -> Unit`; el servicio llama a `forgetRevokedDevice(deviceId)`, que purga el estado y revalida la admisión con `admissionGuard.isAdmitted()`.
+- **La UI no miente.** `useAccountDevices` expone `localAdmitted`, `ready` y `epoch`; el panel enseña un aviso de peligro si el dispositivo local está revocado, el motivo y la fecha de cada revocación, el `epoch` en el aviso de éxito, y un mensaje distinto cuando el registro aún no está listo en vez de una lista vacía.
+- Pendiente: **propagar el registro nuevo entre dispositivos propios** (B10) para que un dispositivo revocado que siga encendido en otra máquina se entere; hoy solo lo aprende quien recibe su tráfico.
 
 ### Transporte local sin internet: paridad con Briar (24/10/2026)
 
@@ -1278,7 +1293,7 @@ Portar recuperación offline y continuidad multidispositivo sobre B6 y B10. No s
 - [ ] Portar recuperación de mensajes y eventos de edición, borrado, reacciones y lectura.
 - [ ] Portar recuperación segmentada de adjuntos y su deduplicación.
 - [ ] Añadir límites configurables de datos, almacenamiento, batería y replicación.
-- [ ] Portar la UI de dispositivos propios, emparejamiento, confianza y revocación sobre el registro firmado de B6; la confianza local no autoriza.
+- [x] Portar la UI de dispositivos propios, emparejamiento, confianza y revocación sobre el registro firmado de B6; la confianza local no autoriza. El servicio ya purga el estado del dispositivo revocado y descarta sus paquetes; falta sincronizar el registro nuevo con los demás dispositivos.
 - [ ] Usar `SYNC_ENVELOPE` de B10 para historial y eventos; no generar mensajes nuevos ni reiniciar el ratchet del contacto.
 - [ ] Resolver conflicto de orden, duplicados, expiración, eliminación y rotación de claves.
 - [ ] Mostrar claramente pendiente, almacenado en vault, recuperado y entregado.

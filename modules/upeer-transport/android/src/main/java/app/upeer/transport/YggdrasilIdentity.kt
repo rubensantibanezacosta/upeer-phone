@@ -96,6 +96,8 @@ internal class YggdrasilIdentity(context: Context) {
     registries.revoke(account.upeerID(), device.certificateJSON, deviceId, reason, CryptoAccountRegistrySigner(account))
   }
 
+  fun revokedDevices(): Set<String> = registries.revokedDevices()
+
   fun validateDeviceAdmission(
     certificateJSON: String,
     registryJSON: String,

@@ -272,7 +272,7 @@ class YggdrasilTransportService : Service() {
       dhtLocation,
       { requireBridge().address() },
       { admissionGuard.ensure(identity::requireDeviceAdmission) },
-      { admissionGuard.isAdmitted() },
+      { deviceId -> forgetRevokedDevice(deviceId) },
     )
     bridgeBindings = YggdrasilBridgeBindings(::requireBridge, inbound)
     dhtRuntime = YggdrasilDhtRuntime(
@@ -294,7 +294,7 @@ class YggdrasilTransportService : Service() {
       identity,
       signedPreKeys,
       DeviceSignedPreKeyStore(this),
-      DeviceMessagingBindings(),
+      DeviceMessagingBindings(revokedFor = ::revokedDevicesOf),
       protocolState,
       OutboxStore(this),
       notifications::notifyMessage,
@@ -347,6 +347,23 @@ class YggdrasilTransportService : Service() {
 
   private fun <T> admitted(block: () -> T): T =
     admissionGuard.ensure(identity::requireDeviceAdmission).let { block() }
+
+  private fun revokedDevicesOf(accountUpeerId: String): Set<String> {
+    val own = identity.current()?.upeerID()
+    if (own != null && own.equals(accountUpeerId, ignoreCase = true)) return accountRegistry.revokedDevices()
+    return contactRegistries.current(accountUpeerId)?.revoked.orEmpty()
+  }
+
+  private fun forgetRevokedDevice(deviceId: String) {
+    val purged = try {
+      protocolState.purgeDevice(deviceId)
+    } catch (cause: Exception) {
+      Log.e(TAG, "No se pudo olvidar el dispositivo revocado $deviceId", cause)
+      false
+    }
+    Log.i(TAG, "Dispositivo $deviceId revocado; enlaces eliminados=$purged")
+    admissionGuard.isAdmitted()
+  }
 
   override fun onTaskRemoved(rootIntent: Intent?) { if (bridge != null) startForeground(NOTIFICATION_ID, notifications.foregroundNotification()); super.onTaskRemoved(rootIntent) }
 

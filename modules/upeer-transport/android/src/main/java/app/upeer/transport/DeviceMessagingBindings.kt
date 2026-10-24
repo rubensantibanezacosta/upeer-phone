@@ -22,6 +22,7 @@ internal class DeviceMessagingBindings(
     Transportbridge.verifySignedPreKey(deviceKey, spkPub, spkSig)
   },
   private val deriveDeviceId: (String) -> String = ::deriveDeviceId,
+  private val revokedFor: (String) -> Set<String> = { emptySet() },
 ) {
   fun fieldsFor(device: DeviceIdentity, signedPreKey: JSONObject): JSONObject? {
     if (!validSignedPreKey(signedPreKey)) return null
@@ -52,6 +53,7 @@ internal class DeviceMessagingBindings(
     val deviceId = source.optString("deviceId").lowercase()
     if (!DhtLocation.isHex(devicePublicKey, 32) || !DhtLocation.isHex(deviceId, 32)) return null
     if (!deriveDeviceId(devicePublicKey).equals(deviceId, ignoreCase = true)) return null
+    if (deviceId in revokedFor(account).map(String::lowercase)) return null
     val certificate = source.optJSONObject("deviceCertificate") ?: return null
     if (!certificate.optString("accountUpeerId").equals(account, ignoreCase = true)) return null
     if (!certificate.optString("deviceId").equals(deviceId, ignoreCase = true)) return null
@@ -71,6 +73,9 @@ internal class DeviceMessagingBindings(
   }
 
   fun bindingFor(peer: JSONObject, accountUpeerId: String): DeviceBinding? = parse(peer, accountUpeerId)
+
+  fun isRevoked(accountUpeerId: String, deviceId: String): Boolean =
+    deviceId.lowercase() in revokedFor(accountUpeerId.trim().lowercase()).map(String::lowercase)
 
   fun attach(metadata: JSONObject, packet: JSONObject, accountUpeerId: String): Boolean {
     val binding = parse(packet, accountUpeerId) ?: return false

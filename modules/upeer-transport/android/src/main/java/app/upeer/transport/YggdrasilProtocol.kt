@@ -152,7 +152,8 @@ internal class YggdrasilProtocol(
       val accountUpeerId = metadata.optString("senderUpeerId")
       val deviceAttached = deviceBindings.attach(metadata, packet, accountUpeerId)
       if (deviceBindings.hasFields(packet) && !deviceAttached) {
-        Log.w(TAG, "Handshake $type de $accountUpeerId con identidad de dispositivo inválida")
+        Log.w(TAG, "Handshake $type de $accountUpeerId descartado: identidad de dispositivo inválida o revocada")
+        return rejectedMetadata(packet)
       }
       if (!allow(metadata, sourceAddress)) return rateLimited(metadata)
       if (state.rememberPeer(metadata)) outbox.onPeerReset(metadata.optString("senderUpeerId"))
@@ -186,6 +187,10 @@ internal class YggdrasilProtocol(
     val metadataJSON: String
     if (isDevicePacket) {
       if (!DhtLocation.isHex(senderDeviceId, 32)) throw IllegalArgumentException("$type senderDeviceId is invalid")
+      if (deviceBindings.isRevoked(senderUpeerId, senderDeviceId)) {
+        Log.i(TAG, "Paquete $type descartado: el dispositivo $senderDeviceId está revocado")
+        return rejectedMetadata(packet)
+      }
       val peer = state.peerFor(senderUpeerId) ?: throw IllegalStateException("unknown peer $senderUpeerId")
       if (!peer.optString("deviceId").equals(senderDeviceId, ignoreCase = true)) {
         throw IllegalArgumentException("$type announced an unknown sender device")
@@ -279,6 +284,12 @@ internal class YggdrasilProtocol(
     .put("type", packet.optString("type"))
     .put("senderUpeerId", senderUpeerId)
     .put("blocked", true)
+    .toString()
+
+  private fun rejectedMetadata(packet: JSONObject): String = JSONObject()
+    .put("type", packet.optString("type"))
+    .put("senderUpeerId", packet.optString("senderUpeerId").lowercase())
+    .put("rejected", true)
     .toString()
 
   private fun rateLimitedMetadata(type: String): String = JSONObject()

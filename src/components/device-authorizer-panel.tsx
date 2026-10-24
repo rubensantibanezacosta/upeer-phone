@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
-import { Ban, Info, Smartphone, Trash2, UserPlus } from '@tamagui/lucide-icons-2';
+import { Ban, Info, ShieldAlert, Smartphone, Trash2, UserPlus } from '@tamagui/lucide-icons-2';
 import { Card, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { DeviceInviteSheet } from '@/components/device-invite-sheet';
@@ -31,7 +31,8 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
             setNotice('');
             revokeAccountDevice(deviceId, 'revocado desde el móvil')
               .then((status) => {
-                setNotice(status.ready ? 'Dispositivo revocado' : 'Revocación registrada, registro pendiente');
+                const epoch = status.epoch ? ` · registro v${status.epoch}` : '';
+                setNotice(status.ready ? `Dispositivo revocado; ya no recibe mensajes${epoch}` : 'Revocación registrada, registro pendiente');
                 return refresh();
               })
               .catch((cause: unknown) => {
@@ -53,6 +54,11 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
     </XStack>
     <Text color={theme.placeholder} fontSize={12}>Estos dispositivos pueden usar tu cuenta sin tu frase de recuperación</Text>
 
+    {state.localAdmitted ? null : <XStack alignItems="center" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={10} borderWidth={1} gap={8} padding={10}>
+      <ShieldAlert color={theme.onDangerSoft} size={16} />
+      <Text color={theme.onDangerSoft} flex={1} fontSize={12}>Este dispositivo fue revocado y ya no puede enviar ni recibir mensajes de la cuenta.</Text>
+    </XStack>}
+
     <YStack gap={8}>
       {state.loading && state.devices.length === 0
         ? <Paragraph color={theme.placeholder} fontSize={13}>Leyendo dispositivos autorizados…</Paragraph>
@@ -67,7 +73,7 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
           value={device.deviceId}
         />)}
       {!state.loading && state.devices.length === 0
-        ? <Paragraph color={theme.placeholder} fontSize={13}>Todavía no hay dispositivos autorizados en esta cuenta.</Paragraph>
+        ? <Paragraph color={theme.placeholder} fontSize={13}>{state.ready ? 'Todavía no hay dispositivos autorizados en esta cuenta.' : 'El registro de la cuenta aún no está listo en este dispositivo.'}</Paragraph>
         : null}
     </YStack>
 
@@ -81,10 +87,13 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
         <Ban color={theme.placeholder} size={13} />
         <Text color={theme.placeholder} fontSize={11} fontWeight="600">Revocados</Text>
       </XStack>
-      {state.revoked.slice(0, 3).map((revocation) => <XStack alignItems="center" gap={8} key={revocation.deviceId} opacity={0.6}>
-        <Text color={theme.placeholder} flex={1} fontFamily="monospace" fontSize={11} numberOfLines={1}>{revocation.deviceId}</Text>
-        <Text color={theme.placeholder} fontSize={11}>{authorizedLabel(revocation.revokedAt)}</Text>
-      </XStack>)}
+      {state.revoked.slice(0, 3).map((revocation) => <YStack gap={1} key={revocation.deviceId} opacity={0.6}>
+        <XStack alignItems="center" gap={8}>
+          <Text color={theme.placeholder} flex={1} fontFamily="monospace" fontSize={11} numberOfLines={1}>{revocation.deviceId}</Text>
+          <Text color={theme.placeholder} fontSize={11}>{authorizedLabel(revocation.revokedAt)}</Text>
+        </XStack>
+        {revocation.reason ? <Text color={theme.placeholder} fontSize={10} numberOfLines={1}>{revocation.reason}</Text> : null}
+      </YStack>)}
     </YStack> : null}
 
     <DeviceInviteSheet onAuthorized={() => void refresh()} onClose={() => setSheetVisible(false)} visible={sheetVisible} />

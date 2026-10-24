@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, View, type ListRenderItemInfo, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, View, type FlatList, type ListRenderItemInfo, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatComposerArea } from '@/components/chat/chat-composer-area';
+import { ContactCardSheet } from '@/components/chat/contact-card-sheet';
 import { ChatDateSeparator } from '@/components/chat/chat-date-separator';
-import { ChatEmptyState } from '@/components/chat/chat-empty-state';
 import { ChatHeader } from '@/components/chat/chat-header';
 import { ChatMessageActions } from '@/components/chat/chat-message-actions';
 import { ChatMessageBubble } from '@/components/chat/chat-message-bubble';
 import { ChatRequestScreen } from '@/components/chat/chat-request-screen';
-import { ChatScrollButton } from '@/components/chat/chat-scroll-button';
+import { ChatTimelineList } from '@/components/chat/chat-timeline-list';
 import { useSnackbar } from '@/components/snackbar';
 import { buildChatTimeline, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
 import { summarizeReactions } from '@/domain/chat-reactions';
@@ -26,8 +26,6 @@ const MESSAGE_LIMIT = 200;
 const LATEST_OFFSET = 24;
 const SCROLL_BUTTON_OFFSET = 180;
 const TYPING_INTERVAL_MS = 3000;
-
-const keyExtractor = (entry: ChatTimelineEntry) => entry.message.id;
 
 export default function ChatRoute() {
   const theme = useTheme();
@@ -209,6 +207,16 @@ export default function ChatRoute() {
     listRef.current?.scrollToOffset({ animated: true, offset: 0 });
   }, []);
 
+  const openQuoted = useCallback((messageID: string) => {
+    const index = timeline.findIndex((entry) => entry.message.id === messageID);
+    if (index < 0) {
+      showSnackbar('El mensaje citado ya no está en el hilo');
+      return;
+    }
+    atLatestRef.current = index === 0;
+    listRef.current?.scrollToIndex({ animated: true, index, viewPosition: 0.5 });
+  }, [showSnackbar, timeline]);
+
   const renderItem = useCallback(({ item }: ListRenderItemInfo<ChatTimelineEntry>) => (
     <View>
       {item.showDateSeparator ? <ChatDateSeparator timestamp={item.message.timestamp} /> : null}
@@ -216,42 +224,30 @@ export default function ChatRoute() {
         entry={item}
         onLongPress={openActions}
         onOpenCard={openCard}
+        onOpenReply={openQuoted}
         onToggleReaction={toggleReaction}
         reactions={summarizeReactions(item.message.reactions, selfUpeerId)}
         reply={replyPreviews(item.message)}
         savedContacts={savedContactIds}
       />
     </View>
-  ), [openActions, openCard, replyPreviews, savedContactIds, selfUpeerId, toggleReaction]);
+  ), [openActions, openCard, openQuoted, replyPreviews, savedContactIds, selfUpeerId, toggleReaction]);
 
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
         <ChatHeader alias={alias || 'Conversación'} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={() => router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } })} onUnavailable={showUnavailable} status={contactStatus} typing={peerTyping} upeerId={upeerId ?? ''} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
-          {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} /> : <View style={styles.timeline}>
-            {timeline.length === 0 ? <ChatEmptyState /> : (
-              <FlatList
-                ref={listRef}
-                contentContainerStyle={styles.listContent}
-                data={timeline}
-                initialNumToRender={24}
-                inverted
-                keyboardDismissMode="interactive"
-                keyboardShouldPersistTaps="handled"
-                keyExtractor={keyExtractor}
-                maxToRenderPerBatch={16}
-                onScroll={handleScroll}
-                renderItem={renderItem}
-                scrollEventThrottle={16}
-                showsVerticalScrollIndicator={false}
-                style={styles.list}
-                updateCellsBatchingPeriod={40}
-                windowSize={7}
-              />
-            )}
-            {showScrollButton && timeline.length > 0 ? <ChatScrollButton onPress={scrollToLatest} /> : null}
-          </View>}
+          {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} /> : (
+            <ChatTimelineList
+              data={timeline}
+              listRef={listRef}
+              onScroll={handleScroll}
+              onScrollToLatest={scrollToLatest}
+              renderItem={renderItem}
+              showScrollButton={showScrollButton}
+            />
+          )}
           <ChatComposerArea
             editing={editing !== null}
             error={error}
@@ -268,6 +264,7 @@ export default function ChatRoute() {
       {insets.bottom > 0 ? (
         <View pointerEvents="none" style={[styles.nativeBarBackground, { backgroundColor: theme.backgroundElement, height: insets.bottom }]} />
       ) : null}
+      <ContactCardSheet action={contactCard.action} card={contactCard.selected} error={contactCard.error} onClose={contactCard.close} visible={contactCard.selected !== null} />
       <ChatMessageActions
         canEdit={actionMessage?.isMine === true}
         message={actionMessage}
@@ -285,8 +282,5 @@ export default function ChatRoute() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  timeline: { flex: 1, position: 'relative' },
-  list: { flex: 1 },
-  listContent: { flexGrow: 1, paddingHorizontal: 12, paddingVertical: 16 },
   nativeBarBackground: { bottom: 0, left: 0, position: 'absolute', right: 0 },
 });

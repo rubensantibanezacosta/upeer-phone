@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import {
   getAccountRegistryDocument,
+  getAccountRegistryStatus,
   getDeviceIdentityStatus,
 } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import type { AccountRegistryDevice, AccountRevocation } from '../../modules/upeer-transport/src/UPeerTransport.types';
@@ -10,20 +11,31 @@ export type AccountDevicesState = {
   devices: AccountRegistryDevice[];
   revoked: AccountRevocation[];
   localDeviceId?: string;
+  localAdmitted: boolean;
+  ready: boolean;
+  epoch: number;
   loading: boolean;
   error: string;
 };
 
-const INITIAL_STATE: AccountDevicesState = { devices: [], revoked: [], loading: true, error: '' };
+const INITIAL_STATE: AccountDevicesState = { devices: [], revoked: [], localAdmitted: true, ready: false, epoch: 0, loading: true, error: '' };
 
 async function readDevices(): Promise<Omit<AccountDevicesState, 'loading'>> {
   try {
-    const [registry, identity] = await Promise.all([getAccountRegistryDocument(), getDeviceIdentityStatus()]);
+    const [registry, identity, status] = await Promise.all([getAccountRegistryDocument(), getDeviceIdentityStatus(), getAccountRegistryStatus()]);
     const devices = [...(registry.devices ?? [])].sort((left, right) => left.authorizedAt - right.authorizedAt);
     const revoked = [...(registry.revoked ?? [])].sort((left, right) => right.revokedAt - left.revokedAt);
-    return { devices, revoked, error: '', localDeviceId: identity.deviceId };
+    return {
+      devices,
+      revoked,
+      error: '',
+      localDeviceId: identity.deviceId,
+      localAdmitted: status.ready ? status.localDeviceAdmitted !== false : true,
+      ready: status.ready,
+      epoch: status.epoch ?? registry.epoch ?? 0,
+    };
   } catch (cause) {
-    return { devices: [], revoked: [], error: cause instanceof Error ? cause.message : String(cause) };
+    return { devices: [], revoked: [], localAdmitted: true, ready: false, epoch: 0, error: cause instanceof Error ? cause.message : String(cause) };
   }
 }
 

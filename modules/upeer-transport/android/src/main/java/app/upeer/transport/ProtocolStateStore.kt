@@ -231,6 +231,12 @@ internal class ProtocolStateStore(context: Context) {
 
   fun markConversationRead(upeerId: String): List<String> = messages.markRead(upeerId)
 
+  fun purgeDevice(deviceId: String): Boolean = synchronized(lock) {
+    val changed = DevicePurge.apply(state, deviceId)
+    if (changed) persist()
+    changed
+  }
+
   fun clear() {
     synchronized(lock) {
       state = ProtocolStateCodec.empty()

@@ -22,7 +22,7 @@ type ChatComposerAreaProps = {
 export function ChatComposerArea({ editing, error, hidden, onChange, onCancelContext, onSend, onUnavailable, reply, value }: ChatComposerAreaProps) {
   const theme = useTheme();
   const context = editing ? { icon: <Pencil color={theme.accent} size={15} />, label: 'Editando mensaje', detail: '' }
-    : reply ? { icon: <Reply color={theme.accent} size={15} />, label: `Respondiendo a ${reply.author}`, detail: reply.excerpt }
+    : reply ? { icon: <Reply color={theme.accent} size={15} />, label: 'Respondiendo a', detail: reply.excerpt, author: reply.author }
       : null;
 
   return <>
@@ -33,11 +33,13 @@ export function ChatComposerArea({ editing, error, hidden, onChange, onCancelCon
       </XStack>
     ) : null}
     {context ? (
-      <XStack alignItems="center" backgroundColor={theme.backgroundSelected} borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={8} paddingHorizontal={14} paddingVertical={7}>
+      <XStack alignItems="center" backgroundColor={theme.backgroundSelected} borderLeftColor={theme.accent} borderLeftWidth={3} borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={8} paddingHorizontal={14} paddingVertical={7}>
         {context.icon}
         <View style={styles.contextText}>
-          <Text color={theme.text} fontSize={12} fontWeight="600" numberOfLines={1}>{context.label}</Text>
-          {context.detail ? <Text color={theme.textSecondary} fontSize={11} numberOfLines={1}>{context.detail}</Text> : null}
+          <Text color={theme.accent} fontSize={11} fontWeight="700" numberOfLines={1}>
+            {context.author ? `${context.label} ${context.author}` : context.label}
+          </Text>
+          {context.detail ? <Text color={theme.textSecondary} fontSize={12} numberOfLines={1} opacity={0.85}>{context.detail}</Text> : null}
         </View>
         <NativeRipplePressable accessibilityLabel="Cancelar" accessibilityRole="button" onPress={onCancelContext} style={styles.cancel}>
           <X color={theme.textSecondary} size={18} />
@@ -49,6 +51,6 @@ export function ChatComposerArea({ editing, error, hidden, onChange, onCancelCon
 }
 
 const styles = StyleSheet.create({
-  contextText: { flex: 1, gap: 1 },
+  contextText: { flex: 1, gap: 0, paddingLeft: 8 },
   cancel: { alignItems: 'center', borderRadius: 6, height: 28, justifyContent: 'center', width: 28 },
 });
