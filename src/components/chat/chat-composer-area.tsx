@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { Pencil, Reply, X } from '@tamagui/lucide-icons-2';
+import { CircleAlert, Pencil, Reply, X } from '@tamagui/lucide-icons-2';
 import { Text, XStack } from 'tamagui';
 
 import { ChatComposer } from '@/components/chat/chat-composer';
@@ -28,6 +28,7 @@ export function ChatComposerArea({ editing, error, hidden, onChange, onCancelCon
   return <>
     {error ? (
       <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={7} paddingHorizontal={14} paddingVertical={7}>
+        <CircleAlert color={theme.danger} size={15} />
         <Text color={theme.danger} flex={1} fontSize={12}>{error}</Text>
       </XStack>
     ) : null}
