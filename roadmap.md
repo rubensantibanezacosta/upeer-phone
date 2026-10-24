@@ -807,7 +807,9 @@ Fijar, silenciar y archivar dejan de ser avisos y pasan a tener efecto:
 - **Persistencia sin nativo.** `src/storage/conversation-flags-store.ts` guarda el mapa en `expo-sqlite/kv-store` bajo `upeer.conversationFlags` y expone `useConversationFlags` como `useSyncExternalStore`; el mismo patrón que las preferencias.
 - **El silencio llega al servicio.** Al cargar y en cada cambio, el store envía la lista de silenciados con `setMutedPeers`; `ProtocolStateStore` la normaliza con `PeerIdList` y `UPeerNotifications` descarta la notificación con un log. Sin eso, «Silenciar» sería decorativo.
 - **Un filtro más, no un estado oculto.** `ChatListFilter` gana `archived`: `Todos` y `No leídos` ocultan lo archivado y `Archivados` muestra solo eso, de modo que nada desaparece sin salida.
-- **Las filas dicen su estado.** El item de conversación pinta `Pin` y `BellOff` antes del alias y lo anuncia en `accessibilityLabel`, siguiendo la distribución de la lista de escritorio.
+- **Las filas dicen su estado.** El item de conversación pinta `Pin`, `BellOff` y `Star` antes del alias y lo anuncia en `accessibilityLabel`, siguiendo la distribución de la lista de escritorio.
+- **Favoritos es del contacto, no de la conversación.** Escritorio guarda `isFavorite` en la fila del contacto (`schema.ts`, `setContactFavorite`), así que el móvil hace lo mismo: `contacts` gana `isFavorite` con `ALTER TABLE` guardado por `PRAGMA table_info` —la tabla ya existía en los dispositivos instalados—, `setContactFavorite` lo escribe y `getContacts` traduce el entero a booleano. El chip `Favoritos` filtra por ese dato y la ficha del contacto lo alterna. No se confunde con `pinned`: fijar ordena la lista, favorito solo marca.
+- **Las acciones de la ficha dejan de mentir.** «Silenciar», «Archivar» y «Favoritos» salían atenuadas con «Pronto» aunque los datos ya existían desde el menú de Chats; ahora alternan de verdad y cambian su etiqueta al estado contrario. «Cifrado» sigue atenuada porque no hay detalles de sesión que enseñar.
 
 ### Recibos de lectura (24/10/2026)
 
