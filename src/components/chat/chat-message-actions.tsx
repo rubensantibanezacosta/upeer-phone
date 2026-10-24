@@ -14,6 +14,7 @@ type ChatMessageActionsProps = {
   message: ProtocolMessage | null;
   reactions: ReactionSummary[];
   canEdit: boolean;
+  canForward: boolean;
   canRetry: boolean;
   onClose: () => void;
   onCopy: (message: ProtocolMessage) => void;
@@ -42,7 +43,7 @@ function ActionRow({ color, icon, label, onPress }: ActionRowProps) {
   );
 }
 
-export function ChatMessageActions({ message, reactions, canEdit, canRetry, onClose, onCopy, onDelete, onEdit, onForward, onReply, onRetry, onToggleReaction }: ChatMessageActionsProps) {
+export function ChatMessageActions({ message, reactions, canEdit, canForward, canRetry, onClose, onCopy, onDelete, onEdit, onForward, onReply, onRetry, onToggleReaction }: ChatMessageActionsProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const insets = useSafeAreaInsets();
@@ -79,7 +80,7 @@ export function ChatMessageActions({ message, reactions, canEdit, canRetry, onCl
           {canRetry ? <ActionRow color={theme.danger} icon={<RotateCcw color={theme.danger} size={19} />} label="Reintentar envío" onPress={() => onRetry(message)} /> : null}
           {canEdit ? <ActionRow color={theme.text} icon={<Pencil color={theme.text} size={19} />} label="Editar mensaje" onPress={() => onEdit(message)} /> : null}
           <ActionRow color={theme.text} icon={<Reply color={theme.text} size={19} />} label="Responder" onPress={() => onReply(message)} />
-          <ActionRow color={theme.text} icon={<Forward color={theme.text} size={19} />} label="Reenviar" onPress={() => onForward(message)} />
+          {canForward ? <ActionRow color={theme.text} icon={<Forward color={theme.text} size={19} />} label="Reenviar" onPress={() => onForward(message)} /> : null}
           <ActionRow color={theme.text} icon={<Copy color={theme.text} size={19} />} label="Copiar texto" onPress={() => onCopy(message)} />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <ActionRow color={theme.danger} icon={<Trash2 color={theme.danger} size={19} />} label="Eliminar para todos" onPress={() => onDelete(message)} />

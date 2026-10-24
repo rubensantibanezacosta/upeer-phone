@@ -38,6 +38,8 @@ export type ProtocolMessage = {
   editedAt?: number;
   replyTo?: string;
   receivedAt?: number;
+  deleted?: boolean;
+  deletedAt?: number;
   reactions?: Record<string, string[]>;
 };
 

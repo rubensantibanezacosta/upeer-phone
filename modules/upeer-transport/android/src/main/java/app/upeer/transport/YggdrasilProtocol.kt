@@ -30,7 +30,6 @@ internal class YggdrasilProtocol(
     admission,
     contactAdmission,
   )
-  private val controlReplies = ControlReplies(identity, deviceBindings, state, outbox, rateLimiter)
   private val chatDecryptor = YggdrasilChatDecryptor(
     identity,
     signedPreKeys,
@@ -42,6 +41,7 @@ internal class YggdrasilProtocol(
   private var bridge: Bridge? = null
 
   private val controlSender = ControlSender(identity, state) { bridge }
+  private val controlReplies = ControlReplies(identity, deviceBindings, state, outbox, rateLimiter, controlSender::sendPong)
 
   fun start(activeBridge: Bridge) {
     bridge = activeBridge
@@ -190,7 +190,7 @@ internal class YggdrasilProtocol(
       }
       return metadataJSON
     }
-    if (type == "ACK" || type == "DR_RESET" || type == "READ" || type == "TYPING" ||
+    if (type == "ACK" || type == "DR_RESET" || type == "READ" || type == "TYPING" || type == "PING" ||
       type == "CHAT_REACTION" || type == "CHAT_DELETE"
     ) {
       return controlReplies.handle(activeBridge, payload, packet, type, sourceAddress)

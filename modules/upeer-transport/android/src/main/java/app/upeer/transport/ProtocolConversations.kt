@@ -19,6 +19,7 @@ internal object ProtocolConversations {
         val candidate = messages.optJSONObject(index) ?: continue
         if (candidate.optString("upeerId") == upeerId &&
           !candidate.optBoolean("isMine") &&
+          !candidate.optBoolean("deleted") &&
           candidate.optString("status") == "delivered"
         ) unread++
       }

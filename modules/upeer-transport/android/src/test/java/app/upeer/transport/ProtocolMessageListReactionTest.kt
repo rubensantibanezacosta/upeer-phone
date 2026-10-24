@@ -44,10 +44,19 @@ class ProtocolMessageListReactionTest {
   }
 
   @Test
-  fun `deleting a peer message removes it from the list`() {
+  fun `deleting a peer message keeps the tombstone`() {
     val id = seed(PEER, isMine = false)
     assertTrue(messages.delete(id, PEER))
-    assertEquals(0, state.getJSONArray("messages").length())
+    val message = ProtocolMessageState.find(state.getJSONArray("messages"), id)
+    assertTrue(message?.optBoolean("deleted") == true)
+    assertEquals(ProtocolMessageState.DELETED_CONTENT, message?.optString("content"))
+  }
+
+  @Test
+  fun `a tombstone cannot be deleted twice`() {
+    val id = seed(PEER, isMine = false)
+    assertTrue(messages.delete(id, PEER))
+    assertFalse(messages.delete(id, PEER))
   }
 
   @Test

@@ -51,6 +51,17 @@ internal object ProtocolMessageState {
     return applyContent(message, content, version, editedAt)
   }
 
+  fun markDeleted(message: JSONObject, deletedAt: Long = System.currentTimeMillis()): JSONObject {
+    message
+      .put("content", DELETED_CONTENT)
+      .put("deleted", true)
+      .put("deletedAt", deletedAt)
+    message.remove("replyTo")
+    message.remove("reactions")
+    message.put("isEdited", false)
+    return JSONObject(message.toString())
+  }
+
   fun withoutConversation(messages: JSONArray, upeerId: String): JSONArray {
     val next = JSONArray()
     for (index in 0 until messages.length()) {
@@ -73,6 +84,7 @@ internal object ProtocolMessageState {
   }
 
   private fun applyContent(message: JSONObject, content: String, version: Int, editedAt: Long): JSONObject? {
+    if (message.optBoolean("deleted")) return null
     if (version <= 0 || version <= message.optInt("version", 0)) return null
     message
       .put("content", content)
@@ -81,6 +93,8 @@ internal object ProtocolMessageState {
       .put("editedAt", editedAt)
     return JSONObject(message.toString())
   }
+
+  const val DELETED_CONTENT = "Mensaje eliminado"
 
   private const val MAX_MESSAGES = 500
 }

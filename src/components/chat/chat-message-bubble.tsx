@@ -51,8 +51,9 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
   const isMine = entry.message.isMine;
   const textColor = isMine ? theme.bubbleMineText : theme.text;
   const metaColor = isMine ? theme.bubbleMineText : theme.placeholder;
-  const card = parseContactCard(entry.message.content);
-  const quotedID = entry.message.replyTo;
+  const deleted = entry.message.deleted === true;
+  const card = deleted ? null : parseContactCard(entry.message.content);
+  const quotedID = deleted ? undefined : entry.message.replyTo;
   const onPressReply = onOpenReply && quotedID ? () => onOpenReply(quotedID) : undefined;
 
   return (
@@ -68,8 +69,8 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
             highlighted ? { borderColor: theme.accent, borderWidth: 1.5 } : null,
           ]}
         >
-          <View style={[styles.body, card || reply ? styles.bodyColumn : null]}>
-            {reply ? <ChatReplyQuote isMine={isMine} onPress={onPressReply} reply={reply} /> : null}
+          {reply && !deleted ? <View style={styles.quote}><ChatReplyQuote isMine={isMine} onPress={onPressReply} reply={reply} /></View> : null}
+          <View style={[styles.body, card ? styles.bodyColumn : null]}>
             {card && onOpenCard ? (
               <ChatContactCard
                 card={card}
@@ -78,10 +79,10 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
                 tone={isMine ? 'mine' : 'theirs'}
               />
             ) : (
-              <Text color={textColor} fontSize={scale(14)} style={styles.content}>{entry.message.content}</Text>
+              <Text color={textColor} fontSize={scale(14)} opacity={deleted ? 0.6 : 1} style={[styles.content, deleted ? styles.deletedContent : null]}>{entry.message.content}</Text>
             )}
             <View style={styles.meta}>
-              {entry.message.isEdited ? <Text color={metaColor} fontSize={scale(10)} opacity={0.8}>editado</Text> : null}
+              {entry.message.isEdited && !deleted ? <Text color={metaColor} fontSize={scale(10)} opacity={0.8}>editado</Text> : null}
               <Text color={metaColor} fontSize={scale(10)} opacity={0.8}>{formatChatTime(entry.message.timestamp)}</Text>
               {isMine ? <MessageStatus color={metaColor} status={entry.message.status} /> : null}
             </View>
@@ -113,8 +114,10 @@ const styles = StyleSheet.create({
   },
   bubbleMine: { borderTopRightRadius: 4 },
   bubbleTheirs: { borderTopLeftRadius: 4 },
+  quote: { alignSelf: 'stretch', paddingBottom: 3, paddingTop: 2 },
+  deletedContent: { fontStyle: 'italic' },
   body: { alignItems: 'flex-end', columnGap: 8, flexDirection: 'row', minWidth: 80 },
-  bodyColumn: { alignItems: 'stretch', flexDirection: 'column', gap: 2 },
+  bodyColumn: { alignItems: 'stretch', flexDirection: 'column', gap: 2, minWidth: 180 },
   content: { flexShrink: 1, paddingBottom: 2 },
   meta: { alignItems: 'center', flexDirection: 'row', gap: 4, marginLeft: 'auto' },
   status: { alignItems: 'center', justifyContent: 'center' },

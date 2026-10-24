@@ -88,14 +88,20 @@ internal class ProtocolMessageList(
 
   fun delete(messageID: String, senderUpeerId: String): Boolean = synchronized(lock) {
     val message = ProtocolMessageState.find(messages(), messageID) ?: return@synchronized false
+    if (message.optBoolean("deleted")) return@synchronized false
     if (!ChatDeletes.deletable(message, senderUpeerId)) return@synchronized false
-    remove(messageID)
+    ProtocolMessageState.markDeleted(message)
+    persist()
+    true
   }
 
   fun deleteLocally(messageID: String, upeerId: String): Boolean = synchronized(lock) {
     val message = ProtocolMessageState.find(messages(), messageID) ?: return@synchronized false
     if (!message.optString("upeerId").equals(upeerId, ignoreCase = true)) return@synchronized false
-    remove(messageID)
+    if (message.optBoolean("deleted")) return@synchronized false
+    ProtocolMessageState.markDeleted(message)
+    persist()
+    true
   }
 
   fun deleteConversation(upeerId: String): Boolean = synchronized(lock) {
@@ -123,20 +129,6 @@ internal class ProtocolMessageList(
 
   fun snapshot(upeerId: String, limit: Int): String = synchronized(lock) {
     ProtocolMessageState.snapshot(messages(), upeerId, limit)
-  }
-
-  private fun remove(messageID: String): Boolean {
-    val current = messages()
-    val remaining = JSONArray()
-    var removed = false
-    for (index in 0 until current.length()) {
-      val candidate = current.optJSONObject(index) ?: continue
-      if (candidate.optString("id") == messageID) removed = true else remaining.put(candidate)
-    }
-    if (!removed) return false
-    put(remaining)
-    persist()
-    return true
   }
 
   private fun messages(): JSONArray = stateProvider().optJSONArray("messages") ?: JSONArray()

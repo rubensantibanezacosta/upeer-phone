@@ -11,6 +11,7 @@ internal class ControlReplies(
   private val state: ProtocolStateStore,
   private val outbox: YggdrasilOutbox,
   private val rateLimiter: InboundRateLimiter,
+  private val sendPong: (String) -> Unit,
 ) {
   private val resetCache = DrResetReplayCache()
 
@@ -36,6 +37,10 @@ internal class ControlReplies(
     if (!allow(metadata, sourceAddress)) return rateLimited(metadata)
     state.touchPresence(senderUpeerId)
     if (deviceBinding == null) state.rememberPeer(metadata)
+    if (type == "PING") {
+      sendPong(senderUpeerId)
+      return metadataJSON
+    }
     if (type == "ACK") {
       handleAck(senderUpeerId, packet)
       return metadataJSON

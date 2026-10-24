@@ -13,6 +13,10 @@ internal class ControlSender(
     send(upeerId, "upeer-typing", TypingIndicators.data(), "TYPING")
   }
 
+  fun sendPong(upeerId: String) {
+    send(upeerId, "upeer-pong", ControlPings.pong(), "PONG")
+  }
+
   fun sendReaction(upeerId: String, messageID: String, emoji: String, remove: Boolean) {
     if (!ReplayPolicy.validMessageID(messageID) || !ChatReactions.validEmoji(emoji)) return
     val selfUpeerId = identity.current()?.upeerID() ?: return
