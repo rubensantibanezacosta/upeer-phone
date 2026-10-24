@@ -10,6 +10,7 @@ import type { ReplyPreview } from '@/domain/chat-reply';
 import { ChatContactCard } from '@/components/chat/chat-contact-card';
 import { ChatReplyQuote } from '@/components/chat/chat-reply-quote';
 import { ChatReactionRow } from '@/components/chat/chat-reaction-row';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeerTransport.types';
 
@@ -46,6 +47,7 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
   savedContacts?: ReadonlySet<string>;
 }) {
   const theme = useTheme();
+  const scale = useTextScale();
   const isMine = entry.message.isMine;
   const textColor = isMine ? theme.bubbleMineText : theme.text;
   const metaColor = isMine ? theme.bubbleMineText : theme.placeholder;
@@ -76,11 +78,11 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
                 tone={isMine ? 'mine' : 'theirs'}
               />
             ) : (
-              <Text color={textColor} fontSize={14} style={styles.content}>{entry.message.content}</Text>
+              <Text color={textColor} fontSize={scale(14)} style={styles.content}>{entry.message.content}</Text>
             )}
             <View style={styles.meta}>
-              {entry.message.isEdited ? <Text color={metaColor} fontSize={10} opacity={0.8}>editado</Text> : null}
-              <Text color={metaColor} fontSize={10} opacity={0.8}>{formatChatTime(entry.message.timestamp)}</Text>
+              {entry.message.isEdited ? <Text color={metaColor} fontSize={scale(10)} opacity={0.8}>editado</Text> : null}
+              <Text color={metaColor} fontSize={scale(10)} opacity={0.8}>{formatChatTime(entry.message.timestamp)}</Text>
               {isMine ? <MessageStatus color={metaColor} status={entry.message.status} /> : null}
             </View>
           </View>

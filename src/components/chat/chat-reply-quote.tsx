@@ -3,6 +3,7 @@ import { Text } from 'tamagui';
 
 import type { ReplyPreview } from '@/domain/chat-reply';
 import { useTheme } from '@/hooks/use-theme';
+import { useTextScale } from '@/hooks/use-text-scale';
 
 type ChatReplyQuoteProps = {
   isMine: boolean;
@@ -12,12 +13,13 @@ type ChatReplyQuoteProps = {
 
 export function ChatReplyQuote({ isMine, onPress, reply }: ChatReplyQuoteProps) {
   const theme = useTheme();
+  const scale = useTextScale();
   const authorColor = isMine ? theme.bubbleMineText : theme.accent;
   const excerptColor = isMine ? theme.bubbleMineText : theme.textSecondary;
 
   const content = <>
-    <Text color={authorColor} fontSize={11} fontWeight="700" numberOfLines={1}>{reply.author}</Text>
-    <Text color={excerptColor} fontSize={12} numberOfLines={1} opacity={0.85}>{reply.excerpt}</Text>
+    <Text color={authorColor} fontSize={scale(11)} fontWeight="700" numberOfLines={1}>{reply.author}</Text>
+    <Text color={excerptColor} fontSize={scale(12)} numberOfLines={1} opacity={0.85}>{reply.excerpt}</Text>
   </>;
 
   const style = [styles.quote, { backgroundColor: theme.backgroundSelected, borderLeftColor: authorColor }];

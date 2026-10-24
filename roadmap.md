@@ -745,7 +745,7 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Ajustes · seguridad | Hecha | Estado del registro, lista de dispositivos con revocación confirmada y ayuda en popup; faltan PIN, revelar frase y borrado de cuenta, que necesitan bridge nativo |
 | Ajustes · bloqueados | Hecha | Lista real desde `contact-store` con desbloqueo confirmado; el servicio recibe la lista al desbloquear |
 | Ajustes · notificaciones | Hecha | Los tres interruptores se persisten y viajan al servicio (`setNotificationPrefs`); el canal de sonido se elige por preferencia y la notificación se omite si el tipo está apagado |
-| Ajustes · apariencia | Hecha | Selector Sistema/Claro/Oscuro aplicado al instante en Tamagui, pestañas, barra de estado y chrome del sistema, y recordado entre arranques. El tamaño de texto sigue pendiente |
+| Ajustes · apariencia | Hecha | Selector Sistema/Claro/Oscuro aplicado al instante en Tamagui, pestañas, barra de estado y chrome del sistema, y recordado entre arranques. El **tamaño de texto** (pequeño/normal/grande) escala mensajes, cita, lista de Chats y cabecera con `useTextScale`; falta llevarlo al resto de pantallas |
 | Ajustes · almacenamiento | Placeholder | El móvil no tiene vault: falta bridge de estadísticas y limpieza, e historial de archivos |
 | Ajustes · acerca de | Hecha | Versión real desde `expo-constants`, licencia GPLv3, código abierto, sin publicidad y sin datos recopilados |
 | Perfil · revocar dispositivo | Hecha | Cada dispositivo que no es el actual lleva un icono de papelera que pide confirmación, llama a `revokeAccountDevice` y refresca la lista; los revocados se listan debajo con su fecha. Si el dispositivo local está revocado, el aviso ofrece «Volver a vincular este dispositivo» con el flujo de emparejamiento. Falta que la revocación viaje por B10 al resto de dispositivos |
@@ -922,8 +922,18 @@ La pregunta era si el reintento estaba bien implementado y si se habían probado
 - **Escritorio reintenta en un solo disparador.** `chatRetry.registerPendingDirectMessage` guarda en memoria (no en disco) y `retryPendingDirectMessages` solo se llama desde `drResetRoute`. El mensaje offline normal no depende de eso —lo cubre el fallback a vault a los 2,5 s y la `pending_outbox` en SQLite—, pero un reinicio de la app pierde esa cola en memoria.
 - **Los `vaulted` móviles no existen**: sin vault, el móvil no tiene el equivalente al «guardado para entregar después» de escritorio, así que un contacto offline acaba en `failed` y depende del reintento manual.
 
+### Tamaño del texto con escala común (26/10/2026)
 
+La fila «Tamaño del texto» no existía: solo había una nota de que se aplicaría «cuando todas las pantallas usen la escala común». Ahora hay escala, selector y superficies reales.
 
+- **La escala es una función pura.** `scaleFontSize(size, opción)` aplica el factor de `TEXT_SCALE_FACTORS` (pequeño 0,9 · normal 1 · grande 1,18), redondea a píxel entero y nunca baja de 9 px, que es el mínimo legible por debajo del cual ya no se puede recortar nada. `text-scale.test.ts` fija identidad en normal, ambos extremos, redondeo, mínimo y orden entre escalas.
+- **Un solo hook para todas las superficies.** `useTextScale()` devuelve `scale(n)` derivado de la preferencia `fontSize` que ya vivía en `upeer.preferences`; ningún componente guarda estado propio ni duplica factores.
+- **Escalado donde se lee:** mensaje (contenido, «editado» y hora), cita de respuesta (autor y extracto), fila de Chats (título, hora, vista previa y contador de no leídos) y cabecera del chat (alias y subtítulo). Iconos, avatares y espaciados no cambian: solo el texto.
+- **El selector es su propia muestra.** Tres pastillas con «Aa» dibujada en 13/16/20 px y la etiqueta debajo; la activa se pinta con el acento y expone `accessibilityState`. Debajo se lee el porcentaje (`Tamaño normal`, `Texto al 90 %`, `Texto al 118 %`).
+- **Verificado con la preferencia persistida**, no solo con el valor por defecto: sembrando `fontSize: "large"` en `upeer.preferences` y relanzando la app en frío, el mensaje sube a 17 px, la cita a 14 y el alias de la cabecera trunca antes; luego se devolvió a `medium`.
+- Pendiente: llevar `scale()` al resto de pantallas (Ajustes, Contactos, ficha del contacto y Perfil), donde el tamaño sigue siendo fijo. La escala está lista; faltan esas pantallas para no tocar 40 archivos de golpe.
+
+### Revocación efectiva de dispositivos (25/10/2026)
 
 El registro firmado ya guardaba los revocados, pero revocar no cambiaba nada en el servicio: ni se purgaban los datos del dispositivo, ni se descartaban sus paquetes.
 

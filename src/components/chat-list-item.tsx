@@ -9,6 +9,7 @@ import { describeChatPreview } from '@/domain/chat-preview';
 import { getTrustLabel } from '@/domain/trust';
 import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import { usePreferences } from '@/hooks/use-preferences';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ChatListEntry = {
@@ -57,6 +58,7 @@ function LastMessageStatus({ entry, color }: { entry: ChatListEntry; color: stri
 export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemProps) {
   const theme = useTheme();
   const preferences = usePreferences();
+  const scale = useTextScale();
   const longPressAtRef = useRef(0);
   const isUnread = entry.unread > 0;
   const isEmphasized = isUnread || entry.incoming;
@@ -98,16 +100,16 @@ export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemPro
           <XStack alignItems="center" gap={8}>
             {entry.favorite ? <Star color={theme.placeholder} size={13} strokeWidth={2.2} /> : null}
             {entry.pinned ? <Pin color={theme.placeholder} size={13} strokeWidth={2.2} /> : null}
-            <SizableText color={theme.text} flex={1} fontSize={15} fontWeight={isEmphasized ? '700' : '600'} numberOfLines={1}>{entry.title}</SizableText>
+            <SizableText color={theme.text} flex={1} fontSize={scale(15)} fontWeight={isEmphasized ? '700' : '600'} numberOfLines={1}>{entry.title}</SizableText>
             {entry.muted ? <BellOff accessibilityLabel="Silenciada" color={theme.placeholder} size={13} strokeWidth={2.2} /> : null}
-            {!!time && <Text color={entry.typing || isEmphasized ? theme.accent : theme.placeholder} fontSize={11} fontWeight={entry.typing || isEmphasized ? '700' : '500'}>{time}</Text>}
+            {!!time && <Text color={entry.typing || isEmphasized ? theme.accent : theme.placeholder} fontSize={scale(11)} fontWeight={entry.typing || isEmphasized ? '700' : '500'}>{time}</Text>}
           </XStack>
           <XStack alignItems="center" gap={5}>
             <LastMessageStatus color={theme.placeholder} entry={entry} />
-            <Text color={entry.incoming ? theme.accent : previewColor} flex={1} fontSize={13} fontStyle={preview.italic ? 'italic' : 'normal'} numberOfLines={1}>{preview.text}</Text>
+            <Text color={entry.incoming ? theme.accent : previewColor} flex={1} fontSize={scale(13)} fontStyle={preview.italic ? 'italic' : 'normal'} numberOfLines={1}>{preview.text}</Text>
             {isUnread && (
               <XStack alignItems="center" backgroundColor={theme.accent} borderRadius={10} height={20} justifyContent="center" minWidth={20} paddingHorizontal={6}>
-                <SizableText color={theme.onAccent} fontSize={11} fontWeight="700">{entry.unread > 99 ? '99+' : entry.unread}</SizableText>
+                <SizableText color={theme.onAccent} fontSize={scale(11)} fontWeight="700">{entry.unread > 99 ? '99+' : entry.unread}</SizableText>
               </XStack>
             )}
           </XStack>

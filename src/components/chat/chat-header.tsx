@@ -8,6 +8,7 @@ import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { CONTACT_STATUS_LABELS } from '@/domain/contact-labels';
 import { getTrustLabel } from '@/domain/trust';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import type { UPeerContact } from '@/storage/contact-store';
 
@@ -35,6 +36,7 @@ function HeaderAction({ label, onPress, children }: { label: string; onPress: ()
 
 export function ChatHeader({ alias, upeerId, status, vouchScore, isRequest = false, typing = false, presence = null, onBack, onOpenInfo, onSearch, onUnavailable }: ChatHeaderProps) {
   const theme = useTheme();
+  const scale = useTextScale();
   const insets = useSafeAreaInsets();
   const [menuOpen, setMenuOpen] = useState(false);
   const subtitle = typing ? 'Escribiendo…' : presence ?? CONTACT_STATUS_LABELS[status];
@@ -57,8 +59,8 @@ export function ChatHeader({ alias, upeerId, status, vouchScore, isRequest = fal
         >
           <ContactTrustAvatar name={alias} size={40} vouchScore={vouchScore} />
           <YStack flex={1} gap={2} minWidth={0}>
-            <SizableText color={theme.text} fontSize={16} fontWeight="500" numberOfLines={1}>{alias}</SizableText>
-            <Text color={typing ? theme.accent : theme.placeholder} fontSize={12} numberOfLines={1}>{subtitle}</Text>
+            <SizableText color={theme.text} fontSize={scale(16)} fontWeight="500" numberOfLines={1}>{alias}</SizableText>
+            <Text color={typing ? theme.accent : theme.placeholder} fontSize={scale(12)} numberOfLines={1}>{subtitle}</Text>
           </YStack>
         </NativeRipplePressable>
         {isRequest ? null : <HeaderAction label="Videollamada" onPress={() => onUnavailable('Videollamada')}><Video color={theme.text} size={24} /></HeaderAction>}
