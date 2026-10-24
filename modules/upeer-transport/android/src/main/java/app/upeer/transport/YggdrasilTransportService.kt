@@ -179,6 +179,17 @@ class YggdrasilTransportService : Service() {
       val parsed = JSONArray(blockedJSON.ifBlank { "[]" })
       protocol.setBlockedPeers(buildList { for (index in 0 until parsed.length()) add(parsed.optString(index)) })
     }
+    override fun setKnownContacts(knownJSON: String) {
+      val parsed = JSONArray(knownJSON.ifBlank { "[]" })
+      val known = buildList { for (index in 0 until parsed.length()) add(parsed.optString(index)) }
+      protocolState.setKnownContacts(known)
+      Log.i(TAG, "Contactos conocidos sincronizados: ${known.size}")
+    }
+    override fun setNotificationPrefs(prefsJSON: String) {
+      val prefs = NotificationPrefs.parse(prefsJSON)
+      protocolState.setNotificationPrefs(prefs)
+      Log.i(TAG, "Preferencias de notificaciones: mensajes=${prefs.messages} solicitudes=${prefs.requests} sonido=${prefs.sound}")
+    }
     override fun registerPeer(upeerId: String, address: String, publicKey: String, signedPreKeyJSON: String): Boolean =
       protocol.registerPeer(upeerId, address, publicKey, signedPreKeyJSON)
     override fun flushOutbox() = protocol.flushOutbox()
@@ -225,7 +236,7 @@ class YggdrasilTransportService : Service() {
     accountRegistry = AccountRegistryFacade(identity)
     dhtLocation = DhtLocationStore(this)
     contactRegistries = ContactRegistryStore(this)
-    notifications = UPeerNotifications(this)
+    notifications = UPeerNotifications(this, { protocolState.notificationPrefs() }, { upeerId -> protocolState.isKnownContact(upeerId) })
     notifications.createChannels()
     val signedPreKeys = SignedPreKeyStore(this)
     admissionGuard = DeviceAdmissionGuard({ identity.currentDeviceAdmission() }) {

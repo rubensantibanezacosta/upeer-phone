@@ -678,11 +678,11 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Perfil · dispositivos | Hecha | Lista el registro firmado y abre el autorizador de invitación |
 | Mensajes · estados | Pendiente | No se muestran `pending`/`synced`/`vaulted`/`delivered`/`failed` de B10 |
 | Ajustes · índice | Hecho | Ocho secciones con contenido real salvo «Almacenamiento»: Privacidad, Seguridad, Bloqueados, Notificaciones, Apariencia, Conexión, Acerca de |
-| Notificaciones | Hecha en el servicio | `UPeerNotifications` publica por conversación con previsualización privada, enlace `upeer://chat/<id>` y acción «Marcar leído»; faltan preferencias por tipo, sonido y agrupación entre conversaciones |
+| Notificaciones | Hecha | `UPeerNotifications` publica por conversación con previsualización privada, enlace `upeer://chat/<id>` y acción «Marcar leído», y respeta las preferencias: mensajes de contactos, solicitudes de desconocidos y sonido. Faltan agrupación entre conversaciones y presencia |
 | Ajustes · privacidad | Parcial | Tres interruptores de escritorio (lecturas, conectado, última vez) persistidos en el dispositivo; el servicio aún no emite presencia ni `READ`, así que todavía no cambian lo que ven los contactos |
 | Ajustes · seguridad | Hecha | Estado del registro, lista de dispositivos con revocación confirmada y ayuda en popup; faltan PIN, revelar frase y borrado de cuenta, que necesitan bridge nativo |
 | Ajustes · bloqueados | Hecha | Lista real desde `contact-store` con desbloqueo confirmado; el servicio recibe la lista al desbloquear |
-| Ajustes · notificaciones | Parcial | Interruptores de mensajes, solicitudes y sonido persistidos; el servicio todavía no los lee, así que las notificaciones siguen saliendo siempre |
+| Ajustes · notificaciones | Hecha | Los tres interruptores se persisten y viajan al servicio (`setNotificationPrefs`); el canal de sonido se elige por preferencia y la notificación se omite si el tipo está apagado |
 | Ajustes · apariencia | Hecha | Selector Sistema/Claro/Oscuro aplicado al instante en Tamagui, pestañas, barra de estado y chrome del sistema, y recordado entre arranques. El tamaño de texto sigue pendiente |
 | Ajustes · almacenamiento | Placeholder | El móvil no tiene vault: falta bridge de estadísticas y limpieza, e historial de archivos |
 | Ajustes · acerca de | Hecha | Versión real desde `expo-constants`, licencia GPLv3, código abierto, sin publicidad y sin datos recopilados |
@@ -726,11 +726,13 @@ Los ajustes del móvil se alinean con `src/components/ui/settings` de escritorio
 - **Preferencias persistidas en un solo sitio.** `src/domain/preferences.ts` valida el JSON y `src/storage/preferences-store.ts` lo guarda en `expo-sqlite/kv-store` bajo `upeer.preferences`; `usePreferences` es un `useSyncExternalStore`, así que un cambio se propaga a todas las pantallas sin recargar.
 - **El tema se resuelve una sola vez.** `useResolvedColorScheme` combina la preferencia (`system`/`light`/`dark`) con el esquema del sistema; `useTheme`, el `TamaguiProvider` de `_layout`, las pestañas, `app-tabs` y `ThemeChrome` consumen ese valor, por lo que el cambio alcanza también la barra de pestañas, la barra de estado y el chrome del sistema.
 - **Contenido por sección, portado de escritorio:** Privacidad (lecturas, conectado, última vez), Notificaciones (mensajes, solicitudes, sonido), Apariencia (Sistema/Claro/Oscuro), Bloqueados (lista real de `contact-store` con desbloqueo) y Acerca de (versión, licencia, código abierto, publicidad, datos).
+- **El servicio aplica las preferencias de notificaciones.** `YggdrasilTransportService` recibe `setNotificationPrefs` y `setKnownContacts` (AIDL + `AsyncFunction`) y los guarda en `ProtocolStateStore`; `NotificationPrefs` decide con `allows(fromKnownContact)` —contacto conocido usa `mensajes`, desconocido usa `solicitudes`— y `UPeerNotifications` omite la notificación con un log cuando el tipo está apagado. El sonido se resuelve con dos canales, `upeer_messages` y `upeer_messages_silent` (`setSound(null)`), porque `Notification.Builder.setSilent` ya no existe en API 37.
+- **La lista de contactos se empuja en cada cambio.** `syncBlockedPeers` envía bloqueados y conocidos juntos, y la sesión reenvía ambos al arrancar, de modo que las preferencias de «solicitudes» solo afectan a remitentes que no están en la agenda.
 
 Queda pendiente en Ajustes:
 
 1. Tamaño de texto (`small`/`medium`/`large`): necesita una escala común aplicada a todas las pantallas, no un valor guardado que nadie lee.
-2. Que el servicio lea las preferencias de notificaciones y privacidad: hoy solo se guardan. Requiere `setNotificationPrefs` en AIDL y que `UPeerNotifications` lo consulte, y que lleguen `READ` y presencia para las tres de privacidad.
+2. Que el servicio lea las preferencias de privacidad: las de notificaciones ya se aplican, pero las tres de privacidad necesitan que lleguen `READ` y presencia a los contactos.
 3. Almacenamiento: el móvil no tiene bridge de vault (`getVaultStats`, `cleanupVaultExpired`) ni historial de archivos como `FileHistoryExplorer`.
 4. Seguridad de escritorio pendiente de bridge: PIN de bloqueo, revelar la frase con PIN y borrado de cuenta. La lista de dispositivos y la revocación ya son reales.
 5. Sección «Perfil» dentro de ajustes: en el móvil el perfil es una pestaña propia, así que no se duplica.

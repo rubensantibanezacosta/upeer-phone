@@ -233,16 +233,43 @@ internal class ProtocolStateStore(context: Context) {
 
   fun blockedPeers(): List<String> = synchronized(lock) {
     val blocked = state.optJSONArray("blocked") ?: JSONArray()
-    BlockedPeerList.normalize(List(blocked.length()) { blocked.optString(it) })
+    PeerIdList.normalize(List(blocked.length()) { blocked.optString(it) })
   }
 
-  fun isBlocked(upeerId: String): Boolean = BlockedPeerList.contains(blockedPeers(), upeerId)
+  fun isBlocked(upeerId: String): Boolean = PeerIdList.contains(blockedPeers(), upeerId)
 
   fun setBlockedPeers(upeerIds: List<String>) {
     synchronized(lock) {
       val next = JSONArray()
-      BlockedPeerList.normalize(upeerIds).forEach(next::put)
+      PeerIdList.normalize(upeerIds).forEach(next::put)
       state.put("blocked", next)
+      persist()
+    }
+  }
+
+  fun knownContacts(): List<String> = synchronized(lock) {
+    val known = state.optJSONArray("knownContacts") ?: JSONArray()
+    PeerIdList.normalize(List(known.length()) { known.optString(it) })
+  }
+
+  fun isKnownContact(upeerId: String): Boolean = PeerIdList.contains(knownContacts(), upeerId)
+
+  fun setKnownContacts(upeerIds: List<String>) {
+    synchronized(lock) {
+      val next = JSONArray()
+      PeerIdList.normalize(upeerIds).forEach(next::put)
+      state.put("knownContacts", next)
+      persist()
+    }
+  }
+
+  fun notificationPrefs(): NotificationPrefs = synchronized(lock) {
+    NotificationPrefs.parse(state.optString("notificationPrefs"))
+  }
+
+  fun setNotificationPrefs(prefs: NotificationPrefs) {
+    synchronized(lock) {
+      state.put("notificationPrefs", prefs.toJSON())
       persist()
     }
   }

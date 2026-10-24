@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
-import { deleteConversation as deleteNativeConversation, setBlockedPeers } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import { deleteConversation as deleteNativeConversation, setBlockedPeers, setKnownContacts } from '../../modules/upeer-transport/src/UPeerTransportModule';
 
 export type UPeerContact = {
   upeerId: string;
@@ -42,6 +42,7 @@ async function syncBlockedPeers(): Promise<void> {
   const contacts = await getContacts();
   const blocked = contacts.filter((contact) => contact.status === 'blocked').map((contact) => contact.upeerId);
   await setBlockedPeers(JSON.stringify(blocked));
+  await setKnownContacts(JSON.stringify(contacts.map((contact) => contact.upeerId)));
 }
 
 export async function saveContact(contact: UPeerContact): Promise<void> {

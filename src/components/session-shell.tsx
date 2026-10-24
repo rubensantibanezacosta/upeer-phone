@@ -3,10 +3,11 @@ import { View } from 'react-native';
 
 import { fromHex, type UPeerIdentity } from '@/domain/identity';
 import { SessionScreen, type ConnectionSnapshot } from '@/components/session-screen';
-import { clearIdentity as clearTransportIdentity, setIdentity as setTransportIdentity, stop } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import { clearIdentity as clearTransportIdentity, setIdentity as setTransportIdentity, setNotificationPrefs, stop } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { clearIdentity, loadProfile, type IdentityProfile } from '@/storage/identity-store';
 import { EMPTY_PEER_MANAGEMENT } from '@/domain/yggdrasil-peers';
 import { pushBlockedPeers } from '@/storage/contact-store';
+import { usePreferences } from '@/hooks/use-preferences';
 
 export type SessionContextValue = {
   identity: UPeerIdentity;
@@ -33,6 +34,7 @@ export function SessionShell({ identity, onSignOut, children }: {
   const [address, setAddress] = useState('');
   const [profile, setProfile] = useState<IdentityProfile | null>(null);
   const [connection, setConnection] = useState<ConnectionSnapshot>({ address: '', phase: 'Conectando a la red…', peers: [], error: '', management: EMPTY_PEER_MANAGEMENT });
+  const preferences = usePreferences();
   const refreshProfile = useCallback(async () => {
     try {
       setProfile(await loadProfile());
@@ -50,6 +52,11 @@ export function SessionShell({ identity, onSignOut, children }: {
       console.warn('No se pudo sincronizar la lista de bloqueados al iniciar la sesión.', cause);
     });
   }, []);
+  useEffect(() => {
+    setNotificationPrefs(JSON.stringify({ messages: preferences.messageNotifications, requests: preferences.requestNotifications, sound: preferences.notificationSound })).catch((cause: unknown) => {
+      console.warn('El servicio no recibió las preferencias de notificaciones.', cause);
+    });
+  }, [preferences.messageNotifications, preferences.notificationSound, preferences.requestNotifications]);
   useEffect(() => {
     setTransportIdentity(fromHex(identity.secretKey)).catch((cause: unknown) => {
       console.warn('No se pudo provisionar la identidad uPeer en el servicio de red.', cause);

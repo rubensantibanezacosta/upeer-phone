@@ -13,7 +13,11 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 
-internal class UPeerNotifications(private val context: Context) {
+internal class UPeerNotifications(
+  private val context: Context,
+  private val prefs: () -> NotificationPrefs = { NotificationPrefs.DEFAULT },
+  private val isKnownContact: (String) -> Boolean = { true },
+) {
   private val activeMessageIds = mutableSetOf<Int>()
   private val idLock = Any()
 
@@ -30,6 +34,13 @@ internal class UPeerNotifications(private val context: Context) {
       NotificationChannel(MESSAGES_CHANNEL_ID, "Mensajes", NotificationManager.IMPORTANCE_HIGH).apply {
         description = "Mensajes recibidos mientras uPeer está en segundo plano"
         enableVibration(true)
+      },
+    )
+    manager.createNotificationChannel(
+      NotificationChannel(MESSAGES_SILENT_CHANNEL_ID, "Mensajes sin sonido", NotificationManager.IMPORTANCE_HIGH).apply {
+        description = "Mensajes recibidos con el sonido de notificación desactivado"
+        setSound(null, null)
+        enableVibration(false)
       },
     )
   }
@@ -54,11 +65,18 @@ internal class UPeerNotifications(private val context: Context) {
       Log.w(TAG, "No se muestra la notificación de $upeerId: POST_NOTIFICATIONS no está concedido")
       return
     }
+    val current = prefs()
+    val known = isKnownContact(upeerId)
+    if (!current.allows(known)) {
+      Log.i(TAG, "Notificación de $upeerId omitida por las preferencias (${if (known) "mensajes" else "solicitudes"} desactivadas)")
+      return
+    }
     val notificationId = messageNotificationId(upeerId)
     val title = alias.trim().ifEmpty { "uPeer · ${upeerId.take(8)}" }
     val preview = preview(content)
     val contentIntent = chatPendingIntent(upeerId, notificationId)
-    val publicVersion = builder(MESSAGES_CHANNEL_ID)
+    val channelId = messageChannelId(current.sound)
+    val publicVersion = builder(channelId)
       .setSmallIcon(android.R.drawable.stat_notify_chat)
       .setContentTitle(title)
       .setContentText("Nuevo mensaje")
@@ -68,7 +86,7 @@ internal class UPeerNotifications(private val context: Context) {
       .setAction(ACTION_MARK_READ)
       .putExtra(EXTRA_UPEER_ID, upeerId)
     val markReadPendingIntent = PendingIntent.getService(context, notificationId, markReadIntent, pendingIntentFlags())
-    val notification = builder(MESSAGES_CHANNEL_ID)
+    val notification = builder(channelId)
       .setSmallIcon(android.R.drawable.stat_notify_chat)
       .setContentTitle(title)
       .setContentText(preview)
@@ -77,6 +95,7 @@ internal class UPeerNotifications(private val context: Context) {
       .setAutoCancel(true)
       .setContentIntent(contentIntent)
       .setVisibility(Notification.VISIBILITY_PRIVATE)
+      .apply { if (!current.sound) applySilence() }
       .setPublicVersion(publicVersion)
       .addAction(notificationAction(android.R.drawable.checkbox_on_background, "Marcar como leído", markReadPendingIntent))
       .build()
@@ -121,6 +140,10 @@ internal class UPeerNotifications(private val context: Context) {
     Notification.Builder(context)
   }
 
+  private fun Notification.Builder.applySilence(): Notification.Builder = setSound(null).setVibrate(null)
+
+  private fun messageChannelId(sound: Boolean): String = if (sound) MESSAGES_CHANNEL_ID else MESSAGES_SILENT_CHANNEL_ID
+
   private fun manager(): NotificationManager = context.getSystemService(NotificationManager::class.java)
 
   private fun pendingIntentFlags(): Int = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -138,6 +161,7 @@ internal class UPeerNotifications(private val context: Context) {
     private const val TAG = "UPeerTransport"
     private const val CONNECTION_CHANNEL_ID = "upeer_yggdrasil_transport"
     private const val MESSAGES_CHANNEL_ID = "upeer_messages"
+    private const val MESSAGES_SILENT_CHANNEL_ID = "upeer_messages_silent"
     private const val MESSAGE_NOTIFICATION_BASE = 10_000
     private const val STOP_REQUEST_CODE = 7302
     private const val MAX_PREVIEW_LENGTH = 240
