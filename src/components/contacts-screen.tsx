@@ -2,24 +2,27 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, UserPlus, Users } from '@tamagui/lucide-icons-2';
-import { H1, Input, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
+import { UserPlus, Users } from '@tamagui/lucide-icons-2';
+import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 import type { UPeerIdentity } from '@/domain/identity';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { ContactFormSheet, type ContactDraft } from '@/components/contact-form-sheet';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
+import { SearchField } from '@/components/search-field';
 import { resolveContactName } from '@/domain/contact-name';
 import { getConversations, registerPeer as registerNativePeer } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { deleteContactAndConversation, getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
+const CONTACTS_REFRESH_MS = 3000;
+
 type ContactsScreenProps = { identity: UPeerIdentity };
 
 const statusLabels: Record<UPeerContact['status'], string> = {
-  pending: 'Esperando respuesta',
+  pending: 'Pendiente',
   incoming: 'Solicitud recibida',
   connected: 'Conectado',
   offline: 'Desconectado',
@@ -51,6 +54,10 @@ export function ContactsScreen({ identity }: ContactsScreenProps) {
 
   useEffect(() => {
     loadContacts().catch(reportLoadFailure);
+    const timer = setInterval(() => {
+      loadContacts().catch((cause: unknown) => console.warn('No se pudieron refrescar los contactos.', cause));
+    }, CONTACTS_REFRESH_MS);
+    return () => clearInterval(timer);
   }, [loadContacts, reportLoadFailure]);
 
   const filtered = useMemo(() => {
@@ -86,10 +93,7 @@ export function ContactsScreen({ identity }: ContactsScreenProps) {
           <H1 color={theme.text} fontSize={scale(24)} fontWeight="700">Contactos</H1>
           <NativeRipplePressable accessibilityLabel="Añadir contacto" accessibilityRole="button" onPress={() => setAdding(true)} style={styles.headerButton}><UserPlus color={theme.text} size={21} /></NativeRipplePressable>
         </XStack>
-        <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={8} gap={8} height={35} paddingHorizontal={10}>
-          <Search color={theme.placeholder} size={17} />
-          <Input backgroundColor="transparent" borderWidth={0} color={theme.text} flex={1} fontSize={scale(14)} height={22} onChangeText={setQuery} padding={0} placeholder="Buscar contactos" placeholderTextColor={theme.placeholder} value={query} />
-        </XStack>
+        <SearchField onChangeText={setQuery} placeholder="Buscar contactos" value={query} />
         {error ? <Paragraph accessibilityRole="alert" color={theme.danger} fontSize={scale(12)}>{error}</Paragraph> : null}
         {filtered.length === 0
           ? <YStack alignItems="center" flex={1} gap={12} justifyContent="center" padding={24}>

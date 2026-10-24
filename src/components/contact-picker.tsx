@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { StyleSheet, View, ScrollView } from 'react-native';
-import { Check, Search } from '@tamagui/lucide-icons-2';
-import { Input, SizableText, Text, XStack, YStack } from 'tamagui';
+import { Check } from '@tamagui/lucide-icons-2';
+import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { SearchField } from '@/components/search-field';
 import { ProfileAvatar } from '@/components/profile-avatar';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
@@ -33,10 +34,7 @@ export function ContactPicker({ contacts, emptyLabel = 'Sin contactos que coinci
 
   return (
     <YStack gap={8}>
-      <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={8} gap={8} height={35} paddingHorizontal={10}>
-        <Search color={theme.placeholder} size={16} />
-        <Input backgroundColor="transparent" borderWidth={0} color={theme.text} flex={1} fontSize={scale(13)} height={40} onChangeText={setQuery} placeholder={searchPlaceholder} placeholderTextColor={theme.placeholder} value={query} />
-      </XStack>
+      <SearchField onChangeText={setQuery} placeholder={searchPlaceholder} value={query} />
       <ScrollView contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="handled" style={styles.list}>
         {filtered.length === 0
           ? <Text color={theme.placeholder} fontSize={scale(12)} paddingVertical={16} textAlign="center">{emptyLabel}</Text>

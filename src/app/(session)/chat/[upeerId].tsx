@@ -81,7 +81,8 @@ export default function ChatRoute() {
     setIsRequest(decision === 'request');
     setRequestReceivedAt(nextMessages.find((message) => !message.isMine)?.timestamp ?? 0);
     if (decision === 'auto-accept') {
-      await saveContact({ address: '', createdAt: Date.now(), name: resolvedName, publicKey: null, status: 'connected', upeerId });
+      const base = contact ?? { address: '', createdAt: Date.now(), publicKey: null };
+      await saveContact({ ...base, name: resolvedName, status: 'connected', upeerId });
       setContactStatus('connected');
     }
     await markConversationRead(upeerId);

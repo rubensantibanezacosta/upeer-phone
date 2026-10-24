@@ -12,8 +12,14 @@ describe('message request decision', () => {
     expect(decideRequestState({ contactStatus: 'blocked', hasIncoming: true, hasOutgoing: false })).toBe('none');
   });
 
-  it('treats our own pending request as already known', () => {
-    expect(decideRequestState({ contactStatus: 'pending', hasIncoming: false, hasOutgoing: true })).toBe('none');
+  it('never asks for confirmation while our own request is still pending', () => {
+    expect(decideRequestState({ contactStatus: 'pending', hasIncoming: false, hasOutgoing: false })).toBe('none');
+  });
+
+  it('promotes a pending contact once the conversation has messages', () => {
+    expect(decideRequestState({ contactStatus: 'pending', hasOutgoing: true, hasIncoming: false })).toBe('auto-accept');
+    expect(decideRequestState({ contactStatus: 'pending', hasOutgoing: false, hasIncoming: true })).toBe('auto-accept');
+    expect(decideRequestState({ contactStatus: 'pending', hasOutgoing: true, hasIncoming: true })).toBe('auto-accept');
   });
 
   it('asks when an unknown peer writes for the first time', () => {

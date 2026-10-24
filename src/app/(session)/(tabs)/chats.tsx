@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ellipsis, MessageCircle, MessageSquarePlus, Search, Settings, Users, X } from '@tamagui/lucide-icons-2';
-import { H1, Input, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
+import { Ellipsis, MessageCircle, MessageSquarePlus, Settings, Users } from '@tamagui/lucide-icons-2';
+import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ChatContextMenu } from '@/components/chat-context-menu';
 import { BottomSheet } from '@/components/bottom-sheet';
@@ -22,12 +22,13 @@ import { useTheme } from '@/hooks/use-theme';
 import type { UPeerContact } from '@/storage/contact-store';
 import { getContacts, setContactFavorite } from '@/storage/contact-store';
 import type { ProtocolConversation } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
+import { SearchField } from '@/components/search-field';
 import { getConversations, markConversationRead } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 
 const contactStatusLabels: Record<UPeerContact['status'], string> = {
-  pending: 'Esperando respuesta…',
+  pending: 'Pendiente',
   incoming: 'Solicitud de contacto recibida',
   connected: 'Contacto conectado',
   offline: 'Desconectado',
@@ -153,11 +154,7 @@ export default function ChatsRoute() {
             <NativeRipplePressable accessibilityLabel="Más opciones" accessibilityRole="button" onPress={() => setMenuOpen((value) => !value)} style={styles.chatMenuButton}><Ellipsis color={theme.text} size={22} /></NativeRipplePressable>
           </XStack>
         </XStack>
-        <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={8} gap={8} height={50} paddingHorizontal={10}>
-          <Search color={theme.placeholder} size={18} />
-          <Input backgroundColor="transparent" borderWidth={0} color={theme.text} flex={1} fontSize={scale(14)} height={22} onChangeText={setQuery} padding={0} placeholder="Buscar un chat o iniciar uno nuevo" placeholderTextColor={theme.placeholder} value={query} />
-          {query.length > 0 ? <NativeRipplePressable accessibilityLabel="Limpiar búsqueda" accessibilityRole="button" onPress={() => setQuery('')} style={styles.chatClearButton}><X color={theme.placeholder} size={16} /></NativeRipplePressable> : null}
-        </XStack>
+        <SearchField onChangeText={setQuery} placeholder="Buscar un chat o iniciar uno nuevo" value={query} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chatFiltersScroll} contentContainerStyle={styles.chatFilters}>
           {CHAT_LIST_FILTERS.map((item) => {
             const active = filter === item.id;

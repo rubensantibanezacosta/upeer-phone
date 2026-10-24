@@ -15,8 +15,8 @@ describe('describeChatPreview', () => {
   });
 
   it('mantiene la etiqueta pendiente en cursiva aunque haya escritura', () => {
-    expect(describeChatPreview({ ...BASE, preview: 'Esperando respuesta…', pending: true, typing: true })).toEqual({
-      text: 'Esperando respuesta…',
+    expect(describeChatPreview({ ...BASE, preview: 'Pendiente', pending: true, typing: true })).toEqual({
+      text: 'Pendiente',
       accent: false,
       italic: true,
     });

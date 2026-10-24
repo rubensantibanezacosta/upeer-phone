@@ -4,6 +4,7 @@ import { BellOff, Check, CheckCheck, CircleAlert, Clock3, Pin, Star } from '@tam
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
+import { UnreadCountBadge } from '@/components/unread-count-badge';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { describeChatPreview } from '@/domain/chat-preview';
 import { getTrustLabel } from '@/domain/trust';
@@ -108,11 +109,7 @@ export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemPro
           <XStack alignItems="center" gap={5}>
             <LastMessageStatus color={theme.placeholder} entry={entry} />
             <Text color={entry.incoming ? theme.accent : previewColor} flex={1} fontSize={scale(13)} fontStyle={preview.italic ? 'italic' : 'normal'} numberOfLines={1}>{preview.text}</Text>
-            {isUnread && (
-              <XStack alignItems="center" backgroundColor={theme.accent} borderRadius={10} height={20} justifyContent="center" minWidth={20} paddingHorizontal={6}>
-                <SizableText color={theme.onAccent} fontSize={scale(11)} fontWeight="700">{entry.unread > 99 ? '99+' : entry.unread}</SizableText>
-              </XStack>
-            )}
+            {isUnread ? <UnreadCountBadge count={entry.unread} /> : null}
           </XStack>
         </YStack>
       </XStack>
