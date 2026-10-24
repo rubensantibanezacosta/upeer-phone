@@ -2,10 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, View, type ListRenderItemInfo, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CircleAlert, Pencil, X } from '@tamagui/lucide-icons-2';
-import { Text, XStack } from 'tamagui';
-
-import { ChatComposer } from '@/components/chat/chat-composer';
+import { ChatComposerArea } from '@/components/chat/chat-composer-area';
 import { ChatDateSeparator } from '@/components/chat/chat-date-separator';
 import { ChatEmptyState } from '@/components/chat/chat-empty-state';
 import { ChatHeader } from '@/components/chat/chat-header';
@@ -13,14 +10,13 @@ import { ChatMessageActions } from '@/components/chat/chat-message-actions';
 import { ChatMessageBubble } from '@/components/chat/chat-message-bubble';
 import { ChatRequestScreen } from '@/components/chat/chat-request-screen';
 import { ChatScrollButton } from '@/components/chat/chat-scroll-button';
-import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useSnackbar } from '@/components/snackbar';
 import { buildChatTimeline, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
 import { summarizeReactions } from '@/domain/chat-reactions';
+import { buildReplyPreview, type ReplyPreview } from '@/domain/chat-reply';
 import { decideRequestState } from '@/domain/message-request';
-import { useMessageActions } from '@/hooks/use-message-actions';
+import { useChatMessageSheet } from '@/hooks/use-chat-message-sheet';
 import { useContactCard } from '@/hooks/use-contact-card';
-import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useTheme } from '@/hooks/use-theme';
 import { getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
 import type { ProtocolMessage } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
@@ -48,6 +44,7 @@ export default function ChatRoute() {
   const [requestReceivedAt, setRequestReceivedAt] = useState(0);
   const [text, setText] = useState('');
   const [editing, setEditing] = useState<ProtocolMessage | null>(null);
+  const [replyingTo, setReplyingTo] = useState<ProtocolMessage | null>(null);
   const [error, setError] = useState('');
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
@@ -123,50 +120,53 @@ export default function ChatRoute() {
     const content = text.trim();
     if (!content || !upeerId) return;
     const currentEdit = editing;
+    const currentReply = replyingTo;
     setText('');
     setEditing(null);
+    setReplyingTo(null);
     setError('');
     try {
       if (currentEdit) {
         await editChat(upeerId, currentEdit.id, content);
       } else {
-        await sendChat(upeerId, content);
+        await sendChat(upeerId, content, currentReply?.id ?? '');
       }
       await refresh();
     } catch (cause) {
       setText(content);
       setEditing(currentEdit);
+      setReplyingTo(currentReply);
       setError(cause instanceof Error ? cause.message : 'No se pudo enviar el mensaje.');
     }
   };
 
   const startEditing = useCallback((message: ProtocolMessage) => {
+    setReplyingTo(null);
     setEditing(message);
     setText(message.content);
     setError('');
   }, []);
 
-  const cancelEditing = useCallback(() => {
+  const startReplying = useCallback((message: ProtocolMessage) => {
     setEditing(null);
-    setText('');
+    setReplyingTo(message);
+    setError('');
   }, []);
 
-  const copy = useCopyToClipboard();
-  const messageActions = useMessageActions(upeerId, {
-    onChanged: refresh,
-    onError: setError,
-  });
-  const { open: openActions, close: closeActions, remove: removeMessage, selected: actionMessage, selfUpeerId, toggleReaction } = messageActions;
+  const cancelContext = useCallback(() => {
+    if (editing) setText('');
+    setEditing(null);
+    setReplyingTo(null);
+  }, [editing]);
 
-  const editFromActions = useCallback((message: ProtocolMessage) => {
-    closeActions();
-    startEditing(message);
-  }, [closeActions, startEditing]);
+  const sheet = useChatMessageSheet({ onChanged: refresh, onEdit: startEditing, onError: setError, onReply: startReplying, upeerId });
+  const { open: openActions, selected: actionMessage, selfUpeerId, toggleReaction } = sheet;
 
-  const copyFromActions = useCallback((message: ProtocolMessage) => {
-    closeActions();
-    void copy(message.content);
-  }, [closeActions, copy]);
+  const replyPreviews = useMemo(() => {
+    const byID = new Map(messages.map((message) => [message.id, message]));
+    return (message: ProtocolMessage): ReplyPreview | null =>
+      buildReplyPreview(message.replyTo ? byID.get(message.replyTo) : undefined, { mine: 'Tú', peer: alias || 'Contacto' });
+  }, [alias, messages]);
 
   const openContactInfo = useCallback((target: string) => {
     router.push({ pathname: '/contact/[upeerId]', params: { upeerId: target } });
@@ -218,10 +218,11 @@ export default function ChatRoute() {
         onOpenCard={openCard}
         onToggleReaction={toggleReaction}
         reactions={summarizeReactions(item.message.reactions, selfUpeerId)}
+        reply={replyPreviews(item.message)}
         savedContacts={savedContactIds}
       />
     </View>
-  ), [openActions, openCard, savedContactIds, selfUpeerId, toggleReaction]);
+  ), [openActions, openCard, replyPreviews, savedContactIds, selfUpeerId, toggleReaction]);
 
   return (
     <View style={styles.root}>
@@ -251,22 +252,17 @@ export default function ChatRoute() {
             )}
             {showScrollButton && timeline.length > 0 ? <ChatScrollButton onPress={scrollToLatest} /> : null}
           </View>}
-          {!!error && (
-            <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={7} paddingHorizontal={14} paddingVertical={7}>
-              <CircleAlert color={theme.danger} size={15} />
-              <Text color={theme.danger} flex={1} fontSize={12}>{error}</Text>
-            </XStack>
-          )}
-          {editing ? (
-            <XStack alignItems="center" backgroundColor={theme.backgroundSelected} borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={8} paddingHorizontal={14} paddingVertical={7}>
-              <Pencil color={theme.accent} size={15} />
-              <Text color={theme.text} flex={1} fontSize={12}>Editando mensaje</Text>
-              <NativeRipplePressable accessibilityLabel="Cancelar edición" accessibilityRole="button" onPress={cancelEditing} style={styles.cancelEdit}>
-                <X color={theme.textSecondary} size={18} />
-              </NativeRipplePressable>
-            </XStack>
-          ) : null}
-          {isRequest ? null : <ChatComposer onChange={handleChange} onSend={() => { void submit(); }} onUnavailable={showUnavailable} value={text} />}
+          <ChatComposerArea
+            editing={editing !== null}
+            error={error}
+            hidden={isRequest}
+            onChange={handleChange}
+            onCancelContext={cancelContext}
+            onSend={() => { void submit(); }}
+            onUnavailable={showUnavailable}
+            reply={buildReplyPreview(replyingTo ?? undefined, { mine: 'Tú', peer: alias || 'Contacto' })}
+            value={text}
+          />
         </KeyboardAvoidingView>
       </SafeAreaView>
       {insets.bottom > 0 ? (
@@ -275,10 +271,11 @@ export default function ChatRoute() {
       <ChatMessageActions
         canEdit={actionMessage?.isMine === true}
         message={actionMessage}
-        onClose={closeActions}
-        onCopy={copyFromActions}
-        onDelete={removeMessage}
-        onEdit={editFromActions}
+        onClose={sheet.close}
+        onCopy={sheet.copyMessage}
+        onDelete={sheet.remove}
+        onEdit={sheet.editMessage}
+        onReply={sheet.replyMessage}
         onToggleReaction={toggleReaction}
         reactions={summarizeReactions(actionMessage?.reactions, selfUpeerId)}
       />
@@ -291,6 +288,5 @@ const styles = StyleSheet.create({
   timeline: { flex: 1, position: 'relative' },
   list: { flex: 1 },
   listContent: { flexGrow: 1, paddingHorizontal: 12, paddingVertical: 16 },
-  cancelEdit: { alignItems: 'center', borderRadius: 6, height: 28, justifyContent: 'center', width: 28 },
   nativeBarBackground: { bottom: 0, left: 0, position: 'absolute', right: 0 },
 });

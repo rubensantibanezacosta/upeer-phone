@@ -60,10 +60,7 @@ internal class YggdrasilOutbox(
   fun wake() = synchronized(wakeLock) { wakeLock.notifyAll() }
 
   fun enqueue(upeerId: String, content: String, replyTo: String): String {
-    if (!ID_PATTERN.matches(upeerId)) throw IllegalArgumentException("uPeer ID no válido")
-    val text = content.trim()
-    if (text.isEmpty()) throw IllegalArgumentException("El mensaje está vacío")
-    if (text.toByteArray(Charsets.UTF_8).size > MAX_MESSAGE_BYTES) throw IllegalArgumentException("El mensaje es demasiado grande")
+    val text = ChatSendPolicy.text(upeerId, content, replyTo)
     val messageID = UUID.randomUUID().toString()
     val timestamp = System.currentTimeMillis()
     state.messages.save(
@@ -289,7 +286,6 @@ internal class YggdrasilOutbox(
     private const val MAX_BATCH = 8
     private const val MAX_PARALLEL_SENDS = 12
     private const val MAX_ATTEMPTS = 30
-    private const val MAX_MESSAGE_BYTES = 256 * 1024
     private const val RETRY_TICK_MS = 1_500L
     private const val ACK_TIMEOUT_MS = 5_000L
     private const val BASE_BACKOFF_MS = 2_000L

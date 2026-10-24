@@ -14,6 +14,7 @@ internal class YggdrasilChatDecryptor(
 ) {
   fun decrypt(packet: JSONObject, senderUpeerId: String, publicKey: String, isDevicePacket: Boolean): DecryptedChat {
     val plaintext = decryptContent(packet, senderUpeerId, publicKey, isDevicePacket)
+    val replyTo = packet.optString("replyTo")
     state.messages.save(
       JSONObject()
         .put("id", packet.optString("id"))
@@ -24,7 +25,8 @@ internal class YggdrasilChatDecryptor(
         .put("version", packet.optInt("version", 1))
         .put("isEdited", false)
         .put("timestamp", packet.optLong("timestamp", System.currentTimeMillis()))
-        .put("receivedAt", System.currentTimeMillis()),
+        .put("receivedAt", System.currentTimeMillis())
+        .apply { if (ReplayPolicy.validMessageID(replyTo)) put("replyTo", replyTo) },
     )
     Log.i(TAG, "CHAT descifrado de $senderUpeerId id=${packet.optString("id")} (${plaintext.length} caracteres)")
     return DecryptedChat(packet.optString("id"), plaintext)

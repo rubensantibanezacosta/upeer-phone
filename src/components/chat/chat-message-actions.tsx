@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Copy, Pencil, Trash2, X } from '@tamagui/lucide-icons-2';
+import { Copy, Pencil, Reply, Trash2, X } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack } from 'tamagui';
 
 import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeerTransport.types';
@@ -17,6 +17,7 @@ type ChatMessageActionsProps = {
   onCopy: (message: ProtocolMessage) => void;
   onDelete: (message: ProtocolMessage) => void;
   onEdit: (message: ProtocolMessage) => void;
+  onReply: (message: ProtocolMessage) => void;
   onToggleReaction: (message: ProtocolMessage, emoji: string) => void;
 };
 
@@ -36,7 +37,7 @@ function ActionRow({ color, icon, label, onPress }: ActionRowProps) {
   );
 }
 
-export function ChatMessageActions({ message, reactions, canEdit, onClose, onCopy, onDelete, onEdit, onToggleReaction }: ChatMessageActionsProps) {
+export function ChatMessageActions({ message, reactions, canEdit, onClose, onCopy, onDelete, onEdit, onReply, onToggleReaction }: ChatMessageActionsProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   if (!message) return null;
@@ -70,6 +71,7 @@ export function ChatMessageActions({ message, reactions, canEdit, onClose, onCop
           </XStack>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           {canEdit ? <ActionRow color={theme.text} icon={<Pencil color={theme.text} size={19} />} label="Editar mensaje" onPress={() => onEdit(message)} /> : null}
+          <ActionRow color={theme.text} icon={<Reply color={theme.text} size={19} />} label="Responder" onPress={() => onReply(message)} />
           <ActionRow color={theme.text} icon={<Copy color={theme.text} size={19} />} label="Copiar texto" onPress={() => onCopy(message)} />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <ActionRow color={theme.danger} icon={<Trash2 color={theme.danger} size={19} />} label="Eliminar para todos" onPress={() => onDelete(message)} />

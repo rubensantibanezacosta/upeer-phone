@@ -6,7 +6,9 @@ import type { ChatTimelineEntry } from '@/domain/chat-timeline';
 import { formatChatTime } from '@/domain/chat-timeline';
 import { parseContactCard, type ContactCard } from '@/domain/contact-card';
 import type { ReactionSummary } from '@/domain/chat-reactions';
+import type { ReplyPreview } from '@/domain/chat-reply';
 import { ChatContactCard } from '@/components/chat/chat-contact-card';
+import { ChatReplyQuote } from '@/components/chat/chat-reply-quote';
 import { ChatReactionRow } from '@/components/chat/chat-reaction-row';
 import { useTheme } from '@/hooks/use-theme';
 import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeerTransport.types';
@@ -32,12 +34,13 @@ function MessageStatus({ color, status }: { color: string; status: ProtocolMessa
   return <View accessibilityLabel={`Estado del mensaje: ${statusLabels[status]}`} style={styles.status}>{icon}</View>;
 }
 
-export function ChatMessageBubble({ entry, onLongPress, onOpenCard, onToggleReaction, reactions, savedContacts }: {
+export function ChatMessageBubble({ entry, onLongPress, onOpenCard, onToggleReaction, reactions, reply, savedContacts }: {
   entry: ChatTimelineEntry;
   onLongPress?: (message: ProtocolMessage) => void;
   onOpenCard?: (card: ContactCard) => void;
   onToggleReaction?: (message: ProtocolMessage, emoji: string) => void;
   reactions?: ReactionSummary[];
+  reply?: ReplyPreview | null;
   savedContacts?: ReadonlySet<string>;
 }) {
   const theme = useTheme();
@@ -54,7 +57,8 @@ export function ChatMessageBubble({ entry, onLongPress, onOpenCard, onToggleReac
           onLongPress={onLongPress ? () => onLongPress(entry.message) : undefined}
           style={[styles.bubble, { backgroundColor: isMine ? theme.bubbleMine : theme.backgroundElement }, isMine ? styles.bubbleMine : styles.bubbleTheirs]}
         >
-          <View style={[styles.body, card ? styles.bodyColumn : null]}>
+          <View style={[styles.body, card || reply ? styles.bodyColumn : null]}>
+            {reply ? <ChatReplyQuote isMine={isMine} reply={reply} /> : null}
             {card && onOpenCard ? (
               <ChatContactCard
                 card={card}

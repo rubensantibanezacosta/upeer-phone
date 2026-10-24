@@ -675,7 +675,7 @@ Cierre de brechas medido contra el código de `upper-desktop`, no contra lo que 
 | Archivos, imágenes, PDF y audio | `network/file-transfer/`, `features/chat/file/` | Nada; el clip del composer avisa «pendiente» |
 | Visor de medios y miniaturas | `features/chat/media-viewer/` | Nada |
 | Notas de voz | `features/chat/input/RecordingBar.tsx` | Nada; el micrófono avisa «pendiente» |
-| Responder, reenviar y reaccionar | `MessageReply.tsx`, `ForwardModal.tsx`, `MessageReactions.tsx`, `MessageContextMenu.tsx` | Editar sí; el resto no |
+| Responder, reenviar y reaccionar | `MessageReply.tsx`, `ForwardModal.tsx`, `MessageReactions.tsx`, `MessageContextMenu.tsx` | Editar, reaccionar y responder sí; reenviar no |
 | Borrar mensaje y vaciar chat | `chatMutations.ts` | Nada |
 | Escribiendo y presencia | `messaging/heartbeat.ts` | Nada |
 | Búsqueda dentro de la conversación | `ChatSearchBar.tsx` | Avisa «pendiente» |
@@ -753,7 +753,7 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Ficha del contacto | Hecha | Pantalla completa `/contact/[upeerId]` con la distribución de escritorio: hero (avatar 96, alias, identidad, presencia y reputación), fila Llamar·Vídeo·Buscar, identidad y dirección copiables, acciones de conversación y zona de riesgo. Bloquear/desbloquear y eliminar son reales; compartir, silenciar, archivar, favoritos, cifrado y vaciar chat se muestran atenuados con «Pronto» |
 | Ficha de grupo | Pendiente | No hay grupos en el móvil; cuando existan `GROUP_*` debe replicar la misma pantalla con miembros y administración |
 | Chat · composer | Parcial | Adjuntar archivo y nota de voz avisan «pendiente» |
-| Chat · mensajes | Parcial | Solo editar; faltan responder, reaccionar, borrar, reenviar y ver estado real de entrega |
+| Chat · mensajes | Parcial | Editar, reaccionar, borrar para todos y responder (cita con autor y extracto) ya funcionan; faltan reenviar y ver estado real de entrega |
 | Chat · presencia | Parcial | «Escribiendo…» real en la cabecera, con ventana de 6 s, envío como máximo cada 3 s y caducidad al recibir un mensaje. Falta presencia (conectado/última vez) y el punto de «escribiendo» en la lista de chats |
 | Accesibilidad | Parcial | Faltan escalas de fuente y revisión con lector de pantalla |
 
@@ -844,6 +844,14 @@ Fijar, silenciar y archivar dejan de ser avisos y pasan a tener efecto:
 - **La lista de chats no enseña JSON.** `messageSummary` convierte la tarjeta en «Tarjeta de contacto: <nombre>» en la vista previa, igual que el `getContactCardSummary` de escritorio.
 - **Añadir desde la tarjeta es explícito.** Pulsar una tarjeta de alguien que no está en la agenda pide confirmación, guarda el contacto con `status: 'pending'` y lo registra en el servicio nativo con `registerPeer`, los mismos dos pasos que el alta manual. Si ya existe, abre su ficha. No se acepta sola ni se salta la solicitud de mensaje: eso sigue siendo cosa del primer contacto.
 - **Compartir es una hoja, no una pantalla.** La fila «Compartir contacto» de la ficha abre `ContactShareSheet` con el mismo buscador de contactos que «Nueva conversación» (`ContactPicker`, extraído para no duplicar la lista), excluyendo al propio contacto.
+### Responder a un mensaje (24/10/2026)
+
+- **El campo ya existía en el cable.** Escritorio mete `replyTo` (UUID del mensaje citado, ≤100) como campo de primer nivel del paquete `CHAT` en `chatDirectDelivery.ts`, y el crate lo firma con el resto. Android ya lo enviaba: `OutboxStore`, `OutboxPacketFactory` y `buildChat`/`buildLinkedChat` lo arrastraban desde el primer día. Lo que faltaba era recibirlo, guardarlo y pintarlo.
+- **Entrada validada antes de guardar.** `YggdrasilChatDecryptor` solo persiste `replyTo` si `ReplayPolicy.validMessageID` lo acepta, de modo que un paquete con basura no ensucia el estado. En salida, `ChatSendPolicy.text` concentra las cuatro comprobaciones de envío (id de 64 hex, cita UUID o vacía, texto no vacío y tope de 256 KB) y es lo que prueba `ChatSendPolicyTest`.
+- **La cita se resuelve en local, no viaja copia del texto.** `buildReplyPreview` busca el mensaje citado entre los cargados y produce `{ author, excerpt }`; si ya no está (historial purgado o mensaje borrado) no se pinta nada, en vez de inventar «mensaje no disponible». `replyExcerpt` colapsa espacios, recorta a 80 caracteres y resume las tarjetas de contacto con el mismo `messageSummary` que la lista de chats.
+- **Un solo banner para los dos contextos.** `ChatComposerArea` sustituye al bloque de edición que vivía dentro de la pantalla y muestra «Editando mensaje» o «Respondiendo a <alias>» con el extracto y una X para cancelar; editar y responder son excluyentes y `submit` limpia ambos. La pantalla baja a 292 líneas porque la gestión de la hoja de acciones se movió a `useChatMessageSheet`.
+- **La cita se lee dentro de la burbuja.** `ChatReplyQuote` pinta una barra de acento con el autor y el extracto en una sola línea cada uno, y la burbuja pasa a columna cuando hay cita para que no compita con el texto.
+
 
 ### Transporte local sin internet: paridad con Briar (24/10/2026)
 
