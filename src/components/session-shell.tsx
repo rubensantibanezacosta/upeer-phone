@@ -3,7 +3,7 @@ import { View } from 'react-native';
 
 import { fromHex, type UPeerIdentity } from '@/domain/identity';
 import { SessionScreen, type ConnectionSnapshot } from '@/components/session-screen';
-import { clearIdentity as clearTransportIdentity, setIdentity as setTransportIdentity, setNotificationPrefs, stop } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import { clearIdentity as clearTransportIdentity, setIdentity as setTransportIdentity, setNotificationPrefs, setReadReceipts, stop } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { clearIdentity, loadProfile, type IdentityProfile } from '@/storage/identity-store';
 import { EMPTY_PEER_MANAGEMENT } from '@/domain/yggdrasil-peers';
 import { pushBlockedPeers } from '@/storage/contact-store';
@@ -57,6 +57,11 @@ export function SessionShell({ identity, onSignOut, children }: {
       console.warn('El servicio no recibió las preferencias de notificaciones.', cause);
     });
   }, [preferences.messageNotifications, preferences.notificationSound, preferences.requestNotifications]);
+  useEffect(() => {
+    setReadReceipts(preferences.readReceipts).catch((cause: unknown) => {
+      console.warn('El servicio no recibió la preferencia de confirmaciones de lectura.', cause);
+    });
+  }, [preferences.readReceipts]);
   useEffect(() => {
     setTransportIdentity(fromHex(identity.secretKey)).catch((cause: unknown) => {
       console.warn('No se pudo provisionar la identidad uPeer en el servicio de red.', cause);

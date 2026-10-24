@@ -34,4 +34,14 @@ class ReadReceiptsTest {
     assertNull(ReadReceipts.messageID(JSONObject().put("id", "no-es-un-uuid")))
     assertNull(ReadReceipts.messageID(JSONObject().put("id", "")))
   }
+
+  @Test
+  fun `allowed keeps the transitions when receipts are enabled`() {
+    assertEquals(listOf("a", "b"), ReadReceipts.allowed(listOf("a", "b"), true))
+  }
+
+  @Test
+  fun `allowed drops the transitions when receipts are disabled`() {
+    assertEquals(emptyList<String>(), ReadReceipts.allowed(listOf("a", "b"), false))
+  }
 }

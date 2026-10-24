@@ -205,6 +205,10 @@ class YggdrasilTransportService : Service() {
       protocolState.setNotificationPrefs(prefs)
       Log.i(TAG, "Preferencias de notificaciones: mensajes=${prefs.messages} solicitudes=${prefs.requests} sonido=${prefs.sound}")
     }
+    override fun setReadReceipts(enabled: Boolean) {
+      protocol.setReadReceipts(enabled)
+      Log.i(TAG, "Confirmaciones de lectura: $enabled")
+    }
     override fun registerPeer(upeerId: String, address: String, publicKey: String, signedPreKeyJSON: String): Boolean =
       protocol.registerPeer(upeerId, address, publicKey, signedPreKeyJSON)
     override fun flushOutbox() = protocol.flushOutbox()

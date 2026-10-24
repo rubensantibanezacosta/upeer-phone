@@ -36,6 +36,6 @@ export function PrivacySettingsSection() {
       />
     </YStack>
 
-    <Paragraph color={theme.placeholder} fontSize={12}>Las tres preferencias se guardan en este dispositivo. El servicio aplicará las dos últimas cuando envíe presencia; las confirmaciones de lectura llegarán con el mensaje `READ`.</Paragraph>
+    <Paragraph color={theme.placeholder} fontSize={12}>Las confirmaciones de lectura ya se aplican en el servicio de red: al desactivarlas, la conversación se marca como leída solo en este dispositivo y no se envía el mensaje `READ`. Conectado y última vez se aplicarán cuando el protocolo transporte presencia.</Paragraph>
   </YStack>;
 }

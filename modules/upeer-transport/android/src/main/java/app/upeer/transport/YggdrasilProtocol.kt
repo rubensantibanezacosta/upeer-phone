@@ -82,9 +82,11 @@ internal class YggdrasilProtocol(
     controlSender.deleteMessage(upeerId, messageID)
 
   fun markConversationRead(upeerId: String) {
-    val transitioned = state.markConversationRead(upeerId)
+    val transitioned = ReadReceipts.allowed(state.markConversationRead(upeerId), state.readReceiptsEnabled())
     if (transitioned.isNotEmpty()) controlSender.sendReadReceipts(upeerId, transitioned)
   }
+
+  fun setReadReceipts(enabled: Boolean) = state.setReadReceipts(enabled)
 
   fun deleteConversation(upeerId: String): Boolean = state.deleteConversation(upeerId)
 

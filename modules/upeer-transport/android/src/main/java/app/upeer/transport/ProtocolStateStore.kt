@@ -17,6 +17,7 @@ internal class ProtocolStateStore(context: Context) {
   private var state = ProtocolStateCodec.load(store)
 
   val messages = ProtocolMessageList({ state }, lock, ::persist)
+  val preferences = ProtocolPreferences({ state }, lock, ::persist)
 
   fun rememberPeer(metadata: JSONObject): Boolean {
     val upeerId = metadata.optString("senderUpeerId")
@@ -165,57 +166,29 @@ internal class ProtocolStateStore(context: Context) {
     )
   }
 
-  fun blockedPeers(): List<String> = synchronized(lock) {
-    val blocked = state.optJSONArray("blocked") ?: JSONArray()
-    PeerIdList.normalize(List(blocked.length()) { blocked.optString(it) })
-  }
+  fun blockedPeers(): List<String> = preferences.blocked()
 
-  fun isBlocked(upeerId: String): Boolean = PeerIdList.contains(blockedPeers(), upeerId)
+  fun isBlocked(upeerId: String): Boolean = preferences.isBlocked(upeerId)
 
-  fun setBlockedPeers(upeerIds: List<String>) {
-    synchronized(lock) {
-      val next = JSONArray()
-      PeerIdList.normalize(upeerIds).forEach(next::put)
-      state.put("blocked", next)
-      persist()
-    }
-  }
+  fun setBlockedPeers(upeerIds: List<String>) = preferences.setBlocked(upeerIds)
 
-  fun knownContacts(): List<String> = synchronized(lock) {
-    val known = state.optJSONArray("knownContacts") ?: JSONArray()
-    PeerIdList.normalize(List(known.length()) { known.optString(it) })
-  }
+  fun knownContacts(): List<String> = preferences.known()
 
-  fun isKnownContact(upeerId: String): Boolean = PeerIdList.contains(knownContacts(), upeerId)
+  fun isKnownContact(upeerId: String): Boolean = preferences.isKnown(upeerId)
 
-  fun setKnownContacts(upeerIds: List<String>) {
-    synchronized(lock) {
-      val next = JSONArray()
-      PeerIdList.normalize(upeerIds).forEach(next::put)
-      state.put("knownContacts", next)
-      persist()
-    }
-  }
+  fun setKnownContacts(upeerIds: List<String>) = preferences.setKnown(upeerIds)
 
-  fun notificationPrefs(): NotificationPrefs = synchronized(lock) {
-    NotificationPrefs.parse(state.optString("notificationPrefs"))
-  }
+  fun notificationPrefs(): NotificationPrefs = preferences.notifications()
 
-  fun mutedPeers(): List<String> = synchronized(lock) {
-    val muted = state.optJSONArray("muted") ?: JSONArray()
-    PeerIdList.normalize(List(muted.length()) { muted.optString(it) })
-  }
+  fun readReceiptsEnabled(): Boolean = preferences.readReceipts()
 
-  fun isMuted(upeerId: String): Boolean = PeerIdList.contains(mutedPeers(), upeerId)
+  fun setReadReceipts(enabled: Boolean) = preferences.setReadReceipts(enabled)
 
-  fun setMutedPeers(upeerIds: List<String>) {
-    synchronized(lock) {
-      val next = JSONArray()
-      PeerIdList.normalize(upeerIds).forEach(next::put)
-      state.put("muted", next)
-      persist()
-    }
-  }
+  fun mutedPeers(): List<String> = preferences.muted()
+
+  fun isMuted(upeerId: String): Boolean = preferences.isMuted(upeerId)
+
+  fun setMutedPeers(upeerIds: List<String>) = preferences.setMuted(upeerIds)
 
   fun markTyping(upeerId: String, untilMillis: Long) {
     synchronized(lock) {
@@ -252,12 +225,7 @@ internal class ProtocolStateStore(context: Context) {
     active
   }
 
-  fun setNotificationPrefs(prefs: NotificationPrefs) {
-    synchronized(lock) {
-      state.put("notificationPrefs", prefs.toJSON())
-      persist()
-    }
-  }
+  fun setNotificationPrefs(prefs: NotificationPrefs) = preferences.setNotifications(prefs)
 
   fun deleteConversation(upeerId: String): Boolean = messages.deleteConversation(upeerId)
 

@@ -41,6 +41,7 @@ class UPeerTransportModule extends NativeModule<{}> {
   async setBlockedPeers(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async setKnownContacts(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async setNotificationPrefs(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async setReadReceipts(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async setMutedPeers(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async registerPeer(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async flushOutbox(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }

@@ -46,6 +46,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   setBlockedPeers(blockedJSON: string): Promise<void>;
   setKnownContacts(knownJSON: string): Promise<void>;
   setNotificationPrefs(prefsJSON: string): Promise<void>;
+  setReadReceipts(enabled: boolean): Promise<void>;
   setMutedPeers(mutedJSON: string): Promise<void>;
   registerPeer(upeerId: string, address: string, publicKey: string, signedPreKeyJSON: string): Promise<boolean>;
   flushOutbox(): Promise<void>;
@@ -290,6 +291,10 @@ export async function setKnownContacts(knownJSON: string): Promise<void> {
 
 export async function setNotificationPrefs(prefsJSON: string): Promise<void> {
   return nativeModule.setNotificationPrefs(prefsJSON);
+}
+
+export async function setReadReceipts(enabled: boolean): Promise<void> {
+  return nativeModule.setReadReceipts(enabled);
 }
 
 export async function setMutedPeers(mutedJSON: string): Promise<void> {

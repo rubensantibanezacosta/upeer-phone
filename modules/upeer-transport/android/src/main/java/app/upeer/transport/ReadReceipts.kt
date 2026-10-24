@@ -16,6 +16,9 @@ internal object ReadReceipts {
     return if (ReplayPolicy.validMessageID(messageID)) messageID else null
   }
 
+  fun allowed(transitioned: List<String>, enabled: Boolean): List<String> =
+    if (enabled) transitioned else emptyList()
+
   fun frame(identity: CryptoIdentity, selfAddress: String, peerPublicKey: String, messageID: String, nowMillis: Long): String =
     SealedControl.frame(identity, selfAddress, peerPublicKey, data(messageID, nowMillis))
 }
