@@ -14,7 +14,7 @@ export function ChatEmptyState() {
         <ShieldCheck color={theme.accent} size={48} strokeWidth={1.8} />
       </View>
       <SizableText color={theme.text} fontSize={scale(18)} fontWeight="600" marginBottom={8} textAlign="center">Conversación Segura Activada</SizableText>
-      <Text color={theme.textSecondary} fontSize={scale(14)} lineHeight={scale(22)} maxWidth={320} textAlign="center">
+      <Text color={theme.textSecondary} fontSize={scale(14)} maxWidth={320} textAlign="center">
         Aún no hay mensajes aquí. Envía el primero para comenzar esta conversación cifrada de extremo a extremo.
       </Text>
     </YStack>

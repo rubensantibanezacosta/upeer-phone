@@ -17,8 +17,9 @@ internal class YggdrasilProtocol(
   private val admission: DeviceAdmissionGuard,
   private val contactAdmission: ContactEncryptionAdmission,
   private val rateLimiter: InboundRateLimiter = InboundRateLimiter(),
-) {
-  private val handshake = YggdrasilHandshake(identity, signedPreKeys, deviceSignedPreKeys, deviceBindings)
+  ) {
+  private val policy = InboundPolicy(rateLimiter)
+  private val handshake = YggdrasilHandshake(identity, signedPreKeys, deviceSignedPreKeys, deviceBindings, state)
   private val outbox = YggdrasilOutbox(
     identity,
     signedPreKeys,
@@ -90,6 +91,12 @@ internal class YggdrasilProtocol(
 
   fun setReadReceipts(enabled: Boolean) = state.setReadReceipts(enabled)
 
+  fun setProfile(alias: String, avatar: String) {
+    val previous = state.profile()
+    state.setProfile(alias, avatar)
+    if (previous.toString() != state.profile().toString()) outbox.announceProfile()
+  }
+
   fun deleteConversation(upeerId: String): Boolean = state.deleteConversation(upeerId)
 
   fun setBlockedPeers(upeerIds: List<String>) = state.setBlockedPeers(upeerIds)
@@ -98,20 +105,12 @@ internal class YggdrasilProtocol(
 
   fun conversationsJSON(): String = state.conversationsJSON()
 
-  fun peerSecurityJSON(upeerId: String): String {
-    val peer = state.peerFor(upeerId)
-    val mine = identity.current()?.publicKeyHex().orEmpty()
-    val publicKey = peer?.optString("publicKey").orEmpty()
-    return JSONObject()
-      .put("upeerId", upeerId)
-      .put("publicKey", publicKey)
-      .put("deviceId", peer?.optString("deviceId").orEmpty())
-      .put("devicePublicKey", peer?.optString("devicePublicKey").orEmpty())
-      .put("hasSession", state.sessionFor(upeerId) != null)
-      .put("lastSeen", peer?.optLong("lastSeen", 0L) ?: 0L)
-      .put("safetyNumber", SafetyNumber.compute(mine, publicKey))
-      .toString()
-  }
+  fun peerSecurityJSON(upeerId: String): String = PeerSecurityReport.json(
+    upeerId,
+    state.peerFor(upeerId),
+    identity.current()?.publicKeyHex().orEmpty(),
+    state.sessionFor(upeerId) != null,
+  )
 
   fun handleFrame(activeBridge: Bridge, payload: ByteArray, sourceAddress: String): String {
     val outer = JSONObject(String(payload, Charsets.UTF_8))
@@ -119,7 +118,7 @@ internal class YggdrasilProtocol(
     if (outerType != "SEALED") return handleSignedPacket(activeBridge, payload, sourceAddress)
     if (!rateLimiter.allow("ip:$sourceAddress", outerType)) {
       Log.w(TAG, "SEALED limitado por origen $sourceAddress")
-      return rateLimitedMetadata(outerType)
+      return InboundPolicy.rateLimitedMetadata(outerType)
     }
     val currentIdentity = identity.current() ?: throw IllegalStateException("uPeer identity is not available")
     val ciphertext = outer.optString("ciphertext")
@@ -159,20 +158,22 @@ internal class YggdrasilProtocol(
     val declaredSender = packet.optString("senderUpeerId").lowercase()
     if (declaredSender.isNotEmpty() && state.isBlocked(declaredSender)) {
       Log.i(TAG, "Paquete $type descartado: $declaredSender está bloqueado")
-      return blockedMetadata(packet, declaredSender)
+      return InboundPolicy.blocked(packet, declaredSender)
     }
+    if (declaredSender.isNotEmpty()) outbox.announceProfileTo(declaredSender)
     if (type == "HANDSHAKE_REQ" || type == "HANDSHAKE_ACCEPT") {
       val metadataJSON = activeBridge.validateControlFrame(payload)
       val metadata = JSONObject(metadataJSON)
       packet.optJSONObject("signedPreKey")?.let { metadata.put("signedPreKey", it) }
       packet.optString("alias").takeIf(String::isNotEmpty)?.let { metadata.put("alias", it) }
+      packet.optString("avatar").takeIf(String::isNotEmpty)?.let { metadata.put("avatar", it) }
       val accountUpeerId = metadata.optString("senderUpeerId")
       val deviceAttached = deviceBindings.attach(metadata, packet, accountUpeerId)
       if (deviceBindings.hasFields(packet) && !deviceAttached) {
         Log.w(TAG, "Handshake $type de $accountUpeerId descartado: identidad de dispositivo inválida o revocada")
-        return rejectedMetadata(packet)
+        return InboundPolicy.rejected(packet)
       }
-      if (!allow(metadata, sourceAddress)) return rateLimited(metadata)
+      if (!policy.allow(metadata, sourceAddress)) return policy.rateLimited(metadata)
       if (state.rememberPeer(metadata)) outbox.onPeerReset(metadata.optString("senderUpeerId"))
       Log.i(
         TAG,
@@ -206,7 +207,7 @@ internal class YggdrasilProtocol(
       if (!DhtLocation.isHex(senderDeviceId, 32)) throw IllegalArgumentException("$type senderDeviceId is invalid")
       if (deviceBindings.isRevoked(senderUpeerId, senderDeviceId)) {
         Log.i(TAG, "Paquete $type descartado: el dispositivo $senderDeviceId está revocado")
-        return rejectedMetadata(packet)
+        return InboundPolicy.rejected(packet)
       }
       val peer = state.peerFor(senderUpeerId) ?: throw IllegalStateException("unknown peer $senderUpeerId")
       if (!peer.optString("deviceId").equals(senderDeviceId, ignoreCase = true)) {
@@ -220,7 +221,7 @@ internal class YggdrasilProtocol(
       metadataJSON = activeBridge.validateSignedPacket(payload, publicKey)
     }
     val metadata = JSONObject(metadataJSON)
-    if (!allow(metadata, sourceAddress)) return rateLimited(metadata)
+    if (!policy.allow(metadata, sourceAddress)) return policy.rateLimited(metadata)
     if (!isDevicePacket) state.rememberPeer(metadata)
     return if (type == "CHAT_UPDATE") {
       handleChatUpdate(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
@@ -287,34 +288,6 @@ internal class YggdrasilProtocol(
     }
     return metadataJSON
   }
-
-  private fun allow(metadata: JSONObject, sourceAddress: String): Boolean {
-    val type = metadata.optString("type")
-    val senderUpeerId = metadata.optString("senderUpeerId")
-    return rateLimiter.allow("ip:$sourceAddress", type) && rateLimiter.allow("id:$senderUpeerId", type)
-  }
-
-  private fun rateLimited(metadata: JSONObject): String {
-    Log.w(TAG, "Límite de recepción alcanzado para ${metadata.optString("type")} de ${metadata.optString("senderUpeerId")}")
-    return JSONObject(metadata.toString()).put("rateLimited", true).toString()
-  }
-
-  private fun blockedMetadata(packet: JSONObject, senderUpeerId: String): String = JSONObject()
-    .put("type", packet.optString("type"))
-    .put("senderUpeerId", senderUpeerId)
-    .put("blocked", true)
-    .toString()
-
-  private fun rejectedMetadata(packet: JSONObject): String = JSONObject()
-    .put("type", packet.optString("type"))
-    .put("senderUpeerId", packet.optString("senderUpeerId").lowercase())
-    .put("rejected", true)
-    .toString()
-
-  private fun rateLimitedMetadata(type: String): String = JSONObject()
-    .put("type", type)
-    .put("rateLimited", true)
-    .toString()
 
   private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
 

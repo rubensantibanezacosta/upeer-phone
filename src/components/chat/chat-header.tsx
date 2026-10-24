@@ -14,6 +14,7 @@ import type { UPeerContact } from '@/storage/contact-store';
 
 type ChatHeaderProps = {
   alias: string;
+  avatar?: string;
   upeerId: string;
   status: UPeerContact['status'];
   vouchScore?: number;
@@ -34,7 +35,7 @@ function HeaderAction({ label, onPress, children }: { label: string; onPress: ()
   );
 }
 
-export function ChatHeader({ alias, upeerId, status, vouchScore, isRequest = false, typing = false, presence = null, onBack, onOpenInfo, onSearch, onUnavailable }: ChatHeaderProps) {
+export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isRequest = false, typing = false, presence = null, onBack, onOpenInfo, onSearch, onUnavailable }: ChatHeaderProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const insets = useSafeAreaInsets();
@@ -57,7 +58,7 @@ export function ChatHeader({ alias, upeerId, status, vouchScore, isRequest = fal
           onPress={onOpenInfo}
           style={styles.identity}
         >
-          <ContactTrustAvatar name={alias} size={40} vouchScore={vouchScore} />
+          <ContactTrustAvatar avatar={avatar} name={alias} size={40} vouchScore={vouchScore} />
           <YStack flex={1} gap={2} minWidth={0}>
             <SizableText color={theme.text} fontSize={scale(16)} fontWeight="500" numberOfLines={1}>{alias}</SizableText>
             <Text color={typing ? theme.accent : theme.placeholder} fontSize={scale(12)} numberOfLines={1}>{subtitle}</Text>

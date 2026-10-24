@@ -15,6 +15,7 @@ import { useTheme } from '@/hooks/use-theme';
 export type ChatListEntry = {
   upeerId: string;
   title: string;
+  avatar?: string;
   preview: string;
   timestamp: number;
   unread: number;
@@ -95,7 +96,7 @@ export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemPro
       style={[styles.item, { borderBottomColor: theme.border }]}
     >
       <XStack alignItems="center" gap={12} minHeight={80} paddingVertical={0}>
-        <ContactTrustAvatar name={entry.title} size={55} vouchScore={entry.vouchScore} />
+        <ContactTrustAvatar avatar={entry.avatar} name={entry.title} size={55} vouchScore={entry.vouchScore} />
         <YStack flex={1} gap={4}>
           <XStack alignItems="center" gap={8}>
             {entry.favorite ? <Star color={theme.placeholder} size={13} strokeWidth={2.2} /> : null}

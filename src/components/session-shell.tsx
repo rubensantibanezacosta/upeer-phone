@@ -5,6 +5,7 @@ import { fromHex, type UPeerIdentity } from '@/domain/identity';
 import { SessionScreen, type ConnectionSnapshot } from '@/components/session-screen';
 import { clearIdentity as clearTransportIdentity, setIdentity as setTransportIdentity, setNotificationPrefs, setReadReceipts, stop } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { clearIdentity, loadProfile, type IdentityProfile } from '@/storage/identity-store';
+import { publishNativeProfileSafely } from '@/storage/profile-sync';
 import { EMPTY_PEER_MANAGEMENT } from '@/domain/yggdrasil-peers';
 import { pushBlockedPeers } from '@/storage/contact-store';
 import { usePreferences } from '@/hooks/use-preferences';
@@ -43,7 +44,10 @@ export function SessionShell({ identity, onSignOut, children }: {
     }
   }, []);
   useEffect(() => {
-    loadProfile().then(setProfile).catch((cause: unknown) => {
+    loadProfile().then((stored) => {
+      setProfile(stored);
+      return publishNativeProfileSafely(stored);
+    }).catch((cause: unknown) => {
       console.warn('No se pudo cargar el perfil de la sesión.', cause);
     });
   }, []);

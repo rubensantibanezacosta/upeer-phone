@@ -40,6 +40,7 @@ export default function ChatRoute() {
   const previousCountRef = useRef(0);
   const [messages, setMessages] = useState<ProtocolMessage[]>([]);
   const [alias, setAlias] = useState('');
+  const [peerAvatar, setPeerAvatar] = useState<string | undefined>(undefined);
   const [contactStatus, setContactStatus] = useState<UPeerContact['status']>('offline');
   const [isRequest, setIsRequest] = useState(false);
   const [requestReceivedAt, setRequestReceivedAt] = useState(0);
@@ -64,6 +65,7 @@ export default function ChatRoute() {
     const conversationAlias = ownConversation?.alias;
     setPeerTyping(ownConversation?.typing === true);
     setPeerLastSeen(ownConversation?.lastSeen);
+    setPeerAvatar(ownConversation?.avatar);
     setAlias(contact?.name || conversationAlias || upeerId.slice(0, 12));
     const decision = decideRequestState({
       contactStatus: contact?.status,
@@ -256,7 +258,7 @@ export default function ChatRoute() {
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
-        <ChatHeader alias={alias || 'Conversación'} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={() => router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } })} onSearch={search.open} onUnavailable={showUnavailable} presence={presence} status={contactStatus} typing={peerTyping} upeerId={upeerId ?? ''} />
+        <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={() => router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } })} onSearch={search.open} onUnavailable={showUnavailable} presence={presence} status={contactStatus} typing={peerTyping} upeerId={upeerId ?? ''} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
           {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} /> : (
             <ChatTimelineList

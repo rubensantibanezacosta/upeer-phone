@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ellipsis, MessageCircle, MessageSquarePlus, Search, Settings, Users } from '@tamagui/lucide-icons-2';
+import { Ellipsis, MessageCircle, MessageSquarePlus, Search, Settings, Users, X } from '@tamagui/lucide-icons-2';
 import { H1, Input, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ChatContextMenu } from '@/components/chat-context-menu';
@@ -67,6 +67,7 @@ export default function ChatsRoute() {
       .map((conversation) => ({
         upeerId: conversation.upeerId,
         title: conversation.alias || conversation.upeerId.slice(0, 12),
+        avatar: conversation.avatar,
         preview: messageSummary(conversation.lastMessage.replace(/^__SYS__\|/, '')) || 'Sin mensajes',
         timestamp: conversation.lastTimestamp,
         unread: conversation.unread,
@@ -152,13 +153,16 @@ export default function ChatsRoute() {
             <NativeRipplePressable accessibilityLabel="Más opciones" accessibilityRole="button" onPress={() => setMenuOpen((value) => !value)} style={styles.chatMenuButton}><Ellipsis color={theme.text} size={22} /></NativeRipplePressable>
           </XStack>
         </XStack>
-        <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={10} paddingHorizontal={14} paddingVertical={11}>
-          <Search color={theme.placeholder} size={17} />
-          <Input backgroundColor="transparent" borderWidth={0} color={theme.text} flex={1} fontSize={scale(14)} height={22} onChangeText={setQuery} padding={0} placeholder="Buscar conversaciones" placeholderTextColor={theme.placeholder} value={query} />
+        <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={8} gap={8} height={50} paddingHorizontal={10}>
+          <Search color={theme.placeholder} size={18} />
+          <Input backgroundColor="transparent" borderWidth={0} color={theme.text} flex={1} fontSize={scale(14)} height={22} onChangeText={setQuery} padding={0} placeholder="Buscar un chat o iniciar uno nuevo" placeholderTextColor={theme.placeholder} value={query} />
+          {query.length > 0 ? <NativeRipplePressable accessibilityLabel="Limpiar búsqueda" accessibilityRole="button" onPress={() => setQuery('')} style={styles.chatClearButton}><X color={theme.placeholder} size={16} /></NativeRipplePressable> : null}
         </XStack>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chatFiltersScroll} contentContainerStyle={styles.chatFilters}>
-          {CHAT_LIST_FILTERS.map((item) => <NativeRipplePressable key={item.id} onPress={() => setFilter(item.id)} style={[styles.chatFilterChip, { backgroundColor: filter === item.id ? theme.backgroundSelected : theme.background, borderColor: filter === item.id ? theme.accent : theme.border }]}><Text color={filter === item.id ? theme.accent : theme.placeholder} fontSize={scale(11)} fontWeight={filter === item.id ? '700' : '500'}>{item.label}</Text>
-          </NativeRipplePressable>)}
+          {CHAT_LIST_FILTERS.map((item) => {
+            const active = filter === item.id;
+            return <NativeRipplePressable key={item.id} onPress={() => setFilter(item.id)} style={[styles.chatFilterChip, { backgroundColor: active ? theme.accent : theme.backgroundElement }]}><Text color={active ? theme.onAccent : theme.text} fontSize={scale(13)} fontWeight={active ? '700' : '400'}>{item.label}</Text></NativeRipplePressable>;
+          })}
         </ScrollView>
         {visibleEntries.length > 0 ? (
           <YStack marginTop={2}>
@@ -169,12 +173,15 @@ export default function ChatsRoute() {
             <View style={[styles.emptyAvatar, { backgroundColor: theme.backgroundElement }]}>
               <MessageCircle color={theme.placeholder} size={28} />
             </View>
-            {filtering ? <>
+            {filter === 'groups' ? <>
+              <SizableText color={theme.text} fontSize={scale(17)} fontWeight="600">Sin grupos</SizableText>
+              <Paragraph color={theme.placeholder} textAlign="center">Los grupos que crees aparecerán aquí.</Paragraph>
+            </> : filtering ? <>
               <SizableText color={theme.text} fontSize={scale(17)} fontWeight="600">Sin coincidencias</SizableText>
-              <Paragraph color={theme.placeholder} lineHeight={scale(24)} textAlign="center">Ninguna conversación coincide con la búsqueda o el filtro activo.</Paragraph>
+              <Paragraph color={theme.placeholder} textAlign="center">Ninguna conversación coincide con la búsqueda o el filtro activo.</Paragraph>
             </> : <>
               <SizableText color={theme.text} fontSize={scale(17)} fontWeight="600">Tus conversaciones</SizableText>
-              <Paragraph color={theme.placeholder} lineHeight={scale(24)} textAlign="center">Añade un contacto para empezar. Tus mensajes y conversaciones se mostrarán en esta lista.</Paragraph>
+              <Paragraph color={theme.placeholder} textAlign="center">Añade un contacto para empezar. Tus mensajes y conversaciones se mostrarán en esta lista.</Paragraph>
               <NativeRippleButton onPress={() => setComposerOpen(true)}>Nueva conversación</NativeRippleButton>
               <NativeRipplePressable accessibilityRole="button" onPress={() => router.navigate('/contacts')}><Text color={theme.accent} fontSize={scale(13)} fontWeight="600">Ver contactos</Text></NativeRipplePressable>
             </>}
@@ -190,4 +197,4 @@ export default function ChatsRoute() {
   );
 }
 
-const styles = StyleSheet.create({ root: { flex: 1 }, chatContent: { flexGrow: 1, gap: 12, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 18 }, chatFiltersScroll: { flexGrow: 0 }, chatFilters: { alignItems: 'center', gap: 8 }, chatFilterChip: { alignItems: 'center', borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, justifyContent: 'center', marginTop: 8, minHeight: 30, overflow: 'hidden', paddingHorizontal: 15 }, chatMenuButton: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 }, menuDismiss: { ...StyleSheet.absoluteFill, zIndex: 1 }, chatMenu: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, elevation: 8, paddingVertical: 6, position: 'absolute', right: 20, top: 72, width: 190, zIndex: 2 }, chatMenuItem: { alignItems: 'center', flexDirection: 'row', gap: 12, minHeight: 46, paddingHorizontal: 14 }, emptyAvatar: { alignItems: 'center', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 } });
+const styles = StyleSheet.create({ root: { flex: 1 }, chatContent: { flexGrow: 1, gap: 12, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 18 }, chatFiltersScroll: { flexGrow: 0 }, chatFilters: { alignItems: 'center', gap: 8 }, chatClearButton: { alignItems: 'center', height: 24, justifyContent: 'center', width: 24 }, chatFilterChip: { alignItems: 'center', borderRadius: 999, justifyContent: 'center', marginTop: 8, minHeight: 30, overflow: 'hidden', paddingHorizontal: 12 }, chatMenuButton: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 }, menuDismiss: { ...StyleSheet.absoluteFill, zIndex: 1 }, chatMenu: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, elevation: 8, paddingVertical: 6, position: 'absolute', right: 20, top: 72, width: 190, zIndex: 2 }, chatMenuItem: { alignItems: 'center', flexDirection: 'row', gap: 12, minHeight: 46, paddingHorizontal: 14 }, emptyAvatar: { alignItems: 'center', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 } });

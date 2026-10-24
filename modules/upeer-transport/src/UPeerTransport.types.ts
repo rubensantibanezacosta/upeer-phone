@@ -44,6 +44,7 @@ export type ProtocolMessage = {
 export type ProtocolConversation = {
   upeerId: string;
   alias: string;
+  avatar?: string;
   lastMessage: string;
   lastStatus: ProtocolMessage['status'];
   lastTimestamp: number;

@@ -102,6 +102,7 @@ class UPeerTransportModule : Module() {
     AsyncFunction("deleteConversation") { upeerId: String -> service().deleteConversation(upeerId) }
     AsyncFunction("setBlockedPeers") { blockedJSON: String -> service().setBlockedPeers(blockedJSON) }
     AsyncFunction("setKnownContacts") { knownJSON: String -> service().setKnownContacts(knownJSON) }
+    AsyncFunction("setProfile") { alias: String, avatar: String -> service().setProfile(alias, avatar) }
     AsyncFunction("setNotificationPrefs") { prefsJSON: String -> service().setNotificationPrefs(prefsJSON) }
     AsyncFunction("setReadReceipts") { enabled: Boolean -> service().setReadReceipts(enabled) }
     AsyncFunction("setMutedPeers") { mutedJSON: String -> service().setMutedPeers(mutedJSON) }

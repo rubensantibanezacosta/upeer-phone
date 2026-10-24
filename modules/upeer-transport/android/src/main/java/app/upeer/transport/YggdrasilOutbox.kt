@@ -28,7 +28,8 @@ internal class YggdrasilOutbox(
   private val sendPool = Executors.newFixedThreadPool(MAX_PARALLEL_SENDS, ThreadFactory { task ->
     Thread(task, "upeer-outbox-send").apply { isDaemon = true }
   })
-  private val link = OutboxLink(identity, signedPreKeys, deviceSignedPreKeys, deviceBindings) { selfAddress }
+  private val link = OutboxLink(identity, signedPreKeys, deviceSignedPreKeys, deviceBindings, state) { selfAddress }
+  private val actions = OutboxActions(link, state, outbox, admission, { synchronized(lock) { bridge } }, { synchronized(lock) { running } }) { wake() }
   private var bridge: Bridge? = null
   private var selfAddress = ""
   private var worker: Thread? = null
@@ -99,19 +100,7 @@ internal class YggdrasilOutbox(
     return plan.version
   }
 
-  fun retryChat(upeerId: String, messageID: String): Boolean {
-    if (!ID_PATTERN.matches(upeerId)) throw IllegalArgumentException("uPeer ID no válido")
-    val message = state.messages.find(messageID) ?: throw IllegalArgumentException("El mensaje ya no existe")
-    if (message.optString("upeerId") != upeerId) throw IllegalArgumentException("El mensaje no es de esta conversación")
-    if (!message.optBoolean("isMine", false)) throw IllegalArgumentException("Solo se puede reintentar un mensaje propio")
-    if (message.optString("status") != "failed") throw IllegalArgumentException("El mensaje no está fallido")
-    val replyTo = message.optString("replyTo")
-    outbox.enqueue(messageID, upeerId, message.optString("content"), replyTo, message.optLong("timestamp", System.currentTimeMillis()))
-    state.messages.markStatus(messageID, "pending")
-    Log.i(TAG, "Mensaje $messageID reencolado para $upeerId")
-    wake()
-    return true
-  }
+  fun retryChat(upeerId: String, messageID: String): Boolean = actions.retryChat(upeerId, messageID)
 
   fun onAck(senderUpeerId: String, messageID: String, status: String): Boolean {
     if (!state.messages.ack(messageID, senderUpeerId, status)) return false
@@ -128,22 +117,17 @@ internal class YggdrasilOutbox(
     wake()
   }
 
+  fun announceProfile() = actions.announceProfile()
+
+  fun announceProfileTo(upeerId: String) = actions.announceProfileTo(upeerId)
+
   fun onHandshakeAccepted(upeerId: String) {
     val reset = outbox.resetPeer(upeerId)
     Log.i(TAG, "Handshake aceptado por $upeerId; outbox reactivado ($reset entradas)")
     wake()
   }
 
-  fun sendDrReset(upeerId: String) {
-    if (!admission.isAdmitted()) return
-    val activeBridge = synchronized(lock) { bridge } ?: return
-    val peer = state.peerFor(upeerId) ?: return
-    val address = peer.optString("address")
-    if (address.isBlank()) return
-    if (!link.sendDrReset(activeBridge, address, upeerId, peer)) {
-      Log.w(TAG, "DR_RESET no enviado a $upeerId")
-    }
-  }
+  fun sendDrReset(upeerId: String) = actions.sendDrReset(upeerId)
 
   fun flush() {
     if (!admission.isAdmitted()) return

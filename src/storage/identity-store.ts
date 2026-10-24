@@ -5,6 +5,7 @@ import { generateNodeSeed } from '../../modules/upeer-transport/src/UPeerTranspo
 import type { UPeerIdentity } from '@/domain/identity';
 import { deleteContactDatabase } from '@/storage/contact-store';
 import { decodeAvatarData } from '@/storage/avatar-data';
+import { publishNativeProfileSafely } from '@/storage/profile-sync';
 
 const IDENTITY_KEY = 'upeer.identity.v1';
 const PROFILE_KEY = 'upeer.profile.v1';
@@ -38,6 +39,11 @@ export async function loadProfile(): Promise<IdentityProfile | null> {
 }
 
 export async function saveProfile(profile: IdentityProfile): Promise<void> {
+  await persistProfile(profile);
+  await publishNativeProfileSafely(await loadProfile());
+}
+
+async function persistProfile(profile: IdentityProfile): Promise<void> {
   const { avatar, ...metadata } = profile;
   const avatarKey = `${PROFILE_KEY}.avatar`;
   const previousAvatarUri = await SecureStore.getItemAsync(avatarKey);
@@ -81,6 +87,12 @@ export async function saveProfile(profile: IdentityProfile): Promise<void> {
 }
 
 export async function removeProfileAvatar(): Promise<void> {
+  await deleteStoredAvatar();
+  const profile = await loadProfile();
+  if (profile) await publishNativeProfileSafely({ ...profile, avatar: undefined });
+}
+
+async function deleteStoredAvatar(): Promise<void> {
   const avatarKey = `${PROFILE_KEY}.avatar`;
   const previousAvatarUri = await SecureStore.getItemAsync(avatarKey);
   await SecureStore.deleteItemAsync(avatarKey);

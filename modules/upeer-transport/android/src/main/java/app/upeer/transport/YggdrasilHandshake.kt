@@ -9,6 +9,7 @@ internal class YggdrasilHandshake(
   private val signedPreKeys: SignedPreKeyStore,
   private val deviceSignedPreKeys: DeviceSignedPreKeyStore,
   private val deviceBindings: DeviceMessagingBindings,
+  private val state: ProtocolStateStore,
 ) {
   fun respond(activeBridge: Bridge, metadataJSON: String) {
     val metadata = try {
@@ -30,16 +31,14 @@ internal class YggdrasilHandshake(
       val deviceFields = device?.let {
         deviceBindings.handshakeFields(it, deviceSignedPreKeys)
       }
-      if (deviceFields != null) {
-        currentIdentity.buildHandshakeAcceptWithDevice(
-          target,
-          signedPreKeys.currentJSON(currentIdentity),
-          "",
-          deviceFields.toString(),
-        )
-      } else {
-        currentIdentity.buildHandshakeAccept(target, signedPreKeys.currentJSON(currentIdentity), "")
-      }
+      val profile = state.profile()
+      currentIdentity.buildHandshakeAcceptWithProfile(
+        target,
+        signedPreKeys.currentJSON(currentIdentity),
+        profile.optString("alias"),
+        profile.optString("avatar"),
+        deviceFields?.toString().orEmpty(),
+      )
     } catch (cause: Exception) {
       Log.w(TAG, "No se pudo construir HANDSHAKE_ACCEPT: ${message(cause)}")
       return

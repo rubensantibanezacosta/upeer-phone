@@ -33,7 +33,7 @@ export function ContactPicker({ contacts, emptyLabel = 'Sin contactos que coinci
 
   return (
     <YStack gap={8}>
-      <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={12} borderWidth={1} gap={8} paddingHorizontal={10}>
+      <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={8} gap={8} height={35} paddingHorizontal={10}>
         <Search color={theme.placeholder} size={16} />
         <Input backgroundColor="transparent" borderWidth={0} color={theme.text} flex={1} fontSize={scale(13)} height={40} onChangeText={setQuery} placeholder={searchPlaceholder} placeholderTextColor={theme.placeholder} value={query} />
       </XStack>

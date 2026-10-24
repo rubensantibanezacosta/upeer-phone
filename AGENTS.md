@@ -36,6 +36,7 @@ Docs: https://docs.expo.dev/eas/index.md
 
 ## Rules
 
+- **Nunca pongas `lineHeight` en un texto.** Ni en `Text`, ni en `Paragraph`, ni en `SizableText`, ni en estilos: el interlineado lo decide la tipografía. Ya se ha pedido varias veces y se ha vuelto a colar; si un texto se ve mal, se corrige el tamaño o el contenedor, no el interlineado. Única excepción: el glifo de inicial del avatar, que necesita un `lineHeight` calculado para centrarse.
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md

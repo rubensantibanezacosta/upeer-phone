@@ -1,11 +1,11 @@
-export type ChatListFilter = 'all' | 'unread' | 'favorites' | 'archived';
+export type ChatListFilter = 'all' | 'unread' | 'favorites' | 'groups';
 
 type FilterableEntry = {
   upeerId: string;
   title: string;
   preview: string;
   unread: number;
-  archived?: boolean;
+  group?: boolean;
   favorite?: boolean;
 };
 
@@ -13,7 +13,7 @@ export const CHAT_LIST_FILTERS: { id: ChatListFilter; label: string }[] = [
   { id: 'all', label: 'Todos' },
   { id: 'unread', label: 'No leídos' },
   { id: 'favorites', label: 'Favoritos' },
-  { id: 'archived', label: 'Archivados' },
+  { id: 'groups', label: 'Grupos' },
 ];
 
 export function matchesChatQuery(entry: FilterableEntry, query: string): boolean {
@@ -26,7 +26,7 @@ export function matchesChatQuery(entry: FilterableEntry, query: string): boolean
 
 export function filterChatEntries<T extends FilterableEntry>(entries: T[], filter: ChatListFilter, query: string): T[] {
   return entries.filter((entry) => matchesChatQuery(entry, query)
-    && (filter === 'archived' ? entry.archived === true : entry.archived !== true)
+    && (filter !== 'groups' || entry.group === true)
     && (filter !== 'unread' || entry.unread > 0)
     && (filter !== 'favorites' || entry.favorite === true));
 }

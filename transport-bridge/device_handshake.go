@@ -41,7 +41,19 @@ func (identity *CryptoIdentity) BuildHandshakeRequestWithDevice(senderYggAddress
 	if err != nil {
 		return "", err
 	}
-	return identity.buildHandshakeRequest(senderYggAddress, signedPreKeyJSON, alias, device)
+	return identity.buildHandshakeRequest(senderYggAddress, signedPreKeyJSON, alias, "", device)
+}
+
+func (identity *CryptoIdentity) BuildHandshakeRequestWithProfile(senderYggAddress, signedPreKeyJSON, alias, avatar, deviceJSON string) (string, error) {
+	var device *deviceHandshakeFields
+	if strings.TrimSpace(deviceJSON) != "" {
+		parsed, err := identity.parseDeviceHandshakeFields(deviceJSON)
+		if err != nil {
+			return "", err
+		}
+		device = parsed
+	}
+	return identity.buildHandshakeRequest(senderYggAddress, signedPreKeyJSON, alias, avatar, device)
 }
 
 func (identity *CryptoIdentity) BuildHandshakeAcceptWithDevice(senderYggAddress, signedPreKeyJSON, alias, deviceJSON string) (string, error) {
@@ -49,10 +61,22 @@ func (identity *CryptoIdentity) BuildHandshakeAcceptWithDevice(senderYggAddress,
 	if err != nil {
 		return "", err
 	}
-	return identity.buildHandshakeAccept(senderYggAddress, signedPreKeyJSON, alias, device)
+	return identity.buildHandshakeAccept(senderYggAddress, signedPreKeyJSON, alias, "", device)
 }
 
-func (identity *CryptoIdentity) buildHandshakeRequest(senderYggAddress, signedPreKeyJSON, alias string, device *deviceHandshakeFields) (string, error) {
+func (identity *CryptoIdentity) BuildHandshakeAcceptWithProfile(senderYggAddress, signedPreKeyJSON, alias, avatar, deviceJSON string) (string, error) {
+	var device *deviceHandshakeFields
+	if strings.TrimSpace(deviceJSON) != "" {
+		parsed, err := identity.parseDeviceHandshakeFields(deviceJSON)
+		if err != nil {
+			return "", err
+		}
+		device = parsed
+	}
+	return identity.buildHandshakeAccept(senderYggAddress, signedPreKeyJSON, alias, avatar, device)
+}
+
+func (identity *CryptoIdentity) buildHandshakeRequest(senderYggAddress, signedPreKeyJSON, alias, avatar string, device *deviceHandshakeFields) (string, error) {
 	if !isYggdrasilAddress(net.ParseIP(senderYggAddress)) {
 		return "", errors.New("senderYggAddress must be a Yggdrasil IPv6 address")
 	}
@@ -77,11 +101,21 @@ func (identity *CryptoIdentity) buildHandshakeRequest(senderYggAddress, signedPr
 	if alias != "" {
 		data["alias"] = alias
 	}
+	avatarValue, err := validatedAvatar(avatar)
+	if err != nil {
+		return "", err
+	}
+	if avatarValue != "" {
+		data["avatar"] = avatarValue
+	}
+	if proof := identity.newContactPowProof(); proof != "" {
+		data["powProof"] = proof
+	}
 	addDeviceHandshakeFields(data, device)
 	return identity.buildSignedPacket(data, senderYggAddress)
 }
 
-func (identity *CryptoIdentity) buildHandshakeAccept(senderYggAddress, signedPreKeyJSON, alias string, device *deviceHandshakeFields) (string, error) {
+func (identity *CryptoIdentity) buildHandshakeAccept(senderYggAddress, signedPreKeyJSON, alias, avatar string, device *deviceHandshakeFields) (string, error) {
 	if !isYggdrasilAddress(net.ParseIP(senderYggAddress)) {
 		return "", errors.New("senderYggAddress must be a Yggdrasil IPv6 address")
 	}
@@ -106,6 +140,13 @@ func (identity *CryptoIdentity) buildHandshakeAccept(senderYggAddress, signedPre
 	}
 	if alias != "" {
 		data["alias"] = alias
+	}
+	avatarValue, err := validatedAvatar(avatar)
+	if err != nil {
+		return "", err
+	}
+	if avatarValue != "" {
+		data["avatar"] = avatarValue
 	}
 	addDeviceHandshakeFields(data, device)
 	payload := cloneStringMap(data)
@@ -212,6 +253,22 @@ func addDeviceHandshakeFields(data map[string]any, device *deviceHandshakeFields
 		"spkSig": device.DeviceSignedPreKey.SPKSig,
 		"spkId":  json.Number(strconv.Itoa(device.DeviceSignedPreKey.SPKID)),
 	}
+}
+
+const maxHandshakeAvatarBytes = 2_000_000
+
+func validatedAvatar(avatar string) (string, error) {
+	avatar = strings.TrimSpace(avatar)
+	if avatar == "" {
+		return "", nil
+	}
+	if !strings.HasPrefix(avatar, "data:image/") {
+		return "", errors.New("avatar must be a data URI")
+	}
+	if len(avatar) > maxHandshakeAvatarBytes {
+		return "", fmt.Errorf("avatar must be at most %d bytes", maxHandshakeAvatarBytes)
+	}
+	return avatar, nil
 }
 
 func validatedAlias(alias string) (string, error) {

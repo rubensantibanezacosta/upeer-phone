@@ -744,11 +744,11 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 
 | Pantalla | Estado | Qué falta |
 |---|---|---|
-| Chats · búsqueda | Hecha | `Input` real que filtra por título, identidad y vista previa con `filterChatEntries` |
-| Chats · filtros | Hechos | `Todos`, `No leídos` y `Archivados` filtran la lista y se combinan con la búsqueda; el estado vacío distingue «sin coincidencias» de «sin conversaciones». `Favoritos` y `Grupos` quedan fuera hasta que exista origen de datos |
+| Chats · búsqueda | Hecha | `Input` real que filtra por título, identidad y vista previa con `filterChatEntries`. **Sin borde**, como `SidebarSearch`: caja de 35 px, radio 8, lupa dentro y aspa para limpiar. El mismo patrón se aplica a Contactos y al selector de contactos |
+| Chats · filtros | Hechos | Mismo juego que escritorio (`SidebarFilter`): `Todos`, `No leídos`, `Favoritos` y `Grupos`, combinados con la búsqueda. **`Archivados` deja de ser filtro**: archivar es una acción por conversación y su conversación sigue visible, igual que en Desktop. `Grupos` muestra su estado vacío hasta que exista origen de datos, sin inventar conversaciones. Los chips copian el `Chip` de Joy: `solid`/`primary` activo, `soft`/`neutral` inactivo, radio de píldora |
 | Chats · menú contextual | Hecha | Fijar, silenciar y archivar se guardan por conversación en `upeer.conversationFlags`: los fijados suben al principio con su chincheta, los silenciados muestran la campana tachada y el servicio omite sus notificaciones, y los archivados salen de «Todos» con un filtro «Archivados» propio. «Marcar como leído» actúa; «Favoritos» y «Vaciar chat» siguen avisando de «próximamente» |
 | Chats · nueva conversación | Parcial | «Nueva conversación» y «Nuevo grupo» avisan de «próximamente»; la lista de contactos sí abre el chat |
-| Contactos · alta | Hecha | Faltan reputación real y la tarjeta propia en QR |
+| Contactos · alta | Hecha | Falta la tarjeta propia en QR. La reputación deja de ser dato de producto: solo se avisa cuando es muy mala |
 | Chats · solicitudes | Hecha | El primer mensaje de un remitente sin contacto entra en la lista como una conversación más; al abrirla, el cuerpo muestra la pantalla de solicitud con Bloquear y Aceptar y conectar. Si ya existía conversación, se acepta sola |
 | Chats · bloqueo | Hecha | Bloquear desde una solicitud o desde la ficha oculta la conversación y el servicio descarta sus paquetes antes de descifrar, sin notificar |
 | Contactos · tarjeta propia en QR | Pendiente | El móvil debe poder mostrar su tarjeta de contacto en QR para que el escritorio la escanee, además del QR de identidad que ya vive en Perfil |
@@ -769,7 +769,7 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Perfil · revocar dispositivo | Hecha | Cada dispositivo que no es el actual lleva un icono de papelera que pide confirmación, llama a `revokeAccountDevice` y refresca la lista; los revocados se listan debajo con su fecha. Si el dispositivo local está revocado, el aviso ofrece «Volver a vincular este dispositivo» con el flujo de emparejamiento. Falta que la revocación viaje por B10 al resto de dispositivos |
 | Chat · cabecera | Parcial | «Info. del contacto» abre la ficha completa y «Buscar en la conversación» abre la barra de búsqueda; videollamada y llamada de voz avisan «pendiente». Cuando la conversación es una solicitud solo quedan volver, avatar y menú |
 | Chat · búsqueda | Hecha | La barra sustituye al compositor con contador `1 de N`, flechas anterior/siguiente y resalte de la burbuja encontrada; cierra y devuelve el compositor |
-| Ficha del contacto | Hecha | Pantalla completa `/contact/[upeerId]` con la distribución de escritorio: hero (avatar 96, alias, identidad, presencia y reputación), fila Llamar·Vídeo·Buscar, identidad y dirección copiables, acciones de conversación y zona de riesgo. Bloquear/desbloquear, eliminar, compartir, silenciar, archivar, favoritos y cerrar sesión son reales; «Cifrado» abre la hoja con el número de seguridad; vaciar chat se muestra atenuado con «Pronto» |
+| Ficha del contacto | Hecha | Pantalla completa `/contact/[upeerId]` con la distribución de escritorio: hero (avatar 96, alias, identidad y presencia), fila Llamar·Vídeo·Buscar, identidad y dirección copiables, acciones de conversación y zona de riesgo. Bloquear/desbloquear, eliminar, compartir, silenciar, archivar, favoritos y cerrar sesión son reales; «Cifrado» abre la hoja con el número de seguridad; vaciar chat se muestra atenuado con «Pronto» |
 | Ficha de grupo | Pendiente | No hay grupos en el móvil; cuando existan `GROUP_*` debe replicar la misma pantalla con miembros y administración |
 | Chat · composer | Parcial | Adjuntar archivo y nota de voz avisan «pendiente». **No hay ningún `FILE_*` en el móvil**: adjuntos, imágenes, vídeo, audio y documentos no existen, así que tampoco hay reintento de archivos que probar |
 | Chat · mensajes | Hecha | Editar, reaccionar, borrar para todos, responder (cita con autor y extracto), reenviar a uno o varios contactos y **reintentar un envío fallido**; el estado de entrega es real (`pending`/`sent`/`delivered`/`read`/`failed`), con 8 reenvíos sin ACK antes de darse por fallido |
@@ -984,16 +984,44 @@ Hallazgos que condicionan el diseño:
 Reglas de estilo acordadas para toda pantalla nueva:
 
 - Solo tokens de `src/constants/theme.ts`; ningún color literal.
+- **Nunca `lineHeight` en texto.** Ni `Text`, ni `Paragraph`, ni `SizableText`: el interlineado lo pone la fuente. Se ha repetido la corrección demasiadas veces (última, el estado vacío de Chats); el aviso vive también en `AGENTS.md`. Única excepción, el glifo de inicial de `ProfileAvatar`.
 - El ripple sale de `theme.ripple`. `NativeRippleButton` recorta con `overflow: 'hidden'` por defecto y todo contenedor pulsable con esquinas redondeadas debe recortarlo también, o el ripple se sale de la forma.
 - Los estados vacíos repiten el patrón de «Aún no hay llamadas»: círculo de 64 px con `theme.backgroundElement`, icono de 28 px en `theme.placeholder`, título 17/600 y `Paragraph` centrado; si hace falta una acción, se añade el botón estándar debajo. Nada de bordes discontinuos ni tamaños propios.
 - Las pantallas de primer nivel usan `theme.background`; el círculo del estado vacío necesita ese contraste para verse.
-- Las cabeceras de lista repiten el patrón de Chats: `H1` 24/700 y, a la derecha, acciones de icono de 44×44 (`headerButton`); la búsqueda es la misma caja de 14 de radio con `Input` sin borde propio.
+- Las cabeceras de lista repiten el patrón de Chats: `H1` 24/700 y, a la derecha, acciones de icono de 44×44 (`headerButton`); la búsqueda es la misma caja sin borde de 35 px de alto y radio 8, con la lupa dentro y el aspa de limpiar condicional, calcada de `SidebarSearch`.
 - Las fichas de contacto y de grupo son pantallas completas empujadas al stack (`/contact/[upeerId]`), no hojas inferiores: cabecera de 44×44 con `ArrowLeft` y título 17/700, hero centrado con avatar 96, fila de tres acciones circulares de 52, campos copiables y listas de filas de 58 con icono 22. Las acciones que aún no existen se muestran atenuadas (`opacity` 0.45) con la etiqueta «Pronto», siguiendo la distribución de `ContactInfoPanelMainView` de escritorio, en vez de ocultarlas.
 - Las cuatro pestañas principales comparten el mismo bloque de cabecera y el mismo relleno de contenido (`paddingTop` 20, `paddingHorizontal` 20, `gap` 12); en Llamadas eso queda como `H1` 24/700 sin acción hasta que exista «nueva llamada». Cuando llegue el historial, sus filas reutilizan el item de conversación.
 - Las filas de contacto reutilizan el item de conversación: `ContactTrustAvatar` de 55 px, título 15/600 con el dato secundario a la derecha (hora en chats, estado en contactos), segunda línea de 13 con `numberOfLines={1}`, `minHeight` 80 y separador `hairline` a sangre (`marginHorizontal: -12`). No se inventan tarjetas con borde y fondo propio para listas.
 - El relleno horizontal va en el contenido de cada pantalla, nunca en el `Tabs`.
 - Las cabeceras de sección repiten el patrón icono 16 px + título 14/600 + `Info` + subtítulo 12 px con borde inferior.
 - Los formularios siguen el patrón de escritorio: texto explicativo, campos con etiqueta y ayuda, acción principal deshabilitada hasta que el formulario es válido.
+
+### Paridad visual: chips y campos de búsqueda (24/10/2026)
+
+El usuario detectó que los chips de filtrado de Chats y los campos de búsqueda del móvil se habían inventado. **Escritorio es la referencia y no se reinterpreta.**
+
+- **Chips.** Salen de `SidebarSearch` (`Chip` de Joy UI): `Todos`, `No leídos`, `Favoritos` y `Grupos`. Activo `variant="solid" color="primary"` con `fontWeight` 600; inactivo `variant="soft" color="neutral"` con 400; radio de píldora completa, `size="sm"` y separación de 8 en una fila con scroll horizontal sin indicador. No hay chip «Archivados»: en Desktop archivar es una acción por conversación (`ContactItemActions`), no una pestaña.
+- **Campos de búsqueda sin borde.** `SidebarSearch` envuelve el `Input` en una caja con `background.level1`, radio 8, alto 35 y `border: 1px solid transparent` que solo se enciende en `:focus-within`; el `Input` va en `variant="plain"` con el foco anulado. El móvil replica eso: `theme.backgroundElement`, radio 8, alto 35, `Input` con `borderWidth={0}` y sin borde exterior permanente. Aplica a Chats, Contactos, selector de contactos y cualquier campo de búsqueda futuro.
+- **Placeholder.** «Buscar un chat o iniciar uno nuevo» en Chats, igual que Desktop, en lugar de un texto propio.
+- **Estado vacío por filtro.** Cada filtro tiene su mensaje: `Grupos` dice «Sin grupos», `Favoritos` «Sin favoritos» y `No leídos` «Sin mensajes no leídos», como los `EmptyState` de `SidebarListPanel`.
+- **Iconos.** El móvil dibuja con `@tamagui/lucide-icons-2`; escritorio sigue con `@mui/icons-material` en 94 archivos y 145 iconos distintos. La migración de escritorio a Lucide queda como deuda para que un mismo concepto tenga el mismo trazo en ambos clientes.
+
+### Reputación: criterio técnico, no etiqueta social (24/10/2026)
+
+- **No se muestra.** Desaparece de la ficha del contacto, de la tarjeta de confianza y de la pantalla de solicitud. `ContactTrustAvatar` deja de pintar insignia; el dato sigue existiendo en el servicio.
+- **Única excepción.** Una reputación muy mala se avisa como señal de seguridad, porque el usuario necesita saber que el nodo está aislado del grafo. El umbral se define una vez y se comparte entre clientes.
+- **Uso interno intacto.** PoW, renovaciones por confianza, elección de relay de llamadas, admisión de vault y rate limiting por identidad siguen leyendo el score.
+- **Rediseño pendiente: por usuario, no por nodo.** `computeScore` puntúa una identidad, pero lo que mide de facto es el nodo que escribe. Un usuario con móvil y escritorio obtiene dos puntuaciones distintas de la misma persona. Hay que agregar por cuenta con los dispositivos verificados como unidad —decidir peso por dispositivo, función de agregación y qué pasa si un dispositivo comprometido intenta arrastrar la cuenta— y cubrirlo con pruebas de que añadir dispositivos no mejora ni empeora la cuenta por sí solo.
+
+### Perfil en el handshake y propagación (24/10/2026)
+
+El usuario reportó que en escritorio el móvil aparecía como «Peer d679» sin avatar, y que el móvil no pintaba el avatar del escritorio. Eran dos fallos distintos:
+
+- **El móvil nunca mandaba su perfil.** `OutboxPacketFactory.handshakeRequest` pasaba alias `""` y no existía avatar. Ahora el puente expone `setProfile(alias, avatar)`, el perfil se persiste en el estado (`profile`) y viaja en `HANDSHAKE_REQ` y `HANDSHAKE_ACCEPT` con `BuildHandshakeRequestWithProfile`/`BuildHandshakeAcceptWithProfile`. El límite de avatar del puente se alinea con el de escritorio (2 MB de data URI); antes eran 96 KiB y habría rechazado fotos válidas.
+- **El perfil no se propagaba al cambiar.** `setProfile` compara el perfil nuevo con el anterior y, si cambia, olvida a quién ya lo anunció. El anuncio real va por peer y **se dispara con el primer paquete verificado que llega de ese contacto**, no al arrancar: `announceProfileTo(upeerId)` manda un `HANDSHAKE_REQ` con el perfil en un hilo propio. La primera versión hacía un barrido al arrancar y quedaba colgada en `dialTCP` contra peers muertos, bloqueando la llamada nativa del hilo de JS; se descartó.
+- **El móvil recibía el avatar del escritorio pero lo tiraba.** `YggdrasilProtocol` copiaba `alias` de los metadatos del handshake y no `avatar`, y `rememberPeer` no lo guardaba. Ahora ambos campos se copian y `ProtocolConversations` los proyecta; Chats, cabecera, ficha y lista de Contactos los leen.
+- **Verificado en vivo:** tras el cambio, escritorio muestra el móvil como «dev» con su foto (62 KB) y el móvil pinta la foto del escritorio en Chats.
+- **Falsa alarma descartada:** el `RangeError: Too few parameter values were provided` al editar un mensaje recién enviado no era un fallo del producto. El driver de pruebas pasaba un id equivocado (`sent.id` es el identificador del mensaje; usar otro campo rompía la consulta). Con el id correcto, `sendChatUpdate` funciona justo después de `sendMessage`.
 
 ## Regla para solicitudes de funcionalidad
 

@@ -38,8 +38,10 @@ public final class CryptoIdentity implements Seq.Proxy {
 	public native String buildEnrollmentRequest(String inviteJSON, String platform, long nowMillis) throws Exception;
 	public native String buildHandshakeAccept(String senderYggAddress, String signedPreKeyJSON, String alias) throws Exception;
 	public native String buildHandshakeAcceptWithDevice(String senderYggAddress, String signedPreKeyJSON, String alias, String deviceJSON) throws Exception;
+	public native String buildHandshakeAcceptWithProfile(String senderYggAddress, String signedPreKeyJSON, String alias, String avatar, String deviceJSON) throws Exception;
 	public native String buildHandshakeRequest(String senderYggAddress, String signedPreKeyJSON, String alias) throws Exception;
 	public native String buildHandshakeRequestWithDevice(String senderYggAddress, String signedPreKeyJSON, String alias, String deviceJSON) throws Exception;
+	public native String buildHandshakeRequestWithProfile(String senderYggAddress, String signedPreKeyJSON, String alias, String avatar, String deviceJSON) throws Exception;
 	public native String buildLinkedChat(String accountUpeerID, String senderYggAddress, String peerPublicKeyHex, String peerSPKPublicKeyHex, String sessionJSON, String plaintext, String messageID, String replyTo, long peerSPKID, long timestamp, String deviceID) throws Exception;
 	public native String buildLinkedChatUpdate(String accountUpeerID, String senderYggAddress, String peerPublicKeyHex, String peerSPKPublicKeyHex, String sessionJSON, String plaintext, String messageID, long version, long peerSPKID, long timestamp, String deviceID) throws Exception;
 	public native String buildLinkedDrReset(String accountUpeerID, String senderYggAddress, String signedPreKeyJSON, String ratchetContext, String deviceID) throws Exception;

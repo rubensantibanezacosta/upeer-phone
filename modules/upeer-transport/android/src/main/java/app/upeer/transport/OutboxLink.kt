@@ -9,6 +9,7 @@ internal class OutboxLink(
   private val signedPreKeys: SignedPreKeyStore,
   private val deviceSignedPreKeys: DeviceSignedPreKeyStore,
   private val deviceBindings: DeviceMessagingBindings,
+  private val state: ProtocolStateStore,
   private val selfAddress: () -> String,
 ) {
   fun sendPacket(activeBridge: Bridge, address: String, packet: String): Boolean {
@@ -41,6 +42,7 @@ internal class OutboxLink(
         identity.currentDevice(),
         deviceSignedPreKeys,
         deviceBindings,
+        state.profile(),
       )
       if (sendPacket(activeBridge, address, packet)) Log.i(TAG, "HANDSHAKE_REQ enviado a $address")
     } catch (cause: Exception) {

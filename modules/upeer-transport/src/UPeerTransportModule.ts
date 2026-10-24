@@ -47,6 +47,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   deleteConversation(upeerId: string): Promise<boolean>;
   setBlockedPeers(blockedJSON: string): Promise<void>;
   setKnownContacts(knownJSON: string): Promise<void>;
+  setProfile(alias: string, avatar: string): Promise<void>;
   setNotificationPrefs(prefsJSON: string): Promise<void>;
   setReadReceipts(enabled: boolean): Promise<void>;
   setMutedPeers(mutedJSON: string): Promise<void>;
@@ -297,6 +298,10 @@ export async function setBlockedPeers(blockedJSON: string): Promise<void> {
 
 export async function setKnownContacts(knownJSON: string): Promise<void> {
   return nativeModule.setKnownContacts(knownJSON);
+}
+
+export async function setProfile(alias: string, avatar: string): Promise<void> {
+  return nativeModule.setProfile(alias, avatar);
 }
 
 export async function setNotificationPrefs(prefsJSON: string): Promise<void> {

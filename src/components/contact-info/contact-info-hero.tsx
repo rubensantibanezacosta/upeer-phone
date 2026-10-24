@@ -12,6 +12,7 @@ import type { UPeerContact } from '@/storage/contact-store';
 
 type ContactInfoHeroProps = {
   alias: string;
+  avatar?: string;
   upeerId: string;
   status: UPeerContact['status'];
   presence?: string | null;
@@ -21,14 +22,14 @@ type ContactInfoHeroProps = {
   onSearch: () => void;
 };
 
-export function ContactInfoHero({ alias, upeerId, status, presence = null, vouchScore, onCall, onVideo, onSearch }: ContactInfoHeroProps) {
+export function ContactInfoHero({ alias, avatar, upeerId, status, presence = null, vouchScore, onCall, onVideo, onSearch }: ContactInfoHeroProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const statusColor = presence === 'En línea' ? theme.success : status === 'blocked' ? theme.danger : theme.placeholder;
 
   return (
     <YStack alignItems="center" gap={5} paddingHorizontal={20} paddingTop={4}>
-      <ContactTrustAvatar name={alias} size={96} vouchScore={vouchScore} />
+      <ContactTrustAvatar avatar={avatar} name={alias} size={96} vouchScore={vouchScore} />
       <SizableText color={theme.text} fontSize={scale(20)} fontWeight="700" numberOfLines={2} textAlign="center">{alias}</SizableText>
       <Text color={theme.placeholder} ellipsizeMode="middle" fontFamily="monospace" fontSize={scale(12)} numberOfLines={1}>{upeerId}</Text>
       <XStack alignItems="center" gap={5}>

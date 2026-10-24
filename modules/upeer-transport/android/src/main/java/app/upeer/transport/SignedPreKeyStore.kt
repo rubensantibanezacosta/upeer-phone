@@ -17,7 +17,7 @@ internal class SignedPreKeyStore(context: Context) {
   fun currentJSON(identity: CryptoIdentity): String {
     val state = load()
     val current = state?.optJSONObject("current")
-    if (current != null && isValid(current) && isFresh(current.optLong("spkId"))) {
+    if (current != null && isValid(current) && isFresh(current.optLong("spkId")) && signedByIdentity(identity, current)) {
       return current.toString()
     }
     val next = JSONObject(identity.createSignedPreKey(System.currentTimeMillis()))
@@ -34,6 +34,7 @@ internal class SignedPreKeyStore(context: Context) {
     }
     candidates
       .distinctBy { it.optLong("spkId") }
+      .filter { signedByIdentity(identity, it) }
       .take(MAX_PREVIOUS)
       .forEach(previous::put)
     val wrapper = JSONObject()
@@ -83,6 +84,14 @@ internal class SignedPreKeyStore(context: Context) {
     val now = System.currentTimeMillis()
     return now >= spkID && now - spkID < ROTATION_INTERVAL_MS
   }
+
+  private fun signedByIdentity(identity: CryptoIdentity, value: JSONObject): Boolean =
+    try {
+      identity.verifySignedPreKey(identity.publicKeyHex(), value.optString("spkPub"), value.optString("spkSig"))
+    } catch (cause: Exception) {
+      Log.w(TAG, "No se pudo verificar la Signed Pre-Key cacheada: ${cause.message}")
+      false
+    }
 
   private companion object {
     private const val TAG = "UPeerTransport"

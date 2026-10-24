@@ -48,6 +48,8 @@ internal class ProtocolStateStore(context: Context) {
       if (address.isNotBlank()) existing.put("address", address)
       val alias = metadata.optString("alias").trim()
       if (alias.isNotEmpty()) existing.put("alias", alias.take(100))
+      val avatar = ProfileFields.avatar(metadata.optString("avatar"))
+      if (avatar.isNotEmpty()) existing.put("avatar", avatar)
       val signedPreKey = metadata.optJSONObject("signedPreKey")
       if (signedPreKey != null && SignedPreKeyFields.valid(signedPreKey) &&
         (keyChanged || SignedPreKeyFields.isNewer(existing.optJSONObject("signedPreKey"), signedPreKey))
@@ -133,6 +135,28 @@ internal class ProtocolStateStore(context: Context) {
 
   fun peerFor(upeerId: String): JSONObject? = synchronized(lock) {
     state.optJSONObject("peers")?.optJSONObject(upeerId)?.let(::copy)
+  }
+
+  fun setProfile(alias: String, avatar: String) {
+    synchronized(lock) {
+      val profile = state.optJSONObject("profile") ?: JSONObject()
+      profile.put("alias", ProfileFields.alias(alias))
+      val normalizedAvatar = ProfileFields.avatar(avatar)
+      if (normalizedAvatar.isEmpty()) profile.remove("avatar") else profile.put("avatar", normalizedAvatar)
+      state.put("profile", profile)
+      persist()
+    }
+  }
+
+  fun announcedProfile(): String = synchronized(lock) { state.optString("announcedProfileV2") }
+
+  fun setAnnouncedProfile(value: String) = synchronized(lock) {
+    state.put("announcedProfileV2", value)
+    persist()
+  }
+
+  fun profile(): JSONObject = synchronized(lock) {
+    state.optJSONObject("profile")?.let(::copy) ?: JSONObject()
   }
 
   fun publicKeyFor(upeerId: String): String? = synchronized(lock) {

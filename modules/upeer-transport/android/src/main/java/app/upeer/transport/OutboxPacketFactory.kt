@@ -11,15 +11,18 @@ internal object OutboxPacketFactory {
     device: DeviceIdentity?,
     deviceSignedPreKeys: DeviceSignedPreKeyStore,
     deviceBindings: DeviceMessagingBindings,
+    profile: JSONObject,
   ): String {
     val deviceFields = device?.let {
       deviceBindings.handshakeFields(it, deviceSignedPreKeys)
     }
-    return if (deviceFields != null) {
-      identity.buildHandshakeRequestWithDevice(selfAddress, signedPreKeyJSON, "", deviceFields.toString())
-    } else {
-      identity.buildHandshakeRequest(selfAddress, signedPreKeyJSON, "")
-    }
+    return identity.buildHandshakeRequestWithProfile(
+      selfAddress,
+      signedPreKeyJSON,
+      profile.optString("alias"),
+      profile.optString("avatar"),
+      deviceFields?.toString().orEmpty(),
+    )
   }
 
   fun packet(

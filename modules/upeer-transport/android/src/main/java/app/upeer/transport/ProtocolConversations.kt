@@ -25,6 +25,7 @@ internal object ProtocolConversations {
       JSONObject()
         .put("upeerId", upeerId)
         .put("alias", peers.optJSONObject(upeerId)?.optString("alias").orEmpty())
+        .put("avatar", peers.optJSONObject(upeerId)?.optString("avatar").orEmpty())
         .put("lastMessage", message.optString("content"))
         .put("lastStatus", message.optString("status"))
         .put("lastTimestamp", message.optLong("timestamp"))

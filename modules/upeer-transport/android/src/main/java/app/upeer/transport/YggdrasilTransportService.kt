@@ -204,6 +204,10 @@ class YggdrasilTransportService : Service() {
       protocolState.setMutedPeers(muted)
       Log.i(TAG, "Conversaciones silenciadas: ${muted.size}")
     }
+    override fun setProfile(alias: String, avatar: String) {
+      protocol.setProfile(alias, avatar)
+      Log.i(TAG, "Perfil actualizado: alias=${alias.isNotEmpty()} avatar=${avatar.isNotEmpty()}")
+    }
     override fun setNotificationPrefs(prefsJSON: String) {
       val prefs = NotificationPrefs.parse(prefsJSON)
       protocolState.setNotificationPrefs(prefs)

@@ -41,7 +41,7 @@ func (identity *CryptoIdentity) CreateSignedPreKey(spkID int) (string, error) {
 }
 
 func (identity *CryptoIdentity) BuildHandshakeAccept(senderYggAddress, signedPreKeyJSON, alias string) (string, error) {
-	return identity.buildHandshakeAccept(senderYggAddress, signedPreKeyJSON, alias, nil)
+	return identity.buildHandshakeAccept(senderYggAddress, signedPreKeyJSON, alias, "", nil)
 }
 
 func (identity *CryptoIdentity) BuildAck(senderYggAddress, messageID, status string) (string, error) {

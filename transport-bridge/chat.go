@@ -226,7 +226,7 @@ func (identity *CryptoIdentity) sealOutboundChat(signedPacket, peerPublicKeyHex,
 }
 
 func (identity *CryptoIdentity) BuildHandshakeRequest(senderYggAddress, signedPreKeyJSON, alias string) (string, error) {
-	return identity.buildHandshakeRequest(senderYggAddress, signedPreKeyJSON, alias, nil)
+	return identity.buildHandshakeRequest(senderYggAddress, signedPreKeyJSON, alias, "", nil)
 }
 
 func (identity *CryptoIdentity) BuildDrReset(senderYggAddress, signedPreKeyJSON, ratchetContext string) (string, error) {
