@@ -5,6 +5,7 @@ import { X } from '@tamagui/lucide-icons-2';
 import { SizableText, XStack } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type BottomSheetProps = {
@@ -17,6 +18,7 @@ type BottomSheetProps = {
 
 export function BottomSheet({ visible, title, icon, onClose, children }: BottomSheetProps) {
   const theme = useTheme();
+  const scale = useTextScale();
   const insets = useSafeAreaInsets();
 
   return <Modal animationType="fade" onRequestClose={onClose} presentationStyle="overFullScreen" statusBarTranslucent transparent visible={visible}>
@@ -25,7 +27,7 @@ export function BottomSheet({ visible, title, icon, onClose, children }: BottomS
       <View accessibilityViewIsModal style={[styles.sheet, { backgroundColor: theme.backgroundElement, borderColor: theme.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
         <XStack alignItems="center" gap={12} paddingHorizontal={16} paddingVertical={14}>
           {icon}
-          <SizableText color={theme.text} flex={1} fontSize={16} fontWeight="700" numberOfLines={1}>{title}</SizableText>
+          <SizableText color={theme.text} flex={1} fontSize={scale(16)} fontWeight="700" numberOfLines={1}>{title}</SizableText>
           <NativeRipplePressable accessibilityLabel="Cerrar" onPress={onClose} style={styles.closeButton}><X color={theme.placeholder} size={18} /></NativeRipplePressable>
         </XStack>
         <View style={[styles.divider, { backgroundColor: theme.border }]} />

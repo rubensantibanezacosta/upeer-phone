@@ -3,6 +3,7 @@ import { Text } from 'tamagui';
 
 import type { ReactionSummary } from '@/domain/chat-reactions';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type ChatReactionRowProps = {
@@ -13,6 +14,7 @@ type ChatReactionRowProps = {
 
 export function ChatReactionRow({ isMine, onToggle, reactions }: ChatReactionRowProps) {
   const theme = useTheme();
+  const scale = useTextScale();
   if (reactions.length === 0) return null;
 
   return (
@@ -32,9 +34,9 @@ export function ChatReactionRow({ isMine, onToggle, reactions }: ChatReactionRow
             },
           ]}
         >
-          <Text fontSize={12}>{reaction.emoji}</Text>
+          <Text fontSize={scale(12)}>{reaction.emoji}</Text>
           {reaction.count > 1 ? (
-            <Text color={reaction.mine ? theme.bubbleMineText : theme.textSecondary} fontSize={11} fontWeight="600">{reaction.count}</Text>
+            <Text color={reaction.mine ? theme.bubbleMineText : theme.textSecondary} fontSize={scale(11)} fontWeight="600">{reaction.count}</Text>
           ) : null}
         </NativeRipplePressable>
       ))}

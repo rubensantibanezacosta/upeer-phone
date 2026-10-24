@@ -14,6 +14,7 @@ import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ProfileAvatar } from '@/components/profile-avatar';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type AuthScreenProps = { identityExists: boolean; onAuthenticated: (identity: UPeerIdentity) => void };
@@ -28,6 +29,7 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
   const [pairing, setPairing] = useState(false);
   const [error, setError] = useState('');
   const theme = useTheme();
+  const scale = useTextScale();
   const copyToClipboard = useCopyToClipboard();
 
   const runWithMnemonic = async (phrase: string, nextAlias: string, nextAvatar = '') => {
@@ -96,20 +98,20 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
           <YStack alignSelf="center" gap={24} width="100%" maxWidth={480}>
             <YStack gap={8} paddingHorizontal={4}>
           
-              <H1 color="color" fontSize={24} fontWeight="700" letterSpacing={-1.5}>uPeer</H1>
-              <Paragraph color="placeholder-color" fontSize={16}>Tu identidad. Tus contactos. Tu privacidad.</Paragraph>
+              <H1 color="color" fontSize={scale(24)} fontWeight="700" letterSpacing={-1.5}>uPeer</H1>
+              <Paragraph color="placeholder-color" fontSize={scale(16)}>Tu identidad. Tus contactos. Tu privacidad.</Paragraph>
             </YStack>
             <Card borderWidth={1} backgroundColor="color-1" borderColor="border-color" borderRadius={20} padding={24}>
               <YStack gap={20}>
                 <YStack gap={8}>
-                  <SizableText color="color" fontSize={21} fontWeight="700">{mode === 'create' ? 'Crea tu identidad' : mode === 'recover' ? 'Recupera tu identidad' : mode === 'unlock' ? 'Desbloquea tu identidad' : 'Empieza a conversar en privado'}</SizableText>
+                  <SizableText color="color" fontSize={scale(21)} fontWeight="700">{mode === 'create' ? 'Crea tu identidad' : mode === 'recover' ? 'Recupera tu identidad' : mode === 'unlock' ? 'Desbloquea tu identidad' : 'Empieza a conversar en privado'}</SizableText>
                   {!mode && <Paragraph color="placeholder-color">{identityExists ? 'Tu identidad está protegida. Introduce tu frase para desbloquearla o recuperar otra cuenta.' : 'Crea una identidad segura o recupera el acceso a la que ya tienes en otro dispositivo.'}</Paragraph>}
                 </YStack>
                 {generatedPhrase.length > 0 && (
                   <YStack backgroundColor="color-2" borderColor="border-color" borderRadius={14} borderWidth={1} gap={8} padding={16}>
-                    <SizableText color="accent-color" fontSize={14} fontWeight="700">GUARDA TU FRASE DE RECUPERACIÓN</SizableText>
+                    <SizableText color="accent-color" fontSize={scale(14)} fontWeight="700">GUARDA TU FRASE DE RECUPERACIÓN</SizableText>
                     <CopyField accessibilityLabel="Copiar palabras" onCopy={() => void copyToClipboard(generatedPhrase, 'Palabras copiadas')} value={generatedPhrase} />
-                    <Paragraph color="placeholder-color" fontSize={13}>No la compartas. La necesitarás para recuperar tu identidad.</Paragraph>
+                    <Paragraph color="placeholder-color" fontSize={scale(13)}>No la compartas. La necesitarás para recuperar tu identidad.</Paragraph>
                     <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={44} icon={<Copy color={theme.onAccentSoft} size={15} />} onPress={() => void copyToClipboard(generatedPhrase, 'Palabras copiadas')} width="100%">Copiar palabras</NativeRippleButton>
                   </YStack>
                 )}
@@ -120,14 +122,14 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
                     : <YStack gap={12}>
                     <TextArea accessibilityLabel="Frase secreta de 12 palabras" autoCapitalize="none" autoCorrect={false} backgroundColor="color-2" borderColor="border-color" color="color" height={mode === 'create' ? 86 : 112} onChangeText={setMnemonic} placeholder={mode === 'create' ? 'Escribe las 12 palabras para confirmar' : 'Escribe las 12 palabras en orden'} placeholderTextColor="placeholder-color" textAlignVertical="top" value={mnemonic} />
                     {mode === 'create' && <YStack gap={10}>
-                      <SizableText color="placeholder-color" fontSize={10} fontWeight="600" letterSpacing={0.7}>FOTO DE PERFIL (OPCIONAL)</SizableText>
+                      <SizableText color="placeholder-color" fontSize={scale(10)} fontWeight="600" letterSpacing={0.7}>FOTO DE PERFIL (OPCIONAL)</SizableText>
                       <XStack alignItems="center" gap={14}>
                         <NativeRipplePressable accessibilityLabel={avatar ? 'Cambiar foto de perfil' : 'Añadir foto de perfil'} accessibilityRole="button" disabled={avatarBusy} onPress={() => void chooseAvatar()}>
                           <ProfileAvatar avatar={avatar || undefined} name={alias || '?'} size={72} />
                         </NativeRipplePressable>
                         <YStack alignItems="flex-start" gap={8}>
                           <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} disabled={avatarBusy} height={38} icon={<ImagePlus color={theme.onAccentSoft} size={15} />} onPress={() => void chooseAvatar()}>{avatarBusy ? 'Procesando…' : avatar ? 'Cambiar foto' : 'Añadir foto'}</NativeRippleButton>
-                          {avatar ? <SizableText accessibilityLabel="Quitar foto de perfil" color={theme.danger} fontSize={12} onPress={() => { setAvatar(''); setError(''); }} paddingHorizontal={4} role="button">Quitar foto</SizableText> : null}
+                          {avatar ? <SizableText accessibilityLabel="Quitar foto de perfil" color={theme.danger} fontSize={scale(12)} onPress={() => { setAvatar(''); setError(''); }} paddingHorizontal={4} role="button">Quitar foto</SizableText> : null}
                         </YStack>
                       </XStack>
                       <Input accessibilityLabel="Nombre visible" autoCapitalize="words" backgroundColor="color-2" borderColor="border-color" color="color" onChangeText={setAlias} placeholder="Tu nombre" placeholderTextColor="placeholder-color" value={alias} />
@@ -144,7 +146,7 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
                   {(mode === 'recover' || mode === 'unlock') && !pairing && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={mode === 'recover' ? <RotateCcw color={theme.onAccent} size={18} /> : <KeyRound color={theme.onAccent} size={18} />} onPress={() => void runWithMnemonic(mnemonic, '')}>{mode === 'recover' ? 'Recuperar identidad' : 'Desbloquear identidad'}</NativeRippleButton>}
                   {mode === 'recover' && !pairing && <XStack alignItems="center" gap={8} justifyContent="center">
                     <QrCode color={theme.onAccentSoft} size={15} />
-                    <SizableText accessibilityRole="button" color="placeholder-color" fontSize={13} onPress={() => { setError(''); setMnemonic(''); setPairing(true); }} padding={6}>No tengo la frase: vincular este dispositivo</SizableText>
+                    <SizableText accessibilityRole="button" color="placeholder-color" fontSize={scale(13)} onPress={() => { setError(''); setMnemonic(''); setPairing(true); }} padding={6}>No tengo la frase: vincular este dispositivo</SizableText>
                   </XStack>}
                   {mode === 'create' && matchedPhrase && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<Check color={theme.onAccent} size={18} />} onPress={() => void runWithMnemonic(generatedPhrase, alias, avatar)}>Confirmar frase y continuar</NativeRippleButton>}
                   <XStack alignItems="center" gap={6} justifyContent="center"><ChevronLeft color={theme.placeholder} size={15} /><SizableText color="placeholder-color" onPress={() => { setMode(null); setPairing(false); setGeneratedPhrase(''); setMnemonic(''); setAvatar(''); setError(''); }} padding={12} role="button">Volver</SizableText></XStack>

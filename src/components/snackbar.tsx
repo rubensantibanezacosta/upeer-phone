@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckCircle2 } from '@tamagui/lucide-icons-2';
 import { Text } from 'tamagui';
 
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type SnackbarContextValue = { showSnackbar: (message: string) => void };
@@ -12,6 +13,7 @@ const SnackbarContext = createContext<SnackbarContextValue | null>(null);
 
 export function SnackbarProvider({ children }: { children: ReactNode }) {
   const theme = useTheme();
+  const scale = useTextScale();
   const insets = useSafeAreaInsets();
   const [message, setMessage] = useState('');
   const [visible, setVisible] = useState(false);
@@ -59,7 +61,7 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
                 style={[styles.snackbar, { backgroundColor: theme.backgroundSelected, borderColor: theme.accent, opacity, transform: [{ translateY }] }]}
               >
                 <CheckCircle2 color={theme.accent} size={18} />
-                <Text color={theme.text} fontSize={13} fontWeight="600">{message}</Text>
+                <Text color={theme.text} fontSize={scale(13)} fontWeight="600">{message}</Text>
               </Animated.View>
             </View>
           </Modal>

@@ -7,6 +7,7 @@ import { SizableText, Text, XStack } from 'tamagui';
 import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeerTransport.types';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { QUICK_REACTIONS, type ReactionSummary } from '@/domain/chat-reactions';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type ChatMessageActionsProps = {
@@ -32,16 +33,18 @@ type ActionRowProps = {
 };
 
 function ActionRow({ color, icon, label, onPress }: ActionRowProps) {
+  const scale = useTextScale();
   return (
     <NativeRipplePressable accessibilityRole="button" onPress={onPress} style={styles.action}>
       {icon}
-      <Text color={color} fontSize={14} fontWeight="600">{label}</Text>
+      <Text color={color} fontSize={scale(14)} fontWeight="600">{label}</Text>
     </NativeRipplePressable>
   );
 }
 
 export function ChatMessageActions({ message, reactions, canEdit, canRetry, onClose, onCopy, onDelete, onEdit, onForward, onReply, onRetry, onToggleReaction }: ChatMessageActionsProps) {
   const theme = useTheme();
+  const scale = useTextScale();
   const insets = useSafeAreaInsets();
   if (!message) return null;
 
@@ -51,7 +54,7 @@ export function ChatMessageActions({ message, reactions, canEdit, canRetry, onCl
         <Pressable accessibilityLabel="Cerrar acciones del mensaje" onPress={onClose} style={[StyleSheet.absoluteFill, { backgroundColor: theme.backdrop }]} />
         <View accessibilityViewIsModal style={[styles.menu, { backgroundColor: theme.backgroundElement, borderColor: theme.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
           <XStack alignItems="center" gap={12} paddingHorizontal={16} paddingVertical={14}>
-            <SizableText color={theme.text} flex={1} fontSize={16} fontWeight="700" numberOfLines={1}>Mensaje</SizableText>
+            <SizableText color={theme.text} flex={1} fontSize={scale(16)} fontWeight="700" numberOfLines={1}>Mensaje</SizableText>
             <NativeRipplePressable accessibilityLabel="Cerrar menú" onPress={onClose} style={styles.closeButton}><X color={theme.placeholder} size={18} /></NativeRipplePressable>
           </XStack>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />

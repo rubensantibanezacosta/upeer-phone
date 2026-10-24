@@ -7,12 +7,14 @@ import { NativeRippleButton } from '@/components/native-ripple-button';
 import { QrScannerSheet } from '@/components/qr-scanner-sheet';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useDeviceEnrollment } from '@/hooks/use-device-enrollment';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type ScanTarget = 'invite' | 'response' | null;
 
 export function DevicePairingPanel() {
   const theme = useTheme();
+  const scale = useTextScale();
   const copyToClipboard = useCopyToClipboard();
   const { state, begin, finish, cancel } = useDeviceEnrollment();
   const [inviteCode, setInviteCode] = useState('');
@@ -27,8 +29,8 @@ export function DevicePairingPanel() {
 
   return <YStack gap={16}>
     {state.installed ? <Card backgroundColor={theme.successSoft} borderColor={theme.success} borderRadius={14} borderWidth={1} gap={10} padding={16}>
-      <XStack alignItems="center" gap={8}><ShieldCheck color={theme.success} size={20} /><SizableText color={theme.text} fontSize={16} fontWeight="700">Dispositivo vinculado</SizableText></XStack>
-      <Paragraph color={theme.placeholder} fontSize={13}>Este dispositivo ya forma parte de la cuenta. Para abrir la sesión sigue haciendo falta la frase hasta que el móvil pueda funcionar sin la raíz.</Paragraph>
+      <XStack alignItems="center" gap={8}><ShieldCheck color={theme.success} size={20} /><SizableText color={theme.text} fontSize={scale(16)} fontWeight="700">Dispositivo vinculado</SizableText></XStack>
+      <Paragraph color={theme.placeholder} fontSize={scale(13)}>Este dispositivo ya forma parte de la cuenta. Para abrir la sesión sigue haciendo falta la frase hasta que el móvil pueda funcionar sin la raíz.</Paragraph>
       <YStack gap={4}>
         <InfoRow label="Cuenta" theme={theme} value={state.installed.accountUpeerId} />
         <InfoRow label="Dispositivo" theme={theme} value={state.installed.deviceId} />
@@ -37,14 +39,14 @@ export function DevicePairingPanel() {
     </Card> : null}
 
     {!state.installed && !state.offer ? <YStack gap={12}>
-      <Paragraph color={theme.placeholder} fontSize={13}>Si tienes otro dispositivo con la cuenta abierta, ábrelo en Seguridad → Dispositivos, genera una invitación y escanéala aquí. También puedes pegar el código a mano.</Paragraph>
+      <Paragraph color={theme.placeholder} fontSize={scale(13)}>Si tienes otro dispositivo con la cuenta abierta, ábrelo en Seguridad → Dispositivos, genera una invitación y escanéala aquí. También puedes pegar el código a mano.</Paragraph>
       <TextArea accessibilityLabel="Código de invitación" autoCapitalize="none" autoCorrect={false} backgroundColor="color-2" borderColor="border-color" color="color" height={92} onChangeText={setInviteCode} placeholder="Pega el código de invitación" placeholderTextColor="placeholder-color" textAlignVertical="top" value={inviteCode} />
       <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} disabled={state.busy} height={46} icon={<QrCode color={theme.onAccentSoft} size={17} />} onPress={() => setScanTarget('invite')}>Escanear QR de invitación</NativeRippleButton>
       <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} disabled={state.busy} fontWeight="700" height={46} icon={<ArrowRight color={theme.onAccent} size={17} />} onPress={() => void begin(inviteCode)}>{state.busy ? 'Preparando…' : 'Continuar'}</NativeRippleButton>
     </YStack> : null}
 
     {state.offer ? <YStack gap={12}>
-      <Paragraph color={theme.placeholder} fontSize={13}>Entrega este código al dispositivo autorizado y trae de vuelta la respuesta del certificado.</Paragraph>
+      <Paragraph color={theme.placeholder} fontSize={scale(13)}>Entrega este código al dispositivo autorizado y trae de vuelta la respuesta del certificado.</Paragraph>
       <CopyField accessibilityLabel="Copiar solicitud de emparejamiento" onCopy={() => void copyToClipboard(state.requestCode, 'Solicitud copiada')} value={state.requestCode} />
       <YStack gap={4}>
         <InfoRow label="Cuenta" theme={theme} value={state.offer.accountUpeerId} />
@@ -69,8 +71,9 @@ export function DevicePairingPanel() {
 }
 
 function InfoRow({ label, value, theme }: { label: string; value: string; theme: ReturnType<typeof useTheme> }) {
+  const scale = useTextScale();
   return <YStack gap={1}>
-    <SizableText color={theme.placeholder} fontSize={10} fontWeight="600" letterSpacing={0.6}>{label.toUpperCase()}</SizableText>
-    <SizableText color={theme.textSecondary} fontFamily="monospace" fontSize={12} numberOfLines={2}>{value}</SizableText>
+    <SizableText color={theme.placeholder} fontSize={scale(10)} fontWeight="600" letterSpacing={0.6}>{label.toUpperCase()}</SizableText>
+    <SizableText color={theme.textSecondary} fontFamily="monospace" fontSize={scale(12)} numberOfLines={2}>{value}</SizableText>
   </YStack>;
 }

@@ -9,6 +9,7 @@ import { NativeRippleButton } from '@/components/native-ripple-button';
 import { ProfileAvatar } from '@/components/profile-avatar';
 import type { ContactCard } from '@/domain/contact-card';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ContactCardAction = {
@@ -34,6 +35,7 @@ export function ContactCardSheet({ action, card, error, onClose, visible }: {
   visible: boolean;
 }) {
   const theme = useTheme();
+  const scale = useTextScale();
   const copyToClipboard = useCopyToClipboard();
   if (!card) return null;
   const name = card.name || card.upeerId.slice(0, 12);
@@ -41,7 +43,7 @@ export function ContactCardSheet({ action, card, error, onClose, visible }: {
   return <BottomSheet onClose={onClose} title="Tarjeta de contacto" visible={visible}>
     <View style={styles.identity}>
       <ProfileAvatar avatar={card.avatar} name={name} size={56} />
-      <Text color={theme.text} flex={1} fontSize={16} fontWeight="700" numberOfLines={1}>{name}</Text>
+      <Text color={theme.text} flex={1} fontSize={scale(16)} fontWeight="700" numberOfLines={1}>{name}</Text>
     </View>
 
     <CopyField
@@ -77,7 +79,7 @@ export function ContactCardSheet({ action, card, error, onClose, visible }: {
       {action.label}
     </NativeRippleButton>
 
-    {error ? <Text accessibilityRole="alert" color={theme.danger} fontSize={12}>{error}</Text> : null}
+    {error ? <Text accessibilityRole="alert" color={theme.danger} fontSize={scale(12)}>{error}</Text> : null}
   </BottomSheet>;
 }
 

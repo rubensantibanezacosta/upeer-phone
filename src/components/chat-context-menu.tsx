@@ -8,6 +8,7 @@ import type { ChatListEntry } from '@/components/chat-list-item';
 import type { ConversationFlag } from '@/domain/conversation-flags';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ProfileAvatar } from '@/components/profile-avatar';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type ChatContextMenuProps = {
@@ -28,16 +29,18 @@ type MenuActionProps = {
 };
 
 function MenuAction({ color, disabled = false, icon, label, onPress }: MenuActionProps) {
+  const scale = useTextScale();
   return (
     <NativeRipplePressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[styles.action, disabled && styles.disabledAction]}>
       {icon}
-      <Text color={color} fontSize={14} fontWeight="600">{label}</Text>
+      <Text color={color} fontSize={scale(14)} fontWeight="600">{label}</Text>
     </NativeRipplePressable>
   );
 }
 
 export function ChatContextMenu({ entry, onClose, onMarkRead, onToggleFavorite, onToggleFlag, onUnavailable }: ChatContextMenuProps) {
   const theme = useTheme();
+  const scale = useTextScale();
   const insets = useSafeAreaInsets();
   if (!entry) return null;
   const canMarkRead = entry.unread > 0;
@@ -50,8 +53,8 @@ export function ChatContextMenu({ entry, onClose, onMarkRead, onToggleFavorite, 
           <XStack alignItems="center" gap={12} paddingHorizontal={16} paddingVertical={14}>
             <ProfileAvatar name={entry.title} size={44} />
             <YStack flex={1} gap={2}>
-              <SizableText color={theme.text} fontSize={16} fontWeight="700" numberOfLines={1}>{entry.title}</SizableText>
-              <Text color={theme.placeholder} fontSize={11} numberOfLines={1} style={styles.identifier}>{entry.upeerId}</Text>
+              <SizableText color={theme.text} fontSize={scale(16)} fontWeight="700" numberOfLines={1}>{entry.title}</SizableText>
+              <Text color={theme.placeholder} fontSize={scale(11)} numberOfLines={1} style={styles.identifier}>{entry.upeerId}</Text>
             </YStack>
             <NativeRipplePressable accessibilityLabel="Cerrar menú" onPress={onClose} style={styles.closeButton}><X color={theme.placeholder} size={18} /></NativeRipplePressable>
           </XStack>

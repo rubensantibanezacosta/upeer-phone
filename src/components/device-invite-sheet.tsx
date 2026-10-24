@@ -10,6 +10,7 @@ import { NativeRippleButton } from '@/components/native-ripple-button';
 import { QrScannerSheet } from '@/components/qr-scanner-sheet';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useEnrollmentAuthorizer } from '@/hooks/use-enrollment-authorizer';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type DeviceInviteSheetProps = {
@@ -20,6 +21,7 @@ type DeviceInviteSheetProps = {
 
 export function DeviceInviteSheet({ visible, onClose, onAuthorized }: DeviceInviteSheetProps) {
   const theme = useTheme();
+  const scale = useTextScale();
   const copyToClipboard = useCopyToClipboard();
   const { state, start, accept, issue, cancel, reset } = useEnrollmentAuthorizer();
   const [requestCode, setRequestCode] = useState('');
@@ -41,13 +43,13 @@ export function DeviceInviteSheet({ visible, onClose, onAuthorized }: DeviceInvi
     <BottomSheet icon={<Smartphone color={theme.accent} size={20} />} onClose={onClose} title="Vincular dispositivo" visible={visible}>
       {state.issued
         ? <YStack gap={12}>
-          <XStack alignItems="center" gap={8}><ShieldCheck color={theme.success} size={20} /><SizableText color={theme.text} fontSize={15} fontWeight="700">Dispositivo autorizado</SizableText></XStack>
+          <XStack alignItems="center" gap={8}><ShieldCheck color={theme.success} size={20} /><SizableText color={theme.text} fontSize={scale(15)} fontWeight="700">Dispositivo autorizado</SizableText></XStack>
           <YStack gap={6}>
             <InfoRow label="Dispositivo" theme={theme} value={state.issued.deviceId} />
             <InfoRow label="Plataforma" theme={theme} value={state.issued.platform} />
             <InfoRow label="Vinculado" theme={theme} value={dateLabel(state.issued.issuedAt)} />
           </YStack>
-          <Paragraph color={theme.placeholder} fontSize={12}>Entrega este código al dispositivo nuevo para que instale su certificado.</Paragraph>
+          <Paragraph color={theme.placeholder} fontSize={scale(12)}>Entrega este código al dispositivo nuevo para que instale su certificado.</Paragraph>
           <CopyField accessibilityLabel="Copiar respuesta del certificado" onCopy={() => void copyToClipboard(state.issued!.responseCode, 'Respuesta copiada')} truncate value={state.issued.responseCode} />
           <QrCanvas theme={theme} value={state.issued.responseCode} />
           <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={46} icon={<ArrowRight color={theme.onAccent} size={17} />} onPress={finish}>Listo</NativeRippleButton>
@@ -55,20 +57,20 @@ export function DeviceInviteSheet({ visible, onClose, onAuthorized }: DeviceInvi
         : <YStack gap={12}>
           {state.invite
             ? <YStack gap={10}>
-              <XStack alignItems="center" gap={8}><Smartphone color={theme.accent} size={18} /><SizableText color={theme.text} fontSize={14} fontWeight="700">Invitación activa</SizableText></XStack>
-              <Paragraph color={theme.placeholder} fontSize={12}>Muéstrala o cópiala en el dispositivo que quieres vincular. Caduca en {minutesLeft(state.invite.expiresAt)} min y solo sirve una vez.</Paragraph>
+              <XStack alignItems="center" gap={8}><Smartphone color={theme.accent} size={18} /><SizableText color={theme.text} fontSize={scale(14)} fontWeight="700">Invitación activa</SizableText></XStack>
+              <Paragraph color={theme.placeholder} fontSize={scale(12)}>Muéstrala o cópiala en el dispositivo que quieres vincular. Caduca en {minutesLeft(state.invite.expiresAt)} min y solo sirve una vez.</Paragraph>
               <CopyField accessibilityLabel="Copiar invitación" onCopy={() => void copyToClipboard(state.invite!.code, 'Invitación copiada')} truncate value={state.invite.code} />
               <QrCanvas theme={theme} value={state.invite.code} />
               <NativeRippleButton accessibilityLabel="Descartar invitación" backgroundColor="transparent" color={theme.textSecondary} height={38} icon={<Trash2 color={theme.textSecondary} size={15} />} onPress={() => void cancel(state.invite!.inviteId)}>Descartar invitación</NativeRippleButton>
             </YStack>
             : <YStack gap={10}>
-              <Paragraph color={theme.placeholder} fontSize={12}>Genera una invitación y ábrela en el dispositivo nuevo. No necesitas compartir tu frase de recuperación: tú autorizas y el otro dispositivo solo recibe su certificado.</Paragraph>
+              <Paragraph color={theme.placeholder} fontSize={scale(12)}>Genera una invitación y ábrela en el dispositivo nuevo. No necesitas compartir tu frase de recuperación: tú autorizas y el otro dispositivo solo recibe su certificado.</Paragraph>
               <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} disabled={state.busy} fontWeight="700" height={46} icon={<Smartphone color={theme.onAccent} size={17} />} onPress={() => void start()}>{state.busy ? 'Generando…' : 'Generar invitación'}</NativeRippleButton>
             </YStack>}
 
           {state.accepted
             ? <YStack borderColor={theme.border} borderRadius={12} borderWidth={1} gap={10} padding={12}>
-              <XStack alignItems="center" gap={8}><ShieldCheck color={theme.accent} size={18} /><SizableText color={theme.text} fontSize={14} fontWeight="700">Solicitud aceptada</SizableText></XStack>
+              <XStack alignItems="center" gap={8}><ShieldCheck color={theme.accent} size={18} /><SizableText color={theme.text} fontSize={scale(14)} fontWeight="700">Solicitud aceptada</SizableText></XStack>
               <YStack gap={6}>
                 <InfoRow label="Dispositivo" theme={theme} value={state.accepted.deviceId} />
                 <InfoRow label="Plataforma" theme={theme} value={state.accepted.platform} />
@@ -78,7 +80,7 @@ export function DeviceInviteSheet({ visible, onClose, onAuthorized }: DeviceInvi
             </YStack>
             : <YStack gap={10}>
               {state.invite ? <Separator borderColor={theme.border} /> : null}
-              <Paragraph color={theme.placeholder} fontSize={12}>Cuando el otro dispositivo te muestre su solicitud, escanéala o pégala aquí.</Paragraph>
+              <Paragraph color={theme.placeholder} fontSize={scale(12)}>Cuando el otro dispositivo te muestre su solicitud, escanéala o pégala aquí.</Paragraph>
               <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} disabled={state.busy} height={44} icon={<QrCode color={theme.onAccentSoft} size={17} />} onPress={() => setScanning(true)}>Escanear solicitud</NativeRippleButton>
               <TextArea accessibilityLabel="Código de solicitud" autoCapitalize="none" autoCorrect={false} backgroundColor="color-2" borderColor="border-color" color="color" height={88} onChangeText={setRequestCode} placeholder="Pega el código de solicitud" placeholderTextColor="placeholder-color" textAlignVertical="top" value={requestCode} />
               <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} disabled={state.busy || !requestCode.trim()} height={42} icon={<ArrowRight color={theme.textSecondary} size={16} />} onPress={() => runAccept(requestCode)}>Aceptar solicitud</NativeRippleButton>
@@ -86,18 +88,18 @@ export function DeviceInviteSheet({ visible, onClose, onAuthorized }: DeviceInvi
 
           {state.invites.length > (state.invite ? 1 : 0) && !state.issued
             ? <YStack gap={6}>
-              <SizableText color={theme.placeholder} fontSize={10} fontWeight="600" letterSpacing={0.7}>OTRAS INVITACIONES</SizableText>
+              <SizableText color={theme.placeholder} fontSize={scale(10)} fontWeight="600" letterSpacing={0.7}>OTRAS INVITACIONES</SizableText>
               {state.invites.filter((invite) => invite.inviteId !== state.invite?.inviteId).map((invite) => <XStack alignItems="center" borderColor={theme.border} borderRadius={10} borderWidth={1} gap={10} key={invite.inviteId} padding={10}>
                 <YStack flex={1} gap={2}>
-                  <Text color={theme.textSecondary} fontFamily="monospace" fontSize={11} numberOfLines={1}>{shortId(invite.inviteId)}</Text>
-                  <Text color={theme.placeholder} fontSize={11}>Caduca en {minutesLeft(invite.expiresAt)} min</Text>
+                  <Text color={theme.textSecondary} fontFamily="monospace" fontSize={scale(11)} numberOfLines={1}>{shortId(invite.inviteId)}</Text>
+                  <Text color={theme.placeholder} fontSize={scale(11)}>Caduca en {minutesLeft(invite.expiresAt)} min</Text>
                 </YStack>
                 <NativeRippleButton accessibilityLabel="Descartar invitación" backgroundColor="transparent" height={32} icon={<Trash2 color={theme.danger} size={15} />} onPress={() => void cancel(invite.inviteId)} />
               </XStack>)}
             </YStack>
             : null}
 
-          {!!state.error && <Paragraph accessibilityRole="alert" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={10} borderWidth={1} color={theme.onDangerSoft} fontSize={12} padding={10}>{state.error}</Paragraph>}
+          {!!state.error && <Paragraph accessibilityRole="alert" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={10} borderWidth={1} color={theme.onDangerSoft} fontSize={scale(12)} padding={10}>{state.error}</Paragraph>}
         </YStack>}
     </BottomSheet>
 
@@ -112,9 +114,10 @@ function QrCanvas({ theme, value }: { theme: ReturnType<typeof useTheme>; value:
 }
 
 function InfoRow({ label, theme, value }: { label: string; theme: ReturnType<typeof useTheme>; value: string }) {
+  const scale = useTextScale();
   return <YStack gap={1}>
-    <SizableText color={theme.placeholder} fontSize={10} fontWeight="600" letterSpacing={0.6}>{label.toUpperCase()}</SizableText>
-    <SizableText color={theme.textSecondary} fontFamily="monospace" fontSize={12} numberOfLines={1} ellipsizeMode="middle">{value}</SizableText>
+    <SizableText color={theme.placeholder} fontSize={scale(10)} fontWeight="600" letterSpacing={0.6}>{label.toUpperCase()}</SizableText>
+    <SizableText color={theme.textSecondary} fontFamily="monospace" fontSize={scale(12)} numberOfLines={1} ellipsizeMode="middle">{value}</SizableText>
   </YStack>;
 }
 

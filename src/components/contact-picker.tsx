@@ -5,6 +5,7 @@ import { Input, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ProfileAvatar } from '@/components/profile-avatar';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import type { UPeerContact } from '@/storage/contact-store';
 
@@ -20,6 +21,7 @@ type ContactPickerProps = {
 
 export function ContactPicker({ contacts, emptyLabel = 'Sin contactos que coincidan', excludeUpeerId, onPick, onToggle, searchPlaceholder = 'Buscar contacto', selectedIds = [] }: ContactPickerProps) {
   const theme = useTheme();
+  const scale = useTextScale();
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
@@ -33,11 +35,11 @@ export function ContactPicker({ contacts, emptyLabel = 'Sin contactos que coinci
     <YStack gap={8}>
       <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={12} borderWidth={1} gap={8} paddingHorizontal={10}>
         <Search color={theme.placeholder} size={16} />
-        <Input backgroundColor="transparent" borderWidth={0} color={theme.text} flex={1} fontSize={13} height={40} onChangeText={setQuery} placeholder={searchPlaceholder} placeholderTextColor={theme.placeholder} value={query} />
+        <Input backgroundColor="transparent" borderWidth={0} color={theme.text} flex={1} fontSize={scale(13)} height={40} onChangeText={setQuery} placeholder={searchPlaceholder} placeholderTextColor={theme.placeholder} value={query} />
       </XStack>
       <ScrollView contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="handled" style={styles.list}>
         {filtered.length === 0
-          ? <Text color={theme.placeholder} fontSize={12} paddingVertical={16} textAlign="center">{emptyLabel}</Text>
+          ? <Text color={theme.placeholder} fontSize={scale(12)} paddingVertical={16} textAlign="center">{emptyLabel}</Text>
           : filtered.map((contact) => {
             const selected = selectedIds.includes(contact.upeerId);
             return (
@@ -50,8 +52,8 @@ export function ContactPicker({ contacts, emptyLabel = 'Sin contactos que coinci
                 <XStack alignItems="center" gap={10} paddingVertical={8}>
                   <ProfileAvatar name={contact.name} size={36} />
                   <YStack flex={1}>
-                    <SizableText color={theme.text} fontSize={14} fontWeight="600" numberOfLines={1}>{contact.name}</SizableText>
-                    <Text color={theme.placeholder} fontSize={11} numberOfLines={1}>{contact.upeerId}</Text>
+                    <SizableText color={theme.text} fontSize={scale(14)} fontWeight="600" numberOfLines={1}>{contact.name}</SizableText>
+                    <Text color={theme.placeholder} fontSize={scale(11)} numberOfLines={1}>{contact.upeerId}</Text>
                   </YStack>
                   {onToggle ? <View style={[styles.check, { backgroundColor: selected ? theme.accent : 'transparent', borderColor: selected ? theme.accent : theme.border }]}>{selected ? <Check color={theme.onAccent} size={14} strokeWidth={3} /> : null}</View> : null}
                 </XStack>

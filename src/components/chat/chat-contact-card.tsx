@@ -5,6 +5,7 @@ import { Text } from 'tamagui';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ProfileAvatar } from '@/components/profile-avatar';
 import type { ContactCard } from '@/domain/contact-card';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type ChatContactCardProps = {
@@ -16,6 +17,7 @@ type ChatContactCardProps = {
 
 export function ChatContactCard({ card, saved, onPress, tone = 'theirs' }: ChatContactCardProps) {
   const theme = useTheme();
+  const scale = useTextScale();
   const titleColor = tone === 'mine' ? theme.bubbleMineText : theme.text;
   const detailColor = tone === 'mine' ? theme.bubbleMineText : theme.placeholder;
 
@@ -29,9 +31,9 @@ export function ChatContactCard({ card, saved, onPress, tone = 'theirs' }: ChatC
     >
       <ProfileAvatar avatar={card.avatar} name={card.name || '?'} size={44} />
       <View style={styles.body}>
-        <Text color={titleColor} fontSize={13} fontWeight="700" numberOfLines={1}>{card.name || card.upeerId.slice(0, 12)}</Text>
-        <Text color={detailColor} fontSize={11} numberOfLines={1}>Tarjeta de contacto</Text>
-        <Text color={detailColor} fontSize={10} numberOfLines={1} opacity={0.85}>{saved ? 'En tu agenda' : 'Toca para ver y guardar'}</Text>
+        <Text color={titleColor} fontSize={scale(13)} fontWeight="700" numberOfLines={1}>{card.name || card.upeerId.slice(0, 12)}</Text>
+        <Text color={detailColor} fontSize={scale(11)} numberOfLines={1}>Tarjeta de contacto</Text>
+        <Text color={detailColor} fontSize={scale(10)} numberOfLines={1} opacity={0.85}>{saved ? 'En tu agenda' : 'Toca para ver y guardar'}</Text>
       </View>
       <ChevronRight color={detailColor} size={16} />
     </NativeRipplePressable>

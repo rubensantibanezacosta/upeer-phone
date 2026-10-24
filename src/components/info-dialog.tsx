@@ -3,6 +3,7 @@ import { Info, X } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 export type InfoDialogContent = {
@@ -13,6 +14,7 @@ export type InfoDialogContent = {
 
 export function InfoDialog({ content, onClose }: { content: InfoDialogContent | null; onClose: () => void }) {
   const theme = useTheme();
+  const scale = useTextScale();
   if (!content) return null;
 
   return <Modal animationType="fade" onRequestClose={onClose} transparent visible>
@@ -20,14 +22,14 @@ export function InfoDialog({ content, onClose }: { content: InfoDialogContent | 
       <NativeRipplePressable onPress={(event) => event.stopPropagation()} style={[styles.dialog, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
         <XStack alignItems="center" borderBottomColor={theme.border} borderBottomWidth={1} gap={12} paddingBottom={14}>
           <Info color={theme.placeholder} size={18} />
-          <SizableText color={theme.text} flex={1} fontSize={17} fontWeight="700">{content.title}</SizableText>
+          <SizableText color={theme.text} flex={1} fontSize={scale(17)} fontWeight="700">{content.title}</SizableText>
           <NativeRipplePressable accessibilityLabel="Cerrar" onPress={onClose}><X color={theme.placeholder} size={20} /></NativeRipplePressable>
         </XStack>
         <ScrollView contentContainerStyle={styles.content}>
-          <Text color={theme.placeholder} fontSize={14}>{content.description}</Text>
+          <Text color={theme.placeholder} fontSize={scale(14)}>{content.description}</Text>
           {content.items.map((item) => <YStack gap={4} key={item.label}>
-            <SizableText color={theme.text} fontSize={14} fontWeight="600">{item.label}</SizableText>
-            <Text color={theme.placeholder} fontSize={13}>{item.description}</Text>
+            <SizableText color={theme.text} fontSize={scale(14)} fontWeight="600">{item.label}</SizableText>
+            <Text color={theme.placeholder} fontSize={scale(13)}>{item.description}</Text>
           </YStack>)}
         </ScrollView>
       </NativeRipplePressable>

@@ -8,6 +8,7 @@ import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import type { UPeerIdentity } from '@/domain/identity';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
@@ -19,16 +20,17 @@ import { ProfileAddressSection, ProfileHeroSection, ProfileStatsSection, Profile
 
 export function CallsScreen() {
   const theme = useTheme();
+  const scale = useTextScale();
   return (
     <YStack flex={1} backgroundColor={theme.background}>
       <ScrollView contentContainerStyle={styles.callsContent}>
         <XStack alignItems="center" justifyContent="space-between">
-          <H1 color={theme.text} fontSize={24} fontWeight="700">Llamadas</H1>
+          <H1 color={theme.text} fontSize={scale(24)} fontWeight="700">Llamadas</H1>
         </XStack>
         <YStack alignItems="center" flex={1} gap={12} justifyContent="center" padding={24}>
           <YStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={32} height={64} justifyContent="center" width={64}>
             <Clock3 color={theme.placeholder} size={28} /></YStack>
-          <SizableText color={theme.text} fontSize={17} fontWeight="600">Aún no hay llamadas</SizableText>
+          <SizableText color={theme.text} fontSize={scale(17)} fontWeight="600">Aún no hay llamadas</SizableText>
           <Paragraph color={theme.placeholder} textAlign="center">El historial y las llamadas estarán disponibles cuando se implemente esta función en la app móvil.</Paragraph>
         </YStack>
       </ScrollView>
@@ -38,6 +40,7 @@ export function CallsScreen() {
 
 export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }: { identity: UPeerIdentity; address: string; onProfileUpdated: () => void; onSignOut: () => void }) {
   const theme = useTheme();
+  const scale = useTextScale();
   const [alias, setAlias] = useState('');
   const [avatar, setAvatar] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -110,7 +113,7 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
   return (
     <YStack flex={1} backgroundColor={theme.background}>
       <ScrollView contentContainerStyle={styles.content}>
-        <H1 color={theme.text} fontSize={24} paddingHorizontal={20}>Perfil</H1>
+        <H1 color={theme.text} fontSize={scale(24)} paddingHorizontal={20}>Perfil</H1>
       <ProfileHeroSection identity={identity} alias={alias} avatar={avatar} busy={busy} onAliasChange={(value) => { setAlias(value); setError(''); }} onAliasSave={() => void saveAlias()} onAvatarPress={() => void chooseAvatar()} />
         {error ?
           <Paragraph accessibilityRole="alert" color="danger">{error}</Paragraph> : null}
@@ -128,14 +131,15 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
 
 function ProfileQrModal({ visible, fullId, onClose, onCopy }: { visible: boolean; fullId: string; onClose: () => void; onCopy: () => void }) {
   const theme = useTheme();
+  const scale = useTextScale();
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
       <NativeRipplePressable android_ripple={{ color: 'transparent' }} onPress={onClose} style={[styles.modalBackdrop, { backgroundColor: theme.backdrop }]}>
         <NativeRipplePressable onPress={(event) => event.stopPropagation()} style={[styles.qrDialog, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
-          <XStack alignItems="center" justifyContent="space-between" width="100%"><SizableText color={theme.text} fontSize={17} fontWeight="700">Tu dirección de contacto</SizableText><NativeRipplePressable accessibilityLabel="Cerrar" onPress={onClose}><X color={theme.placeholder} size={20} /></NativeRipplePressable></XStack>
-          <Text color={theme.placeholder} fontSize={12} textAlign="center">Muestra este código para que alguien te agregue como contacto</Text>
+          <XStack alignItems="center" justifyContent="space-between" width="100%"><SizableText color={theme.text} fontSize={scale(17)} fontWeight="700">Tu dirección de contacto</SizableText><NativeRipplePressable accessibilityLabel="Cerrar" onPress={onClose}><X color={theme.placeholder} size={20} /></NativeRipplePressable></XStack>
+          <Text color={theme.placeholder} fontSize={scale(12)} textAlign="center">Muestra este código para que alguien te agregue como contacto</Text>
           <View style={[styles.qrCanvas, { backgroundColor: theme.background }]}>{fullId ? <QRCode value={fullId} size={220} ecl="M" /> : <Text color={theme.placeholder}>Sin dirección</Text>}</View>
-          <Text color={theme.textSecondary} fontFamily="$mono" fontSize={11} lineHeight={17}>{fullId || '—'}</Text>
+          <Text color={theme.textSecondary} fontFamily="$mono" fontSize={scale(11)} lineHeight={scale(17)}>{fullId || '—'}</Text>
           <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} icon={<Copy color={theme.onAccent} />} onPress={onCopy} width="100%">Copiar dirección</NativeRippleButton>
         </NativeRipplePressable>
       </NativeRipplePressable>

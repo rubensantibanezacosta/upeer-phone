@@ -4,6 +4,7 @@ import { Input, Text, XStack } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { describeSearchPosition } from '@/domain/chat-search';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type ChatSearchBarProps = {
@@ -26,6 +27,7 @@ function BarAction({ disabled = false, label, onPress, children }: { disabled?: 
 
 export function ChatSearchBar({ index, matches, onChangeQuery, onClose, onNext, onPrevious, query }: ChatSearchBarProps) {
   const theme = useTheme();
+  const scale = useTextScale();
   const empty = matches === 0;
   return (
     <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={2} paddingHorizontal={4} paddingVertical={8}>
@@ -39,7 +41,7 @@ export function ChatSearchBar({ index, matches, onChangeQuery, onClose, onNext, 
           borderWidth={0}
           color={theme.text}
           flex={1}
-          fontSize={15}
+          fontSize={scale(15)}
           height={46}
           onChangeText={onChangeQuery}
           placeholder="Buscar en la conversación"
@@ -48,7 +50,7 @@ export function ChatSearchBar({ index, matches, onChangeQuery, onClose, onNext, 
           value={query}
         />
       </XStack>
-      <Text color={empty ? theme.placeholder : theme.textSecondary} fontSize={12} minWidth={52} paddingHorizontal={6} textAlign="center">
+      <Text color={empty ? theme.placeholder : theme.textSecondary} fontSize={scale(12)} minWidth={52} paddingHorizontal={6} textAlign="center">
         {describeSearchPosition(index, matches)}
       </Text>
       <BarAction disabled={empty} label="Resultado anterior" onPress={onPrevious}>

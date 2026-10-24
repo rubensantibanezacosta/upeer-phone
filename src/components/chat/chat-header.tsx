@@ -73,7 +73,7 @@ export function ChatHeader({ alias, upeerId, status, vouchScore, isRequest = fal
           <View accessibilityViewIsModal style={[styles.menu, { backgroundColor: theme.backgroundElement, borderColor: theme.border, top: insets.top + 62 }]}>
             <NativeRipplePressable accessibilityRole="button" onPress={openSearch} style={styles.menuItem}>
               <Search color={theme.text} size={18} />
-              <Text color={theme.text} fontSize={14}>Buscar en la conversación</Text>
+              <Text color={theme.text} fontSize={scale(14)}>Buscar en la conversación</Text>
             </NativeRipplePressable>
           </View>
         </View>

@@ -6,6 +6,7 @@ import { Camera, X } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type QrScannerSheetProps = {
@@ -17,6 +18,7 @@ type QrScannerSheetProps = {
 
 export function QrScannerSheet({ visible, title, onClose, onScanned }: QrScannerSheetProps) {
   const theme = useTheme();
+  const scale = useTextScale();
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [handled, setHandled] = useState(false);
@@ -40,13 +42,13 @@ export function QrScannerSheet({ visible, title, onClose, onScanned }: QrScanner
       <View accessibilityViewIsModal style={[styles.sheet, { backgroundColor: theme.backgroundElement, borderColor: theme.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
         <XStack alignItems="center" gap={12} paddingHorizontal={16} paddingVertical={14}>
           <Camera color={theme.accent} size={20} />
-          <SizableText color={theme.text} flex={1} fontSize={16} fontWeight="700" numberOfLines={1}>{title}</SizableText>
+          <SizableText color={theme.text} flex={1} fontSize={scale(16)} fontWeight="700" numberOfLines={1}>{title}</SizableText>
           <NativeRipplePressable accessibilityLabel="Cerrar escáner" onPress={close} style={styles.closeButton}><X color={theme.placeholder} size={18} /></NativeRipplePressable>
         </XStack>
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
         {!permission
           ? <YStack paddingHorizontal={16} paddingVertical={16}>
-            <Text color={theme.placeholder} fontSize={12}>Comprobando el permiso de cámara…</Text>
+            <Text color={theme.placeholder} fontSize={scale(12)}>Comprobando el permiso de cámara…</Text>
           </YStack>
           : permission.granted
             ? <YStack gap={10} paddingHorizontal={16} paddingVertical={14}>
@@ -58,13 +60,13 @@ export function QrScannerSheet({ visible, title, onClose, onScanned }: QrScanner
                   style={StyleSheet.absoluteFill}
                 />
               </View>
-              <Text color={theme.placeholder} fontSize={12} textAlign="center">Apunta al código QR que muestra el otro dispositivo.</Text>
+              <Text color={theme.placeholder} fontSize={scale(12)} textAlign="center">Apunta al código QR que muestra el otro dispositivo.</Text>
             </YStack>
             : <YStack gap={10} paddingHorizontal={16} paddingVertical={14}>
-              <Text color={theme.placeholder} fontSize={12}>Para escanear el código hace falta permiso de cámara. También puedes pegar el código a mano.</Text>
+              <Text color={theme.placeholder} fontSize={scale(12)}>Para escanear el código hace falta permiso de cámara. También puedes pegar el código a mano.</Text>
               <NativeRipplePressable accessibilityRole="button" onPress={() => void requestPermission()} style={styles.action}>
                 <Camera color={theme.accent} size={19} />
-                <Text color={theme.text} fontSize={14} fontWeight="600">Permitir cámara</Text>
+                <Text color={theme.text} fontSize={scale(14)} fontWeight="600">Permitir cámara</Text>
               </NativeRipplePressable>
             </YStack>}
       </View>

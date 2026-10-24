@@ -8,6 +8,7 @@ import type { PeerPoolSnapshot } from '../../modules/upeer-transport/src/UPeerTr
 import type { PeerInfo } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import type { UPeerIdentity } from '@/domain/identity';
 import { loadOrCreateYggdrasilSeed, loadProfile, replaceYggdrasilSeed } from '@/storage/identity-store';
+import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 
@@ -17,6 +18,7 @@ const STATUS_REFRESH_INTERVAL_MS = 5_000;
 
 export function SessionScreen({ identity, onAddressChange, onSnapshotChange, onSignOut }: SessionScreenProps & { onSnapshotChange: (snapshot: ConnectionSnapshot) => void }) {
   const theme = useTheme();
+  const scale = useTextScale();
   const [alias, setAlias] = useState('');
   const [address, setAddress] = useState('');
   const [peers, setPeers] = useState<PeerInfo[]>([]);
@@ -199,29 +201,29 @@ export function SessionScreen({ identity, onAddressChange, onSnapshotChange, onS
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       <ScrollView contentContainerStyle={{ alignSelf: 'center', gap: 18, paddingVertical: 12, width: '100%', maxWidth: 600 }}>
         <YStack gap={6} paddingVertical={10}>
-          <SizableText color={theme.accent} fontSize={13} fontWeight="700" letterSpacing={2}>UPEER</SizableText>
-          <H1 color={theme.text} fontSize={24}>Conexión</H1>
-          <SizableText color={theme.text} fontSize={18} fontWeight="600">{alias}</SizableText>
-          <Text color={theme.placeholder} style={{ fontFamily: 'monospace' }} fontSize={11}>{identity.upeerId}</Text>
+          <SizableText color={theme.accent} fontSize={scale(13)} fontWeight="700" letterSpacing={2}>UPEER</SizableText>
+          <H1 color={theme.text} fontSize={scale(24)}>Conexión</H1>
+          <SizableText color={theme.text} fontSize={scale(18)} fontWeight="600">{alias}</SizableText>
+          <Text color={theme.placeholder} style={{ fontFamily: 'monospace' }} fontSize={scale(11)}>{identity.upeerId}</Text>
         </YStack>
         <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={18} borderWidth={1} padding={18}>
           <YStack gap={12}>
             <XStack alignItems="center" gap={10}>
               {busy && <ActivityIndicator size="small" />}
-              <SizableText color={peers.some((peer) => peer.Up) ? theme.accent : theme.text} fontSize={17} fontWeight="700">{phase}</SizableText>
+              <SizableText color={peers.some((peer) => peer.Up) ? theme.accent : theme.text} fontSize={scale(17)} fontWeight="700">{phase}</SizableText>
             </XStack>
-            {address ? <Text color={theme.placeholder} style={{ fontFamily: 'monospace' }} fontSize={12}>{address}</Text> : <Text color={theme.placeholder} fontSize={12}>Dirección de red: esperando conexión…</Text>}
+            {address ? <Text color={theme.placeholder} style={{ fontFamily: 'monospace' }} fontSize={scale(12)}>{address}</Text> : <Text color={theme.placeholder} fontSize={scale(12)}>Dirección de red: esperando conexión…</Text>}
           </YStack>
         </Card>
         <YStack gap={10}>
-          <SizableText color={theme.text} fontSize={17} fontWeight="700">Nodos de la red</SizableText>
+          <SizableText color={theme.text} fontSize={scale(17)} fontWeight="700">Nodos de la red</SizableText>
           {peers.length === 0 ? <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} padding={16}><Paragraph color={theme.placeholder}>{starting ? 'Conectando automáticamente a la red…' : 'Buscando peers automáticamente…'}</Paragraph></Card> : peers.map((peer, index) => (
             <Card key={`${peer.URI}-${index}`} backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} padding={14}>
               <XStack alignItems="center" gap={10}>
                 <YStack backgroundColor={peer.Up ? theme.accent : theme.placeholder} borderRadius={99} height={9} width={9} />
                 <YStack flex={1} gap={3}>
-                  <SizableText color={theme.text} fontSize={13} fontWeight="600">{peer.URI}</SizableText>
-                  <Paragraph color={theme.placeholder} fontSize={12}>{peer.Up ? `Activo · ${(peer.Latency / 1_000_000).toFixed(0)} ms` : peer.LastError || 'Conectando'}</Paragraph>
+                  <SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{peer.URI}</SizableText>
+                  <Paragraph color={theme.placeholder} fontSize={scale(12)}>{peer.Up ? `Activo · ${(peer.Latency / 1_000_000).toFixed(0)} ms` : peer.LastError || 'Conectando'}</Paragraph>
                 </YStack>
               </XStack>
             </Card>
