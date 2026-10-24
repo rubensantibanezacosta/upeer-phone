@@ -104,9 +104,9 @@ const styles = StyleSheet.create({
   bubble: {
     borderRadius: 12,
     elevation: 2,
-    paddingBottom: 2,
+    paddingBottom: 3,
     paddingHorizontal: 8,
-    paddingTop: 4,
+    paddingTop: 5,
     shadowColor: '#000',
     shadowOffset: { height: 2, width: 0 },
     shadowOpacity: 0.35,
