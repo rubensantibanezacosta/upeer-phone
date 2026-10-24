@@ -43,6 +43,10 @@ internal class ControlReplies(
       handleRead(senderUpeerId, packet)
       return metadataJSON
     }
+    if (type == "TYPING") {
+      state.markTyping(senderUpeerId, TypingIndicators.expiresAt(System.currentTimeMillis()))
+      return metadataJSON
+    }
     handleReset(packet, senderUpeerId, publicKey, deviceBinding)
     return metadataJSON
   }

@@ -19,11 +19,12 @@ import { decideRequestState } from '@/domain/message-request';
 import { useTheme } from '@/hooks/use-theme';
 import { getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
 import type { ProtocolMessage } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
-import { editChat, getMessages, getConversations, markConversationRead, sendChat } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
+import { editChat, getMessages, getConversations, markConversationRead, sendChat, sendTyping } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
 
 const MESSAGE_LIMIT = 200;
 const LATEST_OFFSET = 24;
 const SCROLL_BUTTON_OFFSET = 180;
+const TYPING_INTERVAL_MS = 3000;
 
 const keyExtractor = (entry: ChatTimelineEntry) => entry.message.id;
 
@@ -44,6 +45,8 @@ export default function ChatRoute() {
   const [editing, setEditing] = useState<ProtocolMessage | null>(null);
   const [error, setError] = useState('');
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [peerTyping, setPeerTyping] = useState(false);
+  const typingSentAtRef = useRef(0);
 
 
   const refresh = useCallback(async () => {
@@ -51,7 +54,9 @@ export default function ChatRoute() {
     const [nextMessages, contacts, conversations] = await Promise.all([getMessages(upeerId, MESSAGE_LIMIT), getContacts(), getConversations()]);
     setMessages(nextMessages);
     const contact = contacts.find((item) => item.upeerId === upeerId);
-    const conversationAlias = conversations.find((conversation) => conversation.upeerId === upeerId)?.alias;
+    const ownConversation = conversations.find((conversation) => conversation.upeerId === upeerId);
+    const conversationAlias = ownConversation?.alias;
+    setPeerTyping(ownConversation?.typing === true);
     setAlias(contact?.name || conversationAlias || upeerId.slice(0, 12));
     const decision = decideRequestState({
       contactStatus: contact?.status,
@@ -95,6 +100,17 @@ export default function ChatRoute() {
     listRef.current?.scrollToOffset({ animated: false, offset: 0 });
     setShowScrollButton(false);
   }, [messages.length, timeline]);
+
+  const handleChange = useCallback((value: string) => {
+    setText(value);
+    if (!upeerId || !value.trim()) return;
+    const now = Date.now();
+    if (now - typingSentAtRef.current < TYPING_INTERVAL_MS) return;
+    typingSentAtRef.current = now;
+    sendTyping(upeerId).catch((cause: unknown) => {
+      console.warn('No se pudo enviar el indicador de escritura.', cause);
+    });
+  }, [upeerId]);
 
   const submit = async () => {
     const content = text.trim();
@@ -171,7 +187,7 @@ export default function ChatRoute() {
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
-        <ChatHeader alias={alias || 'Conversación'} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={() => router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } })} onUnavailable={showUnavailable} status={contactStatus} upeerId={upeerId ?? ''} />
+        <ChatHeader alias={alias || 'Conversación'} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={() => router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } })} onUnavailable={showUnavailable} status={contactStatus} typing={peerTyping} upeerId={upeerId ?? ''} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
           {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} /> : <View style={styles.timeline}>
             {timeline.length === 0 ? <ChatEmptyState /> : (
@@ -211,7 +227,7 @@ export default function ChatRoute() {
               </NativeRipplePressable>
             </XStack>
           ) : null}
-          {isRequest ? null : <ChatComposer onChange={setText} onSend={() => { void submit(); }} onUnavailable={showUnavailable} value={text} />}
+          {isRequest ? null : <ChatComposer onChange={handleChange} onSend={() => { void submit(); }} onUnavailable={showUnavailable} value={text} />}
         </KeyboardAvoidingView>
       </SafeAreaView>
       {insets.bottom > 0 ? (

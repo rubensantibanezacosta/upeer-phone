@@ -16,9 +16,6 @@ internal object ReadReceipts {
     return if (ReplayPolicy.validMessageID(messageID)) messageID else null
   }
 
-  fun frame(identity: CryptoIdentity, selfAddress: String, peerPublicKey: String, messageID: String, nowMillis: Long): String {
-    val signed = identity.buildSignedPacket(selfAddress, data(messageID, nowMillis).toString())
-    val ciphertext = identity.seal(signed.toByteArray(Charsets.UTF_8), peerPublicKey)
-    return JSONObject().put("type", "SEALED").put("ciphertext", ciphertext).toString()
-  }
+  fun frame(identity: CryptoIdentity, selfAddress: String, peerPublicKey: String, messageID: String, nowMillis: Long): String =
+    SealedControl.frame(identity, selfAddress, peerPublicKey, data(messageID, nowMillis))
 }

@@ -228,6 +228,7 @@ internal class ProtocolStateStore(context: Context) {
     ProtocolConversations.build(
       state.optJSONArray("messages") ?: JSONArray(),
       state.optJSONObject("peers") ?: JSONObject(),
+      typingPeers(System.currentTimeMillis()),
     )
   }
 
@@ -281,6 +282,41 @@ internal class ProtocolStateStore(context: Context) {
       state.put("muted", next)
       persist()
     }
+  }
+
+  fun markTyping(upeerId: String, untilMillis: Long) {
+    synchronized(lock) {
+      val typing = state.optJSONObject("typing") ?: JSONObject()
+      typing.put(upeerId, untilMillis)
+      state.put("typing", typing)
+      persist()
+    }
+  }
+
+  fun clearTyping(upeerId: String) {
+    synchronized(lock) {
+      val typing = state.optJSONObject("typing") ?: return@synchronized
+      if (typing.remove(upeerId) == null) return@synchronized
+      state.put("typing", typing)
+      persist()
+    }
+  }
+
+  fun typingPeers(nowMillis: Long): Set<String> = synchronized(lock) {
+    val typing = state.optJSONObject("typing") ?: return@synchronized emptySet()
+    val active = mutableSetOf<String>()
+    val stale = mutableListOf<String>()
+    val keys = typing.keys()
+    while (keys.hasNext()) {
+      val key = keys.next()
+      if (TypingIndicators.isActive(typing.optLong(key), nowMillis)) active.add(key) else stale.add(key)
+    }
+    if (stale.isNotEmpty()) {
+      stale.forEach(typing::remove)
+      state.put("typing", typing)
+      persist()
+    }
+    active
   }
 
   fun setNotificationPrefs(prefs: NotificationPrefs) {

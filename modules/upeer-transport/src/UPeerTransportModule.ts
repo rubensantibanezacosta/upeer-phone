@@ -39,6 +39,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   messagesJSON(upeerId: string, limit: number): Promise<string>;
   conversationsJSON(): Promise<string>;
   markConversationRead(upeerId: string): Promise<void>;
+  sendTyping(upeerId: string): Promise<void>;
   deleteConversation(upeerId: string): Promise<boolean>;
   setBlockedPeers(blockedJSON: string): Promise<void>;
   setKnownContacts(knownJSON: string): Promise<void>;
@@ -254,6 +255,10 @@ export async function getConversations(): Promise<ProtocolConversation[]> {
 
 export async function markConversationRead(upeerId: string): Promise<void> {
   return nativeModule.markConversationRead(upeerId);
+}
+
+export async function sendTyping(upeerId: string): Promise<void> {
+  return nativeModule.sendTyping(upeerId);
 }
 
 export async function deleteConversation(upeerId: string): Promise<boolean> {

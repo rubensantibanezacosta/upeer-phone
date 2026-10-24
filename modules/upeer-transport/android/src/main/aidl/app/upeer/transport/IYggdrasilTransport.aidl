@@ -33,6 +33,7 @@ interface IYggdrasilTransport {
   String messagesJSON(String upeerId, int limit);
   String conversationsJSON();
   void markConversationRead(String upeerId);
+  void sendTyping(String upeerId);
   boolean deleteConversation(String upeerId);
   void setBlockedPeers(String blockedJSON);
   void setKnownContacts(String knownJSON);

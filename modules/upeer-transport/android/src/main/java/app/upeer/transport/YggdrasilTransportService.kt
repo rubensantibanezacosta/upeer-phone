@@ -174,6 +174,9 @@ class YggdrasilTransportService : Service() {
       protocol.markConversationRead(upeerId)
       notifications.clearConversation(upeerId)
     }
+    override fun sendTyping(upeerId: String) {
+      admitted { protocol.sendTyping(upeerId) }
+    }
     override fun deleteConversation(upeerId: String): Boolean = protocol.deleteConversation(upeerId)
     override fun setBlockedPeers(blockedJSON: String) {
       val parsed = JSONArray(blockedJSON.ifBlank { "[]" })

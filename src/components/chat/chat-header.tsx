@@ -17,6 +17,7 @@ type ChatHeaderProps = {
   status: UPeerContact['status'];
   vouchScore?: number;
   isRequest?: boolean;
+  typing?: boolean;
   onBack: () => void;
   onOpenInfo: () => void;
   onUnavailable: (label: string) => void;
@@ -30,7 +31,7 @@ function HeaderAction({ label, onPress, children }: { label: string; onPress: ()
   );
 }
 
-export function ChatHeader({ alias, upeerId, status, vouchScore, isRequest = false, onBack, onOpenInfo, onUnavailable }: ChatHeaderProps) {
+export function ChatHeader({ alias, upeerId, status, vouchScore, isRequest = false, typing = false, onBack, onOpenInfo, onUnavailable }: ChatHeaderProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -54,7 +55,7 @@ export function ChatHeader({ alias, upeerId, status, vouchScore, isRequest = fal
           <ContactTrustAvatar name={alias} size={40} vouchScore={vouchScore} />
           <YStack flex={1} gap={2} minWidth={0}>
             <SizableText color={theme.text} fontSize={16} fontWeight="500" numberOfLines={1}>{alias}</SizableText>
-            <Text color={theme.placeholder} fontSize={12} numberOfLines={1}>{CONTACT_STATUS_LABELS[status]}</Text>
+            <Text color={typing ? theme.accent : theme.placeholder} fontSize={12} numberOfLines={1}>{typing ? 'Escribiendo…' : CONTACT_STATUS_LABELS[status]}</Text>
           </YStack>
         </NativeRipplePressable>
         {isRequest ? null : <HeaderAction label="Videollamada" onPress={() => onUnavailable('Videollamada')}><Video color={theme.text} size={24} /></HeaderAction>}

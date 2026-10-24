@@ -4,7 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal object ProtocolConversations {
-  fun build(messages: JSONArray, peers: JSONObject): String {
+  fun build(messages: JSONArray, peers: JSONObject, typingPeers: Set<String> = emptySet()): String {
     val latest = LinkedHashMap<String, JSONObject>()
     for (index in 0 until messages.length()) {
       val message = messages.optJSONObject(index) ?: continue
@@ -30,6 +30,7 @@ internal object ProtocolConversations {
         .put("lastTimestamp", message.optLong("timestamp"))
         .put("lastIsMine", message.optBoolean("isMine"))
         .put("unread", unread)
+        .put("typing", typingPeers.contains(upeerId))
     }.sortedByDescending { it.optLong("lastTimestamp") }
     return JSONArray(result).toString()
   }

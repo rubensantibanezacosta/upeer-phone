@@ -48,6 +48,7 @@ export type ProtocolConversation = {
   lastTimestamp: number;
   lastIsMine: boolean;
   unread: number;
+  typing?: boolean;
 };
 
 export type ProtocolTransportStatus = {

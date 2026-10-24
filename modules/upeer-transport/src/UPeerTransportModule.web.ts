@@ -34,6 +34,7 @@ class UPeerTransportModule extends NativeModule<{}> {
   async messagesJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async conversationsJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async markConversationRead(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async sendTyping(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async deleteConversation(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async setBlockedPeers(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async setKnownContacts(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }

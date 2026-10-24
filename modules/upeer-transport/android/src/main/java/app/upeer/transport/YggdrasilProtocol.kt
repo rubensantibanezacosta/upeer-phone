@@ -71,6 +71,33 @@ internal class YggdrasilProtocol(
 
   fun flushOutbox() = outbox.flush()
   fun peerPublicKey(upeerId: String): String? = state.publicKeyFor(upeerId)
+  fun sendTyping(upeerId: String) {
+    val activeBridge = bridge ?: return
+    val address = state.addressFor(upeerId) ?: return
+    val peerPublicKey = state.publicKeyFor(upeerId) ?: return
+    val currentIdentity = identity.current() ?: return
+    val thread = Thread({
+      var connectionID = 0
+      try {
+        val frame = SealedControl.frame(currentIdentity, activeBridge.address(), peerPublicKey, TypingIndicators.data())
+        connectionID = activeBridge.dialTCP(address, PORT)
+        activeBridge.writeFrame(connectionID, frame.toByteArray(Charsets.UTF_8))
+      } catch (cause: Exception) {
+        Log.w(TAG, "No se pudo enviar TYPING a $address: ${message(cause)}")
+      } finally {
+        if (connectionID != 0) {
+          try {
+            activeBridge.closeConnection(connectionID)
+          } catch (cause: Exception) {
+            Log.w(TAG, "No se pudo cerrar la conexión de TYPING: ${message(cause)}")
+          }
+        }
+      }
+    }, "upeer-typing")
+    thread.isDaemon = true
+    thread.start()
+  }
+
   fun markConversationRead(upeerId: String) {
     val transitioned = state.markConversationRead(upeerId)
     if (transitioned.isNotEmpty()) sendReadReceipts(upeerId, transitioned)
@@ -159,7 +186,7 @@ internal class YggdrasilProtocol(
       }
       return metadataJSON
     }
-    if (type == "ACK" || type == "DR_RESET" || type == "READ") {
+    if (type == "ACK" || type == "DR_RESET" || type == "READ" || type == "TYPING") {
       return controlReplies.handle(activeBridge, payload, packet, type, sourceAddress)
     }
     if (type != "CHAT" && type != "CHAT_UPDATE") throw IllegalArgumentException("unsupported packet type $type")
@@ -209,6 +236,7 @@ internal class YggdrasilProtocol(
       scheduleAck(activeBridge, senderUpeerId, messageID)
       return metadataJSON
     }
+    state.clearTyping(senderUpeerId)
     val decrypted = chatDecryptor.decrypt(packet, senderUpeerId, senderIdentityKey, isDevicePacket)
     if (decrypted.messageID.isNotEmpty()) scheduleAck(activeBridge, senderUpeerId, decrypted.messageID)
     try {
