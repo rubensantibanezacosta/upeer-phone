@@ -66,7 +66,7 @@ internal class YggdrasilOutbox(
     if (text.toByteArray(Charsets.UTF_8).size > MAX_MESSAGE_BYTES) throw IllegalArgumentException("El mensaje es demasiado grande")
     val messageID = UUID.randomUUID().toString()
     val timestamp = System.currentTimeMillis()
-    state.saveMessage(
+    state.messages.save(
       JSONObject()
         .put("id", messageID)
         .put("upeerId", upeerId)
@@ -85,9 +85,9 @@ internal class YggdrasilOutbox(
 
   fun editChat(upeerId: String, messageID: String, content: String): Int {
     if (!ID_PATTERN.matches(upeerId)) throw IllegalArgumentException("uPeer ID no válido")
-    val message = state.messageFor(messageID) ?: throw IllegalArgumentException("El mensaje no existe")
+    val message = state.messages.find(messageID) ?: throw IllegalArgumentException("El mensaje no existe")
     val plan = ChatEditPolicy.plan(message, upeerId, messageID, content)
-    if (!state.updateLocalMessageContent(messageID, upeerId, plan.text, plan.version)) {
+    if (!state.messages.updateLocalContent(messageID, upeerId, plan.text, plan.version)) {
       throw IllegalArgumentException("El mensaje ya no se puede editar")
     }
     if (plan.pending) {
@@ -103,7 +103,7 @@ internal class YggdrasilOutbox(
   }
 
   fun onAck(senderUpeerId: String, messageID: String, status: String): Boolean {
-    if (!state.ackMessage(messageID, senderUpeerId, status)) return false
+    if (!state.messages.ack(messageID, senderUpeerId, status)) return false
     outbox.remove(messageID)
     Log.i(TAG, "ACK recibido de $senderUpeerId para $messageID ($status)")
     wake()
@@ -265,7 +265,7 @@ internal class YggdrasilOutbox(
       return
     }
     outbox.markSent(entryID, System.currentTimeMillis() + ACK_TIMEOUT_MS)
-    state.markMessageStatus(entryID, "sent")
+    state.messages.markStatus(entryID, "sent")
     Log.i(TAG, "Mensaje $entryID enviado; esperando ACK")
   }
 
@@ -273,7 +273,7 @@ internal class YggdrasilOutbox(
     val attempts = entry.optInt("attempts", 0) + 1
     if (attempts >= MAX_ATTEMPTS) {
       outbox.remove(entryID)
-      if (entry.optString("kind", "CHAT") != "CHAT_UPDATE") state.markMessageStatus(entryID, "failed")
+      if (entry.optString("kind", "CHAT") != "CHAT_UPDATE") state.messages.markStatus(entryID, "failed")
       Log.w(TAG, "Entrada $entryID descartada tras $attempts intentos: $reason")
       return
     }

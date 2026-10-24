@@ -4,6 +4,8 @@ import { Text } from 'tamagui';
 
 import type { ChatTimelineEntry } from '@/domain/chat-timeline';
 import { formatChatTime } from '@/domain/chat-timeline';
+import type { ReactionSummary } from '@/domain/chat-reactions';
+import { ChatReactionRow } from '@/components/chat/chat-reaction-row';
 import { useTheme } from '@/hooks/use-theme';
 import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeerTransport.types';
 
@@ -28,35 +30,39 @@ function MessageStatus({ color, status }: { color: string; status: ProtocolMessa
   return <View accessibilityLabel={`Estado del mensaje: ${statusLabels[status]}`} style={styles.status}>{icon}</View>;
 }
 
-export function ChatMessageBubble({ entry, onEdit }: { entry: ChatTimelineEntry; onEdit?: (message: ProtocolMessage) => void }) {
+export function ChatMessageBubble({ entry, onLongPress, onToggleReaction, reactions }: {
+  entry: ChatTimelineEntry;
+  onLongPress?: (message: ProtocolMessage) => void;
+  onToggleReaction?: (message: ProtocolMessage, emoji: string) => void;
+  reactions?: ReactionSummary[];
+}) {
   const theme = useTheme();
   const isMine = entry.message.isMine;
   const textColor = isMine ? theme.bubbleMineText : theme.text;
   const metaColor = isMine ? theme.bubbleMineText : theme.placeholder;
-  const editable = isMine && Boolean(onEdit);
 
   return (
-    <Pressable
-      accessibilityHint={editable ? 'Mantén pulsado para editar el mensaje' : undefined}
-      disabled={!editable}
-      onLongPress={editable ? () => onEdit?.(entry.message) : undefined}
-      style={[styles.row, { marginTop: entry.startsGroup ? 10 : 4 }, isMine ? styles.rowMine : styles.rowTheirs]}
-    >
-      <View style={[
-        styles.bubble,
-        { backgroundColor: isMine ? theme.bubbleMine : theme.backgroundElement },
-        isMine ? styles.bubbleMine : styles.bubbleTheirs,
-      ]}>
-        <View style={styles.body}>
-          <Text color={textColor} fontSize={14} style={styles.content}>{entry.message.content}</Text>
-          <View style={styles.meta}>
-            {entry.message.isEdited ? <Text color={metaColor} fontSize={10} opacity={0.8}>editado</Text> : null}
-            <Text color={metaColor} fontSize={10} opacity={0.8}>{formatChatTime(entry.message.timestamp)}</Text>
-            {isMine ? <MessageStatus color={metaColor} status={entry.message.status} /> : null}
+    <View style={[styles.row, { marginTop: entry.startsGroup ? 10 : 4 }, isMine ? styles.rowMine : styles.rowTheirs]}>
+      <View style={styles.column}>
+        <Pressable
+          accessibilityHint="Mantén pulsado para ver las acciones del mensaje"
+          onLongPress={onLongPress ? () => onLongPress(entry.message) : undefined}
+          style={[styles.bubble, { backgroundColor: isMine ? theme.bubbleMine : theme.backgroundElement }, isMine ? styles.bubbleMine : styles.bubbleTheirs]}
+        >
+          <View style={styles.body}>
+            <Text color={textColor} fontSize={14} style={styles.content}>{entry.message.content}</Text>
+            <View style={styles.meta}>
+              {entry.message.isEdited ? <Text color={metaColor} fontSize={10} opacity={0.8}>editado</Text> : null}
+              <Text color={metaColor} fontSize={10} opacity={0.8}>{formatChatTime(entry.message.timestamp)}</Text>
+              {isMine ? <MessageStatus color={metaColor} status={entry.message.status} /> : null}
+            </View>
           </View>
-        </View>
+        </Pressable>
+        {onToggleReaction ? (
+          <ChatReactionRow isMine={isMine} onToggle={(emoji) => onToggleReaction(entry.message, emoji)} reactions={reactions ?? []} />
+        ) : null}
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -64,10 +70,10 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', width: '100%' },
   rowMine: { justifyContent: 'flex-end' },
   rowTheirs: { justifyContent: 'flex-start' },
+  column: { maxWidth: '80%' },
   bubble: {
     borderRadius: 12,
     elevation: 2,
-    maxWidth: '80%',
     paddingBottom: 2,
     paddingHorizontal: 8,
     paddingTop: 4,

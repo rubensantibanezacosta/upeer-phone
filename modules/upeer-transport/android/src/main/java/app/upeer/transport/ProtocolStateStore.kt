@@ -16,6 +16,8 @@ internal class ProtocolStateStore(context: Context) {
   private val lock = Any()
   private var state = ProtocolStateCodec.load(store)
 
+  val messages = ProtocolMessageList({ state }, lock, ::persist)
+
   fun rememberPeer(metadata: JSONObject): Boolean {
     val upeerId = metadata.optString("senderUpeerId")
     val publicKey = metadata.optString("publicKey")
@@ -153,76 +155,7 @@ internal class ProtocolStateStore(context: Context) {
   }
 
 
-  fun messageOwner(messageID: String): String? = synchronized(lock) {
-    messagesLocked().let { ProtocolMessageState.find(it, messageID) }
-      ?.optString("upeerId")
-      ?.ifEmpty { null }
-  }
-
-  fun messageFor(messageID: String): JSONObject? = synchronized(lock) {
-    ProtocolMessageState.find(messagesLocked(), messageID)?.let(::copy)
-  }
-
-  fun saveMessage(message: JSONObject) {
-    synchronized(lock) {
-      state.put("messages", ProtocolMessageState.upsert(messagesLocked(), message))
-      persist()
-    }
-  }
-
-  fun updateMessageContent(
-    messageID: String,
-    senderUpeerId: String,
-    content: String,
-    version: Int,
-  ): JSONObject? = synchronized(lock) {
-    val updated = ProtocolMessageState.updateIncomingContent(
-      messagesLocked(),
-      messageID,
-      senderUpeerId,
-      content,
-      version,
-    ) ?: return@synchronized null
-    persist()
-    updated
-  }
-
-  fun updateLocalMessageContent(messageID: String, upeerId: String, content: String, version: Int): Boolean =
-    synchronized(lock) {
-      val updated = ProtocolMessageState.updateLocalContent(
-        messagesLocked(),
-        messageID,
-        upeerId,
-        content,
-        version,
-      ) ?: return@synchronized false
-      persist()
-      updated.optInt("version", 0) == version
-    }
-
-  fun markMessageStatus(messageID: String, status: String) {
-    synchronized(lock) {
-      val message = ProtocolMessageState.find(messagesLocked(), messageID) ?: return@synchronized
-      message.put("status", status)
-      persist()
-    }
-  }
-
-  fun ackMessage(messageID: String, senderUpeerId: String, status: String): Boolean {
-    return synchronized(lock) {
-      val message = ProtocolMessageState.find(messagesLocked(), messageID) ?: return@synchronized false
-      if (!ReplayPolicy.validAck(message.optString("upeerId"), senderUpeerId, message.optBoolean("isMine"), status)) {
-        return@synchronized false
-      }
-      message.put("status", status)
-      persist()
-      true
-    }
-  }
-
-  fun messagesJSON(upeerId: String, limit: Int): String = synchronized(lock) {
-    ProtocolMessageState.snapshot(messagesLocked(), upeerId, limit)
-  }
+  fun messagesJSON(upeerId: String, limit: Int): String = messages.snapshot(upeerId, limit)
 
   fun conversationsJSON(): String = synchronized(lock) {
     ProtocolConversations.build(
@@ -326,28 +259,9 @@ internal class ProtocolStateStore(context: Context) {
     }
   }
 
-  fun deleteConversation(upeerId: String): Boolean = synchronized(lock) {
-    val messages = state.optJSONArray("messages") ?: return@synchronized false
-    val remaining = ProtocolMessageState.withoutConversation(messages, upeerId)
-    if (remaining.length() == messages.length()) return@synchronized false
-    state.put("messages", remaining)
-    persist()
-    true
-  }
+  fun deleteConversation(upeerId: String): Boolean = messages.deleteConversation(upeerId)
 
-  fun markConversationRead(upeerId: String): List<String> = synchronized(lock) {
-    val messages = state.optJSONArray("messages") ?: return@synchronized emptyList()
-    val transitioned = mutableListOf<String>()
-    for (index in 0 until messages.length()) {
-      val message = messages.optJSONObject(index) ?: continue
-      if (message.optString("upeerId") == upeerId && !message.optBoolean("isMine") && message.optString("status") == "delivered") {
-        message.put("status", "read")
-        transitioned.add(message.optString("id"))
-      }
-    }
-    if (transitioned.isNotEmpty()) persist()
-    transitioned
-  }
+  fun markConversationRead(upeerId: String): List<String> = messages.markRead(upeerId)
 
   fun clear() {
     synchronized(lock) {
@@ -360,22 +274,7 @@ internal class ProtocolStateStore(context: Context) {
     }
   }
 
-  fun statusJSON(): String = synchronized(lock) {
-    val messages = state.optJSONArray("messages") ?: JSONArray()
-    var unread = 0
-    for (index in 0 until messages.length()) {
-      val message = messages.optJSONObject(index) ?: continue
-      if (!message.optBoolean("isMine") && message.optString("status") == "delivered") unread++
-    }
-    JSONObject()
-      .put("peers", state.optJSONObject("peers")?.length() ?: 0)
-      .put("sessions", state.optJSONObject("sessions")?.length() ?: 0)
-      .put("messages", messages.length())
-      .put("unread", unread)
-      .toString()
-  }
-
-  private fun messagesLocked(): JSONArray = state.optJSONArray("messages") ?: JSONArray()
+  fun statusJSON(): String = synchronized(lock) { ProtocolStatus.json(state) }
 
   private fun copy(value: JSONObject): JSONObject = JSONObject(value.toString())
 

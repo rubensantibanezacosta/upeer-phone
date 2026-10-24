@@ -9,13 +9,17 @@ import { ChatComposer } from '@/components/chat/chat-composer';
 import { ChatDateSeparator } from '@/components/chat/chat-date-separator';
 import { ChatEmptyState } from '@/components/chat/chat-empty-state';
 import { ChatHeader } from '@/components/chat/chat-header';
+import { ChatMessageActions } from '@/components/chat/chat-message-actions';
 import { ChatMessageBubble } from '@/components/chat/chat-message-bubble';
 import { ChatRequestScreen } from '@/components/chat/chat-request-screen';
 import { ChatScrollButton } from '@/components/chat/chat-scroll-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useSnackbar } from '@/components/snackbar';
 import { buildChatTimeline, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
+import { summarizeReactions } from '@/domain/chat-reactions';
 import { decideRequestState } from '@/domain/message-request';
+import { useMessageActions } from '@/hooks/use-message-actions';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useTheme } from '@/hooks/use-theme';
 import { getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
 import type { ProtocolMessage } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
@@ -144,6 +148,23 @@ export default function ChatRoute() {
     setText('');
   }, []);
 
+  const copy = useCopyToClipboard();
+  const messageActions = useMessageActions(upeerId, {
+    onChanged: refresh,
+    onError: setError,
+  });
+  const { open: openActions, close: closeActions, remove: removeMessage, selected: actionMessage, selfUpeerId, toggleReaction } = messageActions;
+
+  const editFromActions = useCallback((message: ProtocolMessage) => {
+    closeActions();
+    startEditing(message);
+  }, [closeActions, startEditing]);
+
+  const copyFromActions = useCallback((message: ProtocolMessage) => {
+    closeActions();
+    void copy(message.content);
+  }, [closeActions, copy]);
+
   const resolveRequest = useCallback((status: UPeerContact['status'], message: string) => {
     if (!upeerId) return;
     saveContact({ address: '', createdAt: Date.now(), name: alias || upeerId.slice(0, 12), publicKey: null, status, upeerId })
@@ -180,9 +201,14 @@ export default function ChatRoute() {
   const renderItem = useCallback(({ item }: ListRenderItemInfo<ChatTimelineEntry>) => (
     <View>
       {item.showDateSeparator ? <ChatDateSeparator timestamp={item.message.timestamp} /> : null}
-      <ChatMessageBubble entry={item} onEdit={startEditing} />
+      <ChatMessageBubble
+        entry={item}
+        onLongPress={openActions}
+        onToggleReaction={toggleReaction}
+        reactions={summarizeReactions(item.message.reactions, selfUpeerId)}
+      />
     </View>
-  ), [startEditing]);
+  ), [openActions, selfUpeerId, toggleReaction]);
 
   return (
     <View style={styles.root}>
@@ -233,6 +259,16 @@ export default function ChatRoute() {
       {insets.bottom > 0 ? (
         <View pointerEvents="none" style={[styles.nativeBarBackground, { backgroundColor: theme.backgroundElement, height: insets.bottom }]} />
       ) : null}
+      <ChatMessageActions
+        canEdit={actionMessage?.isMine === true}
+        message={actionMessage}
+        onClose={closeActions}
+        onCopy={copyFromActions}
+        onDelete={removeMessage}
+        onEdit={editFromActions}
+        onToggleReaction={toggleReaction}
+        reactions={summarizeReactions(actionMessage?.reactions, selfUpeerId)}
+      />
     </View>
   );
 }

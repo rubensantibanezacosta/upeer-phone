@@ -40,6 +40,8 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   conversationsJSON(): Promise<string>;
   markConversationRead(upeerId: string): Promise<void>;
   sendTyping(upeerId: string): Promise<void>;
+  sendReaction(upeerId: string, messageId: string, emoji: string, remove: boolean): Promise<void>;
+  deleteMessage(upeerId: string, messageId: string): Promise<void>;
   deleteConversation(upeerId: string): Promise<boolean>;
   setBlockedPeers(blockedJSON: string): Promise<void>;
   setKnownContacts(knownJSON: string): Promise<void>;
@@ -259,6 +261,19 @@ export async function markConversationRead(upeerId: string): Promise<void> {
 
 export async function sendTyping(upeerId: string): Promise<void> {
   return nativeModule.sendTyping(upeerId);
+}
+
+export async function sendReaction(
+  upeerId: string,
+  messageId: string,
+  emoji: string,
+  remove: boolean,
+): Promise<void> {
+  return nativeModule.sendReaction(upeerId, messageId, emoji, remove);
+}
+
+export async function deleteMessage(upeerId: string, messageId: string): Promise<void> {
+  return nativeModule.deleteMessage(upeerId, messageId);
 }
 
 export async function deleteConversation(upeerId: string): Promise<boolean> {

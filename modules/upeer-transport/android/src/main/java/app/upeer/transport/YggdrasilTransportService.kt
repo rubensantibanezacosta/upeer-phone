@@ -177,6 +177,12 @@ class YggdrasilTransportService : Service() {
     override fun sendTyping(upeerId: String) {
       admitted { protocol.sendTyping(upeerId) }
     }
+    override fun sendReaction(upeerId: String, messageId: String, emoji: String, remove: Boolean) {
+      admitted { protocol.sendReaction(upeerId, messageId, emoji, remove) }
+    }
+    override fun deleteMessage(upeerId: String, messageId: String) {
+      admitted { protocol.deleteMessage(upeerId, messageId) }
+    }
     override fun deleteConversation(upeerId: String): Boolean = protocol.deleteConversation(upeerId)
     override fun setBlockedPeers(blockedJSON: String) {
       val parsed = JSONArray(blockedJSON.ifBlank { "[]" })

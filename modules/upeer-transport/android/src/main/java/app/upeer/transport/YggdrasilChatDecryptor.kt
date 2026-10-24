@@ -14,7 +14,7 @@ internal class YggdrasilChatDecryptor(
 ) {
   fun decrypt(packet: JSONObject, senderUpeerId: String, publicKey: String, isDevicePacket: Boolean): DecryptedChat {
     val plaintext = decryptContent(packet, senderUpeerId, publicKey, isDevicePacket)
-    state.saveMessage(
+    state.messages.save(
       JSONObject()
         .put("id", packet.optString("id"))
         .put("upeerId", senderUpeerId)

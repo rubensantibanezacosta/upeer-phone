@@ -47,6 +47,14 @@ internal class ControlReplies(
       state.markTyping(senderUpeerId, TypingIndicators.expiresAt(System.currentTimeMillis()))
       return metadataJSON
     }
+    if (type == "CHAT_REACTION") {
+      handleReaction(senderUpeerId, packet)
+      return metadataJSON
+    }
+    if (type == "CHAT_DELETE") {
+      handleDelete(senderUpeerId, packet)
+      return metadataJSON
+    }
     handleReset(packet, senderUpeerId, publicKey, deviceBinding)
     return metadataJSON
   }
@@ -85,10 +93,38 @@ internal class ControlReplies(
       Log.w(TAG, "READ ignorado con id inválido de $senderUpeerId")
       return
     }
-    if (state.ackMessage(messageID, senderUpeerId, "read")) {
+    if (state.messages.ack(messageID, senderUpeerId, "read")) {
       Log.i(TAG, "READ aplicado a $messageID de $senderUpeerId")
     } else {
       Log.w(TAG, "READ ignorado de $senderUpeerId para $messageID")
+    }
+  }
+
+  private fun handleReaction(senderUpeerId: String, packet: JSONObject) {
+    val messageID = ChatReactions.messageID(packet)
+    if (messageID == null) {
+      Log.w(TAG, "CHAT_REACTION ignorado con id inválido de $senderUpeerId")
+      return
+    }
+    val emoji = packet.optString("emoji")
+    if (!ChatReactions.validEmoji(emoji)) {
+      Log.w(TAG, "CHAT_REACTION ignorado con emoji inválido de $senderUpeerId")
+      return
+    }
+    val remove = packet.optBoolean("remove")
+    if (!state.messages.applyReaction(messageID, senderUpeerId, emoji, remove)) {
+      Log.w(TAG, "CHAT_REACTION ignorado de $senderUpeerId para $messageID")
+    }
+  }
+
+  private fun handleDelete(senderUpeerId: String, packet: JSONObject) {
+    val messageID = ChatDeletes.messageID(packet)
+    if (messageID == null) {
+      Log.w(TAG, "CHAT_DELETE ignorado con id inválido de $senderUpeerId")
+      return
+    }
+    if (!state.messages.delete(messageID, senderUpeerId)) {
+      Log.w(TAG, "CHAT_DELETE ignorado de $senderUpeerId para $messageID")
     }
   }
 

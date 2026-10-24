@@ -93,6 +93,10 @@ class UPeerTransportModule : Module() {
     AsyncFunction("conversationsJSON") { service().conversationsJSON() }
     AsyncFunction("markConversationRead") { upeerId: String -> service().markConversationRead(upeerId) }
     AsyncFunction("sendTyping") { upeerId: String -> service().sendTyping(upeerId) }
+    AsyncFunction("sendReaction") { upeerId: String, messageId: String, emoji: String, remove: Boolean ->
+      service().sendReaction(upeerId, messageId, emoji, remove)
+    }
+    AsyncFunction("deleteMessage") { upeerId: String, messageId: String -> service().deleteMessage(upeerId, messageId) }
     AsyncFunction("deleteConversation") { upeerId: String -> service().deleteConversation(upeerId) }
     AsyncFunction("setBlockedPeers") { blockedJSON: String -> service().setBlockedPeers(blockedJSON) }
     AsyncFunction("setKnownContacts") { knownJSON: String -> service().setKnownContacts(knownJSON) }
