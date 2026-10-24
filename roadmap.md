@@ -82,7 +82,7 @@ La integración desktop ejecuta `yggstack` y configura SOCKS local en `127.0.0.1
 - **B9 — no iniciada.** No hay validación DHT Desktop↔móvil, fuzzing de paquetes, presupuesto de batería/red para descubrimiento ni interop del registro de dispositivos.
 - **B10 — enrolamiento del móvil hecho con escaneo QR y autorizador en el bridge, identidad sin raíz y sincronización pendientes.** El bridge Go ya implementa el protocolo OOB sin raíz que usa Desktop: decodifica la invitación, firma la solicitud del dispositivo sobre el payload canónico y la sella con el secreto de un solo uso, y abre y verifica el certificado emitido por la cuenta antes de instalarlo (`ParseEnrollmentInvite`, `CryptoIdentity.BuildEnrollmentRequest`, `OpenEnrollmentCertificate`). También cubre el lado autorizador desde el bridge: `createEnrollmentInvite`, `openEnrollmentRequest` e `issueEnrollmentCertificate` generan la invitación con `inviteId` derivado y TTL acotado, abren la solicitud comprobando cuenta y ventana de 10 min, y firman y sellan el certificado; el vector de `transport-bridge/testdata/enrollment_vectors.json` verifica ambas direcciones, incluida una firma de certificado idéntica byte a byte a la de Desktop. El vector se verifica en ambos clientes. `DeviceEnrollment` guarda el estado en Keystore (solicitud pendiente + certificado instalado), el AIDL y el módulo Expo exponen `deviceEnrollmentBegin`/`…RequestJSON`/`…Finish`/`…Cancel`/`…StatusJSON`, y la pantalla única de recuperación del acceso ejecuta el flujo completo pegando códigos o escaneando con la cámara (`expo-camera`, `CameraView` con `barcodeTypes: ['qr']`) los QR que muestra el escritorio: invitación y certificado de respuesta. El reparto es asimétrico por hardware — el único dispositivo con cámara es el móvil, así que se escanea siempre escritorio → móvil y la solicitud del teléfono se copia. El autorizador móvil está cerrado: `DeviceEnrollmentAuthorizer` guarda invitaciones cifradas, abre la solicitud del escritorio, emite el certificado y lo registra, y Perfil ofrece «Dispositivos de la cuenta» con hoja de invitación QR. Falta el runtime en modo dispositivo (la app sigue necesitando la raíz para operar), la clave de cuenta pública sin mnemonic y toda la sincronización online/offline, historial y entrega diferida entre dispositivos autorizados.
 - **B11 — transporte local sin internet: no iniciada.** Sin Yggdrasil no hay nodo, y cada paquete firmado exige `senderYggAddress` IPv6, así que el móvil no puede hablar con el dispositivo de al lado. Falta Bluetooth RFCOMM, LAN local, descubrimiento propio y admisión por dispositivo en vez de por IP. Ver «B11 — Transporte local sin internet».
-- **Fases de producto 4–10 — no iniciadas como paridad.** El chat directo con un contacto ya conocido funciona en ambos sentidos y está expuesto en la UI, pero faltan grupos, archivos, llamadas, vault y notificaciones avanzadas. El Producto 6 (vault/multidispositivo) no empieza hasta B10. El detalle medido por tipo de paquete y por función de escritorio está en «Inventario de paridad con escritorio»: de los más de 60 tipos de paquete del protocolo (41 en `network/types.ts`, 14 `CALL_*`, 4 `GROUP_*` y los `FILE_*` que solo aparecen en `SEALED_TYPES`), el móvil solo habla hoy `HANDSHAKE_*`, `CHAT`, `ACK`, `CHAT_UPDATE`, `DR_RESET` y los `DHT_*`.
+- **Fases de producto 4–11 — no iniciadas como paridad.** El chat directo con un contacto ya conocido funciona en ambos sentidos y está expuesto en la UI, pero faltan grupos, archivos, llamadas, vault y notificaciones avanzadas. El Producto 6 (vault/multidispositivo) no empieza hasta B10. El Producto 11 (blogs P2P) es lo último de la cola y no se empieza con la mensajería sin cerrar: no es un transporte, es un producto nuevo que necesita firma de contenido y entrega ya probada. El detalle medido por tipo de paquete y por función de escritorio está en «Inventario de paridad con escritorio»: de los más de 60 tipos de paquete del protocolo (41 en `network/types.ts`, 14 `CALL_*`, 4 `GROUP_*` y los `FILE_*` que solo aparecen en `SEALED_TYPES`), el móvil solo habla hoy `HANDSHAKE_*`, `CHAT`, `ACK`, `READ`, `TYPING`, `CHAT_REACTION`, `CHAT_DELETE`, `CHAT_UPDATE`, `DR_RESET` y los `DHT_*`.
 
 ### Disposición del trabajo local no integrado
 
@@ -554,9 +554,9 @@ Los vectores fijos están en `transport-bridge/testdata/dht_vectors.json`. Se ge
 - `senderYggAddress` que no es IPv6 de Yggdrasil, `type` ausente, `signature`/`senderUpeerId`/`senderYggAddress` inyectados por el llamador, bloque expirado, `dhtSeq` negativo, dirección inválida o lista de direcciones vacía.
 - Un paquete firmado manipulado se rechaza antes de ejecutar handlers. Un `DHT_UPDATE` con firma exterior válida pero bloque interior inválido no debe aceptarse como actualización de ubicación.
 
-## Fases de producto (solo después de B9; Producto 6 después de B10)
+## Fases de producto (solo después de B9; Producto 6 después de B10; Producto 11 solo al final)
 
-B0–B9 son la secuencia obligatoria para red, identidad de cuenta e interoperabilidad; B10 es la sincronización multidispositivo. Las fases siguientes describen producto y no deben adelantarse para compensar una salida incompleta de B9. Las fases de identidad, transporte e integración Android ya tienen su estado en B0–B10; el Producto 6 no se porta sobre el atajo actual de Desktop.
+B0–B9 son la secuencia obligatoria para red, identidad de cuenta e interoperabilidad; B10 es la sincronización multidispositivo. Las fases siguientes describen producto y no deben adelantarse para compensar una salida incompleta de B9. Las fases de identidad, transporte e integración Android ya tienen su estado en B0–B10; el Producto 6 no se porta sobre el atajo actual de Desktop. El Producto 11 (blogs) es la última de la cola y no se empieza con la mensajería sin cerrar.
 
 ### 4. Contactos y chat directo mínimo E2EE
 
@@ -601,6 +601,36 @@ Portar primero audio 1:1 solo después de tener señalización autenticada, cont
 Completar backup/restauración, controles de privacidad, permisos, accesibilidad, auditoría de seguridad, supply chain, matrices de dispositivos, beta y requisitos de distribución. Decidir iOS a partir de una prueba técnica y revisión de entitlements; no asumir paridad automática con Android.
 
 **Salida:** criterios de seguridad, interoperabilidad, estabilidad, distribución y soporte documentados y aprobados.
+
+### 11. Blogs P2P (extra; solo con la mensajería cerrada)
+
+Función de producto al final de la cola, no un paso intermedio: un muro corto por identidad, en la línea de los blogs de Briar, donde publicas texto firmado que tus contactos leen y pueden recompartir con los suyos. Sin servidor, sin descubrimiento global y sin algoritmo: solo se ve lo que publican tus contactos y lo que ellos recomparten, en orden cronológico. Es el equivalente a Twitter con privacidad por defecto, pero el «tuit» vive en los dispositivos de quien lo lee.
+
+Lo que se copia de Briar (verificado en `briar-api/src/main/java/org/briarproject/briar/api/blog/BlogManager.java`):
+
+- El blog es un **cliente propio del protocolo** (`org.briarproject.briar.blog`, con versión mayor/menor), no un tipo de mensaje dentro del chat.
+- Un post es **cabecera firmada** (autor, marca de tiempo, padre y firma) más cuerpo de texto, y se guarda como contenido propio, no como mensaje de conversación.
+- **Recompartir no reenvía el post: lo vuelve a firmar quien lo comparte.** `addLocalComment(author, groupId, comment, parentHeader)` crea un post nuevo del que comparte apuntando al header del padre, así que la firma del autor original viaja dentro y el lector puede seguir atribuyéndolo a quien lo escribió. Un comentario es el mismo mecanismo con texto.
+- La suscripción es explícita (`getBlogs`, `getBlogIds`) y solo para autores conocidos; el estado de leído es por post (`setReadFlag`) y un blog se puede borrar (`canBeRemoved`).
+
+Por qué no se puede hacer hoy con lo que ya hay:
+
+- **La autenticidad actual es por salto, no por contenido.** `SealedControl.frame` firma lo que envía el emisor inmediato y el receptor lo valida contra ese par. Si B reenvía un post de A, la firma que viaja es la de B. Hace falta una **firma de contenido** con la clave de identidad del autor, independiente del sobre; el sobre queda solo para confidencialidad y para atribuir el salto.
+- **El `id` es un UUID y se usa como clave de deduplicación.** Un post recompartido por dos caminos debe reconocerse por contenido, así que necesita un identificador derivado (hash de los bytes firmados) con su propio dominio de validación, sin relajar `ReplayPolicy.validMessageID` ni el resto de ids del protocolo.
+- **Nada se entrega a quien no es contacto.** Hoy no hay forma de hacer llegar un post de un autor desconocido sin abrir conversación ni disparar la solicitud de mensaje automática; y las solicitudes solo las ve quien las recibe.
+- **Desktop no tiene blogs.** `verifiedPacketRouter` cae en `default` y solo registra «Unknown packet», así que un `BLOG_POST` de Android es inofensivo allí, pero tampoco hay paridad: la función nace Android-first hasta que Desktop la implemente.
+- **Sin multimedia al principio.** Las imágenes y los adjuntos dependen del Producto 8; la primera versión es solo texto con tope de longitud, o el almacenamiento se descontrola antes de tener cuotas.
+
+Trabajo:
+
+- Canonicalización y firma de contenido: `BLOG_POST` firmado por el autor, `contentId = hash(bytes firmados)` y cabecera con `parentId` para recompartes y comentarios.
+- Tabla propia `blog_posts` (contenido direccionado, autor, padre, marca de tiempo, firma, leído) con deduplicación por `contentId` y topes por blog y por bytes. `sync_events` de B10 no sirve para esto.
+- Un `SYNC_EVENT_KIND` nuevo, para que tu propio blog exista también en tus otros dispositivos.
+- Entrega a suscriptores con el outbox y el ACK existentes; `BLOG_REQ`/`BLOG_RES` para recuperar huecos de forma acotada.
+- Entradas en `InboundRateLimiter` y admisión por contacto; un post de un tercero no crea conversación, no notifica y no aparece fuera del hilo de quien lo recompartió.
+- UI: pestaña de blogs con la misma línea de tiempo de Chats, detalle de post con recompartir y comentar, y suscripción por contacto en su ficha, usando los tokens de `src/constants/theme.ts` y sin lenguaje visual nuevo.
+
+**Salida:** dos dispositivos intercambian publicaciones y recompartes con atribución verificable del autor original; el mismo post que llega por dos caminos se muestra una sola vez; un post de un autor desconocido no abre conversación ni notifica; los topes de tamaño y la recuperación de huecos están probados.
 
 ## Inventario de paridad con escritorio (23/10/2026)
 
@@ -794,6 +824,14 @@ Fijar, silenciar y archivar dejan de ser avisos y pasan a tener efecto:
 - **El estado caduca solo.** `TypingIndicators` fija una ventana de 6 s y `ProtocolStateStore.typingPeers(now)` poda lo vencido al leer, de modo que un `TYPING` perdido no deja «Escribiendo…» pegado. `ProtocolConversations` añade `typing` a cada conversación, así que la cabecera lo ve con el mismo sondeo de 1,5 s que ya refresca el chat.
 - **El emisor no satura.** La pantalla envía como mucho un `TYPING` cada 3 s mientras el campo tiene texto, y el rate limiter lo corta a 600/min por origen y por identidad.
 - **Se apaga al llegar el mensaje.** Un `CHAT` recibido limpia el indicador antes de descifrar, para no enseñar «Escribiendo…» junto al mensaje que acaba de entrar.
+
+### Reacciones y borrado de mensaje (24/10/2026)
+
+- **Firma de contenido por actor, no por mensaje.** `ChatReactions` guarda `reactions: { emoji: [actorIds] }` en el propio mensaje y aplica una reacción por autor y emoji, con topes de 20 emojis distintos y 64 autores por emoji; el `CHAT_REACTION` va en el mismo sobre firmado y sellado que `READ` y `TYPING`. El emoji se limita a 16 caracteres.
+- **El borrado no confía en el remitente.** `ChatDeletes.deletable` exige que el dueño del mensaje sea quien lo borra y que el mensaje **no** sea local, así que un `CHAT_DELETE` de un contacto solo puede borrar lo que él mismo escribió. Es justo la comprobación que escritorio marca como `// BUG SEGURIDAD` en `handlers/chatEvents.ts`.
+- **Borrar es local y explícito.** `ProtocolMessageList.delete`/`deleteLocally` quitan la entrada de la lista en vez de marcarla; el mensaje desaparece del hilo, del último mensaje de la conversación y del contador de no leídos sin dejar hueco.
+- **La UI no inventa lenguaje visual.** Pulsación larga sobre cualquier burbuja abre `ChatMessageActions` —misma hoja que el menú de conversación— con seis reacciones rápidas, copiar y «Eliminar para todos»; las reacciones se pintan como fichas bajo la burbuja (`ChatReactionRow`), alineadas al lado del mensaje y en `theme.accent` cuando la reacción es propia. Editar sigue en el mismo menú para los mensajes propios.
+- **`ProtocolStateStore` dejó de crecer.** La lista de mensajes se extrajo a `ProtocolMessageList.kt` (294 líneas el store) y los envíos de control a `ControlSender.kt` (`YggdrasilProtocol` baja de 368 a 292), sin archivos de reexportación.
 
 ### Transporte local sin internet: paridad con Briar (24/10/2026)
 
