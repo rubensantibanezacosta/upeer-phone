@@ -17,6 +17,7 @@ import { buildReplyPreview, type ReplyPreview } from '@/domain/chat-reply';
 import { forwardResultMessage } from '@/domain/forward';
 import { decideRequestState } from '@/domain/message-request';
 import { useChatMessageSheet } from '@/hooks/use-chat-message-sheet';
+import { placeholderName, resolveContactName } from '@/domain/contact-name';
 import { useChatSearch } from '@/hooks/use-chat-search';
 import { useContactCard } from '@/hooks/use-contact-card';
 import { usePresenceLabel } from '@/hooks/use-presence-label';
@@ -66,7 +67,11 @@ export default function ChatRoute() {
     setPeerTyping(ownConversation?.typing === true);
     setPeerLastSeen(ownConversation?.lastSeen);
     setPeerAvatar(ownConversation?.avatar);
-    setAlias(contact?.name || conversationAlias || upeerId.slice(0, 12));
+    const resolvedName = resolveContactName(contact?.name, conversationAlias, upeerId);
+    setAlias(resolvedName);
+    if (contact && resolvedName !== contact.name && resolvedName !== placeholderName(upeerId)) {
+      await saveContact({ ...contact, name: resolvedName });
+    }
     const decision = decideRequestState({
       contactStatus: contact?.status,
       hasIncoming: nextMessages.some((message) => !message.isMine),
@@ -76,7 +81,7 @@ export default function ChatRoute() {
     setIsRequest(decision === 'request');
     setRequestReceivedAt(nextMessages.find((message) => !message.isMine)?.timestamp ?? 0);
     if (decision === 'auto-accept') {
-      await saveContact({ address: '', createdAt: Date.now(), name: contact?.name || conversationAlias || upeerId.slice(0, 12), publicKey: null, status: 'connected', upeerId });
+      await saveContact({ address: '', createdAt: Date.now(), name: resolvedName, publicKey: null, status: 'connected', upeerId });
       setContactStatus('connected');
     }
     await markConversationRead(upeerId);

@@ -10,6 +10,7 @@ import { ContactFormSheet, type ContactDraft } from '@/components/contact-form-s
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
+import { resolveContactName } from '@/domain/contact-name';
 import { getConversations, registerPeer as registerNativePeer } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { deleteContactAndConversation, getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
 import { useTextScale } from '@/hooks/use-text-scale';
@@ -30,13 +31,17 @@ export function ContactsScreen({ identity }: ContactsScreenProps) {
   const scale = useTextScale();
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const [avatars, setAvatars] = useState<Record<string, string>>({});
+  const [aliases, setAliases] = useState<Record<string, string>>({});
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
 
+  const displayName = useCallback((contact: UPeerContact) => resolveContactName(contact.name, aliases[contact.upeerId], contact.upeerId), [aliases]);
+
   const loadContacts = useCallback(() => Promise.all([getContacts(), getConversations()]).then(([list, conversations]) => {
     setContacts(list);
     setAvatars(Object.fromEntries(conversations.filter((conversation) => conversation.avatar).map((conversation) => [conversation.upeerId, conversation.avatar as string])));
+    setAliases(Object.fromEntries(conversations.filter((conversation) => conversation.alias).map((conversation) => [conversation.upeerId, conversation.alias])));
   }), []);
 
   const reportLoadFailure = useCallback((cause: unknown) => {
@@ -95,12 +100,12 @@ export function ContactsScreen({ identity }: ContactsScreenProps) {
             {contacts.length === 0 ? <NativeRippleButton onPress={() => setAdding(true)}>Añadir contacto</NativeRippleButton> : null}
           </YStack>
           : <YStack marginTop={2}>{filtered.map((contact) => (
-            <NativeRipplePressable accessibilityHint="Mantén pulsado para eliminar el contacto" accessibilityLabel={`Abrir conversación con ${contact.name}`} accessibilityRole="button" delayLongPress={350} key={contact.upeerId} onLongPress={() => confirmRemove(contact)} onPress={() => openChat(contact)} style={[styles.item, { borderBottomColor: theme.border }]}>
+            <NativeRipplePressable accessibilityHint="Mantén pulsado para eliminar el contacto" accessibilityLabel={`Abrir conversación con ${displayName(contact)}`} accessibilityRole="button" delayLongPress={350} key={contact.upeerId} onLongPress={() => confirmRemove(contact)} onPress={() => openChat(contact)} style={[styles.item, { borderBottomColor: theme.border }]}>
               <XStack alignItems="center" gap={12} minHeight={80} paddingVertical={10}>
-                <ContactTrustAvatar avatar={avatars[contact.upeerId]} name={contact.name} size={55} />
+                <ContactTrustAvatar avatar={avatars[contact.upeerId]} name={displayName(contact)} size={55} />
                 <YStack flex={1} gap={4}>
                   <XStack alignItems="center" gap={8}>
-                    <SizableText color={theme.text} flex={1} fontSize={scale(15)} fontWeight="600" numberOfLines={1}>{contact.name}</SizableText>
+                    <SizableText color={theme.text} flex={1} fontSize={scale(15)} fontWeight="600" numberOfLines={1}>{displayName(contact)}</SizableText>
                     <Text color={theme.placeholder} fontSize={scale(11)} fontWeight="500" numberOfLines={1}>{statusLabels[contact.status]}</Text>
                   </XStack>
                   <Text color={theme.placeholder} fontFamily="monospace" fontSize={scale(13)} numberOfLines={1}>{contact.upeerId}</Text>

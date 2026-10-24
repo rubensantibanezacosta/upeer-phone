@@ -17,6 +17,7 @@ import { usePeerSecurity } from '@/hooks/use-peer-security';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
+import { resolveContactName } from '@/domain/contact-name';
 import { flagMessage, flagsFor, type ConversationFlag } from '@/domain/conversation-flags';
 import { setConversationFlag } from '@/storage/conversation-flags-store';
 import { deleteContactAndConversation, getContacts, saveContact, setContactFavorite, type UPeerContact } from '@/storage/contact-store';
@@ -35,6 +36,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
   const [contact, setContact] = useState<UPeerContact | null | undefined>(undefined);
   const [lastSeen, setLastSeen] = useState<number | undefined>(undefined);
   const [peerAvatar, setPeerAvatar] = useState<string | undefined>(undefined);
+  const [peerAlias, setPeerAlias] = useState<string | undefined>(undefined);
   const [sharing, setSharing] = useState(false);
   const [cipherOpen, setCipherOpen] = useState(false);
   const cipher = usePeerSecurity();
@@ -52,6 +54,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
     const ownConversation = conversations.find((conversation) => conversation.upeerId === upeerId);
     setLastSeen(ownConversation?.lastSeen);
     setPeerAvatar(ownConversation?.avatar);
+    setPeerAlias(ownConversation?.alias);
   }), [upeerId]);
 
   useEffect(() => {
@@ -142,7 +145,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
   };
 
   const pending = (label: string) => () => showSnackbar(`${label}: pendiente en el roadmap`);
-  const alias = contact?.name || upeerId.slice(0, 12);
+  const alias = resolveContactName(contact?.name, peerAlias, upeerId);
   const blocked = contact?.status === 'blocked';
 
   return (
