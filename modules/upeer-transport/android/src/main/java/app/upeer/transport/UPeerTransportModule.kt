@@ -91,6 +91,7 @@ class UPeerTransportModule : Module() {
     AsyncFunction("editChat") { upeerId: String, messageId: String, content: String -> service().editChat(upeerId, messageId, content) }
     AsyncFunction("messagesJSON") { upeerId: String, limit: Int -> service().messagesJSON(upeerId, limit) }
     AsyncFunction("conversationsJSON") { service().conversationsJSON() }
+    AsyncFunction("peerSecurityJSON") { upeerId: String -> service().peerSecurityJSON(upeerId) }
     AsyncFunction("markConversationRead") { upeerId: String -> service().markConversationRead(upeerId) }
     AsyncFunction("sendTyping") { upeerId: String -> service().sendTyping(upeerId) }
     AsyncFunction("sendReaction") { upeerId: String, messageId: String, emoji: String, remove: Boolean ->

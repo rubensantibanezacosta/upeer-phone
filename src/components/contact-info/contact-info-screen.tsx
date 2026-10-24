@@ -5,6 +5,7 @@ import { Archive, ArchiveRestore, ArrowLeft, Ban, Bell, BellOff, LockKeyhole, Lo
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactInfoHero } from '@/components/contact-info/contact-info-hero';
+import { ChatCipherSheet } from '@/components/chat/chat-cipher-sheet';
 import { ContactShareSheet } from '@/components/chat/contact-share-sheet';
 import { InteractiveRow } from '@/components/contact-info/interactive-row';
 import { CopyField } from '@/components/copy-field';
@@ -12,6 +13,7 @@ import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useSnackbar } from '@/components/snackbar';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { usePresenceLabel } from '@/hooks/use-presence-label';
+import { usePeerSecurity } from '@/hooks/use-peer-security';
 import { useTheme } from '@/hooks/use-theme';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
 import { flagMessage, flagsFor, type ConversationFlag } from '@/domain/conversation-flags';
@@ -31,6 +33,9 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
   const [contact, setContact] = useState<UPeerContact | null | undefined>(undefined);
   const [lastSeen, setLastSeen] = useState<number | undefined>(undefined);
   const [sharing, setSharing] = useState(false);
+  const [cipherOpen, setCipherOpen] = useState(false);
+  const cipher = usePeerSecurity();
+  const loadCipher = cipher.load;
   const conversationFlags = useConversationFlags();
   const flags = flagsFor(conversationFlags, upeerId);
 
@@ -46,7 +51,8 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
 
   useEffect(() => {
     load().catch(reportFailure);
-  }, [load, reportFailure]);
+    loadCipher(upeerId);
+  }, [load, loadCipher, reportFailure, upeerId]);
   const presence = usePresenceLabel(lastSeen);
 
   const toggleBlock = () => {
@@ -155,7 +161,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
           <InteractiveRow icon={flags.muted ? Bell : BellOff} label={flags.muted ? 'Activar notificaciones' : 'Silenciar notificaciones'} onPress={() => toggleFlag('muted')} />
           <InteractiveRow icon={flags.archived ? ArchiveRestore : Archive} label={flags.archived ? 'Desarchivar chat' : 'Archivar chat'} onPress={() => toggleFlag('archived')} />
           <InteractiveRow icon={Star} label={contact?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />
-          <InteractiveRow disabled hint="Pronto" icon={LockKeyhole} label="Cifrado" onPress={pending('Detalles de cifrado')} />
+          <InteractiveRow icon={LockKeyhole} label="Cifrado" onPress={() => setCipherOpen(true)} />
         </YStack>
         <YStack gap={6}>
           <Text color={theme.placeholder} fontSize={12} fontWeight="600">Zona de riesgo</Text>
@@ -171,6 +177,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
         onSent={(target) => showSnackbar(`Contacto compartido con ${target.name}`)}
         visible={sharing}
       />
+      <ChatCipherSheet alias={alias} error={cipher.state.error} loading={cipher.state.loading} onClose={() => setCipherOpen(false)} security={cipher.state.security} visible={cipherOpen} />
     </SafeAreaView>
   );
 }

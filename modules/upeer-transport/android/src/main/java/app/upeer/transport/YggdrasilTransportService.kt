@@ -170,6 +170,8 @@ class YggdrasilTransportService : Service() {
       admitted { protocol.editChat(upeerId, messageId, content) }
     override fun messagesJSON(upeerId: String, limit: Int): String = protocol.messagesJSON(upeerId, limit)
     override fun conversationsJSON(): String = protocol.conversationsJSON()
+
+    override fun peerSecurityJSON(upeerId: String): String = protocol.peerSecurityJSON(upeerId)
     override fun markConversationRead(upeerId: String) {
       protocol.markConversationRead(upeerId)
       notifications.clearConversation(upeerId)

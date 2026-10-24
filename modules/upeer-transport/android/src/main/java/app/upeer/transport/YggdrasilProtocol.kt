@@ -96,6 +96,21 @@ internal class YggdrasilProtocol(
 
   fun conversationsJSON(): String = state.conversationsJSON()
 
+  fun peerSecurityJSON(upeerId: String): String {
+    val peer = state.peerFor(upeerId)
+    val mine = identity.current()?.publicKeyHex().orEmpty()
+    val publicKey = peer?.optString("publicKey").orEmpty()
+    return JSONObject()
+      .put("upeerId", upeerId)
+      .put("publicKey", publicKey)
+      .put("deviceId", peer?.optString("deviceId").orEmpty())
+      .put("devicePublicKey", peer?.optString("devicePublicKey").orEmpty())
+      .put("hasSession", state.sessionFor(upeerId) != null)
+      .put("lastSeen", peer?.optLong("lastSeen", 0L) ?: 0L)
+      .put("safetyNumber", SafetyNumber.compute(mine, publicKey))
+      .toString()
+  }
+
   fun handleFrame(activeBridge: Bridge, payload: ByteArray, sourceAddress: String): String {
     val outer = JSONObject(String(payload, Charsets.UTF_8))
     val outerType = outer.optString("type")

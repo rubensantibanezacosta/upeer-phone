@@ -6,7 +6,7 @@ import { sha512 } from '@noble/hashes/sha2.js';
 import { NativeModule, requireNativeModule } from 'expo';
 import { validateMnemonic } from '../../../src/domain/mnemonic';
 import { decodeEnrollmentTransfer, encodeEnrollmentTransfer } from '../../../src/domain/enrollment-transfer';
-import type { AccountRegistryDocument, AccountRegistryStatus, DeviceEnrollmentBeginResult, DeviceEnrollmentStatus, DeviceIdentityStatus, DhtLocationStatus, EnrollmentAuthorizerInvite, EnrollmentAuthorizerIssued, EnrollmentAuthorizerRequest, EnrollmentAuthorizerStatus, EnrollmentCertificateSummary, IdentityTransportStatus, InboundTransportStatus, LocationBlock, PeerInfo, PeerPoolEntry, ProtocolConversation, ProtocolMessage, ProtocolTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
+import type { AccountRegistryDocument, AccountRegistryStatus, DeviceEnrollmentBeginResult, DeviceEnrollmentStatus, DeviceIdentityStatus, DhtLocationStatus, EnrollmentAuthorizerInvite, EnrollmentAuthorizerIssued, EnrollmentAuthorizerRequest, EnrollmentAuthorizerStatus, EnrollmentCertificateSummary, IdentityTransportStatus, InboundTransportStatus, LocationBlock, PeerInfo, PeerPoolEntry, PeerSecurity, ProtocolConversation, ProtocolMessage, ProtocolTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
 
 declare class UPeerTransportModule extends NativeModule<{}> {
   start(configJSON: number[]): Promise<YggdrasilNodeInfo>;
@@ -38,6 +38,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   editChat(upeerId: string, messageId: string, content: string): Promise<number>;
   messagesJSON(upeerId: string, limit: number): Promise<string>;
   conversationsJSON(): Promise<string>;
+  peerSecurityJSON(upeerId: string): Promise<string>;
   markConversationRead(upeerId: string): Promise<void>;
   sendTyping(upeerId: string): Promise<void>;
   sendReaction(upeerId: string, messageId: string, emoji: string, remove: boolean): Promise<void>;
@@ -254,6 +255,10 @@ export async function getMessages(upeerId: string, limit = 100): Promise<Protoco
 
 export async function getConversations(): Promise<ProtocolConversation[]> {
   return JSON.parse(await nativeModule.conversationsJSON()) as ProtocolConversation[];
+}
+
+export async function getPeerSecurity(upeerId: string): Promise<PeerSecurity> {
+  return JSON.parse(await nativeModule.peerSecurityJSON(upeerId)) as PeerSecurity;
 }
 
 export async function markConversationRead(upeerId: string): Promise<void> {

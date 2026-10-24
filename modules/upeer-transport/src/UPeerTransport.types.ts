@@ -53,8 +53,17 @@ export type ProtocolConversation = {
   lastSeen?: number;
 };
 
-export type ProtocolTransportStatus = {
-  identityReady: boolean;
+export type PeerSecurity = {
+  upeerId: string;
+  publicKey: string;
+  deviceId: string;
+  devicePublicKey: string;
+  hasSession: boolean;
+  lastSeen: number;
+  safetyNumber: string;
+};
+
+export type ProtocolTransportStatus = {  identityReady: boolean;
   peers: number;
   sessions: number;
   messages: number;
