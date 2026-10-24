@@ -709,7 +709,7 @@ Cierre de brechas medido contra el código de `upper-desktop`, no contra lo que 
 El port se ha centrado en que el móvil *tenga* las funciones de escritorio, no en que ambas se entiendan al usarlas juntas. Eso deja una deuda concreta que conviene no confundir con «cerrado»:
 
 - **El número de seguridad ya coincide entre plataformas.** `SafetyNumber` (móvil) y `computeSafetyNumber` (escritorio) ordenan las dos claves públicas, las concatenan y hacen SHA-256 de 20 bytes en 8 grupos de 5, con los **mismos vectores** en `SafetyNumberTest` y `safetyNumber.test.ts`. `get-contact-security` expone `hasSession` y el número a la vista de Cifrado de escritorio, que antes no mostraba ninguno. Ojo: `computeKeyFingerprint` (BLAKE2b-128 de una clave) sigue vivo para los avisos TOFU de cambio de clave y no es un número de seguridad.
-- **La tarjeta de contacto en QR solo funciona en un sentido.** El móvil enseña su QR en Perfil y en la hoja de tarjeta, pero `AddContactModal.tsx` de escritorio solo acepta pegar `uPeerID@dirección`: no tiene escáner. El flujo «escanea mi QR» no existe en el lado que lo necesitaría.
+- **La tarjeta de contacto ya se lee en las dos direcciones.** El móvil enseña su QR en Perfil y en la hoja de tarjeta, y el escritorio incorpora `QrScannerModal` (`getUserMedia` + `jsQR`) en `AddContactModal`, con `parseContactQrPayload` exigiendo `uPeerID@dirección` y rechazando con mensaje el QR de solo identidad. Salvedad honesta: **no se ha probado con una cámara física**; lo verificado es la decodificación de un QR generado con la misma librería.
 - **Lo portado en las últimas semanas está probado contra sí mismo.** Reacciones, borrado para todos, tarjetas, respuestas, reenvíos, reintento de fallidos, recibos de lectura, presencia y escritura tienen pruebas en su plataforma y ninguna cruzada. Un `CHAT_REACTION` que el móvil emite puede estar bien formado y aun así no ser lo que escritorio espera.
 - **La paridad es asimétrica por diseño.** El móvil no tiene `FILE_*`, ni grupos, ni llamadas, ni vault, ni `SYNC_*`. «Probar adjuntos Desktop↔móvil» no es una prueba pendiente: es una función que solo existe en un lado.
 
@@ -729,7 +729,7 @@ Primero interoperabilidad, después funciones nuevas: de nada sirve portar más 
 
 1. ~~**Unificar el número de seguridad**~~ — **hecho**: `computeSafetyNumber` en escritorio con los vectores del móvil, IPC `get-contact-security` y la vista de Cifrado mostrándolo.
 2. **Verificación cruzada real de lo ya portado** — reacciones, borrado para todos, tarjetas, respuestas, reenvíos, reintento de fallidos, recibos de lectura, presencia y escritura, con móvil y escritorio conectados. Barato en código y valida varias semanas de trabajo.
-3. **Escáner de QR en escritorio** — para que la tarjeta de contacto del móvil sirva de algo; hoy `AddContactModal` solo acepta pegar el ID.
+3. ~~**Escáner de QR en escritorio**~~ — **hecho**: `QrScannerModal` (`getUserMedia` + `jsQR`) en `AddContactModal`, con `parseContactQrPayload` exigiendo `uPeerID@dirección` y rechazando el QR de solo identidad. Salvedad: no se ha probado con una cámara real; se verificó la decodificación de un QR generado con la misma librería.
 4. **Sincronización multi-dispositivo en Android** — store de eventos, `SYNC_HELLO`/`SYNC_ENVELOPE`/`SYNC_HISTORY_*`, relay y ACK, con los nueve tipos y `CONTACT_PROFILE`.
 5. **Archivos** — `FILE_*` con picker, chunked, hash y progreso; es el prerrequisito de las notas de voz y de la paridad simétrica.
 6. **Grupos** — `GROUP_*` con sender keys y control de admin.
