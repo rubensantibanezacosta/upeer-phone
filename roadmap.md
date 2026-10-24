@@ -753,8 +753,8 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Chat · búsqueda | Hecha | La barra sustituye al compositor con contador `1 de N`, flechas anterior/siguiente y resalte de la burbuja encontrada; cierra y devuelve el compositor |
 | Ficha del contacto | Hecha | Pantalla completa `/contact/[upeerId]` con la distribución de escritorio: hero (avatar 96, alias, identidad, presencia y reputación), fila Llamar·Vídeo·Buscar, identidad y dirección copiables, acciones de conversación y zona de riesgo. Bloquear/desbloquear, eliminar, compartir, silenciar, archivar, favoritos y cerrar sesión son reales; «Cifrado» abre la hoja con el número de seguridad; vaciar chat se muestra atenuado con «Pronto» |
 | Ficha de grupo | Pendiente | No hay grupos en el móvil; cuando existan `GROUP_*` debe replicar la misma pantalla con miembros y administración |
-| Chat · composer | Parcial | Adjuntar archivo y nota de voz avisan «pendiente» |
-| Chat · mensajes | Hecha | Editar, reaccionar, borrar para todos, responder (cita con autor y extracto) y reenviar a uno o varios contactos; el estado de entrega es real (`pending`/`sent`/`delivered`/`read`/`failed`) |
+| Chat · composer | Parcial | Adjuntar archivo y nota de voz avisan «pendiente». **No hay ningún `FILE_*` en el móvil**: adjuntos, imágenes, vídeo, audio y documentos no existen, así que tampoco hay reintento de archivos que probar |
+| Chat · mensajes | Hecha | Editar, reaccionar, borrar para todos, responder (cita con autor y extracto), reenviar a uno o varios contactos y **reintentar un envío fallido**; el estado de entrega es real (`pending`/`sent`/`delivered`/`read`/`failed`), con 8 reenvíos sin ACK antes de darse por fallido |
 | Chat · presencia | Hecha | «Escribiendo…» real en la cabecera y en la vista previa de la lista, y presencia real (`En línea` dentro de 65 s y `Última vez …` después) desde `lastSeen` del servicio |
 | Accesibilidad | Parcial | Faltan escalas de fuente y revisión con lector de pantalla |
 
@@ -901,7 +901,28 @@ Escritorio tiene búsqueda dentro del chat; el móvil no tenía nada. La primera
 - **La búsqueda vive en un hook.** `useChatSearch` guarda `active`, `query`, `index` y las coincidencias, y expone `open`, `close`, `changeQuery` y `step`; la pantalla de chat se queda en 299 líneas. `searchChatMessages` sigue en `domain/chat-search.ts` (normaliza acentos, últimos 50, más reciente primero) con 9 pruebas.
 - **El scroll lejano ya no se pierde.** La lista pasa `onScrollToIndexFailed`: estima el offset con el alto medio y reintenta el `scrollToIndex` 80 ms después, así saltar a un mensaje que aún no estaba renderizado termina llegando.
 
-### Revocación efectiva de dispositivos (25/10/2026)
+### Reintento de mensajes y qué está probado de verdad (26/10/2026)
+
+La pregunta era si el reintento estaba bien implementado y si se habían probado todos los tipos de mensaje online y offline. Respuesta corta: **el reintento de texto sí existe y funciona, tenía dos agujeros, y «todos los tipos» no es cierto en el móvil porque adjuntos no hay.**
+
+**Lo que sí está.** `YggdrasilOutbox` es una cola persistente (`OutboxStore`, cifrada con Keystore) con hilo propio cada 1,5 s, 8 envíos en paralelo, 12 hilos y ACK por mensaje. Al enviar se guarda el paquete cifrado, de modo que un reenvío no vuelve a tocar el ratchet; el ACK borra la entrada; `onPeerReset` y `onHandshakeAccepted` reactivan las pendientes tras un `DR_RESET` o un handshake nuevo. Los errores duros (peer desconocido, sin dirección, handshake pendiente, admisión de contacto, `writeFrame` fallido) se reintentan con espera creciente.
+
+**Agujero 1 — un envío sin ACK se reenviaba para siempre.** `markSent` programaba el siguiente intento a +5 s pero no contaba nada, así que un peer alcanzable que nunca confirma recibía el mismo paquete cada 5 s de forma indefinida: ni `failed`, ni fin. Ahora `OutboxStore` lleva un contador `sends` y `OutboxRetryPolicy.canResend` corta a los 8 reenvíos sin confirmación; al agotarse la entrada se borra y el mensaje pasa a `failed`. Los errores duros conservan su límite de 30 intentos, que es distinto a propósito: un fallo de red puede durar horas, una falta de ACK con el peer vivo es otra cosa.
+
+**Agujero 2 — un mensaje fallido era un callejón sin salida.** No había forma de reintentarlo sin copiar el texto a mano. Ahora `retryMessage` va de la hoja de acciones a `retryChat` (AIDL → `YggdrasilTransportService` → `YggdrasilProtocol` → `YggdrasilOutbox`), que valida que el mensaje sea propio, de esa conversación y esté en `failed`, lo reencola con el mismo id y lo devuelve a `pending`. La fila «Reintentar envío» solo aparece en mensajes propios fallidos, como el icono de escritorio de `MessageStatus`.
+
+**La política es un objeto puro.** `OutboxRetryPolicy` (espera acotada, 30 intentos duros, 8 reenvíos sin confirmación) con `OutboxRetryPolicyTest` de 4 casos, porque el outbox real no se puede probar sin Keystore.
+
+**Verificado en el dispositivo.** Con dos mensajes reales en `failed`, `retryChat` devolvió `true`, el log nativo escribió «reencolado» y las burbujas volvieron a `pending` al instante. La hoja de acciones muestra «Reintentar envío» encima de «Editar mensaje».
+
+**Lo que sigue sin probarse, y hay que decirlo:**
+
+- **Adjuntos, imágenes, vídeo, audio y documentos no existen en el móvil**: no hay ni un `FILE_*`. La prueba online/offline con archivos solo existe en escritorio.
+- **No hay prueba automática del outbox móvil de extremo a extremo.** Lo cubierto son las piezas puras; el camino completo se ha visto a mano.
+- **Escritorio reintenta en un solo disparador.** `chatRetry.registerPendingDirectMessage` guarda en memoria (no en disco) y `retryPendingDirectMessages` solo se llama desde `drResetRoute`. El mensaje offline normal no depende de eso —lo cubre el fallback a vault a los 2,5 s y la `pending_outbox` en SQLite—, pero un reinicio de la app pierde esa cola en memoria.
+- **Los `vaulted` móviles no existen**: sin vault, el móvil no tiene el equivalente al «guardado para entregar después» de escritorio, así que un contacto offline acaba en `failed` y depende del reintento manual.
+
+
 
 
 El registro firmado ya guardaba los revocados, pero revocar no cambiaba nada en el servicio: ni se purgaban los datos del dispositivo, ni se descartaban sus paquetes.

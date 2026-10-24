@@ -89,10 +89,10 @@ internal class OutboxStore(context: Context) {
     }
   }
 
-  fun markSent(messageID: String, nextAttemptAt: Long) {
+  fun markSent(messageID: String, nextAttemptAt: Long, sends: Int = 0) {
     synchronized(lock) {
       val entry = findLocked(messageID) ?: return@synchronized
-      entry.put("nextAttemptAt", nextAttemptAt).put("sentAt", System.currentTimeMillis())
+      entry.put("nextAttemptAt", nextAttemptAt).put("sends", sends).put("sentAt", System.currentTimeMillis())
       persist()
     }
   }

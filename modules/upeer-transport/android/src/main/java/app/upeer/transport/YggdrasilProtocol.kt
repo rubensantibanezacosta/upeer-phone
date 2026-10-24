@@ -65,6 +65,8 @@ internal class YggdrasilProtocol(
 
   fun editChat(upeerId: String, messageId: String, content: String): Int = outbox.editChat(upeerId, messageId, content)
 
+  fun retryChat(upeerId: String, messageId: String): Boolean = outbox.retryChat(upeerId, messageId)
+
   fun registerPeer(upeerId: String, address: String, publicKey: String, signedPreKeyJSON: String): Boolean {
     val accepted = state.upsertPeer(upeerId, address, publicKey, signedPreKeyJSON.ifBlank { null })
     if (accepted) outbox.onHandshakeAccepted(upeerId)

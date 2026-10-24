@@ -19,6 +19,7 @@ export function ChatMessageOverlays({ contacts, forwarding, onForwardClose, onFo
     <>
       <ChatMessageActions
         canEdit={sheet.selected?.isMine === true}
+        canRetry={sheet.selected?.isMine === true && sheet.selected.status === 'failed'}
         message={sheet.selected}
         onClose={sheet.close}
         onCopy={sheet.copyMessage}
@@ -26,6 +27,7 @@ export function ChatMessageOverlays({ contacts, forwarding, onForwardClose, onFo
         onEdit={sheet.editMessage}
         onForward={sheet.forwardMessage}
         onReply={sheet.replyMessage}
+        onRetry={sheet.retryMessage}
         onToggleReaction={sheet.toggleReaction}
         reactions={summarizeReactions(sheet.selected?.reactions, selfUpeerId)}
       />

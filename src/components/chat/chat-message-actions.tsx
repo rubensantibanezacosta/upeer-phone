@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Copy, Forward, Pencil, Reply, Trash2, X } from '@tamagui/lucide-icons-2';
+import { Copy, Forward, Pencil, Reply, RotateCcw, Trash2, X } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack } from 'tamagui';
 
 import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeerTransport.types';
@@ -13,12 +13,14 @@ type ChatMessageActionsProps = {
   message: ProtocolMessage | null;
   reactions: ReactionSummary[];
   canEdit: boolean;
+  canRetry: boolean;
   onClose: () => void;
   onCopy: (message: ProtocolMessage) => void;
   onDelete: (message: ProtocolMessage) => void;
   onEdit: (message: ProtocolMessage) => void;
   onForward: (message: ProtocolMessage) => void;
   onReply: (message: ProtocolMessage) => void;
+  onRetry: (message: ProtocolMessage) => void;
   onToggleReaction: (message: ProtocolMessage, emoji: string) => void;
 };
 
@@ -38,7 +40,7 @@ function ActionRow({ color, icon, label, onPress }: ActionRowProps) {
   );
 }
 
-export function ChatMessageActions({ message, reactions, canEdit, onClose, onCopy, onDelete, onEdit, onForward, onReply, onToggleReaction }: ChatMessageActionsProps) {
+export function ChatMessageActions({ message, reactions, canEdit, canRetry, onClose, onCopy, onDelete, onEdit, onForward, onReply, onRetry, onToggleReaction }: ChatMessageActionsProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   if (!message) return null;
@@ -71,6 +73,7 @@ export function ChatMessageActions({ message, reactions, canEdit, onClose, onCop
             })}
           </XStack>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          {canRetry ? <ActionRow color={theme.danger} icon={<RotateCcw color={theme.danger} size={19} />} label="Reintentar envío" onPress={() => onRetry(message)} /> : null}
           {canEdit ? <ActionRow color={theme.text} icon={<Pencil color={theme.text} size={19} />} label="Editar mensaje" onPress={() => onEdit(message)} /> : null}
           <ActionRow color={theme.text} icon={<Reply color={theme.text} size={19} />} label="Responder" onPress={() => onReply(message)} />
           <ActionRow color={theme.text} icon={<Forward color={theme.text} size={19} />} label="Reenviar" onPress={() => onForward(message)} />

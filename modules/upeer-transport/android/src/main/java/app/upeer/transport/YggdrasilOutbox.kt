@@ -99,6 +99,20 @@ internal class YggdrasilOutbox(
     return plan.version
   }
 
+  fun retryChat(upeerId: String, messageID: String): Boolean {
+    if (!ID_PATTERN.matches(upeerId)) throw IllegalArgumentException("uPeer ID no válido")
+    val message = state.messages.find(messageID) ?: throw IllegalArgumentException("El mensaje ya no existe")
+    if (message.optString("upeerId") != upeerId) throw IllegalArgumentException("El mensaje no es de esta conversación")
+    if (!message.optBoolean("isMine", false)) throw IllegalArgumentException("Solo se puede reintentar un mensaje propio")
+    if (message.optString("status") != "failed") throw IllegalArgumentException("El mensaje no está fallido")
+    val replyTo = message.optString("replyTo")
+    outbox.enqueue(messageID, upeerId, message.optString("content"), replyTo, message.optLong("timestamp", System.currentTimeMillis()))
+    state.messages.markStatus(messageID, "pending")
+    Log.i(TAG, "Mensaje $messageID reencolado para $upeerId")
+    wake()
+    return true
+  }
+
   fun onAck(senderUpeerId: String, messageID: String, status: String): Boolean {
     if (!state.messages.ack(messageID, senderUpeerId, status)) return false
     outbox.remove(messageID)
@@ -206,6 +220,11 @@ internal class YggdrasilOutbox(
     }
     val packet = entry.optString("packet")
     if (packet.isNotEmpty()) {
+      val sends = entry.optInt("sends", 0)
+      if (entry.has("sentAt") && !OutboxRetryPolicy.canResend(sends)) {
+        fail(messageID, entry, "sin ACK tras $sends reenvíos")
+        return
+      }
       if (link.sendPacket(activeBridge, address, packet)) markSent(messageID, entry) else retry(messageID, entry, "writeFrame falló")
       return
     }
@@ -261,22 +280,26 @@ internal class YggdrasilOutbox(
       Log.i(TAG, "CHAT_UPDATE $entryID enviado a ${entry.optString("upeerId")}")
       return
     }
-    outbox.markSent(entryID, System.currentTimeMillis() + ACK_TIMEOUT_MS)
+    val sends = entry.optInt("sends", 0) + if (entry.has("sentAt")) 1 else 0
+    outbox.markSent(entryID, System.currentTimeMillis() + ACK_TIMEOUT_MS, sends)
     state.messages.markStatus(entryID, "sent")
-    Log.i(TAG, "Mensaje $entryID enviado; esperando ACK")
+    Log.i(TAG, "Mensaje $entryID enviado; esperando ACK (reenvíos=$sends)")
   }
 
   private fun retry(entryID: String, entry: JSONObject, reason: String) {
     val attempts = entry.optInt("attempts", 0) + 1
-    if (attempts >= MAX_ATTEMPTS) {
-      outbox.remove(entryID)
-      if (entry.optString("kind", "CHAT") != "CHAT_UPDATE") state.messages.markStatus(entryID, "failed")
-      Log.w(TAG, "Entrada $entryID descartada tras $attempts intentos: $reason")
+    if (!OutboxRetryPolicy.canRetry(attempts)) {
+      fail(entryID, entry, "descartada tras $attempts intentos: $reason")
       return
     }
-    val delay = minOf(MAX_BACKOFF_MS, BASE_BACKOFF_MS * attempts)
-    outbox.markAttempt(entryID, attempts, System.currentTimeMillis() + delay, reason)
-    Log.w(TAG, "Reintento $attempts de $entryID para ${entry.optString("upeerId")} en ${delay}ms: $reason")
+    outbox.markAttempt(entryID, attempts, System.currentTimeMillis() + OutboxRetryPolicy.backoffMs(attempts), reason)
+    Log.w(TAG, "Reintento $attempts de $entryID para ${entry.optString("upeerId")} en ${OutboxRetryPolicy.backoffMs(attempts)}ms: $reason")
+  }
+
+  private fun fail(entryID: String, entry: JSONObject, reason: String) {
+    outbox.remove(entryID)
+    if (entry.optString("kind", "CHAT") != "CHAT_UPDATE") state.messages.markStatus(entryID, "failed")
+    Log.w(TAG, "Entrada $entryID marcada como fallida: $reason")
   }
 
   private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
@@ -285,11 +308,8 @@ internal class YggdrasilOutbox(
     private const val TAG = "UPeerTransport"
     private const val MAX_BATCH = 8
     private const val MAX_PARALLEL_SENDS = 12
-    private const val MAX_ATTEMPTS = 30
     private const val RETRY_TICK_MS = 1_500L
     private const val ACK_TIMEOUT_MS = 5_000L
-    private const val BASE_BACKOFF_MS = 2_000L
-    private const val MAX_BACKOFF_MS = 60_000L
     private val ID_PATTERN = Regex("^[0-9a-fA-F]{64}$")
   }
 }

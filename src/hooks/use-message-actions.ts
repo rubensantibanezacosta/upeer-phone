@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { deleteMessage, sendReaction } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import { deleteMessage, retryChat, sendReaction } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { isReactedByMe } from '@/domain/chat-reactions';
 import { loadProfile } from '@/storage/identity-store';
 import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
@@ -50,5 +50,15 @@ export function useMessageActions(upeerId: string | undefined, { onChanged, onEr
       });
   }, [onChanged, onError, upeerId]);
 
-  return { close, open, remove, selected, selfUpeerId, toggleReaction };
+  const retry = useCallback((message: ProtocolMessage) => {
+    if (!upeerId) return;
+    setSelected(null);
+    retryChat(upeerId, message.id)
+      .then(() => onChanged())
+      .catch((cause: unknown) => {
+        onError(cause instanceof Error ? cause.message : 'No se pudo reintentar el mensaje.');
+      });
+  }, [onChanged, onError, upeerId]);
+
+  return { close, open, remove, retry, selected, selfUpeerId, toggleReaction };
 }

@@ -36,6 +36,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   identityStatus(): Promise<string>;
   sendChat(upeerId: string, content: string, replyTo: string): Promise<string>;
   editChat(upeerId: string, messageId: string, content: string): Promise<number>;
+  retryChat(upeerId: string, messageId: string): Promise<boolean>;
   messagesJSON(upeerId: string, limit: number): Promise<string>;
   conversationsJSON(): Promise<string>;
   peerSecurityJSON(upeerId: string): Promise<string>;
@@ -247,6 +248,10 @@ export async function sendChat(upeerId: string, content: string, replyTo = ''): 
 
 export async function editChat(upeerId: string, messageId: string, content: string): Promise<number> {
   return nativeModule.editChat(upeerId, messageId, content);
+}
+
+export async function retryChat(upeerId: string, messageId: string): Promise<boolean> {
+  return nativeModule.retryChat(upeerId, messageId);
 }
 
 export async function getMessages(upeerId: string, limit = 100): Promise<ProtocolMessage[]> {

@@ -17,7 +17,7 @@ type ChatMessageSheetOptions = {
 
 export function useChatMessageSheet({ onChanged, onEdit, onError, onForward, onReply, upeerId }: ChatMessageSheetOptions) {
   const copy = useCopyToClipboard();
-  const { close, open, remove, selected, selfUpeerId, toggleReaction } = useMessageActions(upeerId, { onChanged, onError });
+  const { close, open, remove, retry, selected, selfUpeerId, toggleReaction } = useMessageActions(upeerId, { onChanged, onError });
 
   const editMessage = useCallback((message: ProtocolMessage) => {
     close();
@@ -47,6 +47,7 @@ export function useChatMessageSheet({ onChanged, onEdit, onError, onForward, onR
     open,
     remove,
     replyMessage,
+    retryMessage: retry,
     selected,
     selfUpeerId,
     toggleReaction,
