@@ -21,6 +21,7 @@ type ChatHeaderProps = {
   presence?: string | null;
   onBack: () => void;
   onOpenInfo: () => void;
+  onSearch: () => void;
   onUnavailable: (label: string) => void;
 };
 
@@ -32,7 +33,7 @@ function HeaderAction({ label, onPress, children }: { label: string; onPress: ()
   );
 }
 
-export function ChatHeader({ alias, upeerId, status, vouchScore, isRequest = false, typing = false, presence = null, onBack, onOpenInfo, onUnavailable }: ChatHeaderProps) {
+export function ChatHeader({ alias, upeerId, status, vouchScore, isRequest = false, typing = false, presence = null, onBack, onOpenInfo, onSearch, onUnavailable }: ChatHeaderProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -40,7 +41,7 @@ export function ChatHeader({ alias, upeerId, status, vouchScore, isRequest = fal
   const closeMenu = () => setMenuOpen(false);
   const openSearch = () => {
     closeMenu();
-    onUnavailable('Buscar en la conversación');
+    onSearch();
   };
 
   return (

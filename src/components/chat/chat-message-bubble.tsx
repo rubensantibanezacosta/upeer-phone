@@ -34,8 +34,9 @@ function MessageStatus({ color, status }: { color: string; status: ProtocolMessa
   return <View accessibilityLabel={`Estado del mensaje: ${statusLabels[status]}`} style={styles.status}>{icon}</View>;
 }
 
-export function ChatMessageBubble({ entry, onLongPress, onOpenCard, onOpenReply, onToggleReaction, reactions, reply, savedContacts }: {
+export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onOpenCard, onOpenReply, onToggleReaction, reactions, reply, savedContacts }: {
   entry: ChatTimelineEntry;
+  highlighted?: boolean;
   onLongPress?: (message: ProtocolMessage) => void;
   onOpenCard?: (card: ContactCard) => void;
   onOpenReply?: (messageID: string) => void;
@@ -58,7 +59,12 @@ export function ChatMessageBubble({ entry, onLongPress, onOpenCard, onOpenReply,
         <Pressable
           accessibilityHint="Mantén pulsado para ver las acciones del mensaje"
           onLongPress={onLongPress ? () => onLongPress(entry.message) : undefined}
-          style={[styles.bubble, { backgroundColor: isMine ? theme.bubbleMine : theme.backgroundElement }, isMine ? styles.bubbleMine : styles.bubbleTheirs]}
+          style={[
+            styles.bubble,
+            { backgroundColor: isMine ? theme.bubbleMine : theme.backgroundElement },
+            isMine ? styles.bubbleMine : styles.bubbleTheirs,
+            highlighted ? { borderColor: theme.accent, borderWidth: 1.5 } : null,
+          ]}
         >
           <View style={[styles.body, card || reply ? styles.bodyColumn : null]}>
             {reply ? <ChatReplyQuote isMine={isMine} onPress={onPressReply} reply={reply} /> : null}

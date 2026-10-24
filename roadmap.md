@@ -749,7 +749,8 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Ajustes · almacenamiento | Placeholder | El móvil no tiene vault: falta bridge de estadísticas y limpieza, e historial de archivos |
 | Ajustes · acerca de | Hecha | Versión real desde `expo-constants`, licencia GPLv3, código abierto, sin publicidad y sin datos recopilados |
 | Perfil · revocar dispositivo | Hecha | Cada dispositivo que no es el actual lleva un icono de papelera que pide confirmación, llama a `revokeAccountDevice` y refresca la lista; los revocados se listan debajo con su fecha. Si el dispositivo local está revocado, el aviso ofrece «Volver a vincular este dispositivo» con el flujo de emparejamiento. Falta que la revocación viaje por B10 al resto de dispositivos |
-| Chat · cabecera | Parcial | «Info. del contacto» abre la ficha completa; videollamada, llamada de voz y buscar en la conversación avisan «pendiente». Cuando la conversación es una solicitud solo quedan volver, avatar y menú |
+| Chat · cabecera | Parcial | «Info. del contacto» abre la ficha completa y «Buscar en la conversación» abre la barra de búsqueda; videollamada y llamada de voz avisan «pendiente». Cuando la conversación es una solicitud solo quedan volver, avatar y menú |
+| Chat · búsqueda | Hecha | La barra sustituye al compositor con contador `1 de N`, flechas anterior/siguiente y resalte de la burbuja encontrada; cierra y devuelve el compositor |
 | Ficha del contacto | Hecha | Pantalla completa `/contact/[upeerId]` con la distribución de escritorio: hero (avatar 96, alias, identidad, presencia y reputación), fila Llamar·Vídeo·Buscar, identidad y dirección copiables, acciones de conversación y zona de riesgo. Bloquear/desbloquear, eliminar, compartir, silenciar, archivar, favoritos y cerrar sesión son reales; «Cifrado» abre la hoja con el número de seguridad; vaciar chat se muestra atenuado con «Pronto» |
 | Ficha de grupo | Pendiente | No hay grupos en el móvil; cuando existan `GROUP_*` debe replicar la misma pantalla con miembros y administración |
 | Chat · composer | Parcial | Adjuntar archivo y nota de voz avisan «pendiente» |
@@ -890,7 +891,18 @@ La fila «Cifrado» de la ficha estaba atenuada con «Pronto» porque el móvil 
 - **Los dos algoritmos no coinciden todavía.** El móvil combina las dos claves con SHA-256; escritorio usa BLAKE2b-128 de una sola (`computeKeyFingerprint`). Comparar el número entre plataformas no funciona aún: hay que alinear el algoritmo cuando se cierre el emparejamiento Desktop↔móvil.
 - **El hook es estable.** `usePeerSecurity` expone `load`, `reset` y `state`; `load` se extrae antes de usarse como dependencia del efecto, porque un objeto de hook en las deps de un `useEffect` cambia de identidad en cada render y provoca «Maximum update depth exceeded».
 
+### Buscar en la conversación (26/10/2026)
+
+Escritorio tiene búsqueda dentro del chat; el móvil no tenía nada. La primera versión fue una hoja inferior con input y lista, y el veredicto fue claro: **no se quiere una hoja**. Ahora el buscador sustituye a la barra de texto mientras está abierto, como hace WhatsApp.
+
+- **La barra ocupa el sitio del compositor.** `ChatInputArea` decide entre `ChatComposerArea` y `ChatSearchBar`: al abrir desde el menú de la cabecera la barra de escribir desaparece y en su lugar queda X, campo con lupa, contador y flechas arriba/abajo. Al cerrar vuelve el compositor con el texto que hubiera.
+- **El contador dice dónde estás.** `describeSearchPosition(index, count)` escribe `1 de 3` o `Sin resultados` y acota índices fuera de rango; las flechas se deshabilitan sin coincidencias. `describeSearchResults` se retiró al quedarse sin uso con la hoja.
+- **La coincidencia se ve en el hilo, no en una lista.** Al escribir se salta a la coincidencia más reciente y la burbuja se marca con borde de acento (`highlighted` en `ChatMessageBubble`). Las flechas recorren las coincidencias en bucle reutilizando `openQuoted`, que ya hacía scroll por id.
+- **La búsqueda vive en un hook.** `useChatSearch` guarda `active`, `query`, `index` y las coincidencias, y expone `open`, `close`, `changeQuery` y `step`; la pantalla de chat se queda en 299 líneas. `searchChatMessages` sigue en `domain/chat-search.ts` (normaliza acentos, últimos 50, más reciente primero) con 9 pruebas.
+- **El scroll lejano ya no se pierde.** La lista pasa `onScrollToIndexFailed`: estima el offset con el alto medio y reintenta el `scrollToIndex` 80 ms después, así saltar a un mensaje que aún no estaba renderizado termina llegando.
+
 ### Revocación efectiva de dispositivos (25/10/2026)
+
 
 El registro firmado ya guardaba los revocados, pero revocar no cambiaba nada en el servicio: ni se purgaban los datos del dispositivo, ni se descartaban sus paquetes.
 

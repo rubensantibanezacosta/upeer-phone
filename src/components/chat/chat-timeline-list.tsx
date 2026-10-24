@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { useCallback } from 'react';
 import { FlatList, StyleSheet, View, type ListRenderItemInfo, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 
 import { ChatEmptyState } from '@/components/chat/chat-empty-state';
@@ -17,6 +18,13 @@ type ChatTimelineListProps = {
 const keyExtractor = (entry: ChatTimelineEntry) => entry.message.id;
 
 export function ChatTimelineList({ data, listRef, onScroll, onScrollToLatest, renderItem, showScrollButton }: ChatTimelineListProps) {
+  const handleScrollToIndexFailed = useCallback((info: { averageItemLength: number; index: number }) => {
+    listRef.current?.scrollToOffset({ animated: false, offset: info.averageItemLength * info.index });
+    setTimeout(() => {
+      listRef.current?.scrollToIndex({ animated: true, index: info.index, viewPosition: 0.5 });
+    }, 80);
+  }, [listRef]);
+
   return (
     <View style={styles.timeline}>
       {data.length === 0 ? <ChatEmptyState /> : (
@@ -31,6 +39,7 @@ export function ChatTimelineList({ data, listRef, onScroll, onScrollToLatest, re
           keyExtractor={keyExtractor}
           maxToRenderPerBatch={16}
           onScroll={onScroll}
+          onScrollToIndexFailed={handleScrollToIndexFailed}
           renderItem={renderItem}
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}

@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View, type FlatList, type ListRenderItemInfo, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChatComposerArea } from '@/components/chat/chat-composer-area';
 import { ContactCardSheet } from '@/components/chat/contact-card-sheet';
 import { ChatDateSeparator } from '@/components/chat/chat-date-separator';
 import { ChatHeader } from '@/components/chat/chat-header';
+import { ChatInputArea } from '@/components/chat/chat-input-area';
 import { ChatMessageOverlays } from '@/components/chat/chat-message-overlays';
 import { ChatMessageBubble } from '@/components/chat/chat-message-bubble';
 import { ChatRequestScreen } from '@/components/chat/chat-request-screen';
@@ -17,6 +17,7 @@ import { buildReplyPreview, type ReplyPreview } from '@/domain/chat-reply';
 import { forwardResultMessage } from '@/domain/forward';
 import { decideRequestState } from '@/domain/message-request';
 import { useChatMessageSheet } from '@/hooks/use-chat-message-sheet';
+import { useChatSearch } from '@/hooks/use-chat-search';
 import { useContactCard } from '@/hooks/use-contact-card';
 import { usePresenceLabel } from '@/hooks/use-presence-label';
 import { useTheme } from '@/hooks/use-theme';
@@ -52,7 +53,6 @@ export default function ChatRoute() {
   const [peerLastSeen, setPeerLastSeen] = useState<number | undefined>(undefined);
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const typingSentAtRef = useRef(0);
-
 
   const refresh = useCallback(async () => {
     if (!upeerId) return;
@@ -233,11 +233,15 @@ export default function ChatRoute() {
     listRef.current?.scrollToIndex({ animated: true, index, viewPosition: 0.5 });
   }, [showSnackbar, timeline]);
 
+  const search = useChatSearch({ messages, onJump: openQuoted });
+  const { highlightedID } = search;
+
   const renderItem = useCallback(({ item }: ListRenderItemInfo<ChatTimelineEntry>) => (
     <View>
       {item.showDateSeparator ? <ChatDateSeparator timestamp={item.message.timestamp} /> : null}
       <ChatMessageBubble
         entry={item}
+        highlighted={item.message.id === highlightedID}
         onLongPress={openActions}
         onOpenCard={openCard}
         onOpenReply={openQuoted}
@@ -247,12 +251,12 @@ export default function ChatRoute() {
         savedContacts={savedContactIds}
       />
     </View>
-  ), [openActions, openCard, openQuoted, replyPreviews, savedContactIds, selfUpeerId, toggleReaction]);
+  ), [highlightedID, openActions, openCard, openQuoted, replyPreviews, savedContactIds, selfUpeerId, toggleReaction]);
 
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
-        <ChatHeader alias={alias || 'Conversación'} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={() => router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } })} onUnavailable={showUnavailable} presence={presence} status={contactStatus} typing={peerTyping} upeerId={upeerId ?? ''} />
+        <ChatHeader alias={alias || 'Conversación'} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={() => router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } })} onSearch={search.open} onUnavailable={showUnavailable} presence={presence} status={contactStatus} typing={peerTyping} upeerId={upeerId ?? ''} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
           {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} /> : (
             <ChatTimelineList
@@ -264,16 +268,19 @@ export default function ChatRoute() {
               showScrollButton={showScrollButton}
             />
           )}
-          <ChatComposerArea
-            editing={editing !== null}
-            error={error}
-            hidden={isRequest}
-            onChange={handleChange}
-            onCancelContext={cancelContext}
-            onSend={() => { void submit(); }}
-            onUnavailable={showUnavailable}
-            reply={buildReplyPreview(replyingTo ?? undefined, { mine: 'Tú', peer: alias || 'Contacto' })}
-            value={text}
+          <ChatInputArea
+            composer={{
+              editing: editing !== null,
+              error,
+              hidden: isRequest,
+              onChange: handleChange,
+              onCancelContext: cancelContext,
+              onSend: () => { void submit(); },
+              onUnavailable: showUnavailable,
+              reply: buildReplyPreview(replyingTo ?? undefined, { mine: 'Tú', peer: alias || 'Contacto' }),
+              value: text,
+            }}
+            search={search}
           />
         </KeyboardAvoidingView>
       </SafeAreaView>
