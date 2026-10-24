@@ -45,7 +45,7 @@ export function ChatReactionRow({ isMine, onToggle, reactions }: ChatReactionRow
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2, width: '100%' },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: -2, width: '100%' },
   rowMine: { justifyContent: 'flex-end' },
   rowTheirs: { justifyContent: 'flex-start' },
   chip: {
