@@ -694,12 +694,26 @@ Cierre de brechas medido contra el código de `upper-desktop`, no contra lo que 
 | Admisión de dispositivo, certificado y registro | Vector compartido + prueba en dispositivo |
 | Enrolamiento OOB en ambas direcciones | Vector compartido + `androidTest` |
 | DHT: códec, Kademlia, store/lookup, `DHT_UPDATE` | Pruebas JVM y vectores; **sin roaming real móvil↔escritorio** |
+| Reacciones, borrado para todos, tarjetas, respuestas, reenvíos | **Solo dentro de cada plataforma**; sin prueba cruzada |
+| Reintento de fallidos, recibos de lectura, presencia y escritura | **Solo dentro de cada plataforma**; sin prueba cruzada |
+| Número de seguridad comparable entre plataformas | **Imposible hoy**: los algoritmos son distintos |
 | Llamadas (1:1, grupo, relay, rendimiento, escalabilidad) | Solo en escritorio; el móvil no participa |
 | Grupos (fanout, escala) | Solo en escritorio |
-| Transferencia de archivos | Solo en escritorio |
-| Vault y recuperación | Solo en escritorio |
-| Sincronización multi-dispositivo y relay | Solo en escritorio (`sync-status`, `multi-process`) |
+| Transferencia de archivos | Solo en escritorio; el móvil no tiene `FILE_*` |
+| Vault y recuperación | Solo en escritorio; el móvil no tiene vault |
+| Sincronización multi-dispositivo y relay | Solo en escritorio (`sync-status`, `multi-process`); el móvil no tiene `SYNC_*` |
 | Presión de memoria, batería y Doze | Sin medir |
+
+### Interoperabilidad real: la deuda que la paridad de UI esconde
+
+El port se ha centrado en que el móvil *tenga* las funciones de escritorio, no en que ambas se entiendan al usarlas juntas. Eso deja una deuda concreta que conviene no confundir con «cerrado»:
+
+- **El número de seguridad ya coincide entre plataformas.** `SafetyNumber` (móvil) y `computeSafetyNumber` (escritorio) ordenan las dos claves públicas, las concatenan y hacen SHA-256 de 20 bytes en 8 grupos de 5, con los **mismos vectores** en `SafetyNumberTest` y `safetyNumber.test.ts`. `get-contact-security` expone `hasSession` y el número a la vista de Cifrado de escritorio, que antes no mostraba ninguno. Ojo: `computeKeyFingerprint` (BLAKE2b-128 de una clave) sigue vivo para los avisos TOFU de cambio de clave y no es un número de seguridad.
+- **La tarjeta de contacto en QR solo funciona en un sentido.** El móvil enseña su QR en Perfil y en la hoja de tarjeta, pero `AddContactModal.tsx` de escritorio solo acepta pegar `uPeerID@dirección`: no tiene escáner. El flujo «escanea mi QR» no existe en el lado que lo necesitaría.
+- **Lo portado en las últimas semanas está probado contra sí mismo.** Reacciones, borrado para todos, tarjetas, respuestas, reenvíos, reintento de fallidos, recibos de lectura, presencia y escritura tienen pruebas en su plataforma y ninguna cruzada. Un `CHAT_REACTION` que el móvil emite puede estar bien formado y aun así no ser lo que escritorio espera.
+- **La paridad es asimétrica por diseño.** El móvil no tiene `FILE_*`, ni grupos, ni llamadas, ni vault, ni `SYNC_*`. «Probar adjuntos Desktop↔móvil» no es una prueba pendiente: es una función que solo existe en un lado.
+
+Nada de esto invalida el trabajo hecho. Significa que la frase «mensajería cerrada» solo es cierta dentro de cada plataforma, y que la siguiente tanda debe ser de interoperabilidad, no de funciones nuevas.
 
 ### Lo que tampoco está cerrado en escritorio
 
@@ -711,14 +725,17 @@ No todo lo que el móvil debe alcanzar está terminado en el otro lado. Antes de
 
 ### Orden de trabajo para cerrar la paridad
 
-1. **Eventos de mensaje que ya existen en el protocolo** — `READ`, `TYPING`, `CHAT_DELETE`, `CHAT_REACTION`: son los más baratos y desbloquean los mismos nueve eventos de sincronización.
-2. **Estados de entrega reales** — emitir `READ` y reflejar `pending`/`sent`/`delivered`/`read`/`failed` con ACK por dispositivo antes de hablar de `synced`/`vaulted`.
-3. **Sincronización multi-dispositivo en Android** — store de eventos, `SYNC_HELLO`/`SYNC_ENVELOPE`/`SYNC_HISTORY_*`, relay y ACK, con los nueve tipos.
-4. **Archivos** — `FILE_*` con picker, chunked, hash y progreso; es el prerrequisito de las notas de voz.
-5. **Grupos** — `GROUP_*` con sender keys y control de admin.
-6. **Llamadas** — señalización primero (ring/accept/reject/end), luego media UDP, y solo después vídeo y grupos.
-7. **Vault y entrega diferida** — buzón por dispositivo y recuperación.
-8. **Cierre de UI** — notificaciones con enlace profundo al chat, ajustes reales y revocación de dispositivos.
+Primero interoperabilidad, después funciones nuevas: de nada sirve portar más si lo portado no se entiende con el otro lado.
+
+1. ~~**Unificar el número de seguridad**~~ — **hecho**: `computeSafetyNumber` en escritorio con los vectores del móvil, IPC `get-contact-security` y la vista de Cifrado mostrándolo.
+2. **Verificación cruzada real de lo ya portado** — reacciones, borrado para todos, tarjetas, respuestas, reenvíos, reintento de fallidos, recibos de lectura, presencia y escritura, con móvil y escritorio conectados. Barato en código y valida varias semanas de trabajo.
+3. **Escáner de QR en escritorio** — para que la tarjeta de contacto del móvil sirva de algo; hoy `AddContactModal` solo acepta pegar el ID.
+4. **Sincronización multi-dispositivo en Android** — store de eventos, `SYNC_HELLO`/`SYNC_ENVELOPE`/`SYNC_HISTORY_*`, relay y ACK, con los nueve tipos y `CONTACT_PROFILE`.
+5. **Archivos** — `FILE_*` con picker, chunked, hash y progreso; es el prerrequisito de las notas de voz y de la paridad simétrica.
+6. **Grupos** — `GROUP_*` con sender keys y control de admin.
+7. **Llamadas** — señalización primero (ring/accept/reject/end), luego media UDP, y solo después vídeo y grupos.
+8. **Vault y entrega diferida** — buzón por dispositivo y recuperación.
+9. **Cierre de UI** — notificaciones con enlace profundo al chat, ajustes reales y revocación de dispositivos.
 
 ## Pendiente en la UI móvil
 
@@ -888,7 +905,8 @@ La fila «Cifrado» de la ficha estaba atenuada con «Pronto» porque el móvil 
 - **El dato viaja por la cadena que ya existía.** `YggdrasilProtocol.peerSecurityJSON` responde con `hasSession` y `safetyNumber` a través de `IYggdrasilTransport.aidl` → `YggdrasilTransportService` → `UPeerTransportModule` → `getPeerSecurity` en TypeScript, con stub en `.web.ts` y el tipo `PeerSecurity`.
 - **La hoja replica los tres puntos de escritorio.** `ChatCipherSheet` pinta «Nadie puede espiar», «Solo entre vosotros dos» y «Puedes comprobarlo» con el mismo icono en caja tintada, el candado de éxito, el estado de la sesión y el número de seguridad en un `CopyField` que copia al pulsar. El número va sin truncar: se parte en dos líneas para poder leerlo entero, que es justo para lo que sirve.
 - **Sin «Verificar identidad».** Escritorio tiene ese botón sin cablear; el móvil no lo pinta para no prometer un flujo que no existe.
-- **Los dos algoritmos no coinciden todavía.** El móvil combina las dos claves con SHA-256; escritorio usa BLAKE2b-128 de una sola (`computeKeyFingerprint`). Comparar el número entre plataformas no funciona aún: hay que alinear el algoritmo cuando se cierre el emparejamiento Desktop↔móvil.
+- **Los dos algoritmos ya coinciden.** Escritorio gana `computeSafetyNumber` (`src/main_process/security/safetyNumber.ts`), copia exacta de `SafetyNumber.compute`: ordena las dos claves públicas, concatena y hace SHA-256 de 20 bytes en 8 grupos de 5. `safetyNumber.test.ts` reutiliza **los mismos vectores** que `SafetyNumberTest` del móvil, así que un cambio de formato en un lado rompe las pruebas del otro. El IPC `get-contact-security` devuelve `hasSession` y el número, y `ContactInfoCipherView` los pinta con copia al pulsar, igual que la hoja del móvil.
+- **`computeKeyFingerprint` sigue existiendo y no es lo mismo.** Es BLAKE2b-128 de **una** clave y solo se usa en los avisos TOFU de «la clave de este contacto ha cambiado» (`contactsHandshakeAccept`, `contactsHandshakeReq`); ahí interesa identificar la clave concreta, no un número simétrico entre dos partes. Confundir ambas funciones fue justo lo que hizo parecer irresoluble el problema.
 - **El hook es estable.** `usePeerSecurity` expone `load`, `reset` y `state`; `load` se extrae antes de usarse como dependencia del efecto, porque un objeto de hook en las deps de un `useEffect` cambia de identidad en cada render y provoca «Maximum update depth exceeded».
 
 ### Buscar en la conversación (26/10/2026)
