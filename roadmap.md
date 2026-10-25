@@ -368,7 +368,7 @@ La lógica nueva de DHT va en `transport-bridge/dht/`; la raíz conserva solo lo
 - `SyncSelfAuth` exige que `senderUpeerId` sea la propia cuenta, que `senderDeviceCertificate` verifique contra ella en un instante de referencia que nunca es futuro (`max(ahora, issuedAt)`), que su `deviceId` coincida con `senderDeviceId` y que el dispositivo no esté revocado. La firma la valida **el puente** con `validateLinkedSignedPacket` contra `devicePublicKey` del certificado, que es exactamente lo que hace `verifySelfSyncSignature` de escritorio: misma cobertura (`senderUpeerId`, `senderYggAddress`, `isInternalSync`), misma exclusión de `signature`/`contactCache`/`renewalToken`. 11 casos unitarios, incluido el verificador que lanza en vez de devolver `false`.
 - `SyncReplies` registra el dispositivo en `SyncDevicePeers` y **responde al `SYNC_HELLO` inicial con `ack = true`**, que es como escritorio evita el bucle de saludos; `SYNC_ACK` avanza el ACK por dispositivo. Los otros tres tipos se reconocen, se limitan por origen y se registran con el motivo por el que todavía no se aplican, en vez de lanzar excepción.
 - **`SYNC_ENVELOPE` ya se descifra y se registra.** `SyncChannel` usa las primitivas que el puente ya expone y que escritorio usa en su mismo orden: `startOutboundSession`/`acceptInboundSession` con **la clave de dispositivo, no la de cuenta**, `ratchetEncrypt`/`ratchetDecrypt`, y la sesión guardada bajo `sync:<deviceId>` (clave de mapa aparte, así que una copia sincronizada no puede tocar el ratchet del contacto ni provocar un `DR_RESET`). `SyncEnvelope` decide qué se acepta antes de escribir nada: destinatario igual al dispositivo propio, metadatos del sobre idénticos a lo descifrado, **evento propio reflejado por otro dispositivo rechazado**, evento relayado sin firma de origen válida rechazado, y firma presente pero no verificable rechazada. Se registra con `SyncEventLog` y se responde `SYNC_ACK`, también en los rechazos, para que el emisor no reintente para siempre. 11 casos unitarios nuevos.
-- `SYNC_HISTORY_REQ` y `SYNC_HISTORY_RES` siguen pendientes, y el **aplicador de los nueve tipos** también: hoy el evento se registra en el log pero todavía no se proyecta sobre mensajes, reacciones, borrados ni perfil.
+- `SYNC_HISTORY_REQ` y `SYNC_HISTORY_RES` **ya están implementados en el móvil** (ver 27/10/2026). El **aplicador de los nueve tipos** sigue pendiente: los eventos `SYNC_ENVELOPE` se registran en el log, pero todavía no se proyectan sobre reacciones, borrados ni perfil.
 - **Un fallo de la tanda anterior quedó corregido de paso:** `VAULT_RENEW` no estaba en `VAULT_TYPES`, así que el custodio nunca lo veía y el paquete acababa en `unsupported packet type`. La renovación estaba escrita y probada pero desconectada.
 - `ProtocolEgress` unifica el `dialTCP` + `writeFrame` + cierre que vault y sync duplicaban, y deja `YggdrasilProtocol` por debajo de donde estaba pese a añadir la rama nueva.
 
@@ -444,6 +444,27 @@ Salida propuesta, pendiente de decidir con el usuario porque cambia el protocolo
 **Lo que queda del paso 2**: republicación de puntero al cambiar custodios, la prueba cruzada con escritorio como custodio real y decidir qué se hace con las cuotas por reputación. El detalle de por qué el móvil no tenía vault sigue aquí debajo.
 **Hueco conocido (26/10/2026): el vault del móvil existe en piezas pero no está cableado.** Lo que corre de verdad para la entrega diferida sigue siendo solo `YggdrasilOutbox`: 8 envíos por mensaje y 30 intentos con backoff de 2 s × intento y tope de 60 s, unos 15 min. Pasada esa ventana el mensaje queda `failed` de forma permanente aunque el contacto vuelva, porque nadie guardó copia; en el mismo escenario el escritorio lo habría dejado en el buzón de un custodio con su puntero en la DHT. Consecuencia de producto: no prometer entrega offline en el móvil ni pintar estados `vaulted` hasta cablear el vault, que es el **paso 2 del orden vigente** y no el 8. La tarjeta «Almac. cedido» de Perfil ya no finge estar cargando: informa de que no está disponible, y sigue pendiente de rellenarse con el uso real del buzón. Al portarlo hace falta un sustituto del `vouch score`: el móvil no tiene reputación y `getDynamicReplicationFactor` de escritorio la usa para elegir entre 3 y 12 custodios, con `8` como valor de emergencia cuando falla. Medido sobre esa función el 25/10/2026: **0–69 → 12, 70–89 → 6, 90+ → 3**, y la parte que dependía del tiempo conocido nunca se ejecuta (`daysKnown` siempre 0 por falta de `createdAt`), así que hoy casi todo se replica 12 veces. Decidido el sustituto: **8 fijo** (ver arriba), porque el móvil no tiene reputación con la que alimentar la interpolación de escritorio; el detalle del consumidor está en [`../upper-desktop/Roadmap.md`](../upper-desktop/Roadmap.md) → «Reputación».
 
+**Histórico entre dispositivos y descubrimiento sin DHT (27/10/2026).** El móvil ya implementa `SYNC_HISTORY_REQ`/`SYNC_HISTORY_RES`, que era el motivo real de que las conversaciones del escritorio no aparecieran en el dispositivo vinculado:
+
+- `SyncHistory` pide, responde y aplica páginas; **firma cada mensaje con el certificado del dispositivo** (`SyncEventOrigin.sign`) y el receptor lo verifica antes de aplicarlo, así que una copia sincronizada conserva el `messageId` original y no se puede inyectar desde un dispositivo ajeno.
+- `SyncHistoryState` persiste el cursor `{cursor, done}` por `deviceId`, de modo que la paginación es reanudable y no se repite tras un reinicio.
+- `SyncHistoryPayload` traduce entre el mensaje local y el del escritorio; `eventId` es `history-<deviceId>-<messageId>`, con lo que la idempotencia queda garantizada por el propio `SyncEventLog`.
+- `ProtocolMessageList.historyPage` ordena por `(timestamp, id)` y aplica el cursor; el escritorio pagina con el mismo criterio.
+- **Fallo corregido de paso:** `ProtocolMessageState.upsert` insertaba el mensaje nuevo al principio y luego recortaba `[length−MAX, length)`, es decir, tiraba justo los recién insertados. Ahora recorta `[0, MAX)`.
+- La petición se pide en los dos sentidos: al recibir un `SYNC_HISTORY_REQ` el móvil responde y **además** pide el histórico del otro lado, con un cooldown de 30 s por dispositivo y respetando `done`.
+
+**El encuentro ya no depende de la DHT.** La DHT no tiene semillas globales (`SEED_NODES` vacío en escritorio y `dht-seeds.upeer.chat` sin registros TXT), así que un dispositivo sin contactos nunca bootstrapea: `Bootstrap DHT: 0 semillas` con `storePointer` cortando en `if (!bootstrapped) return`. La vía que sí funciona entre dispositivos propios es la dirección directa:
+
+- El móvil persiste la dirección del autorizador al instalar el certificado (`InstalledEnrollment.authorizerAddress`, tomada de `offer.authorizerAddress`, que escritorio ya enviaba) y la usa como destino de `SYNC_HELLO` además de los encuentros de la DHT.
+- El barrido de descubrimiento se repite **cada 60 s** mientras haya puente activo y omite los destinos con peer visto en los últimos 5 min. Antes era un único intento al arrancar, así que si el otro equipo estaba apagado el saludo se perdía hasta el siguiente cambio de red.
+- **Medido en dispositivo:** el barrido periódico funciona (14:33:11 y 14:34:11 en `logcat`), pero el móvil emparejado antes de este cambio no tiene `authorizerAddress` guardada y `discover()` no encuentra destino. Consecuencia práctica: **hay que repetir el emparejamiento una vez**; a partir de ahí la dirección queda persistida y el saludo sale solo.
+- La dirección del autorizador es una sola: no sustituye al descubrimiento general entre N dispositivos, que sigue pendiente de elegir entre A y B (arriba).
+
+**Producto (27/10/2026):** tres arreglos de UI que venían de las pruebas reales.
+
+- **El indicador de sincronización del rail cuenta dispositivos de la cuenta, no peers con ratchet.** Antes solo sumaba `peers` en estado `synced`, que nunca incluye al propio equipo, así que marcaba 1 con dos dispositivos vinculados. `statusView` fusiona el registro de cuenta con los peers y marca el local como `local`; el rail muestra el total y el tooltip enumera cada dispositivo con su estado.
+- **La lista de autorizados incluye el nodo local**, como ya hacía el móvil: `get-authorized-devices` usa `getMyAccountRegistry()` (que fusiona el certificado propio) y `getDeviceIdentity()` para `localDeviceId`, y ordena el local primero con la etiqueta «ESTE DISPOSITIVO».
+- **La invitación es QR o pegar código, sin modo manual aparte**, que era el paso extra que sobraba en el flujo de vinculación. Autorizar un dispositivo emite `authorized-devices-changed`, así que Ajustes se actualiza sin reabrir la pantalla.
 - [ ] Replicar mensajes salientes/entrantes, ediciones, borrados, reacciones, lecturas y eventos de perfil/grupo a todos los dispositivos autorizados. Cada dispositivo mantiene su propia sesión con el contacto: solo el que descifró un paquete de esa sesión envía ACK y avanza su ratchet; una copia recibida por sincronización no ACK ni toca la sesión del contacto.
 - [ ] Implementar entrega diferida por dispositivo (buzón/vault): sobre cifrado por dispositivo, TTL y cuotas, replicado a N custodios, puntero firmado en DHT, consulta al reconectar, ACK y borrado. La DHT solo publica punteros; no almacena mensajes.
 - [ ] Sincronización inicial de historial tras el emparejamiento: transferencia por chunks con cursor y hashes, reanudable y con deduplicación. Si no hay otro dispositivo online, queda pendiente; no se copia la base de datos ni claves privadas.
@@ -993,7 +1014,6 @@ Fijar, silenciar y archivar dejan de ser avisos y pasan a tener efecto:
 - **La cita es navegable.** Tocar la cita llama a `openQuoted`, que busca el original en la lista cargada y hace `scrollToIndex`; si el original ya no está en memoria no se hace nada, igual que en escritorio. Se implementa con `onResponderRelease` en vez de `Pressable` para no meter un contenedor táctil dentro de otro y romper el long-press que abre las acciones.
 - **El banner del compositor tiene la misma gramática.** `ChatComposerArea` pinta borde izquierdo de acento de 3 px, «Respondiendo a <alias>» a 11/700 en acento y el extracto a 12/0.85, sin `lineHeight`.
 
-
 ### Reenviar a otros contactos (25/10/2026)
 
 Escritorio tenía `ForwardModal` y `forwardMessageToTargets`; el móvil no ofrecía nada y el roadmap lo daba por pendiente.
@@ -1148,7 +1168,6 @@ Además se resuelve la duplicidad que generaba la confusión: `DeviceSessionList
 
 **El marcador del rail ahora sirve para algo.** `SyncStatusIndicator` era un icono de nube con `cursor: default` que informaba del estado de sincronización sin ofrecer ninguna acción, justo el elemento que uno pulsa cuando quiere gestionar dispositivos. Ahora es clicable y abre Ajustes → Dispositivos, y el tooltip lo dice. Verificado con un clic real sobre la app en marcha: navega a la sección.
 
-
 ### Gestión de dispositivos en móvil: misma sección propia (26/10/2026)
 
 El móvil tenía el problema inverso al de escritorio, agravado: la sección **Seguridad** no contenía nada más que el panel del autorizador. Se renombra a **Dispositivos** (`settings-sections.tsx`, entrada con icono `Smartphone` en Configuración) y se elimina `security-settings-section.tsx`, que era solo un envoltorio del mismo panel.
@@ -1166,7 +1185,6 @@ Los textos dejan de hablar de «vincular dispositivos» dentro de la cuenta y de
 **Fallo previo encontrado de paso:** la entrada **Almacenamiento** de Configuración no tenía sección en `renderSettingsSection`, así que abría una pantalla en blanco. Ahora hay `StorageSettingsSection`, que explica que la gestión (uso de disco, descarga, limpieza) aún no está y que los datos se quedan en el almacén local. Verificada en pantalla con la misma ruta temporal.
 
 El truco de la ruta `/preview` + deep link es la forma de revisar cualquier componente de sesión en el móvil sin inyección de eventos: `adb shell am start -a android.intent.action.VIEW -d "upeer://preview"`.
-
 
 ### Enrolamiento en banda por Yggdrasil: dos pasos y ninguno más (26/10/2026)
 
@@ -1191,7 +1209,6 @@ El flujo fuera de banda pedía tres códigos copiados a mano: la invitación del
 
 - **Recompilar el AAR no basta.** `gomobile bind` genera el `.so` dentro del AAR; hay que copiarlo a mano (`jni/arm64-v8a/libgojni.so` → `modules/upeer-transport/android/src/main/jniLibs/arm64-v8a/`) y `classes.jar` a `libs/`. Si no, el APK arranca con el binario viejo y los métodos nuevos responden «método no encontrado». Comprobación barata: `unzip -j app-debug.apk "lib/arm64-v8a/libgojni.so"` y `strings | grep <simbolo nuevo>`.
 - **El nodo del móvil tiene que estar levantado** para tener dirección; si el hook no encuentra dirección, `ensureNetworkNode()` arranca el nodo con `startWithPeers`. Y tras `adb shell am force-stop` el dev client vuelve a su pantalla de servidores: hay que relanzar primero `upeer://expo-development-client/?url=...` y después el deep link de la ruta.
-
 
 ### Entrada a la cuenta: dos formas equivalentes (26/10/2026)
 
