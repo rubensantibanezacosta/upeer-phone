@@ -67,6 +67,10 @@ internal class InboundRateLimiter(
       "DHT_FIND_NODE" to Rule(windowMs = 30_000, maxTokens = 30),
       "DHT_FIND_VALUE" to Rule(windowMs = 30_000, maxTokens = 30),
       "DHT_STORE" to Rule(windowMs = 60_000, maxTokens = 10),
+      "VAULT_STORE" to Rule(windowMs = 60_000, maxTokens = 600),
+      "VAULT_QUERY" to Rule(windowMs = 60_000, maxTokens = 10),
+      "VAULT_DELIVERY" to Rule(windowMs = 60_000, maxTokens = 2_000),
+      "VAULT_ACK" to Rule(windowMs = 60_000, maxTokens = 2_000),
     )
   }
 }

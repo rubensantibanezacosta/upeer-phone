@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.IBinder
 import android.util.Log
 import app.upeer.transport.dht.ContactEncryptionAdmission
+import app.upeer.transport.vault.VaultMailboxStore
 import app.upeer.transport.dht.DhtLocationStore
 import app.upeer.transport.dht.LegacyContactPolicy
 import app.upeer.transportbridge.transportbridge.Bridge
@@ -325,6 +326,7 @@ class YggdrasilTransportService : Service() {
       notifications::notifyMessage,
       admissionGuard,
       contactAdmission,
+      VaultMailboxStore(this),
     )
   }
 

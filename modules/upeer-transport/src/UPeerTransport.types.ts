@@ -32,7 +32,7 @@ export type ProtocolMessage = {
   upeerId: string;
   isMine: boolean;
   content: string;
-  status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
+  status: 'pending' | 'sent' | 'vaulted' | 'delivered' | 'read' | 'failed';
   timestamp: number;
   version?: number;
   isEdited?: boolean;

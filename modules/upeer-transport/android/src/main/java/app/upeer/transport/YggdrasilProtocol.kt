@@ -3,6 +3,7 @@ package app.upeer.transport
 import android.util.Log
 import app.upeer.transport.dht.ContactEncryptionAdmission
 import app.upeer.transport.dht.DhtLocation
+import app.upeer.transport.vault.VaultMailboxStore
 import app.upeer.transportbridge.transportbridge.Bridge
 import org.json.JSONObject
 
@@ -16,6 +17,7 @@ internal class YggdrasilProtocol(
   private val onInboundMessage: (String, String, String) -> Unit,
   private val admission: DeviceAdmissionGuard,
   private val contactAdmission: ContactEncryptionAdmission,
+  private val vaultMailbox: VaultMailboxStore,
   private val rateLimiter: InboundRateLimiter = InboundRateLimiter(),
   ) {
   private val policy = InboundPolicy(rateLimiter)
@@ -42,10 +44,20 @@ internal class YggdrasilProtocol(
 
   private val controlSender = ControlSender(identity, state) { bridge }
   private val controlReplies = ControlReplies(identity, deviceBindings, state, outbox, rateLimiter, controlSender::sendPong)
+  private val vaultReplies = VaultReplies(
+    identity,
+    deviceBindings,
+    state,
+    vaultMailbox,
+    policy,
+    ::sendVaultPacket,
+    ::replayVaultEntry,
+  )
 
   fun start(activeBridge: Bridge) {
     bridge = activeBridge
     outbox.start(activeBridge)
+    outbox.queryVaults(activeBridge)
   }
 
   fun stop() {
@@ -72,7 +84,10 @@ internal class YggdrasilProtocol(
 
   fun registerPeer(upeerId: String, address: String, publicKey: String, signedPreKeyJSON: String): Boolean {
     val accepted = state.upsertPeer(upeerId, address, publicKey, signedPreKeyJSON.ifBlank { null })
-    if (accepted) outbox.onHandshakeAccepted(upeerId)
+    if (accepted) {
+      outbox.onHandshakeAccepted(upeerId)
+      bridge?.let { outbox.queryVault(it, upeerId) }
+    }
     return accepted
   }
 
@@ -197,6 +212,9 @@ internal class YggdrasilProtocol(
     ) {
       return controlReplies.handle(activeBridge, payload, packet, type, sourceAddress)
     }
+    if (VAULT_TYPES.contains(type)) {
+      return vaultReplies.handle(activeBridge, payload, packet, type, sourceAddress)
+    }
     if (type != "CHAT" && type != "CHAT_UPDATE") throw IllegalArgumentException("unsupported packet type $type")
     val senderUpeerId = packet.optString("senderUpeerId").lowercase()
     val publicKey = state.publicKeyFor(senderUpeerId)
@@ -291,9 +309,35 @@ internal class YggdrasilProtocol(
     return metadataJSON
   }
 
+  private fun sendVaultPacket(activeBridge: Bridge, address: String, packetJSON: String): Boolean {
+    var connectionID = 0
+    return try {
+      connectionID = activeBridge.dialTCP(address, CONTROL_PORT)
+      activeBridge.writeFrame(connectionID, packetJSON.toByteArray(Charsets.UTF_8))
+      true
+    } catch (cause: Exception) {
+      Log.w(TAG, "No se pudo enviar el paquete de vault a $address: ${message(cause)}")
+      false
+    } finally {
+      if (connectionID != 0) {
+        try {
+          activeBridge.closeConnection(connectionID)
+        } catch (cause: Exception) {
+          Log.w(TAG, "No se pudo cerrar la conexión del vault: ${message(cause)}")
+        }
+      }
+    }
+  }
+
+  private fun replayVaultEntry(activeBridge: Bridge, bytes: ByteArray, sourceAddress: String) {
+    handleFrame(activeBridge, bytes, sourceAddress)
+  }
+
   private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
 
   private companion object {
     private const val TAG = "UPeerTransport"
+    private const val CONTROL_PORT = 50005L
+    private val VAULT_TYPES = setOf("VAULT_STORE", "VAULT_QUERY", "VAULT_ACK", "VAULT_DELIVERY")
   }
 }
