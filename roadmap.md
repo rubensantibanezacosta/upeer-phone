@@ -126,7 +126,7 @@ Las fases B0–B11 siguen siendo las unidades de trabajo, pero su numeración **
 | 4 | **`FILE_*`** | notas de voz, adjuntos en grupo, paridad de adjuntos | La recuperación offline de adjuntos se apoya en los shards del vault, que ya estará hecho. |
 | 5 | **`GROUP_*`** | llamada de grupo | Necesita sender keys, fanout por dispositivo y adjuntos, así que va después de `FILE_*`. |
 | 6 | **`CALL_*`** | — | El bloque más grande y el único con requisitos de hardware y red en tiempo real. |
-| 7 | **Cierre de UI** (ajustes reales, notificaciones, revocación) | — | Solo tiene sentido cuando existan los estados que debe pintar. |
+| 7 | **Cierre de UI** (ajustes reales, notificaciones, revocación) | — | Solo tiene sentido cuando existan los estados que debe pintar. Incluye sacar «Desconectar» de la notificación persistente y llevar a Ajustes → Conexión el interruptor de segundo plano, que al apagarse debe impedir que el proceso `:yggdrasil` sobreviva al cierre de la app. |
 | 8 | **B12 (blogs P2P)** | — | Producto nuevo, no transporte. |
 
 B9 no es un paso sino una **puerta**: la matriz de interoperabilidad, fuzzing y presupuesto de batería se ejecuta al cerrar cada uno de los pasos anteriores sobre lo que ese paso toque, no al final de todos. La prueba real Desktop↔móvil del 25/10/2026 ya cubrió la parte de chat, recibos, reacciones, edición, respuesta, borrado y presencia.
@@ -790,11 +790,12 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Perfil · dispositivos | Hecha | Lista el registro firmado y abre el autorizador de invitación |
 | Mensajes · estados | Parcial | `pending`/`sent`/`delivered`/`read`/`failed` son reales: el ACK marca `delivered` y el `READ` marca `read` en ambos sentidos. `synced` y `vaulted` siguen pendientes de la sincronización multi-dispositivo |
 | Ajustes · índice | Hecho | Ocho secciones con contenido real salvo «Almacenamiento»: Privacidad, Seguridad, Bloqueados, Notificaciones, Apariencia, Conexión, Acerca de |
-| Notificaciones | Hecha | `UPeerNotifications` publica por conversación con previsualización privada, enlace `upeer://chat/<id>` y acción «Marcar leído», y respeta las preferencias: mensajes de contactos, solicitudes de desconocidos y sonido. Faltan agrupación entre conversaciones y presencia |
+| Notificaciones | Hecha | `UPeerNotifications` publica por conversación con previsualización privada, enlace `upeer://chat/<id>` y acción «Marcar leído», y respeta las preferencias: mensajes de contactos, solicitudes de desconocidos y sonido. La acción «Desconectar» de la notificación persistente **sale de ahí** (26/10/2026): desconectar el nodo pasa a Ajustes. Faltan agrupación entre conversaciones y presencia |
 | Ajustes · privacidad | Hecha | «Confirmaciones de lectura» se aplica en el servicio y «Conectado»/«Última vez» deciden qué enseña la cabecera del chat y la ficha con la presencia real derivada de `lastSeen` |
 | Ajustes · seguridad | Hecha | Estado del registro, lista de dispositivos con revocación confirmada y ayuda en popup; faltan PIN, revelar frase y borrado de cuenta, que necesitan bridge nativo |
 | Ajustes · bloqueados | Hecha | Lista real desde `contact-store` con desbloqueo confirmado; el servicio recibe la lista al desbloquear |
 | Ajustes · notificaciones | Hecha | Los tres interruptores se persisten y viajan al servicio (`setNotificationPrefs`); el canal de sonido se elige por preferencia y la notificación se omite si el tipo está apagado |
+| Ajustes · conexión | Parcial | Muestra estado, dirección, mapa de red y detalles técnicos. Falta el interruptor **«Mantener conectado en segundo plano»** (activado por defecto) y el botón de desconectar, que salen de la notificación persistente: ver [Servicio en segundo plano y desconexión desde Ajustes](#servicio-en-segundo-plano-y-desconexión-desde-ajustes-26102026) |
 | Ajustes · apariencia | Hecha | Selector Sistema/Claro/Oscuro aplicado al instante en Tamagui, pestañas, barra de estado y chrome del sistema, y recordado entre arranques. El **tamaño de texto** (pequeño/normal/grande) escala con `useTextScale` toda la app: mensajes, listas, Chats, cabecera, Ajustes, Contactos, fichas, Perfil, hojas, diálogos, snackbar, solicitud y arranque. Solo quedan fuera el glifo del emoji y el mapa de red, que dibuja sobre `Svg` |
 | Ajustes · almacenamiento | Placeholder | El móvil no tiene vault: falta bridge de estadísticas y limpieza, e historial de archivos |
 | Ajustes · acerca de | Hecha | Versión real desde `expo-constants`, licencia GPLv3, código abierto, sin publicidad y sin datos recopilados |
@@ -1030,6 +1031,27 @@ El registro firmado ya guardaba los revocados, pero revocar no cambiaba nada en 
 - **La UI no miente.** `useAccountDevices` expone `localAdmitted`, `ready` y `epoch`; el panel enseña un aviso de peligro si el dispositivo local está revocado, el motivo y la fecha de cada revocación, el `epoch` en el aviso de éxito, y un mensaje distinto cuando el registro aún no está listo en vez de una lista vacía.
 - **El dispositivo revocado ya tiene salida.** El aviso de peligro del panel ofrece «Volver a vincular este dispositivo» y abre el mismo `DevicePairingPanel` que la pantalla de recuperación, dentro de una hoja inferior: `deviceEnrollmentBegin` genera una clave de dispositivo nueva, así que el emparejamiento sustituye la identidad en lugar de reutilizarla. Tras vincularlo hay que cerrar y abrir la sesión con la frase.
 - Pendiente: **propagar el registro nuevo entre dispositivos propios** (B10) para que un dispositivo revocado que siga encendido en otra máquina se entere; hoy solo lo aprende quien recibe su tráfico.
+
+### Servicio en segundo plano y desconexión desde Ajustes (26/10/2026)
+
+Decisión de producto: **la notificación persistente deja de llevar el botón «Desconectar»**. El control pasa a Ajustes, donde además se decide si el nodo puede seguir vivo con la app cerrada.
+
+Regla: **un solo interruptor, en Ajustes → Conexión, activado por defecto**, que significa «mantener uPeer conectado en segundo plano». Accesible sin buscar en menús ocultos y con el mismo lenguaje que el resto de ajustes.
+
+- **El interruptor manda sobre las tres cosas a la vez:** servicio en primer plano, notificación persistente y supervivencia del proceso al cerrar la app. No son tres ajustes: un nodo que corre sin servicio en primer plano no es fiable, así que se exponen juntos y se explican como uno.
+- **Apagado no deja nada vivo.** No se llama a `startForegroundService`, no hay notificación fija y al cerrar la app el proceso `:yggdrasil` **no puede quedar en marcha**. Eso obliga a tocar más de un sitio: `UPeerTransportModule.start`/`startWithPeers` (líneas 47 y 55) son los que arrancan el servicio desde JS, pero el manifest declara `android:stopWithTask="false"` en un proceso aparte `:yggdrasil`, `onTaskRemoved` vuelve a publicar el primer plano si hay bridge, y `onStartCommand` con `intent == null` llama a `restoreNode()`, que reconstruye el nodo desde `configStore` cuando el sistema reinicia el servicio. Con el interruptor apagado hay que: no promover a primer plano, parar el nodo al perder el foco de la app (`AppState` → `background`, o `onTaskRemoved`/`onDestroy`), devolver `START_NOT_STICKY` y limpiar `configStore` para que `restoreIfNeeded` no encuentre nada que restaurar.
+- **Consecuencia honesta que la UI debe decir:** con el interruptor apagado no llegan mensajes con la app cerrada, no hay notificaciones y los envíos en vuelo esperan a que se abra. El texto del interruptor lo dice («Sin esto, uPeer solo recibe mensajes mientras la app está abierta»), y el estado vacío de Conexión deja de prometer «conectado» cuando el nodo está parado a propósito.
+- **Desconectar sale de la notificación.** `UPeerNotifications.foregroundNotification` construye el `PendingIntent` de `ACTION_STOP` en la acción «Desconectar» (líneas 50-59). Se retira esa acción; la notificación sigue siendo el aviso de que el nodo está activo, pero sin control destructivo. La desconexión manual pasa a Ajustes → Conexión, junto al interruptor, con el mismo `stop()` del servicio (que ya hace `stopForeground(STOP_FOREGROUND_REMOVE)` y `stopSelf()`).
+- **La justificación del tipo de servicio se queda corta.** El manifest declara `foregroundServiceType="specialUse"` con el subtipo «…requires an ongoing visible connection notification and user disconnect control». Al mover el control, ese texto tiene que pasar a describir el interruptor de Ajustes, o la declaración deja de ser cierta.
+- **El interruptor se persiste como preferencia de UI, no como estado del nodo.** Va en `Preferences` (`src/domain/preferences.ts`, hoy sin campo de conexión) con migración: ausente = activado, y quien tenga el JSON viejo conserva el comportamiento actual. El servicio no lo lee de disco; lo recibe por el módulo, igual que `setNotificationPrefs` y `setReadReceipts`.
+- **Riesgo de arranque en Android 8+:** con el interruptor apagado no se puede arrancar un servicio en primer plano desde segundo plano sin una excepción válida, así que si el usuario apaga y luego el sistema intenta restaurar, la app debe fallar en silencio y dejar el nodo parado. Con el interruptor encendido el arranque sigue igual que hoy (`startForegroundService` + `ensureForeground`).
+
+Queda pendiente:
+
+1. Añadir el campo a `Preferences` y su migración (ausente = activado), con prueba unitaria del valor por defecto.
+2. Quitar la acción «Desconectar» de `foregroundNotification` y trasladar el botón a la sección de Conexión de Ajustes, junto al interruptor.
+3. Implementar el camino apagado: sin primer plano, parada al pasar a segundo plano y `START_NOT_STICKY` con `configStore` limpio.
+4. Verificar en dispositivo con la app cerrada en las dos posiciones del interruptor: con él encendido el nodo sigue recibiendo y notificando; con él apagado el proceso `:yggdrasil` no aparece en `adb shell ps -A`.
 
 ### Transporte local sin internet: paridad con Briar (24/10/2026)
 
