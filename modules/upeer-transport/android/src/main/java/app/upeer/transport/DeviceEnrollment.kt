@@ -56,7 +56,7 @@ internal class DeviceEnrollment(
     if (!DhtLocation.isHex(accountUpeerId, 32)) {
       throw IllegalArgumentException("La invitación no identifica una cuenta válida.")
     }
-    val secretKey = newDeviceSecretKey()
+    val secretKey = reusableDeviceSecretKey(accountUpeerId) ?: newDeviceSecretKey()
     try {
       val requestJSON = try {
         buildRequest(secretKey, inviteJSON, PLATFORM, now)
@@ -92,6 +92,12 @@ internal class DeviceEnrollment(
   private fun authorizerAddressOf(inviteJSON: String): String = runCatching {
     JSONObject(inviteJSON).optJSONObject("offer")?.optString("authorizerAddress").orEmpty()
   }.getOrDefault("")
+
+  private fun reusableDeviceSecretKey(accountUpeerId: String): ByteArray? {
+    val installed = state.installed ?: return null
+    if (!installed.accountUpeerId.equals(accountUpeerId, ignoreCase = true)) return null
+    return DhtLocation.decodeHex(installed.deviceSecretKey, 64)
+  }
 
   fun pendingAccount(): String = synchronized(lock) { state.pending?.accountUpeerId.orEmpty() }
 

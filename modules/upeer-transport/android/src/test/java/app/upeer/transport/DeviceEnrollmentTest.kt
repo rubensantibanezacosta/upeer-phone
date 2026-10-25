@@ -170,17 +170,56 @@ class DeviceEnrollmentTest {
     assertNull(persistence.value?.let { JSONObject(String(it)).optJSONObject("pending") })
   }
 
+  @Test
+  fun reusesTheInstalledDeviceKeyWhenRepairingTheSameAccount() {
+    val persistence = MemoryEnrollmentPersistence()
+    var generated = 0
+    val enrollment = enrollment(persistence, onNewDeviceSecretKey = { generated += 1 })
+    enrollment.begin("code")
+    enrollment.finish("sealed-response")
+
+    enrollment.begin("code")
+
+    assertEquals(1, generated)
+    val status = JSONObject(enrollment.statusJSON())
+    assertEquals(account, status.getJSONObject("pending").getString("accountUpeerId"))
+    assertEquals(deviceId, status.getJSONObject("installed").getString("deviceId"))
+  }
+
+  @Test
+  fun generatesAFreshDeviceKeyWhenTheAccountChanges() {
+    val persistence = MemoryEnrollmentPersistence()
+    var generated = 0
+    val enrollment = enrollment(persistence, onNewDeviceSecretKey = { generated += 1 })
+    enrollment.begin("code")
+    enrollment.finish("sealed-response")
+
+    val otherAccount = "12".repeat(32)
+    val other = enrollment(
+      persistence,
+      invite = JSONObject().put("offer", JSONObject().put("accountUpeerId", otherAccount)).toString(),
+      onNewDeviceSecretKey = { generated += 1 },
+    )
+    other.begin("code")
+
+    assertEquals(2, generated)
+  }
+
   private fun enrollment(
     persistence: EnrollmentPersistence,
     invite: String = inviteJSON,
     certificateAccount: String = account,
     certificateDeviceId: String = deviceId,
     derivedDeviceId: String = deviceId,
+    onNewDeviceSecretKey: () -> Unit = {},
     parseInvite: (String, Long) -> String = { _, _ -> invite },
   ) = DeviceEnrollment(
     persistence = persistence,
     nowMillis = { now },
-    newDeviceSecretKey = { DhtLocation.decodeHex(deviceSecretKey, 64)!! },
+    newDeviceSecretKey = {
+      onNewDeviceSecretKey()
+      DhtLocation.decodeHex(deviceSecretKey, 64)!!
+    },
     devicePublicKeyHex = { "77".repeat(32) },
     deriveDeviceId = { derivedDeviceId },
     parseInvite = parseInvite,
