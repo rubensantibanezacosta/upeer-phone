@@ -44,10 +44,24 @@ export type ProtocolMessage = {
   reactions?: Record<string, string[]>;
 };
 
+export type ProtocolGroup = {
+  groupId: string;
+  name: string;
+  adminUpeerId: string;
+  members: string[];
+  status: 'active' | 'invited' | 'removed';
+  isFavorite?: boolean;
+  avatar?: string;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
 export type ProtocolConversation = {
   upeerId: string;
   alias: string;
   avatar?: string;
+  group?: boolean;
+  members?: number;
   lastMessage: string;
   lastStatus: ProtocolMessage['status'];
   lastTimestamp: number;

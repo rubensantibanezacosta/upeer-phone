@@ -43,4 +43,11 @@ describe('incoming message requests', () => {
   it('falls back to the shortened identity when there is no alias', () => {
     expect(requestLabel({ upeerId: 'bb'.repeat(32), alias: '   ' })).toBe('bbbbbbbbbbbb');
   });
+
+  it('never treats a group as an incoming request', () => {
+    const group = { upeerId: 'grp-abc', alias: 'Equipo', preview: 'Sin mensajes', timestamp: 0, group: true };
+    const result = classifyConversations([...conversations, group], contacts);
+    expect(result.accepted.map((item) => item.alias)).toEqual(['Ana', 'Dani', 'Equipo']);
+    expect(result.requests.map((item) => item.alias)).toEqual(['']);
+  });
 });

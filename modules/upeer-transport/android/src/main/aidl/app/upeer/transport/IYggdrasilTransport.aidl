@@ -73,4 +73,5 @@ interface IYggdrasilTransport {
   String enrollmentAuthorizerStatusJSON();
   void enrollmentAuthorizerCancel(String inviteId);
   void enrollmentAuthorizerCancelAll();
+  String groupsJSON();
 }

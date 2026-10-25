@@ -7,11 +7,12 @@ import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ChatContextMenu } from '@/components/chat-context-menu';
 import { BottomSheet } from '@/components/bottom-sheet';
+import { LoadingState } from '@/components/loading-state';
+import { useFirstLoad } from '@/hooks/use-first-load';
 import { NewConversationList } from '@/components/new-conversation-list';
 import { ChatListItem, type ChatListEntry } from '@/components/chat-list-item';
 import { CHAT_LIST_FILTERS, filterChatEntries, isChatFilterActive, type ChatListFilter } from '@/domain/chat-list-filters';
-import { messageSummary } from '@/domain/contact-card';
-import { describeMessageContent } from '@/domain/attachment';
+import { previewMessage } from '@/domain/message-preview';
 import { flagMessage, flagsFor, orderByPinned, type ConversationFlag } from '@/domain/conversation-flags';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
 import { useNow } from '@/hooks/use-now';
@@ -50,16 +51,22 @@ export default function ChatsRoute() {
   const [composerOpen, setComposerOpen] = useState(false);
   const [filter, setFilter] = useState<ChatListFilter>('all');
   const [query, setQuery] = useState('');
+  const { loading, markLoaded } = useFirstLoad();
 
   useEffect(() => {
     getContacts().then(setContacts).catch((cause: unknown) => console.warn('No se pudieron cargar los contactos para Chats.', cause));
     const loadConversations = () => {
-      getConversations().then(setConversations).catch((cause: unknown) => console.warn('No se pudieron cargar las conversaciones nativas.', cause));
+      getConversations()
+        .then((next) => {
+          setConversations(next);
+          markLoaded();
+        })
+        .catch((cause: unknown) => console.warn('No se pudieron cargar las conversaciones nativas.', cause));
     };
     loadConversations();
     const timer = setInterval(loadConversations, 2000);
     return () => clearInterval(timer);
-  }, []);
+  }, [markLoaded]);
 
   const partition = useMemo(() => classifyConversations(conversations, contacts), [contacts, conversations]);
   const requestIds = useMemo(() => new Set(partition.requests.map((request) => request.upeerId)), [partition.requests]);
@@ -71,7 +78,7 @@ export default function ChatsRoute() {
         upeerId: conversation.upeerId,
         title: conversation.alias || conversation.upeerId.slice(0, 12),
         avatar: conversation.avatar,
-        preview: describeMessageContent(messageSummary(conversation.lastMessage.replace(/^__SYS__\|/, ''))) || 'Sin mensajes',
+        preview: previewMessage(conversation.lastMessage) || 'Sin mensajes',
         timestamp: conversation.lastTimestamp,
         unread: conversation.unread,
         isMine: conversation.lastIsMine === true,
@@ -80,6 +87,8 @@ export default function ChatsRoute() {
         favorite: contacts.some((contact) => contact.upeerId === conversation.upeerId && contact.isFavorite === true),
         typing: conversation.typing === true,
         lastSeen: conversation.lastActive || conversation.lastSeen,
+        group: conversation.group === true,
+        members: conversation.members,
         ...flagsFor(conversationFlags, conversation.upeerId),
       }))
     : contacts.filter((contact) => contact.status !== 'blocked').map((contact) => ({
@@ -168,6 +177,8 @@ export default function ChatsRoute() {
           <YStack marginTop={2}>
             {visibleEntries.map((entry) => <ChatListItem entry={entry} key={entry.upeerId} now={now} onOpen={openChat} onOpenMenu={openContextMenu} />)}
           </YStack>
+        ) : loading ? (
+          <LoadingState compact label="Cargando conversaciones…" />
         ) : (
           <YStack alignItems="center" flex={1} gap={12} justifyContent="center" padding={24}>
             <View style={[styles.emptyAvatar, { backgroundColor: theme.backgroundElement }]}>

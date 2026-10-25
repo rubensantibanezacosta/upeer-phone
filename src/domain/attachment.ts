@@ -1,4 +1,4 @@
-export type AttachmentKind = 'image' | 'video' | 'audio' | 'voice' | 'document' | 'other';
+export type AttachmentKind = 'image' | 'video' | 'voice' | 'document';
 
 export type AttachmentInfo = {
   kind: AttachmentKind;
@@ -7,30 +7,60 @@ export type AttachmentInfo = {
   mimeType: string;
   transferId: string;
   caption?: string;
+  thumbnail?: string;
 };
 
-const MAX_LABEL_LENGTH = 120;
-
-const KIND_LABELS: Record<AttachmentKind, string> = {
-  image: 'Foto',
-  video: 'Vídeo',
-  audio: 'Audio',
-  voice: 'Nota de voz',
-  document: 'Documento',
-  other: 'Archivo',
-};
+const MAX_TEXT_LENGTH = 400;
+const LEGACY_PREFIX = 'FILE_TRANSFER|';
 
 function kindOf(mimeType: string, fileName: string, isVoiceNote: boolean, declaredImage: boolean): AttachmentKind {
   if (isVoiceNote) return 'voice';
   const mime = mimeType.toLowerCase();
   if (mime.startsWith('image/')) return 'image';
-  if (mime.startsWith('video/')) return 'video';
-  if (mime.startsWith('audio/')) return 'audio';  const extension = fileName.toLowerCase().split('.').pop() ?? '';
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(extension)) return 'image';
+  if (mime.startsWith('video/') || mime === 'video/x-matroska') return 'video';
+  const extension = fileExtension(fileName).toLowerCase();
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'bmp', 'avif'].includes(extension)) return 'image';
   if (['mp4', 'mov', 'avi', 'webm', 'mkv'].includes(extension)) return 'video';
-  if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'opus'].includes(extension)) return 'audio';
-  if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'zip'].includes(extension)) return 'document';
-  return declaredImage ? 'image' : 'other';
+  return declaredImage ? 'image' : 'document';
+}
+
+export function fileExtension(fileName: string): string {
+  const parts = fileName.split('.');
+  if (parts.length < 2) return '';
+  const extension = parts[parts.length - 1].trim();
+  return extension.length > 0 && extension.length <= 8 ? extension.toUpperCase() : '';
+}
+
+function text(value: unknown): string {
+  return typeof value === 'string' ? value.slice(0, MAX_TEXT_LENGTH) : '';
+}
+
+function buildAttachment(payload: Record<string, unknown>, declaredImage: boolean): AttachmentInfo {
+  const fileName = text(payload.fileName);
+  const mimeType = text(payload.mimeType);
+  const thumbnail = text(payload.thumbnail);
+  const caption = text(payload.caption).trim();
+  return {
+    kind: kindOf(mimeType, fileName, payload.isVoiceNote === true, declaredImage),
+    fileName: fileName || 'Archivo',
+    fileSize: typeof payload.fileSize === 'number' && Number.isFinite(payload.fileSize) ? payload.fileSize : 0,
+    mimeType,
+    transferId: text(payload.transferId) || text(payload.fileId),
+    caption: caption || undefined,
+    thumbnail: thumbnail.startsWith('data:image/') ? thumbnail : undefined,
+  };
+}
+
+function parseLegacy(content: string): AttachmentInfo | null {
+  const parts = content.split('|');
+  if (parts.length < 5) return null;
+  const size = Number(parts[3]);
+  return buildAttachment({
+    fileName: parts[2],
+    fileSize: Number.isFinite(size) ? size : 0,
+    mimeType: parts[4],
+    transferId: parts[1],
+  }, false);
 }
 
 export function parseAttachment(content: string): AttachmentInfo | null {
@@ -45,21 +75,11 @@ export function parseAttachment(content: string): AttachmentInfo | null {
   if (!parsed || typeof parsed !== 'object') return null;
   const payload = parsed as Record<string, unknown>;
   if (payload.type !== 'file' && payload.type !== 'image') return null;
-  const fileName = typeof payload.fileName === 'string' ? payload.fileName.slice(0, MAX_LABEL_LENGTH) : '';
-  const mimeType = typeof payload.mimeType === 'string' ? payload.mimeType.slice(0, MAX_LABEL_LENGTH) : '';
-  const transferId = typeof payload.transferId === 'string' ? payload.transferId : typeof payload.fileId === 'string' ? payload.fileId : '';
-  const fileSize = typeof payload.fileSize === 'number' && Number.isFinite(payload.fileSize) ? payload.fileSize : 0;
-  const caption = typeof payload.caption === 'string' && payload.caption.trim()
-    ? payload.caption.trim().slice(0, MAX_LABEL_LENGTH)
-    : undefined;
-  return {
-    kind: kindOf(mimeType, fileName, payload.isVoiceNote === true, payload.type === 'image'),
-    fileName: fileName || 'Archivo',
-    fileSize,
-    mimeType,
-    transferId,
-    caption,
-  };
+  return buildAttachment(payload, payload.type === 'image');
+}
+
+export function parseAttachmentMessage(content: string): AttachmentInfo | null {
+  return parseAttachment(content) ?? (content.startsWith(LEGACY_PREFIX) ? parseLegacy(content) : null);
 }
 
 export function formatFileSize(bytes: number): string {
@@ -71,17 +91,14 @@ export function formatFileSize(bytes: number): string {
 }
 
 export function attachmentLabel(info: AttachmentInfo): string {
-  const base = KIND_LABELS[info.kind];
-  if (info.kind === 'image' || info.kind === 'video' || info.kind === 'voice') return base;
-  return info.fileName ? `${base}: ${info.fileName}` : base;
+  return info.kind === 'voice' ? 'Nota de voz' : info.fileName;
 }
 
-export function attachmentSummary(content: string): string | null {
-  const info = parseAttachment(content);
-  if (!info) return null;
-  return info.caption ?? attachmentLabel(info);
+export function attachmentDetail(info: AttachmentInfo): string {
+  return [fileExtension(info.fileName), formatFileSize(info.fileSize)].filter(Boolean).join(' · ');
 }
 
 export function describeMessageContent(content: string): string {
-  return attachmentSummary(content) ?? content;
+  const info = parseAttachmentMessage(content);
+  return info ? info.caption ?? attachmentLabel(info) : content;
 }

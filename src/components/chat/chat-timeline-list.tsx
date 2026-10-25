@@ -5,10 +5,12 @@ import { FlatList, StyleSheet, View, type ListRenderItemInfo, type NativeScrollE
 import { ChatEmptyState } from '@/components/chat/chat-empty-state';
 import { ChatScrollButton } from '@/components/chat/chat-scroll-button';
 import type { ChatTimelineEntry } from '@/domain/chat-timeline';
+import { LoadingState } from '@/components/loading-state';
 
 type ChatTimelineListProps = {
   data: ChatTimelineEntry[];
   listRef: React.RefObject<FlatList<ChatTimelineEntry> | null>;
+  loading?: boolean;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onScrollToLatest: () => void;
   renderItem: (info: ListRenderItemInfo<ChatTimelineEntry>) => ReactElement;
@@ -17,7 +19,7 @@ type ChatTimelineListProps = {
 
 const keyExtractor = (entry: ChatTimelineEntry) => entry.message.id;
 
-export function ChatTimelineList({ data, listRef, onScroll, onScrollToLatest, renderItem, showScrollButton }: ChatTimelineListProps) {
+export function ChatTimelineList({ data, listRef, loading = false, onScroll, onScrollToLatest, renderItem, showScrollButton }: ChatTimelineListProps) {
   const handleScrollToIndexFailed = useCallback((info: { averageItemLength: number; index: number }) => {
     listRef.current?.scrollToOffset({ animated: false, offset: info.averageItemLength * info.index });
     setTimeout(() => {
@@ -27,7 +29,7 @@ export function ChatTimelineList({ data, listRef, onScroll, onScrollToLatest, re
 
   return (
     <View style={styles.timeline}>
-      {data.length === 0 ? <ChatEmptyState /> : (
+      {data.length === 0 ? (loading ? <LoadingState label="Cargando mensajes…" /> : <ChatEmptyState />) : (
         <FlatList
           ref={listRef}
           contentContainerStyle={styles.listContent}

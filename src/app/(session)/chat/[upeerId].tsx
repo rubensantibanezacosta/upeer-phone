@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ContactCardSheet } from '@/components/chat/contact-card-sheet';
 import { ChatHeader } from '@/components/chat/chat-header';
+import { GroupInfoSheet } from '@/components/chat/group-info-sheet';
 import { ChatInputArea } from '@/components/chat/chat-input-area';
 import { ChatMessageOverlays } from '@/components/chat/chat-message-overlays';
 import { ChatRequestScreen } from '@/components/chat/chat-request-screen';
@@ -11,6 +12,9 @@ import { ChatTimelineList } from '@/components/chat/chat-timeline-list';
 import { ChatTimelineRow } from '@/components/chat/chat-timeline-row';
 import { useSnackbar } from '@/components/snackbar';
 import { buildChatTimeline, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
+import { resolveChatBack } from '@/domain/chat-back';
+import { useAndroidBack } from '@/hooks/use-android-back';
+import { useFirstLoad } from '@/hooks/use-first-load';
 import { buildReplyPreview, type ReplyPreview } from '@/domain/chat-reply';
 import { decideRequestState } from '@/domain/message-request';
 import { useChatComposer } from '@/hooks/use-chat-composer';
@@ -47,11 +51,17 @@ export default function ChatRoute() {
   const [peerTyping, setPeerTyping] = useState(false);
   const [peerPresence, setPeerPresence] = useState<{ lastActive?: number; lastSeen?: number }>({});
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [groupInfoOpen, setGroupInfoOpen] = useState(false);
+  const [groupMembers, setGroupMembers] = useState(0);
+  const isGroup = upeerId?.startsWith('grp-') === true;
+  const { loading: loadingMessages, markLoaded: markMessagesLoaded } = useFirstLoad();
 
   const refresh = useCallback(async () => {
     if (!upeerId) return;
     const [nextMessages, contacts, conversations] = await Promise.all([getMessages(upeerId, MESSAGE_LIMIT), getContacts(), getConversations()]);
     setMessages(nextMessages);
+    markMessagesLoaded();
     setContacts(contacts);
     const contact = contacts.find((item) => item.upeerId === upeerId);
     const ownConversation = conversations.find((conversation) => conversation.upeerId === upeerId);
@@ -59,6 +69,7 @@ export default function ChatRoute() {
     setPeerTyping(ownConversation?.typing === true);
     setPeerPresence({ lastActive: ownConversation?.lastActive, lastSeen: ownConversation?.lastSeen });
     setPeerAvatar(ownConversation?.avatar);
+    setGroupMembers(ownConversation?.members ?? 0);
     const resolvedName = resolveContactName(contact?.name, conversationAlias, upeerId);
     setAlias(resolvedName);
     if (contact && resolvedName !== contact.name && resolvedName !== placeholderName(upeerId)) {
@@ -68,6 +79,7 @@ export default function ChatRoute() {
       contactStatus: contact?.status,
       hasIncoming: nextMessages.some((message) => !message.isMine),
       hasOutgoing: nextMessages.some((message) => message.isMine),
+      isGroup: upeerId.startsWith('grp-'),
     });
     setContactStatus(contact?.status ?? 'offline');
     setIsRequest(decision === 'request');
@@ -78,7 +90,7 @@ export default function ChatRoute() {
       setContactStatus('connected');
     }
     await markConversationRead(upeerId);
-  }, [upeerId]);
+  }, [markMessagesLoaded, upeerId]);
 
   const {
     cancelContext,
@@ -134,6 +146,14 @@ export default function ChatRoute() {
       buildReplyPreview(message.replyTo ? byID.get(message.replyTo) : undefined, { mine: 'Tú', peer: alias || 'Contacto' });
   }, [alias, messages]);
 
+  const openInfo = useCallback(() => {
+    if (isGroup) {
+      setGroupInfoOpen(true);
+      return;
+    }
+    router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } });
+  }, [isGroup, upeerId]);
+
   const openContactInfo = useCallback((target: string) => {
     router.push({ pathname: '/contact/[upeerId]', params: { upeerId: target } });
   }, []);
@@ -188,6 +208,26 @@ export default function ChatRoute() {
   }, [showSnackbar, timeline]);
 
   const search = useChatSearch({ messages, onJump: openQuoted });
+
+  useAndroidBack(() => {
+    const action = resolveChatBack({
+      menuOpen,
+      searchActive: search.active,
+      sheetOpen: sheet.selected !== null,
+      cardOpen: contactCard.selected !== null,
+      groupOpen: groupInfoOpen,
+      forwarding: forwarding !== null,
+      composing: editing !== null || replyingTo !== null,
+    });
+    if (action === 'close-menu') { setMenuOpen(false); return true; }
+    if (action === 'close-search') { search.close(); return true; }
+    if (action === 'close-sheet') { sheet.close(); return true; }
+    if (action === 'close-card') { contactCard.close(); return true; }
+    if (action === 'close-group') { setGroupInfoOpen(false); return true; }
+    if (action === 'cancel-forwarding') { cancelForwarding(); return true; }
+    if (action === 'cancel-composing') { cancelContext(); return true; }
+    return false;
+  });
   const { highlightedID } = search;
 
   const renderItem = useCallback(({ item }: ListRenderItemInfo<ChatTimelineEntry>) => (
@@ -198,21 +238,23 @@ export default function ChatRoute() {
       onOpenCard={openCard}
       onOpenReply={openQuoted}
       onToggleReaction={toggleReaction}
+      onUnavailable={showUnavailable}
       reply={replyPreviews(item.message)}
       savedContacts={savedContactIds}
       selfUpeerId={selfUpeerId}
     />
-  ), [highlightedID, openActions, openCard, openQuoted, replyPreviews, savedContactIds, selfUpeerId, toggleReaction]);
+  ), [highlightedID, openActions, openCard, openQuoted, replyPreviews, savedContactIds, selfUpeerId, showUnavailable, toggleReaction]);
 
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
-        <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={() => router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } })} onSearch={search.open} onUnavailable={showUnavailable} presence={presence} status={contactStatus} typing={peerTyping} upeerId={upeerId ?? ''} />
+        <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} menuOpen={menuOpen} onMenuOpenChange={setMenuOpen} onBack={() => router.back()} onOpenInfo={openInfo} onSearch={search.open} onUnavailable={showUnavailable} presence={isGroup ? (groupMembers > 0 ? `${groupMembers} miembros` : 'Grupo') : presence} status={contactStatus} typing={peerTyping} upeerId={upeerId ?? ''} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.root, androidKeyboard > 0 ? { paddingBottom: androidKeyboard } : null]}>
           {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} /> : (
             <ChatTimelineList
               data={timeline}
               listRef={listRef}
+              loading={loadingMessages}
               onScroll={handleScroll}
               onScrollToLatest={scrollToLatest}
               renderItem={renderItem}
@@ -239,6 +281,7 @@ export default function ChatRoute() {
         <View pointerEvents="none" style={[styles.nativeBarBackground, { backgroundColor: theme.backgroundElement, height: insets.bottom }]} />
       ) : null}
       <ContactCardSheet action={contactCard.action} card={contactCard.selected} error={contactCard.error} onClose={contactCard.close} visible={contactCard.selected !== null} />
+      <GroupInfoSheet groupId={isGroup && groupInfoOpen ? upeerId ?? null : null} onClose={() => setGroupInfoOpen(false)} />
       <ChatMessageOverlays contacts={contacts} forwarding={forwarding} onForwardClose={cancelForwarding} onForwarded={handleForwarded} selfUpeerId={selfUpeerId} sheet={sheet} />
     </View>
   );

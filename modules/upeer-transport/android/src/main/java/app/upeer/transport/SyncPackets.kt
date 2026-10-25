@@ -172,6 +172,8 @@ internal object SyncPackets {
   fun validRequestId(value: String): Boolean =
     value.length in 8..128 && value.all { it.isLetterOrDigit() || it == '-' || it == '_' }
 
+  fun validChatId(value: String): Boolean = hex(value, 64) || ProtocolGroups.validId(value)
+
   private fun hex(value: String, length: Int): Boolean =
     value.length == length && value.all { it in '0'..'9' || it in 'a'..'f' }
 }

@@ -1,6 +1,6 @@
 import { useRef } from 'react';
-import { StyleSheet } from 'react-native';
-import { BellOff, Check, CheckCheck, CircleAlert, Clock3, Pin, Star } from '@tamagui/lucide-icons-2';
+import { StyleSheet, View } from 'react-native';
+import { BellOff, Check, CheckCheck, CircleAlert, Clock3, Pin, Star, Users } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
@@ -31,6 +31,8 @@ export type ChatListEntry = {
   favorite?: boolean;
   typing?: boolean;
   lastSeen?: number;
+  group?: boolean;
+  members?: number;
 };
 
 type ChatListItemProps = {
@@ -97,7 +99,7 @@ export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemPro
       style={[styles.item, { borderBottomColor: theme.border }]}
     >
       <XStack alignItems="center" gap={12} minHeight={80} paddingVertical={0}>
-        <ContactTrustAvatar avatar={entry.avatar} name={entry.title} size={55} vouchScore={entry.vouchScore} />
+        {entry.group ? <View style={[styles.groupAvatar, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}><Users color={theme.placeholder} size={24} /></View> : <ContactTrustAvatar avatar={entry.avatar} name={entry.title} size={55} vouchScore={entry.vouchScore} />}
         <YStack flex={1} gap={4}>
           <XStack alignItems="center" gap={8}>
             {entry.favorite ? <Star color={theme.placeholder} size={13} strokeWidth={2.2} /> : null}
@@ -118,5 +120,6 @@ export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemPro
 }
 
 const styles = StyleSheet.create({
+  groupAvatar: { alignItems: 'center', borderRadius: 28, borderWidth: StyleSheet.hairlineWidth, height: 55, justifyContent: 'center', width: 55 },
   item: { borderBottomWidth: StyleSheet.hairlineWidth, marginHorizontal: -12, paddingHorizontal: 12 },
 });

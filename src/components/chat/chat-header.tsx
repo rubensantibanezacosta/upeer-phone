@@ -25,6 +25,8 @@ type ChatHeaderProps = {
   onOpenInfo: () => void;
   onSearch: () => void;
   onUnavailable: (label: string) => void;
+  menuOpen?: boolean;
+  onMenuOpenChange?: (open: boolean) => void;
 };
 
 function HeaderAction({ label, onPress, children }: { label: string; onPress: () => void; children: React.ReactNode }) {
@@ -35,11 +37,16 @@ function HeaderAction({ label, onPress, children }: { label: string; onPress: ()
   );
 }
 
-export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isRequest = false, typing = false, presence = null, onBack, onOpenInfo, onSearch, onUnavailable }: ChatHeaderProps) {
+export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isRequest = false, typing = false, presence = null, onBack, onOpenInfo, onSearch, onUnavailable, menuOpen: controlledMenu, onMenuOpenChange }: ChatHeaderProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const insets = useSafeAreaInsets();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [localMenu, setLocalMenu] = useState(false);
+  const menuOpen = controlledMenu ?? localMenu;
+  const setMenuOpen = (open: boolean) => {
+    if (controlledMenu === undefined) setLocalMenu(open);
+    onMenuOpenChange?.(open);
+  };
   const subtitle = typing ? 'Escribiendo…' : presence ?? CONTACT_STATUS_LABELS[status];
   const closeMenu = () => setMenuOpen(false);
   const openSearch = () => {

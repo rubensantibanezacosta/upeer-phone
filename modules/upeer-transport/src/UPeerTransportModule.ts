@@ -6,7 +6,7 @@ import { sha512 } from '@noble/hashes/sha2.js';
 import { NativeModule, requireNativeModule } from 'expo';
 import { validateMnemonic } from '../../../src/domain/mnemonic';
 import { decodeEnrollmentTransfer, encodeEnrollmentTransfer } from '../../../src/domain/enrollment-transfer';
-import type { AccountRegistryDocument, AccountRegistryStatus, DeviceEnrollmentBeginResult, DeviceEnrollmentStatus, DeviceIdentityStatus, DhtLocationStatus, EnrollmentAuthorizerInvite, EnrollmentAuthorizerIssued, EnrollmentAuthorizerRequest, EnrollmentAuthorizerStatus, EnrollmentCertificateSummary, IdentityTransportStatus, InboundTransportStatus, LocationBlock, PeerInfo, PeerPoolEntry, PeerSecurity, ProtocolConversation, ProtocolMessage, ProtocolTransportStatus, SyncTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
+import type { AccountRegistryDocument, AccountRegistryStatus, DeviceEnrollmentBeginResult, DeviceEnrollmentStatus, DeviceIdentityStatus, DhtLocationStatus, EnrollmentAuthorizerInvite, EnrollmentAuthorizerIssued, EnrollmentAuthorizerRequest, EnrollmentAuthorizerStatus, EnrollmentCertificateSummary, IdentityTransportStatus, InboundTransportStatus, LocationBlock, PeerInfo, PeerPoolEntry, PeerSecurity, ProtocolConversation, ProtocolGroup, ProtocolMessage, ProtocolTransportStatus, SyncTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
 
 declare class UPeerTransportModule extends NativeModule<{}> {
   start(configJSON: number[]): Promise<YggdrasilNodeInfo>;
@@ -39,6 +39,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   retryChat(upeerId: string, messageId: string): Promise<boolean>;
   messagesJSON(upeerId: string, limit: number): Promise<string>;
   conversationsJSON(): Promise<string>;
+  groupsJSON(): Promise<string>;
   peerSecurityJSON(upeerId: string): Promise<string>;
   markConversationRead(upeerId: string): Promise<void>;
   sendTyping(upeerId: string): Promise<void>;
@@ -277,6 +278,10 @@ export async function getMessages(upeerId: string, limit = 100): Promise<Protoco
 
 export async function getConversations(): Promise<ProtocolConversation[]> {
   return JSON.parse(await nativeModule.conversationsJSON()) as ProtocolConversation[];
+}
+
+export async function getGroups(): Promise<ProtocolGroup[]> {
+  return JSON.parse(await nativeModule.groupsJSON()) as ProtocolGroup[];
 }
 
 export async function getPeerSecurity(upeerId: string): Promise<PeerSecurity> {

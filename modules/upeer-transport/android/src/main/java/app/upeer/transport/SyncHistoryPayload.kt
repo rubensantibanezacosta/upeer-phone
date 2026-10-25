@@ -24,7 +24,7 @@ internal object SyncHistoryPayload {
     val id = payload.optString("id")
     if (id.isBlank()) return null
     val upeerId = payload.optString("chatUpeerId").ifBlank { payload.optString("upeerId") }.lowercase()
-    if (upeerId.length != 64) return null
+    if (!SyncPackets.validChatId(upeerId)) return null
     val timestamp = payload.optLong("timestamp", 0L)
     if (timestamp <= 0) return null
     val message = JSONObject()

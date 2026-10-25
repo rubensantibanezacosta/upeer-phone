@@ -260,6 +260,7 @@ class YggdrasilTransportService : Service() {
     override fun enrollmentAuthorizerStatusJSON(): String = enrollmentAuthorizer.pendingJSON()
     override fun enrollmentAuthorizerCancel(inviteId: String) = enrollmentAuthorizer.cancel(inviteId)
     override fun enrollmentAuthorizerCancelAll() = enrollmentAuthorizer.cancelAll()
+    override fun groupsJSON(): String = protocol.groupsJSON()
     override fun deviceEnrollmentLastIssued(): String = lastIssued
     override fun deviceEnrollmentSubmit(): String =
       this@YggdrasilTransportService.submitEnrollment()

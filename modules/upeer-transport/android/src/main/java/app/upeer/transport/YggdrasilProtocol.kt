@@ -150,6 +150,7 @@ internal class YggdrasilProtocol(
   fun messagesJSON(upeerId: String, limit: Int): String = state.messagesJSON(upeerId, limit)
 
   fun conversationsJSON(): String = state.conversationsJSON()
+  fun groupsJSON(): String = state.groupsJSON()
 
   fun peerSecurityJSON(upeerId: String): String = PeerSecurityReport.json(
     upeerId,

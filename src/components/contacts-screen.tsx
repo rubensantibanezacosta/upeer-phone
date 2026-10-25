@@ -7,6 +7,8 @@ import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 import type { UPeerIdentity } from '@/domain/identity-record';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { ContactFormSheet, type ContactDraft } from '@/components/contact-form-sheet';
+import { LoadingState } from '@/components/loading-state';
+import { useFirstLoad } from '@/hooks/use-first-load';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
@@ -38,6 +40,7 @@ export function ContactsScreen({ identity }: ContactsScreenProps) {
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
+  const { loading, markLoaded } = useFirstLoad();
 
   const displayName = useCallback((contact: UPeerContact) => resolveContactName(contact.name, aliases[contact.upeerId], contact.upeerId), [aliases]);
 
@@ -45,7 +48,8 @@ export function ContactsScreen({ identity }: ContactsScreenProps) {
     setContacts(list);
     setAvatars(Object.fromEntries(conversations.filter((conversation) => conversation.avatar).map((conversation) => [conversation.upeerId, conversation.avatar as string])));
     setAliases(Object.fromEntries(conversations.filter((conversation) => conversation.alias).map((conversation) => [conversation.upeerId, conversation.alias])));
-  }), []);
+    markLoaded();
+  }), [markLoaded]);
 
   const reportLoadFailure = useCallback((cause: unknown) => {
     console.warn('No se pudieron cargar los contactos.', cause);
@@ -95,7 +99,9 @@ export function ContactsScreen({ identity }: ContactsScreenProps) {
         </XStack>
         <SearchField onChangeText={setQuery} placeholder="Buscar contactos" value={query} />
         {error ? <Paragraph accessibilityRole="alert" color={theme.danger} fontSize={scale(12)}>{error}</Paragraph> : null}
-        {filtered.length === 0
+        {filtered.length === 0 && loading
+          ? <LoadingState compact label="Cargando contactos…" />
+          : filtered.length === 0
           ? <YStack alignItems="center" flex={1} gap={12} justifyContent="center" padding={24}>
             <YStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={32} height={64} justifyContent="center" width={64}>
               <Users color={theme.placeholder} size={28} /></YStack>

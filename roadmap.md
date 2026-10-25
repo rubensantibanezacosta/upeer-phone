@@ -124,8 +124,8 @@ Las fases B0–B11 siguen siendo las unidades de trabajo, pero su numeración **
 |---|---|---|---|
 | 1 | **Runtime en modo dispositivo** (residuo de B6) | ~~B10~~ cerrado el 26/10/2026 | El nodo arranca sin raíz, el enrolamiento activa el certificado y las **tramas de control ya se firman por dispositivo** (`BuildLinkedControl`/`BuildLinkedAck`). Lo que queda de B6 es el **handshake sin raíz**, y **no bloquea B10**: `SYNC_HELLO` de escritorio se autentica con el certificado de dispositivo y su SPK firmada por la clave de dispositivo (`network/sync/auth.ts:36-60`), sin handshake de contacto. Ese residuo bloquea la paridad real de B6/B9 (abrir conversaciones nuevas desde un dispositivo enrolado) y necesita decisión de diseño: ver «Handshake sin raíz». |
 | 2 | **`VAULT_*` y entrega diferida** (en curso: emisor, custodio, buzón, custodia local, puntero en DHT, `VAULT_RENEW` y estados cableados; faltan la prueba cruzada con escritorio como custodio real y la decisión sobre cuotas por reputación) | estados `vaulted`, cierre de UI, fin del `failed` permanente | **No depende de `SYNC_*`**: `vault/manager.ts` de escritorio solo usa Kademlia, contactos, reputación y `sendSecurePacket`. Las primitivas ya están en el móvil: `KademliaNode.storeValue` (85), `KademliaIterative.storeValue` (52), `KademliaRoutingTable.findClosestContacts` (25) y `refreshRegistry`. |
-| 3 | **`SYNC_*`: transporte, aplicador y las dos fases** (cierre de B10; **desbloqueado el 28/10/2026**: saludo, registro, histórico y aplicador funcionando en dispositivo contra escritorio) | estados `synced`, eventos de perfil, relay con firma de origen | Las piezas puras están hechas y probadas (46 casos) y el canal ya está cableado de punta a punta: ratchet `sync:<deviceId>` con `SYNC_ENVELOPE`, `SYNC_HISTORY_*`, `SYNC_RESET` y `SYNC_REGISTRY`. La UI ya distingue las dos fases con `SyncStatusReport` (`idle`/`syncing`/`live`): masiva al saludar y en tiempo real después. Verificado en dispositivo: `MESSAGE_UPSERT`, `MESSAGE_STATUS`, `MESSAGE_EDIT` y `CONTACT_PROFILE` se proyectan. **No cierra B10 por sí solo**: los grupos y los adjuntos no son proyectables (ver «Cobertura real de los nueve eventos»), así que la sincronización es hoy 1:1 y de solo texto. **La mitad de Escritorio de las dos fases sigue pendiente** y es requisito de producto, no del port. |
-| **4** | **Grupos en el móvil: modelo de conversación, pantalla y proyección** (28/10/2026). Incluye el modelo local de grupo, la lista y la ficha con sus miembros, la proyección de `GROUP_UPSERT`/`GROUP_DELETE` y la de los mensajes con `chatUpeerId` `grp-…` que ya llegan por `SYNC_*` | **cierre de B10**, recibir cualquier grupo del escritorio | **Es el bloqueo más barato de todos**: los mensajes de grupo ya llegan por el histórico y por `SYNC_ENVELOPE`, y hoy se descartan porque `SyncHistoryPayload.local` exige un `upeerId` de 64 hex. No necesita claves nuevas, ni `FILE_*`, ni `GROUP_*`: solo tabla, UI y proyección. Sin esto, «sincronizado» es falso para cualquier cuenta con grupos |
+| 3 | **`SYNC_*`: transporte, aplicador y las dos fases** (cierre de B10; **desbloqueado el 28/10/2026**: saludo, registro, histórico y aplicador funcionando en dispositivo contra escritorio) | estados `synced`, eventos de perfil, relay con firma de origen | Las piezas puras están hechas y probadas (46 casos) y el canal ya está cableado de punta a punta: ratchet `sync:<deviceId>` con `SYNC_ENVELOPE`, `SYNC_HISTORY_*`, `SYNC_RESET` y `SYNC_REGISTRY`. La UI ya distingue las dos fases con `SyncStatusReport` (`idle`/`syncing`/`live`): masiva al saludar y en tiempo real después. Verificado en dispositivo: `MESSAGE_UPSERT`, `MESSAGE_STATUS`, `MESSAGE_EDIT`, `CONTACT_PROFILE`, `GROUP_UPSERT` y `GROUP_DELETE` se proyectan. **No cierra B10 por sí solo**: los adjuntos siguen sin contenido descargable (ver el paso 5 y «Mapa de funcionalidades y bloqueos»), así que el histórico es de solo texto. **La mitad de Escritorio de las dos fases sigue pendiente** y es requisito de producto, no del port. |
+| **4** | **Grupos en el móvil: modelo de conversación, pantalla y proyección** (28/10/2026) — **hecho y verificado en dispositivo**: `ProtocolGroups` (upsert/delete/snapshot/index), `SyncApplier` proyecta `GROUP_UPSERT`/`GROUP_DELETE`, `validChatId` acepta `grp-`, la lista de Chats marca el grupo con su avatar y la ficha (`GroupInfoSheet`) lista los miembros con su rol. **Verificación real**: se activó un grupo del escritorio, el móvil registró, aplicó y proyectó el `GROUP_UPSERT` (`Estado de sincronización: live`) y el grupo entra en la lista aunque no tenga mensajes | **cierre de B10**, recibir cualquier grupo del escritorio | Era el bloqueo más barato de todos: los mensajes de grupo ya llegaban por el histórico y por `SYNC_ENVELOPE` y se descartaban porque `SyncHistoryPayload.local` exigía un `upeerId` de 64 hex |
 | **5** | **Adjuntos de mensaje: presentación y contenido** (28/10/2026). Presentación **hecha**: `domain/attachment.ts` reconoce el sobre `{"type":"file",…}` y la burbuja y la lista de Chats muestran `Documento: informe.pdf` en vez del JSON en crudo. Falta el contenido: descarga, caché y visor | abrir cualquier adjunto, notas de voz, adjuntos en grupo | Va justo después de los grupos porque es el otro contenido que el histórico ya transporta y el móvil no sabe representar. La presentación es cosmética y barata; el contenido real exige `FILE_*` y el vault |
 | **6** | **`FILE_*`**: envío y recepción troceada con hash y progreso, picker de imagen/vídeo/documento y grabación de nota de voz en el móvil | notas de voz, adjuntos en grupo, compartir cualquier cosa | Depende del paso 2 (los shards del vault sostienen la recuperación offline). A partir de aquí el móvil deja de ser solo texto en ambas direcciones |
 | **7** | **`GROUP_*` propio: `GROUP_MSG`, `GROUP_INVITE`, `GROUP_UPDATE`, sender keys, epoch, control de administrador y llamada de grupo como evento de chat** | hablar en grupos, no solo recibirlos | Lo que en el paso 4 era leer grupos del escritorio, aquí es escribir en ellos: fanout por dispositivo y claves de grupo. Necesita los pasos 4 y 6 |
@@ -137,6 +137,45 @@ Dos correcciones respecto a lo que decía este roadmap antes:
 
 - **El vault no va después de la sincronización.** La dependencia «`VAULT_*` depende de `SYNC_*`» era falsa y venía de confundir el buzón por dispositivo del *destinatario* con la sincronización entre dispositivos *propios*. Son protocolos separados que solo comparten el almacén de mensajes y, por tanto, la regla de deduplicación por `messageId`.
 - **B8 no bloquea nada.** El trabajador DHT está cableado en el servicio; lo que queda de B8 es presupuesto de batería y matriz de pruebas, no integración.
+
+## Botón atrás jerárquico (28/10/2026)
+
+El `hardwareBackPress` de Android resolvía antes que la navegación, pero cada capa lo capturaba por su cuenta: la búsqueda cerraba bien, las hojas lo hacían vía `Modal onRequestClose`, y el botón «Volver» de la cabecera llamaba a `router.back()` sin mirar si había algo abierto encima. Resultado: salir de la conversación con la hoja de acciones abierta.
+
+- `domain/chat-back.ts` (`resolveChatBack`) fija el orden en una función pura y probada: menú → búsqueda → hoja de acciones → tarjeta de contacto → ficha de grupo → reenvío → edición/respuesta → salir.
+- `hooks/use-android-back.ts` registra un único listener con la lógica siempre fresca (ref actualizada en `useEffect`, no en render, que es lo que marca el lint del proyecto) y devuelve `true` mientras haya algo que cerrar.
+- El menú de la cabecera pasó a estado controlado (`menuOpen`/`onMenuOpenChange`) para que el back pueda cerrarlo; las hojas ya cerraban por `Modal`.
+- Regla para lo que venga: **toda capa nueva que se superponga al chat debe añadirse a `resolveChatBack` y a su test antes de montarse**, o el back volverá a desincronizarse.
+
+## Sincronización masiva bloqueante (28/10/2026)
+
+La fase masiva de `SYNC_*` es **bloqueante a pantalla completa** en el móvil, igual que el warmup de red del escritorio (`YggstackSplash`): mientras `SyncStatusReport` diga `syncing`, la app no deja navegar. Sin eso, el usuario entra en una lista a medio llenar y lee «no hay conversaciones» como una pérdida de datos.
+
+- `components/sync-blocking-overlay.tsx`, montado en `app/(session)/_layout.tsx` sobre el `Stack`. Tapa todo (`zIndex`, `elevation`), consume el `hardwareBackPress` y se desvanece al pasar a `live`.
+- No usa estado de fase: la opacidad se anima con `Animated` según `syncing`, así que la confirmación «¡Al día!» es la propia animación de salida y no hay `setState` en efectos.
+- El banner `SyncProgressBanner` queda solo para el caso `unsupported > 0`; ya no duplica el aviso de sincronización.
+- El estado `syncing` depende de `SyncStatusReport` (`STATE_SYNCING`), que hoy exige `peers` no vacío y `history.progress` incompleto; si el móvil arranca sin peers conocidos el overlay **no** aparece, y eso es correcto: sin peers no hay nada que sincronizar todavía.
+
+## Regla transversal: mientras carga no hay vacío (28/10/2026)
+
+Regla de producto para **los dos clientes**, no solo el móvil: **ninguna pantalla puede anunciar «no hay nada» mientras los datos todavía están llegando.** Un «Aún no hay mensajes», «Sin conversaciones» o «Aún no hay contactos» durante la carga es un dato falso: el usuario no distingue «vacío de verdad» de «todavía sin cargar» y concluye que la sincronización ha perdido sus datos.
+
+Estados que toda lista debe distinguir, en este orden:
+
+1. `loading` — primera lectura en curso. Se pinta indicador con etiqueta («Cargando conversaciones…»), **nunca** el estado vacío.
+2. `empty` — la lectura terminó y no hay nada. Aquí sí va el texto de vacío y su acción.
+3. `error` — la lectura falló. Mensaje explícito y reintento; tampoco es vacío.
+
+Implementación en el móvil (28/10/2026):
+
+- `hooks/use-first-load.ts` (`useFirstLoad`) da `loading` hasta la primera lectura resuelta, y `components/loading-state.tsx` (`LoadingState`) es el indicador único, con variante `compact`.
+- Aplicado a la **lista de Chats** (espera a `getConversations`), a **Contactos** (espera a `getContacts` y `getConversations`) y al **hilo del chat** (`ChatTimelineList` recibe `loading` y no monta `ChatEmptyState` hasta la primera lectura).
+- `ContactPicker` acepta `loading` para las hojas de reenviar y compartir.
+
+Pendiente en el escritorio (mismo criterio, otro código):
+
+- `SidebarListPanel` decide «Sin conversaciones» con `groups.length === 0 && contacts.length === 0`, sin ninguna bandera de carga; `EmptyChat` se pinta igual mientras el histórico va por el relay. El arranque sí está cubierto por el overlay `isStartupRecoveryOpen` (`App.tsx`: «Recuperando conversaciones…», «Sincronizando grupos…»), pero **no** la recarga posterior: cambio de cuenta, reconexión y, sobre todo, la **sincronización masiva en dos fases**, que ocurre con la UI ya abierta.
+- Falta exponer `loading` en el store de chat (conversaciones y mensajes por contacto) y consumirlo en `SidebarListPanel`, `EmptyChat` y la lista de mensajes de grupo, además de tratar `sync_peers.state = 'pending'` como carga y no como vacío.
 
 ## Mapa de funcionalidades y bloqueos (28/10/2026)
 
@@ -153,7 +192,7 @@ Tabla de verdad, medida en código de los dos clientes el 28/10/2026. **Qué pue
 | Audio y nota de voz | Sí, con grabación | **Etiqueta**; el micrófono del compositor avisa «próximamente» | `FILE_*` + grabador nativo | 5, 6 |
 | Documento y PDF | Sí | **Etiqueta** | `FILE_*` + visor | 4, 5, 6 |
 | Mensajes de sistema (`__SYS__\|`) | Sí | **Sí**, desde el 28/10/2026: se pintan centrados y sin el prefijo, y los eventos de llamada pierden la marca de tiempo | — | hecho |
-| Grupos: recibir del escritorio | Sí | **No**: los mensajes con `chatUpeerId` `grp-…` se descartan | modelo de grupo + proyección | **4** |
+| Grupos: recibir del escritorio | Sí | **Sí** desde el 28/10/2026: el grupo se proyecta con nombre, avatar y miembros, aparece en la lista aunque no tenga mensajes y su ficha lista los miembros. Los mensajes `grp-…` ya no se descartan | `GROUP_*` para escribir en él | **4 hecho**, escribir en 7 |
 | Grupos: crear, invitar, escribir, administrar | Sí | No | `GROUP_*` + sender keys | 7 |
 | Llamada de voz 1:1 | Sí | No; la pestaña Llamadas es un estado vacío | `CALL_*` + media UDP | **8** |
 | Videollamada | Sí | No | `CALL_*` + códec de vídeo | **8** |

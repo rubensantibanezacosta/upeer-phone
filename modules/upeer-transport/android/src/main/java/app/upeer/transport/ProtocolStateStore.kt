@@ -18,6 +18,7 @@ internal class ProtocolStateStore(context: Context) {
   private var lastSyncState = ""
 
   val messages = ProtocolMessageList({ state }, lock, ::persist)
+  val groups = ProtocolGroups({ state }, lock, ::persist)
   val presence = ProtocolPresence({ state }, lock, ::persist)
   val syncEvents = SyncEventLog({ state }, lock, ::persist)
   val syncPeers = SyncDevicePeers({ state }, lock, ::persist)
@@ -230,8 +231,11 @@ internal class ProtocolStateStore(context: Context) {
       state.optJSONArray("messages") ?: JSONArray(),
       state.optJSONObject("peers") ?: JSONObject(),
       typingPeers(System.currentTimeMillis()),
+      groups.index(),
     )
   }
+
+  fun groupsJSON(): String = groups.snapshot().toString()
 
   fun blockedPeers(): List<String> = preferences.blocked()
 

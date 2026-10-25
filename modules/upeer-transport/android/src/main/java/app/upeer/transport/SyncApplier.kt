@@ -16,14 +16,6 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
 
   private fun project(record: SyncEventRecord): SyncApplyOutcome {
     val payload = record.payload
-    if (record.kind == SyncEventKinds.GROUP_UPSERT || record.kind == SyncEventKinds.GROUP_DELETE) {
-      state.syncEvents.markUnsupported(record.kind)
-      return SyncApplyOutcome.UNSUPPORTED
-    }
-    if (record.kind == SyncEventKinds.MESSAGE_UPSERT && isGroupChat(payload)) {
-      state.syncEvents.markUnsupported(UNSUPPORTED_GROUP_MESSAGE)
-      return SyncApplyOutcome.UNSUPPORTED
-    }
     val applied = when (record.kind) {
       SyncEventKinds.MESSAGE_UPSERT -> applyMessage(payload)
       SyncEventKinds.MESSAGE_STATUS -> applyStatus(payload)
@@ -31,15 +23,12 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
       SyncEventKinds.MESSAGE_DELETE -> applyDelete(payload)
       SyncEventKinds.CHAT_CLEAR -> applyChatClear(payload)
       SyncEventKinds.REACTION_SET -> applyReaction(payload)
+      SyncEventKinds.GROUP_UPSERT -> state.groups.upsert(payload)
+      SyncEventKinds.GROUP_DELETE -> state.groups.delete(payload.optString("groupId"))
       SyncEventKinds.CONTACT_PROFILE -> applyContactProfile(payload)
       else -> return SyncApplyOutcome.UNSUPPORTED
     }
     return if (applied) SyncApplyOutcome.APPLIED else SyncApplyOutcome.REJECTED
-  }
-
-  private fun isGroupChat(payload: JSONObject): Boolean {
-    val chatId = payload.optString("chatUpeerId").ifBlank { payload.optString("upeerId") }
-    return chatId.startsWith(GROUP_PREFIX)
   }
 
   fun applyAll(records: List<SyncEventRecord>): Int {
@@ -101,7 +90,7 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
 
   private fun applyChatClear(payload: JSONObject): Boolean {
     val upeerId = payload.optString("upeerId").lowercase()
-    if (upeerId.length != 64) return false
+    if (!SyncPackets.validChatId(upeerId)) return false
     return state.messages.deleteConversation(upeerId)
   }
 
@@ -126,8 +115,6 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
     const val TAG = "UPeerTransport"
     const val MAX_CONTENT = 50_000
     const val UNSUPPORTED_ATTACHMENT = "ATTACHMENT"
-    const val UNSUPPORTED_GROUP_MESSAGE = "GROUP_MESSAGE"
-    const val GROUP_PREFIX = "grp-"
     val STATUSES = setOf("pending", "sent", "vaulted", "delivered", "read", "failed")
   }
 }

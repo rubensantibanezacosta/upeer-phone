@@ -6,6 +6,7 @@ export type ConversationCandidate = Identifiable & {
   alias?: string;
   preview: string;
   timestamp: number;
+  group?: boolean;
 };
 
 export type ContactCandidate = {
@@ -19,13 +20,17 @@ export type ConversationPartition<T extends Identifiable> = {
   hidden: T[];
 };
 
-export function classifyConversations<T extends Identifiable>(conversations: T[], contacts: ContactCandidate[]): ConversationPartition<T> {
+export function classifyConversations<T extends Identifiable & { group?: boolean }>(conversations: T[], contacts: ContactCandidate[]): ConversationPartition<T> {
   const byId = new Map(contacts.map((contact) => [contact.upeerId.toLowerCase(), contact]));
   const accepted: T[] = [];
   const requests: T[] = [];
   const hidden: T[] = [];
 
   for (const conversation of conversations) {
+    if (conversation.group === true) {
+      accepted.push(conversation);
+      continue;
+    }
     const contact = byId.get(conversation.upeerId.toLowerCase());
     if (!contact) {
       requests.push(conversation);

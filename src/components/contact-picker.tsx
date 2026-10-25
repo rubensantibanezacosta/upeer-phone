@@ -4,6 +4,7 @@ import { Check } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { LoadingState } from '@/components/loading-state';
 import { SearchField } from '@/components/search-field';
 import { ProfileAvatar } from '@/components/profile-avatar';
 import { useTextScale } from '@/hooks/use-text-scale';
@@ -14,13 +15,14 @@ type ContactPickerProps = {
   contacts: UPeerContact[];
   emptyLabel?: string;
   excludeUpeerId?: string;
+  loading?: boolean;
   onPick?: (contact: UPeerContact) => void;
   onToggle?: (contact: UPeerContact) => void;
   searchPlaceholder?: string;
   selectedIds?: string[];
 };
 
-export function ContactPicker({ contacts, emptyLabel = 'Sin contactos que coincidan', excludeUpeerId, onPick, onToggle, searchPlaceholder = 'Buscar contacto', selectedIds = [] }: ContactPickerProps) {
+export function ContactPicker({ contacts, emptyLabel = 'Sin contactos que coincidan', excludeUpeerId, loading = false, onPick, onToggle, searchPlaceholder = 'Buscar contacto', selectedIds = [] }: ContactPickerProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const [query, setQuery] = useState('');
@@ -37,7 +39,9 @@ export function ContactPicker({ contacts, emptyLabel = 'Sin contactos que coinci
       <SearchField onChangeText={setQuery} placeholder={searchPlaceholder} value={query} />
       <ScrollView contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="handled" style={styles.list}>
         {filtered.length === 0
-          ? <Text color={theme.placeholder} fontSize={scale(12)} paddingVertical={16} textAlign="center">{emptyLabel}</Text>
+          ? (loading
+            ? <LoadingState compact label="Cargando contactos…" />
+            : <Text color={theme.placeholder} fontSize={scale(12)} paddingVertical={16} textAlign="center">{emptyLabel}</Text>)
           : filtered.map((contact) => {
             const selected = selectedIds.includes(contact.upeerId);
             return (

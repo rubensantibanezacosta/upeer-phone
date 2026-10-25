@@ -34,4 +34,9 @@ describe('message request decision', () => {
   it('stays quiet in an empty conversation', () => {
     expect(decideRequestState({ hasIncoming: false, hasOutgoing: false })).toBe('none');
   });
+
+  it('never treats a group as a message request', () => {
+    expect(decideRequestState({ hasIncoming: true, hasOutgoing: false, isGroup: true })).toBe('none');
+    expect(decideRequestState({ contactStatus: 'incoming', hasIncoming: true, hasOutgoing: false, isGroup: true })).toBe('none');
+  });
 });

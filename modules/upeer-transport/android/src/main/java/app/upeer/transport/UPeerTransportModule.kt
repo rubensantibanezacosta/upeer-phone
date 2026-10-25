@@ -92,6 +92,7 @@ class UPeerTransportModule : Module() {
     AsyncFunction("retryChat") { upeerId: String, messageId: String -> service().retryChat(upeerId, messageId) }
     AsyncFunction("messagesJSON") { upeerId: String, limit: Int -> service().messagesJSON(upeerId, limit) }
     AsyncFunction("conversationsJSON") { service().conversationsJSON() }
+    AsyncFunction("groupsJSON") { service().groupsJSON() }
     AsyncFunction("peerSecurityJSON") { upeerId: String -> service().peerSecurityJSON(upeerId) }
     AsyncFunction("markConversationRead") { upeerId: String -> service().markConversationRead(upeerId) }
     AsyncFunction("sendTyping") { upeerId: String -> service().sendTyping(upeerId) }
