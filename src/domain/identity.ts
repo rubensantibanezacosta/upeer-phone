@@ -1,12 +1,6 @@
 import { deriveMnemonicIdentity } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { entropyToMnemonic, validateMnemonic } from './mnemonic';
-
-export type UPeerIdentity = {
-  mnemonic: string;
-  upeerId: string;
-  publicKey: string;
-  secretKey: string;
-};
+import type { RootIdentity } from './identity-record';
 
 export function normalizeMnemonic(mnemonic: string): string {
   return mnemonic.normalize('NFKD').trim().toLowerCase().split(/\s+/).join(' ');
@@ -18,13 +12,13 @@ export function createMnemonic(): string {
   return entropyToMnemonic(entropy);
 }
 
-export async function deriveIdentity(mnemonicInput: string): Promise<UPeerIdentity> {
+export async function deriveIdentity(mnemonicInput: string): Promise<RootIdentity> {
   const mnemonic = normalizeMnemonic(mnemonicInput);
   if (!validateMnemonic(mnemonic)) {
     throw new Error('La frase de recuperación no es válida. Comprueba las 12 palabras y su orden.');
   }
   const keys = await deriveMnemonicIdentity(mnemonic);
-  return { mnemonic, ...keys };
+  return { mode: 'root', mnemonic, ...keys };
 }
 
 export function canonicalStringify(value: unknown): string {

@@ -37,8 +37,9 @@ internal class DeviceIdentityStore(
 
   constructor(context: Context) : this(KeystorePersistence(context))
 
-  fun ensure(account: CryptoIdentity): DeviceIdentity = synchronized(lock) {
+  fun ensure(account: CryptoIdentity): DeviceIdentity? = synchronized(lock) {
     val accountUpeerId = account.upeerID()
+    if (account.isDeviceOnly()) return ensureDeviceOnly(accountUpeerId)
     val cached = identity
     if (cached != null && cached.accountUpeerId == accountUpeerId && isUsable(cached, accountUpeerId)) return cached
     identity = null
@@ -55,6 +56,94 @@ internal class DeviceIdentityStore(
     val created = provision(account)
     identity = created
     created
+  }
+
+  fun install(
+    accountUpeerId: String,
+    deviceSecretKeyHex: String,
+    certificateJSON: String,
+  ): DeviceIdentity? = synchronized(lock) {
+    val account = accountUpeerId.trim().lowercase()
+    if (!DhtLocation.isHex(account, 32)) {
+      Log.w(TAG, "El certificado del enrolamiento no identifica una cuenta válida")
+      return null
+    }
+    val secretKey = DhtLocation.decodeHex(deviceSecretKeyHex.trim().lowercase(), 64) ?: run {
+      Log.w(TAG, "La clave de dispositivo del enrolamiento no es válida")
+      return null
+    }
+    try {
+      val installed = buildIdentity(secretKey, certificateJSON, account, "el enrolamiento") ?: return null
+      saveState(secretKey, installed)
+      identity = installed
+      Log.i(TAG, "Certificado de dispositivo instalado desde el enrolamiento: ${installed.deviceId}")
+      installed
+    } finally {
+      secretKey.fill(0)
+    }
+  }
+
+  private fun ensureDeviceOnly(accountUpeerId: String): DeviceIdentity? {
+    val cached = identity
+    if (cached != null && cached.accountUpeerId == accountUpeerId && isInstalled(cached, accountUpeerId)) return cached
+    identity = null
+    val stored = readState()
+    if (stored == null || stored.accountUpeerId != accountUpeerId) {
+      stored?.secretKey?.fill(0)
+      Log.w(TAG, "Modo dispositivo sin certificado autorizado; hace falta completar el enrolamiento")
+      return null
+    }
+    val restored = try {
+      buildIdentity(stored.secretKey, stored.certificateJSON, accountUpeerId, "el almacenamiento")
+    } finally {
+      stored.secretKey.fill(0)
+    }
+    if (restored == null) {
+      Log.w(TAG, "El certificado de dispositivo no se puede usar sin la raíz")
+      return null
+    }
+    identity = restored
+    return restored
+  }
+
+  private fun buildIdentity(
+    secretKey: ByteArray,
+    certificateJSON: String,
+    accountUpeerId: String,
+    origin: String,
+  ): DeviceIdentity? {
+    val deviceCrypto = try {
+      CryptoIdentity(secretKey)
+    } catch (cause: Exception) {
+      Log.w(TAG, "La clave de dispositivo de $origin no construye una identidad", cause)
+      return null
+    }
+    val derivedId = deriveDeviceId(deviceCrypto.publicKeyHex())
+    val check = InstalledCertificate.check(certificateJSON, accountUpeerId, derivedId, nowMillis())
+    val certificate = check.certificate
+    if (certificate == null) {
+      Log.w(TAG, "El certificado de dispositivo de $origin se rechaza: ${check.failure}")
+      return null
+    }
+    val verified = runCatching { verifyCertificate(certificateJSON, accountUpeerId, nowMillis()) }.getOrElse { cause ->
+      Log.w(TAG, "No se pudo verificar el certificado de dispositivo de $origin", cause)
+      false
+    }
+    if (!verified) {
+      Log.w(TAG, "El certificado de dispositivo de $origin no verifica contra la cuenta")
+      return null
+    }
+    return DeviceIdentity(deviceCrypto, certificateJSON, accountUpeerId, derivedId, certificate)
+  }
+
+  private fun isInstalled(identity: DeviceIdentity, accountUpeerId: String): Boolean {
+    if (identity.certificate.optLong("expiresAt") <= nowMillis()) return false
+    if (!identity.certificate.optString("accountUpeerId").equals(accountUpeerId, ignoreCase = true)) return false
+    if (!identity.certificate.optString("deviceId").equals(identity.deviceId, ignoreCase = true)) return false
+    return runCatching { verifyCertificate(identity.certificateJSON, accountUpeerId, nowMillis()) }.getOrElse { cause ->
+      Log.w(TAG, "No se pudo verificar el certificado de dispositivo instalado", cause)
+      false
+    }
   }
 
   fun current(): DeviceIdentity? = synchronized(lock) { identity }

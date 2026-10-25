@@ -6,7 +6,7 @@ import { createPeerManagementSnapshot, EMPTY_PEER_MANAGEMENT, type PeerManagemen
 import { getConnectedPeerCount, getNodeInfo, getPeerPool, getPeerStatus, retryPeers, setTransportForeground, startWithPeers } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import type { PeerPoolSnapshot } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import type { PeerInfo } from '../../modules/upeer-transport/src/UPeerTransport.types';
-import type { UPeerIdentity } from '@/domain/identity';
+import type { UPeerIdentity } from '@/domain/identity-record';
 import { loadOrCreateYggdrasilSeed, loadProfile, replaceYggdrasilSeed } from '@/storage/identity-store';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';

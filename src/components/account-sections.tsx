@@ -6,7 +6,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { Clock3, Copy, LogOut, X } from '@tamagui/lucide-icons-2';
 import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
-import type { UPeerIdentity } from '@/domain/identity';
+import type { UPeerIdentity } from '@/domain/identity-record';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';

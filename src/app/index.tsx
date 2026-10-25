@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthScreen } from '@/components/auth-screen';
 import { ThemedView } from '@/components/themed-view';
 import { useTheme } from '@/hooks/use-theme';
-import type { UPeerIdentity } from '@/domain/identity';
+import type { UPeerIdentity } from '@/domain/identity-record';
 import { loadIdentity } from '@/storage/identity-store';
 
 export default function HomeScreen() {

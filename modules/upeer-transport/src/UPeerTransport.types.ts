@@ -5,6 +5,7 @@ export type YggdrasilNodeInfo = {
 
 export type IdentityTransportStatus = {
   ready: boolean;
+  mode?: 'root' | 'device';
   publicKey?: string;
   upeerId?: string;
   deviceId?: string;

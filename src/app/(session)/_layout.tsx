@@ -5,7 +5,7 @@ import { Stack, router } from 'expo-router';
 import { SessionShell } from '@/components/session-shell';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import type { UPeerIdentity } from '@/domain/identity';
+import type { UPeerIdentity } from '@/domain/identity-record';
 import { loadIdentity } from '@/storage/identity-store';
 
 export default function AuthenticatedLayout() {

@@ -7,7 +7,8 @@ import { Check, ChevronLeft, Copy, ImagePlus, KeyRound, QrCode, RotateCcw, UserP
 import { Card, H1, Input, Paragraph, Separator, SizableText, TextArea, XStack, YStack } from 'tamagui';
 
 import { DevicePairingPanel } from '@/components/device-pairing-panel';
-import { createMnemonic, deriveIdentity, type UPeerIdentity } from '@/domain/identity';
+import { createMnemonic, deriveIdentity } from '@/domain/identity';
+import { deviceIdentity, type UPeerIdentity } from '@/domain/identity-record';
 import { clearIdentity, loadIdentity, saveIdentity, saveProfile } from '@/storage/identity-store';
 import { CopyField } from '@/components/copy-field';
 import { NativeRippleButton } from '@/components/native-ripple-button';
@@ -52,6 +53,19 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
       onAuthenticated(identity);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No se pudo preparar la identidad.');
+    }
+  };
+
+  const handlePaired = async (summary: { accountUpeerId: string; accountPublicKey: string }) => {
+    setError('');
+    try {
+      const identity = deviceIdentity(summary.accountUpeerId, summary.accountPublicKey);
+      const stored = await loadIdentity();
+      if (stored && stored.upeerId !== identity.upeerId) await clearIdentity();
+      await saveIdentity(identity);
+      onAuthenticated(identity);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo abrir la sesión del dispositivo vinculado.');
     }
   };
 
@@ -118,7 +132,7 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
                 {mode && <>
                   <Separator borderColor="border-color" />
                   {mode === 'recover' && pairing
-                    ? <DevicePairingPanel />
+                    ? <DevicePairingPanel onPaired={(summary) => void handlePaired(summary)} />
                     : <YStack gap={12}>
                     <TextArea accessibilityLabel="Frase secreta de 12 palabras" autoCapitalize="none" autoCorrect={false} backgroundColor="color-2" borderColor="border-color" color="color" height={mode === 'create' ? 86 : 112} onChangeText={setMnemonic} placeholder={mode === 'create' ? 'Escribe las 12 palabras para confirmar' : 'Escribe las 12 palabras en orden'} placeholderTextColor="placeholder-color" textAlignVertical="top" value={mnemonic} />
                     {mode === 'create' && <YStack gap={10}>

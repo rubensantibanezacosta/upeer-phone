@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { UserPlus, Users } from '@tamagui/lucide-icons-2';
 import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
-import type { UPeerIdentity } from '@/domain/identity';
+import type { UPeerIdentity } from '@/domain/identity-record';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { ContactFormSheet, type ContactDraft } from '@/components/contact-form-sheet';
 import { NativeRippleButton } from '@/components/native-ripple-button';

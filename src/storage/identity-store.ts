@@ -2,7 +2,8 @@ import * as SecureStore from 'expo-secure-store';
 import { Directory, File, Paths } from 'expo-file-system';
 
 import { generateNodeSeed } from '../../modules/upeer-transport/src/UPeerTransportModule';
-import type { UPeerIdentity } from '@/domain/identity';
+import type { UPeerIdentity } from '@/domain/identity-record';
+import { normalizeStoredIdentity } from '@/domain/identity-record';
 import { deleteContactDatabase } from '@/storage/contact-store';
 import { decodeAvatarData } from '@/storage/avatar-data';
 import { publishNativeProfileSafely } from '@/storage/profile-sync';
@@ -22,7 +23,8 @@ const AVATAR_DIRECTORY = new Directory(Paths.document, 'profile');
 
 export async function loadIdentity(): Promise<UPeerIdentity | null> {
   const stored = await SecureStore.getItemAsync(IDENTITY_KEY);
-  return stored ? JSON.parse(stored) as UPeerIdentity : null;
+  if (!stored) return null;
+  return normalizeStoredIdentity(JSON.parse(stored) as unknown);
 }
 
 export async function saveIdentity(identity: UPeerIdentity): Promise<void> {

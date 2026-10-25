@@ -161,6 +161,7 @@ class YggdrasilTransportService : Service() {
       }
       protocol.clear()
       identity.clear()
+      enrollment.clear()
       notifications.clearMessages()
     }
     override fun identityStatusJSON(): String = identity.statusJSON()
@@ -243,7 +244,20 @@ class YggdrasilTransportService : Service() {
       dhtBindings.verifyLocationBlock(blockJSON, publicKeyHex, nowMillis)
     override fun deviceEnrollmentBegin(code: String): String = enrollment.begin(code)
     override fun deviceEnrollmentRequestJSON(): String = enrollment.requestJSON()
-    override fun deviceEnrollmentFinish(sealedResponse: String): String = enrollment.finish(sealedResponse)
+    override fun deviceEnrollmentFinish(sealedResponse: String): String {
+      val summary = enrollment.finish(sealedResponse)
+      val installed = enrollment.installed()
+      if (installed != null) {
+        if (identity.installEnrollment(installed)) {
+          contactAdmission.clear()
+          identity.refreshRegistry()
+          if (bridge != null && identity.current() != null) dhtRuntime.start()
+        } else {
+          Log.e(TAG, "El enrolamiento se guardó pero no se pudo activar en el nodo")
+        }
+      }
+      return summary
+    }
     override fun deviceEnrollmentCancel() = enrollment.cancel()
     override fun deviceEnrollmentStatusJSON(): String = enrollment.statusJSON()
     override fun enrollmentAuthorizerCreateInvite(ttlMillis: Long): String = enrollmentAuthorizer.createInvite(ttlMillis)

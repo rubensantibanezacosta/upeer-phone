@@ -55,14 +55,16 @@ export function useDeviceEnrollment() {
     const normalized = code.trim();
     if (!normalized) {
       setState((current) => ({ ...current, error: 'Pega el código de respuesta que muestra el dispositivo autorizado.' }));
-      return;
+      return null;
     }
     setState((current) => ({ ...current, busy: true, error: '' }));
     try {
       const installed = await finishDeviceEnrollment(normalized);
       setState({ offer: null, requestCode: '', installed, busy: false, error: '' });
+      return installed;
     } catch (cause) {
       setState((current) => ({ ...current, busy: false, error: describe(cause, 'No se pudo instalar el certificado.') }));
+      return null;
     }
   }, []);
 

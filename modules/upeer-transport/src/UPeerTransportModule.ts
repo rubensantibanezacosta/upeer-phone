@@ -244,6 +244,18 @@ export async function getIdentityStatus(): Promise<IdentityTransportStatus> {
   return JSON.parse(await nativeModule.identityStatus()) as IdentityTransportStatus;
 }
 
+export async function waitForIdentity(upeerId: string, timeoutMillis = 10_000): Promise<IdentityTransportStatus> {
+  const expected = upeerId.trim().toLowerCase();
+  const deadline = Date.now() + timeoutMillis;
+  let last: IdentityTransportStatus = { ready: false };
+  while (Date.now() < deadline) {
+    last = await getIdentityStatus();
+    if (last.ready && last.upeerId?.toLowerCase() === expected) return last;
+    await new Promise((resolve) => { setTimeout(resolve, 150); });
+  }
+  throw new Error(`El servicio no confirmó la identidad de ${upeerId}.`);
+}
+
 export async function sendChat(upeerId: string, content: string, replyTo = ''): Promise<string> {
   return nativeModule.sendChat(upeerId, content, replyTo);
 }

@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 
-import { fromHex, type UPeerIdentity } from '@/domain/identity';
+import { fromHex } from '@/domain/identity';
+import type { UPeerIdentity } from '@/domain/identity-record';
 import { SessionScreen, type ConnectionSnapshot } from '@/components/session-screen';
-import { clearIdentity as clearTransportIdentity, setIdentity as setTransportIdentity, setNotificationPrefs, setReadReceipts, stop } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import { clearIdentity as clearTransportIdentity, setIdentity as setTransportIdentity, setNotificationPrefs, setReadReceipts, stop, waitForIdentity as waitForNativeIdentity } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { clearIdentity, loadProfile, type IdentityProfile } from '@/storage/identity-store';
 import { publishNativeProfileSafely } from '@/storage/profile-sync';
 import { EMPTY_PEER_MANAGEMENT } from '@/domain/yggdrasil-peers';
@@ -69,10 +70,16 @@ export function SessionShell({ identity, onSignOut, children }: {
     });
   }, [preferences.readReceipts]);
   useEffect(() => {
+    if (identity.mode === 'device') {
+      waitForNativeIdentity(identity.upeerId).catch((cause: unknown) => {
+        console.warn('El servicio no confirmó la identidad de dispositivo.', cause);
+      });
+      return;
+    }
     setTransportIdentity(fromHex(identity.secretKey)).catch((cause: unknown) => {
       console.warn('No se pudo provisionar la identidad uPeer en el servicio de red.', cause);
     });
-  }, [identity.secretKey]);
+  }, [identity]);
   const updateConnection = useCallback((snapshot: ConnectionSnapshot) => setConnection(snapshot), []);
   const updateAddress = useCallback((nextAddress: string) => {
     setAddress(nextAddress);

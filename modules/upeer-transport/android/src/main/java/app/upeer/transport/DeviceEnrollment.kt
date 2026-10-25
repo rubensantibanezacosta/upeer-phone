@@ -15,6 +15,14 @@ internal interface EnrollmentPersistence {
   fun clear()
 }
 
+internal class InstalledEnrollment(
+  val accountUpeerId: String,
+  val accountPublicKey: String,
+  val deviceId: String,
+  val deviceSecretKey: String,
+  val certificateJSON: String,
+)
+
 internal class DeviceEnrollment(
   private val persistence: EnrollmentPersistence,
   private val nowMillis: () -> Long = System::currentTimeMillis,
@@ -66,6 +74,17 @@ internal class DeviceEnrollment(
 
   fun requestJSON(): String = synchronized(lock) { state.pending?.requestJSON.orEmpty() }
 
+  fun installed(): InstalledEnrollment? = synchronized(lock) {
+    val installed = state.installed ?: return@synchronized null
+    InstalledEnrollment(
+      accountUpeerId = installed.accountUpeerId,
+      accountPublicKey = installed.accountPublicKey,
+      deviceId = installed.deviceId,
+      deviceSecretKey = installed.deviceSecretKey,
+      certificateJSON = installed.certificateJSON,
+    )
+  }
+
   fun finish(sealedResponse: String): String = synchronized(lock) {
     val pending = state.pending ?: throw IllegalStateException("No hay un emparejamiento en curso.")
     val secretKey = DhtLocation.decodeHex(pending.deviceSecretKey, 64)
@@ -106,6 +125,15 @@ internal class DeviceEnrollment(
     if (state.pending == null) return@synchronized
     state = state.copy(pending = null)
     persist()
+  }
+
+  fun clear() = synchronized(lock) {
+    state = State()
+    try {
+      persistence.clear()
+    } catch (cause: Exception) {
+      Log.e(TAG, "No se pudo borrar el estado de emparejamiento", cause)
+    }
   }
 
   fun statusJSON(): String = synchronized(lock) {

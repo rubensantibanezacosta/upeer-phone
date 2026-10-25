@@ -57,6 +57,31 @@ internal class YggdrasilIdentity(context: Context) {
 
   fun isDeviceOnly(): Boolean = synchronized(lock) { identity?.isDeviceOnly() ?: false }
 
+  fun installEnrollment(installed: InstalledEnrollment): Boolean {
+    val account = current() ?: run {
+      if (!setAccountPublic(installed.accountUpeerId, installed.accountPublicKey)) return false
+      current() ?: return false
+    }
+    if (account.upeerID() != installed.accountUpeerId) {
+      Log.e(TAG, "El enrolamiento pertenece a otra cuenta; se descarta")
+      return false
+    }
+    val device = devices.install(installed.accountUpeerId, installed.deviceSecretKey, installed.certificateJSON)
+    if (device == null) {
+      Log.e(TAG, "No se pudo instalar el certificado del enrolamiento")
+      return false
+    }
+    if (!account.isDeviceOnly()) {
+      try {
+        registries.ensure(account.upeerID(), device.certificateJSON, CryptoAccountRegistrySigner(account))
+      } catch (cause: Exception) {
+        Log.e(TAG, "No se pudo publicar el registro de cuenta tras el enrolamiento", cause)
+      }
+    }
+    Log.i(TAG, "Dispositivo enrolado: ${device.deviceId}")
+    return true
+  }
+
   fun clear() {
     try {
       registries.clear()
@@ -89,6 +114,10 @@ internal class YggdrasilIdentity(context: Context) {
   }
 
   fun refreshRegistry() {
+    if (isDeviceOnly()) {
+      Log.i(TAG, "Modo dispositivo: el registro de cuenta lo publica la raíz")
+      return
+    }
     try {
       currentRegistryJSON()
     } catch (cause: Exception) {
@@ -100,6 +129,7 @@ internal class YggdrasilIdentity(context: Context) {
 
   fun currentRegistryJSON(): String {
     val account = current() ?: return ""
+    if (account.isDeviceOnly()) return registries.currentRegistryJSON()
     val device = ensureDevice(account) ?: return ""
     return registries.ensure(account.upeerID(), device.certificateJSON, CryptoAccountRegistrySigner(account)).registryJSON
   }
@@ -107,7 +137,7 @@ internal class YggdrasilIdentity(context: Context) {
   fun registryStatusJSON(): String {
     val account = current() ?: return JSONObject().put("ready", false).toString()
     val device = ensureDevice(account)
-    if (device != null) {
+    if (device != null && !account.isDeviceOnly()) {
       try {
         registries.ensure(account.upeerID(), device.certificateJSON, CryptoAccountRegistrySigner(account))
       } catch (cause: Exception) {
@@ -123,12 +153,23 @@ internal class YggdrasilIdentity(context: Context) {
       Log.w(TAG, "Sin certificado de dispositivo; se permite el bloque firmado por la cuenta")
       return
     }
+    if (account.isDeviceOnly()) {
+      val admitted = registries.currentAdmission(account.upeerID(), device.deviceId)
+      if (admitted == false) throw DeviceAdmissionException()
+      if (admitted == null) {
+        Log.w(TAG, "Modo dispositivo sin registro de cuenta en caché; la admisión la valida el receptor")
+      }
+      return
+    }
     val snapshot = registries.ensure(account.upeerID(), device.certificateJSON, CryptoAccountRegistrySigner(account))
     if (!snapshot.localDeviceAdmitted) throw DeviceAdmissionException()
   }
 
   fun revokeDevice(deviceId: String, reason: String) {
     val account = current() ?: throw IllegalStateException("uPeer identity is not available")
+    if (account.isDeviceOnly()) {
+      throw IllegalStateException("Revocar dispositivos requiere la clave raíz de la cuenta")
+    }
     val device = ensureDevice(account) ?: throw IllegalStateException("device certificate is not available")
     registries.revoke(account.upeerID(), device.certificateJSON, deviceId, reason, CryptoAccountRegistrySigner(account))
   }
@@ -219,7 +260,8 @@ internal class YggdrasilIdentity(context: Context) {
     } catch (cause: Exception) {
       Log.e(TAG, "No se pudo provisionar el certificado de dispositivo; se usará el bloque de cuenta", cause)
       return devices.current()?.takeIf { it.accountUpeerId == activeIdentity.upeerID() }
-    }
+    } ?: return null
+    if (activeIdentity.isDeviceOnly()) return device
     try {
       registries.ensure(activeIdentity.upeerID(), device.certificateJSON, CryptoAccountRegistrySigner(activeIdentity))
     } catch (cause: Exception) {

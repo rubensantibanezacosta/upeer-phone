@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { Check, Cloud, Copy, Fingerprint, Info, Pencil, QrCode, Shield } from '@tamagui/lucide-icons-2';
 import { Input, Progress, SizableText, Text, XStack, YStack } from 'tamagui';
 
-import type { UPeerIdentity } from '@/domain/identity';
+import type { UPeerIdentity } from '@/domain/identity-record';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { CopyField } from '@/components/copy-field';
