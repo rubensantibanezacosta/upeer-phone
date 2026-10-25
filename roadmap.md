@@ -1163,6 +1163,10 @@ Los textos dejan de hablar de «vincular dispositivos» dentro de la cuenta y de
 
 **Verificado en dispositivo**, con un matiz: el dispositivo se quedó sin identidad (`SecureStore.xml` vacío) y Android rechaza la inyección de eventos (`INJECT_EVENTS`), así que no se podía llegar a Configuración pulsando. Se montó la sección en una ruta temporal (`/preview`) y se abrió por deep link (`upeer://preview`), que sí funciona por `adb`. Resultado: cabecera, rótulo en versalitas, icono, texto, aviso de registro no listo y botón de alta se renderizan con el estilo de la sección; la ruta se borró después. De paso salió un fallo real: sin registro, el hook mostraba el error crudo del módulo nativo («JSON Parse error: Unexpected end of input») en una banda roja; ahora los fallos opacos de lectura se callan y habla el aviso de «registro no listo».
 
+**Fallo previo encontrado de paso:** la entrada **Almacenamiento** de Configuración no tenía sección en `renderSettingsSection`, así que abría una pantalla en blanco. Ahora hay `StorageSettingsSection`, que explica que la gestión (uso de disco, descarga, limpieza) aún no está y que los datos se quedan en el almacén local. Verificada en pantalla con la misma ruta temporal.
+
+El truco de la ruta `/preview` + deep link es la forma de revisar cualquier componente de sesión en el móvil sin inyección de eventos: `adb shell am start -a android.intent.action.VIEW -d "upeer://preview"`.
+
 
 ### Entrada a la cuenta: dos formas equivalentes (26/10/2026)
 

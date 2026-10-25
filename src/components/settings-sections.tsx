@@ -5,6 +5,7 @@ import { ConnectionSettingsSection } from '@/components/connection-settings-sect
 import { DevicesSettingsSection } from '@/components/devices-settings-section';
 import { NotificationSettingsSection } from '@/components/notification-settings-section';
 import { PrivacySettingsSection } from '@/components/privacy-settings-section';
+import { StorageSettingsSection } from '@/components/storage-settings-section';
 import type { ConnectionSnapshot } from '@/components/session-screen';
 
 type SectionRenderProps = {
@@ -30,6 +31,7 @@ export function renderSettingsSection({ section, connection, onCopy }: SectionRe
   if (section === 'bloqueados') return <BlockedSettingsSection />;
   if (section === 'privacidad') return <PrivacySettingsSection />;
   if (section === 'notificaciones') return <NotificationSettingsSection />;
+  if (section === 'almacenamiento') return <StorageSettingsSection />;
   if (section === 'apariencia') return <AppearanceSettingsSection />;
   if (section === 'acerca') return <AboutSettingsSection />;
   return null;
