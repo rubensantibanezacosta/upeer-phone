@@ -132,7 +132,7 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
               <YStack gap={20}>
                 <YStack gap={8}>
                   <SizableText color="color" fontSize={scale(21)} fontWeight="700">{mode === 'create' ? 'Crea tu identidad' : mode === 'link' ? 'Vincula a tu cuenta existente' : mode === 'linkPhrase' ? 'Vincula con la frase de tu cuenta' : mode === 'linkQr' ? 'Vincula con un QR' : mode === 'unlock' ? 'Desbloquea tu identidad' : 'Empieza a conversar en privado'}</SizableText>
-                  {!mode && <Paragraph color="placeholder-color">{identityExists ? 'Tu identidad está protegida en este dispositivo. Desbloquéala con tu frase o vincula otro dispositivo a la misma cuenta.' : 'Crea una identidad nueva o vincula este dispositivo a la cuenta que ya usas en otro sitio.'}</Paragraph>}
+                  {!mode && <Paragraph color="placeholder-color">{identityExists ? 'Tu identidad está protegida en este dispositivo. Desbloquéala con tu frase o entra en otra cuenta.' : 'Crea una identidad nueva o entra en la cuenta que ya usas en otro sitio.'}</Paragraph>}
                 </YStack>
                 {generatedPhrase.length > 0 && (
                   <YStack backgroundColor="color-2" borderColor="border-color" borderRadius={14} borderWidth={1} gap={8} padding={16}>
@@ -145,7 +145,7 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
                 {mode && <>
                   <Separator borderColor="border-color" />
                   {mode === 'link' && <YStack gap={16}>
-                    <Paragraph color="placeholder-color" fontSize={scale(14)}>Elige cómo entrar en la cuenta que ya tienes. Las dos formas dejan este dispositivo vinculado a la misma cuenta, con los mismos contactos y conversaciones.</Paragraph>
+                    <Paragraph color="placeholder-color" fontSize={scale(14)}>Elige cómo entrar en la cuenta que ya tienes. Las dos formas te dejan dentro de la misma cuenta, con los mismos contactos y conversaciones.</Paragraph>
                     <YStack gap={6}>
                       <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<KeyRound color={theme.onAccent} size={18} />} onPress={() => handleMode('linkPhrase')}>Con la frase de mi cuenta</NativeRippleButton>
                       <Paragraph color="placeholder-color" fontSize={scale(12)} paddingHorizontal={4}>Introduce tus 12 palabras. No hace falta ningún otro dispositivo encendido.</Paragraph>
@@ -177,11 +177,11 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
                 {!mode && <YStack gap={12}>
                   {identityExists && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<KeyRound color={theme.onAccent} size={18} />} onPress={() => handleMode('unlock')}>Desbloquear con mi frase</NativeRippleButton>}
                   {!identityExists && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<UserPlus color={theme.onAccent} size={18} />} onPress={handleCreate}>Crear identidad nueva</NativeRippleButton>}
-                  <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={50} icon={<QrCode color={theme.onAccentSoft} size={18} />} onPress={() => handleMode('link')}>{identityExists ? 'Vincular otro dispositivo' : 'Vincular dispositivo existente'}</NativeRippleButton>
+                  <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={50} icon={<QrCode color={theme.onAccentSoft} size={18} />} onPress={() => handleMode('link')}>{identityExists ? 'Cambiar a otra cuenta' : 'Vincular a mi cuenta existente'}</NativeRippleButton>
                   {identityExists && <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={50} icon={<UserPlus color={theme.onAccentSoft} size={18} />} onPress={handleCreate}>Crear identidad nueva</NativeRippleButton>}
                 </YStack>}
                 {mode && <YStack gap={12}>
-                  {(mode === 'linkPhrase' || mode === 'unlock') && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<KeyRound color={theme.onAccent} size={18} />} onPress={() => void runWithMnemonic(mnemonic, '')}>{mode === 'linkPhrase' ? 'Vincular con mi frase' : 'Desbloquear identidad'}</NativeRippleButton>}
+                  {(mode === 'linkPhrase' || mode === 'unlock') && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<KeyRound color={theme.onAccent} size={18} />} onPress={() => void runWithMnemonic(mnemonic, '')}>{mode === 'linkPhrase' ? 'Entrar en mi cuenta' : 'Desbloquear identidad'}</NativeRippleButton>}
                   {mode === 'create' && matchedPhrase && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<Check color={theme.onAccent} size={18} />} onPress={() => void runWithMnemonic(generatedPhrase, alias, avatar)}>Confirmar frase y continuar</NativeRippleButton>}
                   <XStack alignItems="center" gap={6} justifyContent="center"><ChevronLeft color={theme.placeholder} size={15} /><SizableText color="placeholder-color" onPress={handleBack} padding={12} role="button">Volver</SizableText></XStack>
                 </YStack>}
