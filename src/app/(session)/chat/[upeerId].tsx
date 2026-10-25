@@ -3,33 +3,31 @@ import { KeyboardAvoidingView, Platform, StyleSheet, View, type FlatList, type L
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ContactCardSheet } from '@/components/chat/contact-card-sheet';
-import { ChatDateSeparator } from '@/components/chat/chat-date-separator';
 import { ChatHeader } from '@/components/chat/chat-header';
 import { ChatInputArea } from '@/components/chat/chat-input-area';
 import { ChatMessageOverlays } from '@/components/chat/chat-message-overlays';
-import { ChatMessageBubble } from '@/components/chat/chat-message-bubble';
 import { ChatRequestScreen } from '@/components/chat/chat-request-screen';
 import { ChatTimelineList } from '@/components/chat/chat-timeline-list';
+import { ChatTimelineRow } from '@/components/chat/chat-timeline-row';
 import { useSnackbar } from '@/components/snackbar';
 import { buildChatTimeline, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
-import { summarizeReactions } from '@/domain/chat-reactions';
 import { buildReplyPreview, type ReplyPreview } from '@/domain/chat-reply';
-import { forwardResultMessage } from '@/domain/forward';
 import { decideRequestState } from '@/domain/message-request';
+import { useChatComposer } from '@/hooks/use-chat-composer';
 import { useChatMessageSheet } from '@/hooks/use-chat-message-sheet';
 import { placeholderName, resolveContactName } from '@/domain/contact-name';
 import { useChatSearch } from '@/hooks/use-chat-search';
 import { useContactCard } from '@/hooks/use-contact-card';
 import { usePresenceLabel } from '@/hooks/use-presence-label';
+import { useAndroidKeyboardHeight } from '@/hooks/use-android-keyboard-height';
 import { useTheme } from '@/hooks/use-theme';
 import { getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
 import type { ProtocolMessage } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
-import { editChat, getMessages, getConversations, markConversationRead, sendChat, sendTyping } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
+import { getMessages, getConversations, markConversationRead } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
 
 const MESSAGE_LIMIT = 200;
 const LATEST_OFFSET = 24;
 const SCROLL_BUTTON_OFFSET = 180;
-const TYPING_INTERVAL_MS = 3000;
 
 export default function ChatRoute() {
   const theme = useTheme();
@@ -45,16 +43,10 @@ export default function ChatRoute() {
   const [contactStatus, setContactStatus] = useState<UPeerContact['status']>('offline');
   const [isRequest, setIsRequest] = useState(false);
   const [requestReceivedAt, setRequestReceivedAt] = useState(0);
-  const [text, setText] = useState('');
-  const [editing, setEditing] = useState<ProtocolMessage | null>(null);
-  const [replyingTo, setReplyingTo] = useState<ProtocolMessage | null>(null);
-  const [forwarding, setForwarding] = useState<ProtocolMessage | null>(null);
-  const [error, setError] = useState('');
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
   const [peerPresence, setPeerPresence] = useState<{ lastActive?: number; lastSeen?: number }>({});
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
-  const typingSentAtRef = useRef(0);
 
   const refresh = useCallback(async () => {
     if (!upeerId) return;
@@ -88,6 +80,23 @@ export default function ChatRoute() {
     await markConversationRead(upeerId);
   }, [upeerId]);
 
+  const {
+    cancelContext,
+    cancelForwarding,
+    editing,
+    error,
+    forwarding,
+    handleChange,
+    handleForwarded,
+    replyingTo,
+    setError,
+    startEditing,
+    startForwarding,
+    startReplying,
+    submit,
+    text,
+  } = useChatComposer({ onChanged: refresh, onForwarded: showSnackbar, upeerId });
+
   useEffect(() => {
     if (!upeerId) return;
     const initial = setTimeout(() => {
@@ -102,7 +111,7 @@ export default function ChatRoute() {
       clearTimeout(initial);
       clearInterval(timer);
     };
-  }, [refresh, upeerId]);
+  }, [refresh, setError, upeerId]);
 
   const timeline = useMemo(() => toInvertedChatTimeline(buildChatTimeline(messages)), [messages]);
 
@@ -115,70 +124,6 @@ export default function ChatRoute() {
     listRef.current?.scrollToOffset({ animated: false, offset: 0 });
     setShowScrollButton(false);
   }, [messages.length, timeline]);
-
-  const handleChange = useCallback((value: string) => {
-    setText(value);
-    if (!upeerId || !value.trim()) return;
-    const now = Date.now();
-    if (now - typingSentAtRef.current < TYPING_INTERVAL_MS) return;
-    typingSentAtRef.current = now;
-    sendTyping(upeerId).catch((cause: unknown) => {
-      console.warn('No se pudo enviar el indicador de escritura.', cause);
-    });
-  }, [upeerId]);
-
-  const submit = async () => {
-    const content = text.trim();
-    if (!content || !upeerId) return;
-    const currentEdit = editing;
-    const currentReply = replyingTo;
-    setText('');
-    setEditing(null);
-    setReplyingTo(null);
-    setError('');
-    try {
-      if (currentEdit) {
-        await editChat(upeerId, currentEdit.id, content);
-      } else {
-        await sendChat(upeerId, content, currentReply?.id ?? '');
-      }
-      await refresh();
-    } catch (cause) {
-      setText(content);
-      setEditing(currentEdit);
-      setReplyingTo(currentReply);
-      setError(cause instanceof Error ? cause.message : 'No se pudo enviar el mensaje.');
-    }
-  };
-
-  const startEditing = useCallback((message: ProtocolMessage) => {
-    setReplyingTo(null);
-    setEditing(message);
-    setText(message.content);
-    setError('');
-  }, []);
-
-  const startReplying = useCallback((message: ProtocolMessage) => {
-    setEditing(null);
-    setReplyingTo(message);
-    setError('');
-  }, []);
-
-  const cancelContext = useCallback(() => {
-    if (editing) setText('');
-    setEditing(null);
-    setReplyingTo(null);
-  }, [editing]);
-
-  const startForwarding = useCallback((message: ProtocolMessage) => {
-    setForwarding(message);
-    setError('');
-  }, []);
-
-  const handleForwarded = useCallback((count: number, failed: number) => {
-    setForwarding(null);
-    showSnackbar(forwardResultMessage(count, failed));
-  }, [showSnackbar]);
 
   const sheet = useChatMessageSheet({ onChanged: refresh, onEdit: startEditing, onError: setError, onForward: startForwarding, onReply: startReplying, upeerId });
   const { open: openActions, selfUpeerId, toggleReaction } = sheet;
@@ -195,6 +140,7 @@ export default function ChatRoute() {
   const reloadContacts = useCallback(() => refresh().catch((cause: unknown) => console.warn('No se pudo recargar la agenda.', cause)), [refresh]);
   const contactCard = useContactCard({ contacts, onOpenContact: openContactInfo, onSaved: reloadContacts });
   const presence = usePresenceLabel(peerPresence.lastActive, peerPresence.lastSeen);
+  const androidKeyboard = useAndroidKeyboardHeight();
   const openCard = contactCard.open;
   const savedContactIds = contactCard.savedIds;
 
@@ -245,27 +191,24 @@ export default function ChatRoute() {
   const { highlightedID } = search;
 
   const renderItem = useCallback(({ item }: ListRenderItemInfo<ChatTimelineEntry>) => (
-    <View>
-      {item.showDateSeparator ? <ChatDateSeparator timestamp={item.message.timestamp} /> : null}
-      <ChatMessageBubble
-        entry={item}
-        highlighted={item.message.id === highlightedID}
-        onLongPress={openActions}
-        onOpenCard={openCard}
-        onOpenReply={openQuoted}
-        onToggleReaction={toggleReaction}
-        reactions={summarizeReactions(item.message.reactions, selfUpeerId)}
-        reply={replyPreviews(item.message)}
-        savedContacts={savedContactIds}
-      />
-    </View>
+    <ChatTimelineRow
+      entry={item}
+      highlighted={item.message.id === highlightedID}
+      onLongPress={openActions}
+      onOpenCard={openCard}
+      onOpenReply={openQuoted}
+      onToggleReaction={toggleReaction}
+      reply={replyPreviews(item.message)}
+      savedContacts={savedContactIds}
+      selfUpeerId={selfUpeerId}
+    />
   ), [highlightedID, openActions, openCard, openQuoted, replyPreviews, savedContactIds, selfUpeerId, toggleReaction]);
 
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
         <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={() => router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } })} onSearch={search.open} onUnavailable={showUnavailable} presence={presence} status={contactStatus} typing={peerTyping} upeerId={upeerId ?? ''} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.root, androidKeyboard > 0 ? { paddingBottom: androidKeyboard } : null]}>
           {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} /> : (
             <ChatTimelineList
               data={timeline}
@@ -296,7 +239,7 @@ export default function ChatRoute() {
         <View pointerEvents="none" style={[styles.nativeBarBackground, { backgroundColor: theme.backgroundElement, height: insets.bottom }]} />
       ) : null}
       <ContactCardSheet action={contactCard.action} card={contactCard.selected} error={contactCard.error} onClose={contactCard.close} visible={contactCard.selected !== null} />
-      <ChatMessageOverlays contacts={contacts} forwarding={forwarding} onForwardClose={() => setForwarding(null)} onForwarded={handleForwarded} selfUpeerId={selfUpeerId} sheet={sheet} />
+      <ChatMessageOverlays contacts={contacts} forwarding={forwarding} onForwardClose={cancelForwarding} onForwarded={handleForwarded} selfUpeerId={selfUpeerId} sheet={sheet} />
     </View>
   );
 }

@@ -28,6 +28,8 @@ type ContactInfoScreenProps = {
   onBack: () => void;
 };
 
+const PRESENCE_POLL_MS = 5000;
+
 export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
   const theme = useTheme();
   const scale = useTextScale();
@@ -61,6 +63,13 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
     load().catch(reportFailure);
     loadCipher(upeerId);
   }, [load, loadCipher, reportFailure, upeerId]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      load().catch((cause: unknown) => console.warn('No se pudo actualizar la presencia del contacto.', cause));
+    }, PRESENCE_POLL_MS);
+    return () => clearInterval(timer);
+  }, [load]);
   const presence = usePresenceLabel(presenceData.lastActive, presenceData.lastSeen);
 
   const toggleBlock = () => {
