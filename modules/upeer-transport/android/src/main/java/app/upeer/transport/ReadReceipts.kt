@@ -20,5 +20,14 @@ internal object ReadReceipts {
     if (enabled) transitioned else emptyList()
 
   fun frame(identity: CryptoIdentity, selfAddress: String, peerPublicKey: String, messageID: String, nowMillis: Long): String =
-    SealedControl.frame(identity, selfAddress, peerPublicKey, data(messageID, nowMillis))
+    frame(identity, null, selfAddress, peerPublicKey, messageID, nowMillis)
+
+  fun frame(
+    identity: CryptoIdentity,
+    device: DeviceIdentity?,
+    selfAddress: String,
+    peerPublicKey: String,
+    messageID: String,
+    nowMillis: Long,
+  ): String = SealedControl.frame(identity, device, selfAddress, peerPublicKey, data(messageID, nowMillis))
 }

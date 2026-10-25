@@ -27,16 +27,20 @@ internal class ControlReplies(
     val senderUpeerId = packet.optString("senderUpeerId").lowercase()
     val publicKey = state.publicKeyFor(senderUpeerId)
       ?: throw IllegalStateException("unknown peer $senderUpeerId")
-    val deviceBinding = if (type == "DR_RESET") deviceBinding(packet, senderUpeerId) else null
-    val metadataJSON = if (deviceBinding != null) {
-      activeBridge.validateLinkedSignedPacket(payload, deviceBinding.devicePublicKey, senderUpeerId)
-    } else {
-      activeBridge.validateSignedPacket(payload, publicKey)
+    val signature = PacketSignature.of(packet)
+    val metadataJSON = when (signature) {
+      is PacketSignature.Linked -> activeBridge.validateLinkedSignedPacket(
+        payload,
+        deviceSigningKey(senderUpeerId, signature.deviceId),
+        senderUpeerId,
+      )
+      PacketSignature.Account -> activeBridge.validateSignedPacket(payload, publicKey)
     }
+    val deviceBinding = if (type == "DR_RESET") deviceBinding(packet, senderUpeerId) else null
     val metadata = JSONObject(metadataJSON)
     if (!allow(metadata, sourceAddress)) return rateLimited(metadata)
     state.touchPresence(senderUpeerId)
-    if (deviceBinding == null) state.rememberPeer(metadata)
+    if (signature == PacketSignature.Account) state.rememberPeer(metadata)
     if (type == "PING") {
       state.presence.touch(senderUpeerId, packet.optLong("activeAt", 0L), System.currentTimeMillis())
       sendPong(senderUpeerId)
@@ -64,6 +68,22 @@ internal class ControlReplies(
     }
     handleReset(packet, senderUpeerId, publicKey, deviceBinding)
     return metadataJSON
+  }
+
+  private fun deviceSigningKey(senderUpeerId: String, deviceId: String): String {
+    if (deviceBindings.isRevoked(senderUpeerId, deviceId)) {
+      throw IllegalArgumentException("sender device $deviceId is revoked")
+    }
+    val peer = state.peerFor(senderUpeerId)
+      ?: throw IllegalStateException("unknown peer $senderUpeerId")
+    if (!peer.optString("deviceId").equals(deviceId, ignoreCase = true)) {
+      throw IllegalArgumentException("control packet announced an unknown sender device")
+    }
+    val devicePublicKey = peer.optString("devicePublicKey")
+    if (!DhtLocation.isHex(devicePublicKey, 32)) {
+      throw IllegalArgumentException("peer device key is unavailable")
+    }
+    return devicePublicKey
   }
 
   private fun deviceBinding(packet: JSONObject, senderUpeerId: String): DeviceBinding? {

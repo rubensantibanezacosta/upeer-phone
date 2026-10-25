@@ -50,6 +50,7 @@ internal class ControlSender(
     val peerPublicKey = state.publicKeyFor(upeerId) ?: return
     val thread = Thread({
       val currentIdentity = identity.current() ?: return@Thread
+      val device = identity.currentDevice()
       var connectionID = 0
       try {
         connectionID = activeBridge.dialTCP(address, PORT)
@@ -57,6 +58,7 @@ internal class ControlSender(
         for (messageID in messageIDs.take(ReadReceipts.MAX_PER_CONVERSATION)) {
           val frame = ReadReceipts.frame(
             currentIdentity,
+            device,
             activeBridge.address(),
             peerPublicKey,
             messageID,
@@ -92,9 +94,12 @@ internal class ControlSender(
     val activeBridge = bridgeProvider() ?: return
     val address = state.addressFor(senderUpeerId) ?: return
     val currentIdentity = identity.current() ?: return
+    val device = identity.currentDevice()
     var connectionID = 0
     try {
-      val ack = currentIdentity.buildAck(activeBridge.address(), messageID, "delivered")
+      val ack = device?.let {
+        it.crypto.buildLinkedAck(it.deviceId, currentIdentity.upeerID(), activeBridge.address(), messageID, "delivered")
+      } ?: currentIdentity.buildAck(activeBridge.address(), messageID, "delivered")
       connectionID = activeBridge.dialTCP(address, PORT)
       activeBridge.writeFrame(connectionID, ack.toByteArray(Charsets.UTF_8))
       Log.i(TAG, "ACK enviado a $address para $messageID")
@@ -116,10 +121,11 @@ internal class ControlSender(
     val address = state.addressFor(upeerId) ?: return
     val peerPublicKey = state.publicKeyFor(upeerId) ?: return
     val currentIdentity = identity.current() ?: return
+    val device = identity.currentDevice()
     val thread = Thread({
       var connectionID = 0
       try {
-        val frame = SealedControl.frame(currentIdentity, activeBridge.address(), peerPublicKey, data)
+        val frame = SealedControl.frame(currentIdentity, device, activeBridge.address(), peerPublicKey, data)
         connectionID = activeBridge.dialTCP(address, PORT)
         activeBridge.writeFrame(connectionID, frame.toByteArray(Charsets.UTF_8))
       } catch (cause: Exception) {
