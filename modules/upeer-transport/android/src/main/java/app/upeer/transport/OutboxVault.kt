@@ -60,8 +60,45 @@ internal class OutboxVault(
     return link.sendPacket(activeBridge, address, frame)
   }
 
-  fun escrow(activeBridge: Bridge, entry: JSONObject): Boolean {
-    if (!admission.isAdmitted()) return false
+  fun renewExpiring(activeBridge: Bridge) {
+    if (!admission.isAdmitted()) return
+    val now = System.currentTimeMillis()
+    val expiring = mailbox.expiringSoon(RENEW_WINDOW, now)
+    if (expiring.isEmpty()) return
+    val thread = Thread({
+      var renewed = 0
+      for (entry in expiring) {
+        if (!isActive(activeBridge)) return@Thread
+        val target = now + VaultStoreEnvelope.TTL_MILLIS
+        if (!mailbox.renew(entry.payloadHash, target)) continue
+        renewed += 1
+        for (custodian in renewTargets(entry.recipientSid)) {
+          val frame = channel.renewPacket(custodian, entry.payloadHash, target) ?: continue
+          val address = state.addressFor(custodian) ?: continue
+          link.sendPacket(activeBridge, address, frame)
+        }
+      }
+      Log.i(TAG, "Renovadas $renewed de ${expiring.size} entradas del vault")
+    }, "upeer-vault-renew")
+    thread.isDaemon = true
+    thread.start()
+  }
+
+  private fun renewTargets(recipientUpeerId: String): List<String> {
+    val now = System.currentTimeMillis()
+    val published = directory?.resolve(recipientUpeerId, null, now).orEmpty()
+    if (published.isNotEmpty()) return published.map { it.upeerId }
+    val peers = runCatching { JSONObject(state.peersJSON()) }.getOrNull() ?: return emptyList()
+    val keys = peers.keys()
+    val targets = mutableListOf<String>()
+    while (keys.hasNext()) {
+      val key = keys.next()
+      if (peers.optJSONObject(key) != null) targets.add(key)
+    }
+    return targets
+  }
+
+  fun escrow(activeBridge: Bridge, entry: JSONObject): Boolean {    if (!admission.isAdmitted()) return false
     if (entry.optString("kind", "CHAT") == "CHAT_UPDATE") return false
     val packet = entry.optString("packet")
     if (packet.isEmpty()) return false
@@ -128,5 +165,6 @@ internal class OutboxVault(
 
   private companion object {
     private const val TAG = "UPeerTransport"
+    private const val RENEW_WINDOW = 15L * 24L * 60L * 60L * 1000L
   }
 }

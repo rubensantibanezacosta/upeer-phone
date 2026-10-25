@@ -7,6 +7,8 @@ import app.upeer.transport.vault.VaultEntry
 import app.upeer.transport.vault.VaultMailboxInsert
 import app.upeer.transport.vault.VaultMailboxStore
 import app.upeer.transport.vault.VaultQueryDelivery
+import app.upeer.transport.vault.VaultRenewal
+import app.upeer.transport.vault.VaultRenewalResult
 import app.upeer.transport.vault.VaultStoreRequest
 import app.upeer.transport.vault.VaultStoreResult
 import app.upeer.transportbridge.transportbridge.Bridge
@@ -49,6 +51,7 @@ internal class VaultReplies(
       "VAULT_STORE" -> store(activeBridge, packet, senderUpeerId, sourceAddress, now)
       "VAULT_QUERY" -> deliver(activeBridge, packet, senderUpeerId, sourceAddress, now)
       "VAULT_ACK" -> acknowledge(packet, senderUpeerId)
+      "VAULT_RENEW" -> renew(packet, senderUpeerId, now)
       "VAULT_DELIVERY" -> applyDelivery(activeBridge, packet, senderUpeerId, sourceAddress, now)
       else -> throw IllegalArgumentException("unsupported vault type $type")
     }
@@ -138,8 +141,23 @@ internal class VaultReplies(
     Log.i(TAG, "VAULT_ACK de $senderUpeerId liberó $removed entradas")
   }
 
-  private fun applyDelivery(
-    activeBridge: Bridge,
+  private fun renew(packet: JSONObject, senderUpeerId: String, now: Long) {
+    val hash = packet.optString("payloadHash")
+    val entry = mailbox.entry(hash, now)
+    when (val parsed = VaultRenewal.parse(packet, senderUpeerId, entry, now)) {
+      is VaultRenewalResult.Rejected -> {
+        Log.w(TAG, "VAULT_RENEW rechazado de $senderUpeerId: ${parsed.reason}")
+        return
+      }
+      is VaultRenewalResult.Accepted -> {
+        if (mailbox.renew(parsed.request.payloadHash, parsed.request.expiresAt)) {
+          Log.i(TAG, "VAULT_RENEW extendió ${parsed.request.payloadHash.take(12)} hasta ${parsed.request.expiresAt}")
+        }
+      }
+    }
+  }
+
+  private fun applyDelivery(    activeBridge: Bridge,
     packet: JSONObject,
     senderUpeerId: String,
     sourceAddress: String,

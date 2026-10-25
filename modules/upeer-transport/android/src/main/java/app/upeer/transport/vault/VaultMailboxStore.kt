@@ -42,6 +42,24 @@ internal class VaultMailboxStore(context: Context) {
     removed
   }
 
+  fun entry(payloadHash: String, nowMillis: Long): VaultEntry? = synchronized(lock) {
+    val hash = payloadHash.lowercase()
+    snapshot(nowMillis).entries.firstOrNull { it.payloadHash == hash }
+  }
+
+  fun renew(payloadHash: String, expiresAt: Long): Boolean = synchronized(lock) {
+    val (next, renewed) = VaultMailbox.renew(state, payloadHash, expiresAt)
+    if (renewed) {
+      state = next
+      persist()
+    }
+    renewed
+  }
+
+  fun expiringSoon(windowMillis: Long, nowMillis: Long): List<VaultEntry> = synchronized(lock) {
+    VaultMailbox.expiringSoon(snapshot(nowMillis), windowMillis, nowMillis)
+  }
+
   fun clear() = synchronized(lock) {
     state = VaultMailboxState(1L, emptyList())
     store.clear()

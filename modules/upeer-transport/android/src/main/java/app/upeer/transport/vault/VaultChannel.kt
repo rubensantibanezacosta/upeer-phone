@@ -43,8 +43,13 @@ internal class VaultChannel(
     return wrap(envelopeJSON, peerPublicKey)
   }
 
-  fun queryPacket(custodianUpeerId: String, payloadHash: String? = null): String? {
-    val self = identity.current()?.upeerID() ?: return null
+  fun renewPacket(custodianUpeerId: String, payloadHash: String, expiresAt: Long): String? {
+    val peerPublicKey = state.publicKeyFor(custodianUpeerId) ?: return null
+    val renew = VaultRenewal.build(payloadHash, expiresAt) ?: return null
+    return wrap(renew.toString(), peerPublicKey)
+  }
+
+  fun queryPacket(custodianUpeerId: String, payloadHash: String? = null): String? {    val self = identity.current()?.upeerID() ?: return null
     val peerPublicKey = state.publicKeyFor(custodianUpeerId) ?: return null
     val query = runCatching {
       VaultQueryDelivery.buildQuery(self, identity.currentDevice()?.deviceId, payloadHash)

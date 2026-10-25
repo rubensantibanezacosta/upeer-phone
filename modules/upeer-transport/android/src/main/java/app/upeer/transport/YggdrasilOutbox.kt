@@ -149,6 +149,8 @@ internal class YggdrasilOutbox(
 
   fun queryVaults(activeBridge: Bridge) = vault.queryVaults(activeBridge)
 
+  fun renewVaultEntries(activeBridge: Bridge) = vault.renewExpiring(activeBridge)
+
   fun queryVault(activeBridge: Bridge, upeerId: String): Boolean = vault.queryVault(activeBridge, upeerId)
 
   fun flush() {

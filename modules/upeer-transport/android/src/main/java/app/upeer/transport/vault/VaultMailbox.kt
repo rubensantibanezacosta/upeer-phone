@@ -40,6 +40,25 @@ internal object VaultMailbox {
     return entries.filter { it.senderSid == sender }.sumOf { it.data.length.toLong() / 2 }
   }
 
+  fun renew(state: VaultMailboxState, payloadHash: String, expiresAt: Long): Pair<VaultMailboxState, Boolean> {
+    val hash = payloadHash.lowercase()
+    var renewed = false
+    val entries = state.entries.map { entry ->
+      if (entry.payloadHash != hash || expiresAt <= entry.expiresAt) {
+        entry
+      } else {
+        renewed = true
+        entry.copy(expiresAt = expiresAt)
+      }
+    }
+    return if (renewed) VaultMailboxState(state.nextId, entries) to true else state to false
+  }
+
+  fun expiringSoon(state: VaultMailboxState, windowMillis: Long, nowMillis: Long): List<VaultEntry> {
+    val limit = nowMillis + windowMillis
+    return state.entries.filter { it.expiresAt > nowMillis && it.expiresAt < limit }
+  }
+
   fun release(state: VaultMailboxState, payloadHashes: Collection<String>): Pair<VaultMailboxState, Int> {
     val hashes = payloadHashes.map { it.lowercase() }.toSet()
     val kept = state.entries.filterNot { hashes.contains(it.payloadHash) }
