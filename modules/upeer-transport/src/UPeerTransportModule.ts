@@ -66,6 +66,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   verifyLocationBlock(blockJSON: string, publicKeyHex: string, nowMillis: number): Promise<boolean>;
   deviceEnrollmentBegin(code: string): Promise<string>;
   deviceEnrollmentRequestJSON(): Promise<string>;
+  deviceEnrollmentSubmit(): Promise<string>;
   deviceEnrollmentFinish(sealedResponse: string): Promise<string>;
   deviceEnrollmentCancel(): Promise<void>;
   deviceEnrollmentStatusJSON(): Promise<string>;
@@ -394,6 +395,12 @@ export async function verifyLocationBlock(blockJSON: string, publicKeyHex: strin
 export async function beginDeviceEnrollment(code: string): Promise<DeviceEnrollmentBeginResult & { requestCode: string }> {
   const result = JSON.parse(await nativeModule.deviceEnrollmentBegin(code)) as DeviceEnrollmentBeginResult;
   return { ...result, requestCode: encodeEnrollmentTransfer(JSON.parse(result.request) as unknown) };
+}
+
+export type EnrollmentSubmitResult = { inviteId: string; authorizerAddress: string };
+
+export async function submitDeviceEnrollment(): Promise<EnrollmentSubmitResult> {
+  return JSON.parse(await nativeModule.deviceEnrollmentSubmit()) as EnrollmentSubmitResult;
 }
 
 export async function getDeviceEnrollmentRequest(): Promise<string> {

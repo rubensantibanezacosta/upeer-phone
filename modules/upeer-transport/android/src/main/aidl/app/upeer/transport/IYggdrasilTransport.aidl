@@ -60,6 +60,7 @@ interface IYggdrasilTransport {
   boolean verifyLocationBlock(String blockJSON, String publicKeyHex, long nowMillis);
   String deviceEnrollmentBegin(String code);
   String deviceEnrollmentRequestJSON();
+  String deviceEnrollmentSubmit();
   String deviceEnrollmentFinish(String sealedResponse);
   void deviceEnrollmentCancel();
   String deviceEnrollmentStatusJSON();

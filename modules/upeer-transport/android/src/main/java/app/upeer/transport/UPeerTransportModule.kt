@@ -127,6 +127,7 @@ class UPeerTransportModule : Module() {
     }
     AsyncFunction("deviceEnrollmentBegin") { code: String -> service().deviceEnrollmentBegin(code) }
     AsyncFunction("deviceEnrollmentRequestJSON") { service().deviceEnrollmentRequestJSON() }
+    AsyncFunction("deviceEnrollmentSubmit") { service().deviceEnrollmentSubmit() }
     AsyncFunction("deviceEnrollmentFinish") { sealedResponse: String -> service().deviceEnrollmentFinish(sealedResponse) }
     AsyncFunction("deviceEnrollmentCancel") { service().deviceEnrollmentCancel() }
     AsyncFunction("deviceEnrollmentStatusJSON") { service().deviceEnrollmentStatusJSON() }

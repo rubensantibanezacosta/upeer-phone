@@ -188,6 +188,7 @@ export type DeviceEnrollmentBeginResult = {
     authorizerDeviceId: string;
     inviteId: string;
     expiresAt: number;
+    authorizerAddress?: string;
   };
   request: string;
 };

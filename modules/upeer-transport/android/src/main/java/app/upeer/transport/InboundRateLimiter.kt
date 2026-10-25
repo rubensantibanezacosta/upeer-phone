@@ -72,6 +72,8 @@ internal class InboundRateLimiter(
       "VAULT_DELIVERY" to Rule(windowMs = 60_000, maxTokens = 2_000),
       "VAULT_ACK" to Rule(windowMs = 60_000, maxTokens = 2_000),
       "VAULT_RENEW" to Rule(windowMs = 60_000, maxTokens = 600),
+      "ENROLL_REQ" to Rule(windowMs = 60_000, maxTokens = 20),
+      "ENROLL_RES" to Rule(windowMs = 60_000, maxTokens = 20),
       "SYNC_HELLO" to Rule(windowMs = 60_000, maxTokens = 30),
       "SYNC_ENVELOPE" to Rule(windowMs = 60_000, maxTokens = 1_200),
       "SYNC_ACK" to Rule(windowMs = 60_000, maxTokens = 1_200),

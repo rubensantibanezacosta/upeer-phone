@@ -74,6 +74,22 @@ internal class DeviceEnrollment(
 
   fun requestJSON(): String = synchronized(lock) { state.pending?.requestJSON.orEmpty() }
 
+  fun pendingInviteId(): String = synchronized(lock) {
+    val pending = state.pending ?: return@synchronized ""
+    runCatching { JSONObject(pending.requestJSON).optString("inviteId").lowercase() }.getOrDefault("")
+  }
+
+  fun pendingAuthorizerAddress(): String = synchronized(lock) {
+    val pending = state.pending ?: return@synchronized ""
+    runCatching {
+      JSONObject(pending.inviteJSON).optJSONObject("offer")?.optString("authorizerAddress").orEmpty()
+    }.getOrDefault("")
+  }
+
+  fun pendingAccount(): String = synchronized(lock) { state.pending?.accountUpeerId.orEmpty() }
+
+  fun installSealed(sealedJSON: String): String = finish(sealedJSON)
+
   fun installed(): InstalledEnrollment? = synchronized(lock) {
     val installed = state.installed ?: return@synchronized null
     InstalledEnrollment(

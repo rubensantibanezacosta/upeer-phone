@@ -34,6 +34,7 @@ type EnrollmentOffer struct {
 	AuthorizerDeviceID string `json:"authorizerDeviceId"`
 	InviteID           string `json:"inviteId"`
 	ExpiresAt          int64  `json:"expiresAt"`
+	AuthorizerAddress  string `json:"authorizerAddress,omitempty"`
 }
 
 // EnrollmentInvite is a parsed invitation: the offer plus the one-time secret.
@@ -189,6 +190,22 @@ func enrollmentSecretboxKey(secret []byte) ([]byte, error) {
 	return digest.Sum(nil), nil
 }
 
+func normalizeAuthorizerAddress(value string) (string, error) {
+	trimmed := strings.ToLower(strings.TrimSpace(value))
+	if trimmed == "" {
+		return "", nil
+	}
+	if len(trimmed) > 45 || !strings.Contains(trimmed, ":") {
+		return "", errors.New("authorizerAddress must be an IPv6 literal")
+	}
+	for _, char := range trimmed {
+		if (char < '0' || char > '9') && (char < 'a' || char > 'f') && char != ':' && char != '.' {
+			return "", errors.New("authorizerAddress must be an IPv6 literal")
+		}
+	}
+	return trimmed, nil
+}
+
 func normalizeEnrollmentOffer(offer EnrollmentOffer) (EnrollmentOffer, error) {
 	if offer.Version != EnrollmentVersion {
 		return EnrollmentOffer{}, errors.New("unsupported enrollment version")
@@ -212,6 +229,10 @@ func normalizeEnrollmentOffer(offer EnrollmentOffer) (EnrollmentOffer, error) {
 	if offer.ExpiresAt <= 0 {
 		return EnrollmentOffer{}, errors.New("enrollment invitation must declare expiresAt")
 	}
+	authorizerAddress, err := normalizeAuthorizerAddress(offer.AuthorizerAddress)
+	if err != nil {
+		return EnrollmentOffer{}, err
+	}
 	return EnrollmentOffer{
 		Version:            EnrollmentVersion,
 		AccountUpeerID:     accountUpeerID,
@@ -219,6 +240,7 @@ func normalizeEnrollmentOffer(offer EnrollmentOffer) (EnrollmentOffer, error) {
 		AuthorizerDeviceID: authorizerDeviceID,
 		InviteID:           inviteID,
 		ExpiresAt:          offer.ExpiresAt,
+		AuthorizerAddress:  authorizerAddress,
 	}, nil
 }
 

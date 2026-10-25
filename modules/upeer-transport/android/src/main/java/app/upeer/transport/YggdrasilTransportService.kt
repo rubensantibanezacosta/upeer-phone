@@ -246,20 +246,8 @@ class YggdrasilTransportService : Service() {
       dhtBindings.verifyLocationBlock(blockJSON, publicKeyHex, nowMillis)
     override fun deviceEnrollmentBegin(code: String): String = enrollment.begin(code)
     override fun deviceEnrollmentRequestJSON(): String = enrollment.requestJSON()
-    override fun deviceEnrollmentFinish(sealedResponse: String): String {
-      val summary = enrollment.finish(sealedResponse)
-      val installed = enrollment.installed()
-      if (installed != null) {
-        if (identity.installEnrollment(installed)) {
-          contactAdmission.clear()
-          identity.refreshRegistry()
-          if (bridge != null && identity.current() != null) dhtRuntime.start()
-        } else {
-          Log.e(TAG, "El enrolamiento se guardó pero no se pudo activar en el nodo")
-        }
-      }
-      return summary
-    }
+    override fun deviceEnrollmentFinish(sealedResponse: String): String =
+      this@YggdrasilTransportService.completeEnrollment(sealedResponse)
     override fun deviceEnrollmentCancel() = enrollment.cancel()
     override fun deviceEnrollmentStatusJSON(): String = enrollment.statusJSON()
     override fun enrollmentAuthorizerCreateInvite(ttlMillis: Long): String = enrollmentAuthorizer.createInvite(ttlMillis)
@@ -269,6 +257,8 @@ class YggdrasilTransportService : Service() {
     override fun enrollmentAuthorizerStatusJSON(): String = enrollmentAuthorizer.pendingJSON()
     override fun enrollmentAuthorizerCancel(inviteId: String) = enrollmentAuthorizer.cancel(inviteId)
     override fun enrollmentAuthorizerCancelAll() = enrollmentAuthorizer.cancelAll()
+    override fun deviceEnrollmentSubmit(): String =
+      this@YggdrasilTransportService.submitEnrollment()
   }
 
   override fun onCreate() {
@@ -329,6 +319,7 @@ class YggdrasilTransportService : Service() {
       admissionGuard,
       contactAdmission,
       VaultMailboxStore(this),
+      enrollmentResponse = ::installEnrollmentResponse,
     )
     protocol.attachVaultDirectory(
       VaultDirectory(identity, protocolState, dhtRuntime::storePointer, dhtRuntime::readPointer),
@@ -358,7 +349,53 @@ class YggdrasilTransportService : Service() {
   fun ensureForeground() {
     startForeground(NOTIFICATION_ID, notifications.foregroundNotification())
   }
+
   override fun onBind(intent: Intent?): IBinder = binder
+
+  private fun installEnrollmentResponse(sealedJSON: String): Boolean = runCatching {
+    completeEnrollment(sealedJSON)
+    true
+  }.getOrElse { cause ->
+    Log.w(TAG, "No se pudo instalar el certificado de dispositivo: ${cause.message}")
+    false
+  }
+
+  private fun completeEnrollment(sealedResponse: String): String {
+    val summary = enrollment.finish(sealedResponse)
+    val installed = enrollment.installed()
+    if (installed != null) {
+      if (identity.installEnrollment(installed)) {
+        contactAdmission.clear()
+        identity.refreshRegistry()
+        if (bridge != null && identity.current() != null) dhtRuntime.start()
+      } else {
+        Log.e(TAG, "El enrolamiento se guardó pero no se pudo activar en el nodo")
+      }
+    }
+    return summary
+  }
+
+  internal fun submitEnrollment(): String {
+    val sealed = runCatching { org.json.JSONObject(enrollment.requestJSON()) }.getOrNull()
+      ?: throw IllegalStateException("No hay una solicitud de emparejamiento en curso.")
+    val inviteId = enrollment.pendingInviteId()
+    val authorizer = enrollment.pendingAuthorizerAddress()
+    if (inviteId.isEmpty() || authorizer.isEmpty()) {
+      throw IllegalStateException("La invitación no trae la dirección del dispositivo que autoriza.")
+    }
+    val address = bridge?.address().orEmpty()
+    if (address.isEmpty()) throw IllegalStateException("Este dispositivo todavía no tiene dirección en la red.")
+    val activeBridge = bridge ?: throw IllegalStateException("La red no está levantada en este dispositivo.")
+    val frame = EnrollmentChannel.requestFrame(sealed, inviteId, address)
+    if (!EnrollmentChannel.send(activeBridge, authorizer, frame)) {
+      throw IllegalStateException("No se pudo entregar la solicitud al dispositivo que autoriza.")
+    }
+    return JSONObject()
+      .put("inviteId", inviteId)
+      .put("authorizerAddress", authorizer)
+      .toString()
+  }
+
   override fun onDestroy() {
     dhtRuntime.stop()
     protocol.stop()

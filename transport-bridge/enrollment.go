@@ -99,6 +99,12 @@ func decodeEnrollmentInvite(inviteJSON string) (dht.EnrollmentInvite, error) {
 // returned JSON carries the public offer, the one-time secret and the transfer
 // code that the new device consumes.
 func (identity *CryptoIdentity) CreateEnrollmentInvite(ttlMillis, nowMillis int64) (string, error) {
+	return identity.CreateEnrollmentInviteWithAddress(ttlMillis, nowMillis, "")
+}
+
+// CreateEnrollmentInviteWithAddress also publishes the Yggdrasil address where
+// the new device should deliver its request, so enrolment needs no extra steps.
+func (identity *CryptoIdentity) CreateEnrollmentInviteWithAddress(ttlMillis, nowMillis int64, authorizerAddress string) (string, error) {
 	secret := make([]byte, dht.EnrollmentSecretBytes)
 	if _, err := rand.Read(secret); err != nil {
 		return "", fmt.Errorf("generate enrollment secret: %w", err)
@@ -128,6 +134,7 @@ func (identity *CryptoIdentity) CreateEnrollmentInvite(ttlMillis, nowMillis int6
 		AuthorizerDeviceID: deviceID,
 		InviteID:           inviteID,
 		ExpiresAt:          now + ttlMillis,
+		AuthorizerAddress:  authorizerAddress,
 	}
 	code, err := dht.BuildEnrollmentCode(offer, secret)
 	if err != nil {

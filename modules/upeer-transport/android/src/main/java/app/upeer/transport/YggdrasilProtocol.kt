@@ -21,6 +21,7 @@ internal class YggdrasilProtocol(
   private val contactAdmission: ContactEncryptionAdmission,
   private val vaultMailbox: VaultMailboxStore,
   private val rateLimiter: InboundRateLimiter = InboundRateLimiter(),
+  private val enrollmentResponse: (String) -> Boolean = { false },
   ) {
   private val policy = InboundPolicy(rateLimiter)
   private val egress = ProtocolEgress(::selfAddress)
@@ -154,6 +155,7 @@ internal class YggdrasilProtocol(
   fun handleFrame(activeBridge: Bridge, payload: ByteArray, sourceAddress: String): String {
     val outer = JSONObject(String(payload, Charsets.UTF_8))
     val outerType = outer.optString("type")
+    if (outerType == EnrollmentChannel.RESPONSE) return handleEnrollmentResponse(outer, sourceAddress)
     if (outerType != "SEALED") return handleSignedPacket(activeBridge, payload, sourceAddress)
     if (!rateLimiter.allow("ip:$sourceAddress", outerType)) {
       Log.w(TAG, "SEALED limitado por origen $sourceAddress")
@@ -271,6 +273,25 @@ internal class YggdrasilProtocol(
     } else {
       chatInbound.receive(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
     }
+  }
+
+  private fun handleEnrollmentResponse(packet: JSONObject, sourceAddress: String): String {
+    if (!rateLimiter.allow("ip:$sourceAddress", EnrollmentChannel.RESPONSE)) {
+      Log.w(TAG, "ENROLL_RES limitado por origen $sourceAddress")
+      return InboundPolicy.rejected(packet)
+    }
+    val sealed = EnrollmentChannel.sealedFrom(packet)
+    if (sealed == null) {
+      Log.w(TAG, "ENROLL_RES rechazado: la cuenta no pudo autorizar el dispositivo")
+      return InboundPolicy.rejected(packet)
+    }
+    val installed = runCatching { enrollmentResponse(sealed) }.getOrElse { cause ->
+      Log.w(TAG, "ENROLL_RES no se pudo instalar: ${cause.message}")
+      false
+    }
+    if (!installed) return InboundPolicy.rejected(packet)
+    Log.i(TAG, "Certificado de dispositivo instalado desde $sourceAddress")
+    return JSONObject().put("type", EnrollmentChannel.RESPONSE).put("installed", true).toString()
   }
 
   private fun selfAddress(): String = bridge?.address().orEmpty()

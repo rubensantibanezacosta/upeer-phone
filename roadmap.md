@@ -1168,6 +1168,29 @@ Los textos dejan de hablar de «vincular dispositivos» dentro de la cuenta y de
 El truco de la ruta `/preview` + deep link es la forma de revisar cualquier componente de sesión en el móvil sin inyección de eventos: `adb shell am start -a android.intent.action.VIEW -d "upeer://preview"`.
 
 
+### Enrolamiento en banda por Yggdrasil: dos pasos y ninguno más (26/10/2026)
+
+El flujo fuera de banda pedía tres códigos copiados a mano: la invitación del escritorio, la solicitud del móvil y la respuesta de vuelta al móvil. Para el usuario eso no es vincular, es teletrabajo. La regla de producto es la que se fijó: **generar la invitación en el escritorio, escanear el QR con el móvil y ya está**.
+
+**El canal.** La invitación ya viaja con `authorizerAddress`, la dirección Yggdrasil del dispositivo que autoriza (`EnrollmentOffer.authorizerAddress`, normalizada en `enrollment.ts` y rellenada con `getYggstackAddress()` en `enrollmentAuthorizer.ts`; en Go, `CreateEnrollmentInviteWithAddress`). Con eso el móvil sabe a quién llamar:
+
+- El móvil abre TCP al puerto **50005** del autorizador y manda `{type:'ENROLL_REQ', inviteId, senderAddress, sealed}` (`EnrollmentChannel.requestFrame`).
+- El escritorio lo recibe en `routeEarlyPacket`, antes de DHT y SYNC, y lo procesa en `handleInBandEnrollment` (`network/enrollmentChannel.ts`): valida `inviteId` hex de 32 bytes, `nonce`, `ciphertext` y `senderAddress`, emite el certificado y lo registra en el registro firmado.
+- La respuesta vuelve por el mismo socket: `{type:'ENROLL_RES', inviteId, ok, sealed}`, y el móvil la instala en `YggdrasilProtocol.handleEnrollmentResponse` → `DeviceEnrollment.installSealed`.
+- El hook (`use-device-enrollment.ts`) pasa a fases `idle|sending|waiting|manual` y sondea `getDeviceEnrollmentStatus()` cada 1,5 s durante 120 s. El panel del móvil ya no pide nada: escanear, esperar y listo.
+
+**El paquete no va firmado, y es correcto.** La autenticidad no la da el transporte sino el sobre sellado con el secreto de la invitación (`secretbox`), que solo conocen los dos extremos. Un tercero que vea el paquete no puede descifrarlo ni falsificarlo; el `inviteId` es de un solo uso y caduca.
+
+**El escritorio tampoco pide nada.** `DeviceEnrollmentPanel` genera la invitación, arranca un sondeo de `getAuthorizedDevices()` cada 2 s (máximo 3 minutos) y en cuanto aparece un `deviceId` que no estaba en la foto inicial muestra «Dispositivo añadido a tu cuenta» y avisa a `SectionDispositivos` para que refresque la lista autorizada. Los tres códigos siguen existiendo detrás de «Usar códigos manuales», como escape para cuando los dos nodos no se alcanzan.
+
+**Verificado de punta a punta en dispositivo real**: invitación creada desde el escritorio, deep link con el código en el móvil, y en el log del escritorio aparecen seguidas «Invitación de enrolamiento consumida» y «Enrolamiento en banda completado», con el `deviceId` del móvil dentro de `getAuthorizedDevices()`. Cero copias de códigos.
+
+**Dos trampas que costaron tiempo y quedan apuntadas:**
+
+- **Recompilar el AAR no basta.** `gomobile bind` genera el `.so` dentro del AAR; hay que copiarlo a mano (`jni/arm64-v8a/libgojni.so` → `modules/upeer-transport/android/src/main/jniLibs/arm64-v8a/`) y `classes.jar` a `libs/`. Si no, el APK arranca con el binario viejo y los métodos nuevos responden «método no encontrado». Comprobación barata: `unzip -j app-debug.apk "lib/arm64-v8a/libgojni.so"` y `strings | grep <simbolo nuevo>`.
+- **El nodo del móvil tiene que estar levantado** para tener dirección; si el hook no encuentra dirección, `ensureNetworkNode()` arranca el nodo con `startWithPeers`. Y tras `adb shell am force-stop` el dev client vuelve a su pantalla de servidores: hay que relanzar primero `upeer://expo-development-client/?url=...` y después el deep link de la ruta.
+
+
 ### Entrada a la cuenta: dos formas equivalentes (26/10/2026)
 
 La pantalla de acceso ofrecía «Recuperar identidad» con un enlace escondido «No tengo la frase: vincular este dispositivo». Se sustituye por una sola acción, **«Vincular a mi cuenta existente»**, que abre una elección de dos botones iguales:

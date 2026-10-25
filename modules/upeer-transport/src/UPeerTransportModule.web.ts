@@ -61,6 +61,7 @@ class UPeerTransportModule extends NativeModule<{}> {
   async verifyLocationBlock(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async deviceEnrollmentBegin(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async deviceEnrollmentRequestJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async deviceEnrollmentSubmit(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async deviceEnrollmentFinish(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async deviceEnrollmentCancel(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async deviceEnrollmentStatusJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
