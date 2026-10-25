@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { Check, ChevronLeft, Copy, ImagePlus, KeyRound, QrCode, RotateCcw, UserPlus } from '@tamagui/lucide-icons-2';
+import { Check, ChevronLeft, Copy, ImagePlus, KeyRound, QrCode, UserPlus } from '@tamagui/lucide-icons-2';
 import { Card, H1, Input, Paragraph, Separator, SizableText, TextArea, XStack, YStack } from 'tamagui';
 
 import { DevicePairingPanel } from '@/components/device-pairing-panel';
@@ -20,14 +20,15 @@ import { useTheme } from '@/hooks/use-theme';
 
 type AuthScreenProps = { identityExists: boolean; onAuthenticated: (identity: UPeerIdentity) => void };
 
+type AuthMode = 'create' | 'link' | 'linkPhrase' | 'linkQr' | 'unlock';
+
 export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps) {
   const [mnemonic, setMnemonic] = useState('');
   const [generatedPhrase, setGeneratedPhrase] = useState('');
   const [alias, setAlias] = useState('');
   const [avatar, setAvatar] = useState('');
   const [avatarBusy, setAvatarBusy] = useState(false);
-  const [mode, setMode] = useState<'create' | 'recover' | 'unlock' | null>(null);
-  const [pairing, setPairing] = useState(false);
+  const [mode, setMode] = useState<AuthMode | null>(null);
   const [error, setError] = useState('');
   const theme = useTheme();
   const scale = useTextScale();
@@ -95,12 +96,24 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
     setMode('create');
   };
 
-  const handleMode = (nextMode: 'recover' | 'unlock') => {
+  const handleMode = (nextMode: AuthMode) => {
     setMnemonic('');
     setAvatar('');
-    setPairing(false);
     setMode(nextMode);
     setError('');
+  };
+
+  const handleBack = () => {
+    setError('');
+    if (mode === 'linkPhrase' || mode === 'linkQr') {
+      setMnemonic('');
+      setMode('link');
+      return;
+    }
+    setMode(null);
+    setGeneratedPhrase('');
+    setMnemonic('');
+    setAvatar('');
   };
 
   const matchedPhrase = normalizeMnemonic(mnemonic) === generatedPhrase;
@@ -118,8 +131,8 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
             <Card borderWidth={1} backgroundColor="color-1" borderColor="border-color" borderRadius={20} padding={24}>
               <YStack gap={20}>
                 <YStack gap={8}>
-                  <SizableText color="color" fontSize={scale(21)} fontWeight="700">{mode === 'create' ? 'Crea tu identidad' : mode === 'recover' ? 'Recupera tu identidad' : mode === 'unlock' ? 'Desbloquea tu identidad' : 'Empieza a conversar en privado'}</SizableText>
-                  {!mode && <Paragraph color="placeholder-color">{identityExists ? 'Tu identidad está protegida. Introduce tu frase para desbloquearla o recuperar otra cuenta.' : 'Crea una identidad segura o recupera el acceso a la que ya tienes en otro dispositivo.'}</Paragraph>}
+                  <SizableText color="color" fontSize={scale(21)} fontWeight="700">{mode === 'create' ? 'Crea tu identidad' : mode === 'link' ? 'Vincula a tu cuenta existente' : mode === 'linkPhrase' ? 'Vincula con la frase de tu cuenta' : mode === 'linkQr' ? 'Vincula con un QR' : mode === 'unlock' ? 'Desbloquea tu identidad' : 'Empieza a conversar en privado'}</SizableText>
+                  {!mode && <Paragraph color="placeholder-color">{identityExists ? 'Tu identidad está protegida en este dispositivo. Desbloquéala con tu frase o vincula otro dispositivo a la misma cuenta.' : 'Crea una identidad nueva o vincula este dispositivo a la cuenta que ya usas en otro sitio.'}</Paragraph>}
                 </YStack>
                 {generatedPhrase.length > 0 && (
                   <YStack backgroundColor="color-2" borderColor="border-color" borderRadius={14} borderWidth={1} gap={8} padding={16}>
@@ -131,9 +144,19 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
                 )}
                 {mode && <>
                   <Separator borderColor="border-color" />
-                  {mode === 'recover' && pairing
-                    ? <DevicePairingPanel onPaired={(summary) => void handlePaired(summary)} />
-                    : <YStack gap={12}>
+                  {mode === 'link' && <YStack gap={16}>
+                    <Paragraph color="placeholder-color" fontSize={scale(14)}>Elige cómo entrar en la cuenta que ya tienes. Las dos formas dejan este dispositivo vinculado a la misma cuenta, con los mismos contactos y conversaciones.</Paragraph>
+                    <YStack gap={6}>
+                      <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<KeyRound color={theme.onAccent} size={18} />} onPress={() => handleMode('linkPhrase')}>Con la frase de mi cuenta</NativeRippleButton>
+                      <Paragraph color="placeholder-color" fontSize={scale(12)} paddingHorizontal={4}>Introduce tus 12 palabras. No hace falta ningún otro dispositivo encendido.</Paragraph>
+                    </YStack>
+                    <YStack gap={6}>
+                      <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={50} icon={<QrCode color={theme.onAccentSoft} size={18} />} onPress={() => handleMode('linkQr')}>Con un QR de otro dispositivo</NativeRippleButton>
+                      <Paragraph color="placeholder-color" fontSize={scale(12)} paddingHorizontal={4}>Pide a un dispositivo que ya esté en la cuenta que te genere una invitación.</Paragraph>
+                    </YStack>
+                  </YStack>}
+                  {mode === 'linkQr' && <DevicePairingPanel onPaired={(summary) => void handlePaired(summary)} />}
+                  {(mode === 'create' || mode === 'linkPhrase' || mode === 'unlock') && <YStack gap={12}>
                     <TextArea accessibilityLabel="Frase secreta de 12 palabras" autoCapitalize="none" autoCorrect={false} backgroundColor="color-2" borderColor="border-color" color="color" height={mode === 'create' ? 86 : 112} onChangeText={setMnemonic} placeholder={mode === 'create' ? 'Escribe las 12 palabras para confirmar' : 'Escribe las 12 palabras en orden'} placeholderTextColor="placeholder-color" textAlignVertical="top" value={mnemonic} />
                     {mode === 'create' && <YStack gap={10}>
                       <SizableText color="placeholder-color" fontSize={scale(10)} fontWeight="600" letterSpacing={0.7}>FOTO DE PERFIL (OPCIONAL)</SizableText>
@@ -152,18 +175,15 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
                 </>}
                 {!!error && <Paragraph accessibilityRole="alert" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={10} borderWidth={1} color={theme.onDangerSoft} padding={12}>{error}</Paragraph>}
                 {!mode && <YStack gap={12}>
-                  <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<UserPlus color={theme.onAccent} size={18} />} onPress={handleCreate}>Crear identidad nueva</NativeRippleButton>
-                  <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={50} icon={<RotateCcw color={theme.onAccentSoft} size={18} />} onPress={() => handleMode(identityExists ? 'unlock' : 'recover')}>{identityExists ? 'Desbloquear con mi frase' : 'Recuperar identidad'}</NativeRippleButton>
+                  {identityExists && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<KeyRound color={theme.onAccent} size={18} />} onPress={() => handleMode('unlock')}>Desbloquear con mi frase</NativeRippleButton>}
+                  {!identityExists && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<UserPlus color={theme.onAccent} size={18} />} onPress={handleCreate}>Crear identidad nueva</NativeRippleButton>}
+                  <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={50} icon={<QrCode color={theme.onAccentSoft} size={18} />} onPress={() => handleMode('link')}>{identityExists ? 'Vincular otro dispositivo' : 'Vincular dispositivo existente'}</NativeRippleButton>
+                  {identityExists && <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={50} icon={<UserPlus color={theme.onAccentSoft} size={18} />} onPress={handleCreate}>Crear identidad nueva</NativeRippleButton>}
                 </YStack>}
                 {mode && <YStack gap={12}>
-                  {mode === 'recover' && pairing && <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={44} icon={<KeyRound color={theme.onAccentSoft} size={17} />} onPress={() => setPairing(false)}>Usar la frase de recuperación</NativeRippleButton>}
-                  {(mode === 'recover' || mode === 'unlock') && !pairing && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={mode === 'recover' ? <RotateCcw color={theme.onAccent} size={18} /> : <KeyRound color={theme.onAccent} size={18} />} onPress={() => void runWithMnemonic(mnemonic, '')}>{mode === 'recover' ? 'Recuperar identidad' : 'Desbloquear identidad'}</NativeRippleButton>}
-                  {mode === 'recover' && !pairing && <XStack alignItems="center" gap={8} justifyContent="center">
-                    <QrCode color={theme.onAccentSoft} size={15} />
-                    <SizableText accessibilityRole="button" color="placeholder-color" fontSize={scale(13)} onPress={() => { setError(''); setMnemonic(''); setPairing(true); }} padding={6}>No tengo la frase: vincular este dispositivo</SizableText>
-                  </XStack>}
+                  {(mode === 'linkPhrase' || mode === 'unlock') && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<KeyRound color={theme.onAccent} size={18} />} onPress={() => void runWithMnemonic(mnemonic, '')}>{mode === 'linkPhrase' ? 'Vincular con mi frase' : 'Desbloquear identidad'}</NativeRippleButton>}
                   {mode === 'create' && matchedPhrase && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<Check color={theme.onAccent} size={18} />} onPress={() => void runWithMnemonic(generatedPhrase, alias, avatar)}>Confirmar frase y continuar</NativeRippleButton>}
-                  <XStack alignItems="center" gap={6} justifyContent="center"><ChevronLeft color={theme.placeholder} size={15} /><SizableText color="placeholder-color" onPress={() => { setMode(null); setPairing(false); setGeneratedPhrase(''); setMnemonic(''); setAvatar(''); setError(''); }} padding={12} role="button">Volver</SizableText></XStack>
+                  <XStack alignItems="center" gap={6} justifyContent="center"><ChevronLeft color={theme.placeholder} size={15} /><SizableText color="placeholder-color" onPress={handleBack} padding={12} role="button">Volver</SizableText></XStack>
                 </YStack>}
               </YStack>
             </Card>

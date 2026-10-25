@@ -19,6 +19,7 @@ import app.upeer.transport.dht.kademlia.KademliaNode
 import app.upeer.transport.dht.kademlia.KademliaPacketRouter
 import app.upeer.transport.dht.kademlia.KademliaPacketSender
 import app.upeer.transport.dht.kademlia.KademliaSeedLoader
+import app.upeer.transport.dht.kademlia.PeerDhtSeeds
 import app.upeer.transportbridge.transportbridge.Bridge
 import app.upeer.transportbridge.transportbridge.Transportbridge
 import org.json.JSONObject
@@ -38,6 +39,7 @@ internal class YggdrasilDhtRuntime(
   private val locationBlock: () -> String? = { null },
   private val knownPublicKey: (String) -> String? = { null },
   private val intimatePeersJSON: () -> String? = { null },
+  private val knownPeersJSON: () -> String? = { null },
   private val nowMillis: () -> Long = System::currentTimeMillis,
   private val locationStore: DhtLocationStore? = null,
 ) {
@@ -55,6 +57,7 @@ internal class YggdrasilDhtRuntime(
       val loader = KademliaSeedLoader(
         accountId,
         existingContacts = { contacts.load() },
+        staticSeeds = { PeerDhtSeeds.fromPeers(knownPeersJSON(), accountId) },
         readFile = { File(context.filesDir, "seednodes.json").takeIf(File::isFile)?.readText() },
         dnsResolver = AndroidKademliaDnsTxtResolver(context),
       )
@@ -167,11 +170,17 @@ internal class YggdrasilDhtRuntime(
 
   fun publishRegistry(force: Boolean = false) {
     val current = synchronized(lock) { state } ?: return
-    if (!current.bootstrap.isBootstrapped() || !admitted()) return
+    if (!current.bootstrap.readyToPublish() || !admitted()) return
     val account = identity.current() ?: return
     val registry = accountRegistry.registryJSON().takeIf(String::isNotEmpty) ?: return
     if (!force && registry == lastPublished) return
     val key = Transportbridge.accountRegistryKey(account.upeerID())
+    val published = runCatching { lookupRegistry(current.node, key) }.getOrNull()
+    val unknown = AccountRegistryDevices.unknownDevices(registry, published, account.upeerID())
+    if (unknown.isNotEmpty()) {
+      Log.w(TAG, "No se publica el registro de cuenta: la DHT ya anuncia ${unknown.size} dispositivos que este no conoce")
+      return
+    }
     val deliveries = runCatching {
       current.node.storeValue(key, JSONObject(registry), account.upeerID())
     }.getOrElse { cause ->
@@ -200,7 +209,7 @@ internal class YggdrasilDhtRuntime(
 
   fun storePointer(key: String, valueJSON: String): Int {
     val current = synchronized(lock) { state } ?: return 0
-    if (!current.bootstrap.isBootstrapped() || !admitted()) return 0
+    if (!current.bootstrap.readyToPublish() || !admitted()) return 0
     val account = identity.current() ?: return 0
     return runCatching {
       current.node.storeValue(key, JSONObject(valueJSON), account.upeerID())
@@ -212,7 +221,7 @@ internal class YggdrasilDhtRuntime(
 
   fun readPointer(key: String): Any? {
     val current = synchronized(lock) { state } ?: return null
-    if (!current.bootstrap.isBootstrapped() || !admitted()) return null
+    if (!current.bootstrap.readyToPublish() || !admitted()) return null
     return runCatching { current.node.findValue(key, localFirst = false)?.value }.getOrElse { cause ->
       Log.w(TAG, "No se pudo leer el puntero de vault de la DHT", cause)
       null
@@ -262,12 +271,21 @@ internal class YggdrasilDhtRuntime(
         KademliaContact(KademliaId.fromUpeerId(seed.upeerId), seed.upeerId, seed.address, seed.publicKey, nowMillis()),
       )
     }
-    runCatching { current.bootstrap.attempt() }.onFailure { cause ->
+    val summary = runCatching { current.bootstrap.attempt() }.getOrElse { cause ->
       Log.w(TAG, "No se pudo completar el bootstrap DHT", cause)
+      null
+    }
+    if (summary != null) {
+      val stats = current.bootstrap.stats()
+      Log.i(
+        TAG,
+        "Bootstrap DHT: ${stats.seedsLoaded} semillas, ${stats.verifiedContacts} verificados, " +
+          "${stats.contactCount} contactos, listo=${stats.bootstrapped}",
+      )
     }
     publishRegistry(force = true)
     publishLocation(current, force = true)
-    if (current.bootstrap.isBootstrapped()) refreshKnownRegistries(current)
+    if (current.bootstrap.readyToPublish()) refreshKnownRegistries(current)
   }
 
   private fun maintenance() {

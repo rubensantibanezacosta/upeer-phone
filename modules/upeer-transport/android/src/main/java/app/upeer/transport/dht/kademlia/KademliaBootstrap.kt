@@ -175,6 +175,11 @@ class KademliaBootstrap(
     verifiedContactsLocked().size
   }
 
+  fun readyToPublish(): Boolean = synchronized(stateLock) {
+    updateStatusLocked()
+    verifiedContactsLocked().isNotEmpty()
+  }
+
   fun contactCount(): Int = node.routingTable.contactCount()
 
   fun stats(): KademliaBootstrapStats = synchronized(stateLock) {

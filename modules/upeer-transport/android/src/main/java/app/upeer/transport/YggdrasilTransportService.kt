@@ -308,6 +308,7 @@ class YggdrasilTransportService : Service() {
       { dhtBindings.locationBlockJSON(0) },
       { upeerId -> protocolState.publicKeyFor(upeerId) },
       { protocolState.peersJSON() },
+      { protocolState.peersJSON() },
       locationStore = dhtLocation,
     )
     contactAdmission = ContactEncryptionAdmission(

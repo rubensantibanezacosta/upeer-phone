@@ -83,6 +83,43 @@ class KademliaBootstrapTest {
   }
 
   @Test
+  fun publishesWithASingleVerifiedPeer() {
+    val desktopSeed = seed(1)
+    val network = SimNetwork()
+    node(desktopSeed, network)
+    val mobile = node(seed(96), network)
+    val bootstrap = KademliaBootstrap(
+      mobile,
+      KademliaSeedLoader(mobile.upeerId, staticSeeds = { listOf(desktopSeed) }),
+      clock = clock,
+      minNodes = 10,
+      retryMillis = 30_000L,
+      probeTimeoutMillis = 100L,
+      lookupRounds = 1,
+      probeBatch = 20,
+    )
+    assertFalse(bootstrap.readyToPublish())
+
+    val result = bootstrap.attempt()
+
+    assertTrue(result.ran)
+    assertFalse(result.bootstrapped)
+    assertEquals(1, bootstrap.verifiedContactCount())
+    assertTrue(bootstrap.readyToPublish())
+  }
+
+  @Test
+  fun doesNotPublishWithoutVerifiedPeers() {
+    val network = SimNetwork()
+    val mobile = node(seed(95), network)
+    val bootstrap = KademliaBootstrap(mobile, KademliaSeedLoader(mobile.upeerId), clock = clock)
+
+    bootstrap.attempt()
+
+    assertFalse(bootstrap.readyToPublish())
+  }
+
+  @Test
   fun restoresVerifiedContactsAfterRestart() {
     val directory = Files.createTempDirectory("kademlia-bootstrap").toFile()
     try {

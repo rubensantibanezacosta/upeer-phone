@@ -1134,6 +1134,17 @@ El registro firmado ya guardaba los revocados, pero revocar no cambiaba nada en 
 - **El dispositivo revocado ya tiene salida.** El aviso de peligro del panel ofrece «Volver a vincular este dispositivo» y abre el mismo `DevicePairingPanel` que la pantalla de recuperación, dentro de una hoja inferior: `deviceEnrollmentBegin` genera una clave de dispositivo nueva, así que el emparejamiento sustituye la identidad en lugar de reutilizarla. Tras vincularlo hay que cerrar y abrir la sesión con la frase.
 - Pendiente: **propagar el registro nuevo entre dispositivos propios** (B10) para que un dispositivo revocado que siga encendido en otra máquina se entere; hoy solo lo aprende quien recibe su tráfico.
 
+### Entrada a la cuenta: dos formas equivalentes (26/10/2026)
+
+La pantalla de acceso ofrecía «Recuperar identidad» con un enlace escondido «No tengo la frase: vincular este dispositivo». Se sustituye por una sola acción, **«Vincular a mi cuenta existente»**, que abre una elección de dos botones iguales:
+
+- **Con la frase de mi cuenta**: se derivan las 12 palabras y la sesión arranca. `DeviceIdentityStore.provision` emite el certificado de dispositivo con la raíz y `AccountRegistryStore.ensure` construye el registro firmado, así que **la vinculación ocurre sola, sin segundo paso ni QR**. No hace falta otro dispositivo encendido, que es la ventaja real de la frase sobre el QR.
+- **Con un QR de otro dispositivo**: `DevicePairingPanel` con los tres pasos OOB, para quien no tiene la frase. El resultado es el mismo certificado instalado y `waitForNativeIdentity` en lugar de `setIdentity`.
+
+Las dos rutas terminan en el mismo estado: identidad guardada, certificado de dispositivo instalado y registro firmado. La diferencia es de origen de la clave, no de resultado.
+
+**Limitación abierta y bloqueante para probar el emparejamiento real:** un dispositivo con la raíz **reconstruye el registro con lo que tiene en local**, y lo que tiene en local es solo su propio certificado (`ensure` parte de `listOf(certificateJSON)` cuando no hay estado previo). El registro de la DHT **no lleva los certificados completos**, solo un resumen por dispositivo (`deviceId`, `devicePublicKey`, `authorizedAt`, `expiresAt`, `epoch`), así que no se pueden re-firmar los dispositivos ajenos desde ahí. Consecuencia: si el móvil publica su registro, **el escritorio desaparecería del registro de la cuenta** y perdería la admisión. Para no romper nada mientras se decide cómo se transportan los certificados propios, `publishRegistry` ahora **no publica** cuando la DHT ya anuncia dispositivos que este nodo no conoce (`AccountRegistryDevices.unknownDevices`), y lo deja en el log: «No se publica el registro de cuenta: la DHT ya anuncia N dispositivos que este no conoce». Es una salvaguarda, no la solución: la solución pasa por intercambiar los certificados de dispositivo entre dispositivos propios —el sobre de B10 ya los lleva en los paquetes firmados por dispositivo— y re-firmar el registro con la unión.
+
 ### Handshake sin raíz: decisión pendiente (26/10/2026)
 
 Un dispositivo enrolado ya arranca, recibe, sincroniza su ubicación y responde control, pero **no puede abrir una conversación nueva**: `buildHandshakeRequest` (`device_handshake.go:79`) termina en `buildSignedPacket` y `buildHandshakeAccept` llama a `requireSecretKey`, y `SignedPreKeyStore.currentJSON` crea la SPK de cuenta con `createSignedPreKey`. Escritorio está igual: sin `identityState.secretKey`, `sign()` no firma y el envío solo deja «Packet signing key is unavailable».
