@@ -158,6 +158,48 @@ class VaultPointersTest {
   }
 
   @Test
+  fun `plan publishes under the recipient key so the recipient can find its mailbox`() {
+    val publication = VaultPointers.plan(first, second, listOf(VaultCustodianCandidate(first, "200::1", 0L)), now)!!
+
+    assertEquals(VaultPointerKey.key(second, null, now), publication.key)
+    assertTrue(publication.key != VaultPointerKey.key(first, null, now))
+  }
+
+  @Test
+  fun `plan always includes the sender as a custodian`() {
+    val publication = VaultPointers.plan(first, second, listOf(VaultCustodianCandidate(third, "200::1", 0L)), now)!!
+
+    val pointer = VaultPointers.parse(publication.value, now)!!
+    assertEquals(listOf(third, first), pointer.custodians)
+  }
+
+  @Test
+  fun `plan publishes without a device scope`() {
+    val publication = VaultPointers.plan(first, second, listOf(VaultCustodianCandidate(first, "200::1", 0L)), now)!!
+
+    assertNull(VaultPointers.parse(publication.value, now)!!.recipientDeviceId)
+  }
+
+  @Test
+  fun `plan refuses an empty custodian list`() {
+    assertNull(VaultPointers.plan(first, second, emptyList(), now))
+  }
+
+  @Test
+  fun `plan refuses to publish to itself`() {
+    assertNull(VaultPointers.plan(first, first, listOf(VaultCustodianCandidate(third, "200::1", 0L)), now))
+    assertNull(VaultPointers.plan(first, first.uppercase(), listOf(VaultCustodianCandidate(third, "200::1", 0L)), now))
+  }
+
+  @Test
+  fun `plan refuses invalid identities`() {
+    val custodians = listOf(VaultCustodianCandidate(third, "200::1", 0L))
+
+    assertNull(VaultPointers.plan("aa", second, custodians, now))
+    assertNull(VaultPointers.plan(first, "bb", custodians, now))
+  }
+
+  @Test
   fun `parse deduplicates custodians`() {
     val body = JSONObject().put("custodians", org.json.JSONArray().put(first).put(first).put(third))
 

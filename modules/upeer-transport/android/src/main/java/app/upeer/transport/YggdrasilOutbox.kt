@@ -5,6 +5,7 @@ import app.upeer.transport.dht.ContactAdmissionException
 import app.upeer.transport.dht.ContactEncryptionAdmission
 import app.upeer.transport.dht.ExpectedContactDevice
 import app.upeer.transport.vault.VaultDirectory
+import app.upeer.transport.vault.VaultMailboxStore
 import app.upeer.transportbridge.transportbridge.Bridge
 import org.json.JSONObject
 import java.util.UUID
@@ -21,6 +22,7 @@ internal class YggdrasilOutbox(
   private val outbox: OutboxStore,
   private val admission: DeviceAdmissionGuard,
   private val contactAdmission: ContactEncryptionAdmission,
+  private val vaultMailbox: VaultMailboxStore,
 ) {
   private val lock = Any()
   private val wakeLock = Object()
@@ -37,6 +39,7 @@ internal class YggdrasilOutbox(
     outbox,
     link,
     admission,
+    vaultMailbox,
     { synchronized(lock) { selfAddress } },
     ::isActive,
   )

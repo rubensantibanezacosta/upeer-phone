@@ -46,6 +46,23 @@ internal object VaultPointers {
     return VaultPointer(unique.toList(), cleanEndpoints, device, nowMillis)
   }
 
+  data class Publication(val key: String, val value: String)
+
+  fun plan(
+    selfUpeerId: String,
+    recipientUpeerId: String,
+    custodians: List<VaultCustodianCandidate>,
+    nowMillis: Long,
+  ): Publication? {
+    if (custodians.isEmpty()) return null
+    if (!DhtLocation.isHex(selfUpeerId, 32)) return null
+    if (!DhtLocation.isHex(recipientUpeerId, 32)) return null
+    if (selfUpeerId.equals(recipientUpeerId, ignoreCase = true)) return null
+    val endpoints = custodians.map { VaultPointerEndpoint(it.upeerId, it.address) }
+    val pointer = build(custodians.map { it.upeerId } + selfUpeerId, endpoints, null, nowMillis) ?: return null
+    return Publication(VaultPointerKey.key(recipientUpeerId, null, nowMillis), toJSON(pointer))
+  }
+
   fun toJSON(pointer: VaultPointer): String {
     val custodians = JSONArray()
     pointer.custodians.forEach(custodians::put)

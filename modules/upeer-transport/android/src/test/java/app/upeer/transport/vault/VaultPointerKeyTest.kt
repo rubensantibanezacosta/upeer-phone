@@ -69,10 +69,13 @@ class VaultPointerKeyTest {
   }
 
   @Test
-  fun `read keys are unique`() {
+  fun `read keys are unique and always include the shared scope`() {
     val keys = VaultPointerKey.readKeys(owner, device, now)
 
     assertEquals(keys.distinct(), keys)
+    assertEquals(4, keys.size)
+    assertEquals(VaultPointerKey.key(owner, null, now), keys[0])
+    assertEquals(VaultPointerKey.key(owner, device, now), keys[2])
   }
 
   @Test

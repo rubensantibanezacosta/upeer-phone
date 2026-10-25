@@ -17,18 +17,10 @@ internal class VaultDirectory(
   private val publish: VaultPointerPublisher,
   private val read: VaultPointerReader,
 ) {
-  fun publish(custodians: List<VaultCustodianCandidate>, nowMillis: Long): Boolean {
+  fun publish(recipientUpeerId: String, custodians: List<VaultCustodianCandidate>, nowMillis: Long): Boolean {
     val self = identity.current()?.upeerID() ?: return false
-    if (custodians.isEmpty()) return false
-    val endpoints = custodians.map { VaultPointerEndpoint(it.upeerId, it.address) }
-    val pointer = VaultPointers.build(
-      custodians.map { it.upeerId } + self,
-      endpoints,
-      identity.currentDevice()?.deviceId,
-      nowMillis,
-    ) ?: return false
-    val key = VaultPointerKey.key(self, pointer.recipientDeviceId, nowMillis)
-    return publish.publish(key, VaultPointers.toJSON(pointer)) > 0
+    val publication = VaultPointers.plan(self, recipientUpeerId, custodians, nowMillis) ?: return false
+    return publish.publish(publication.key, publication.value) > 0
   }
 
   fun resolve(selfUpeerId: String, deviceId: String?, nowMillis: Long): List<VaultCustodianCandidate> {

@@ -32,6 +32,7 @@ internal class YggdrasilProtocol(
     outboxStore,
     admission,
     contactAdmission,
+    vaultMailbox,
   )
   private val chatDecryptor = YggdrasilChatDecryptor(
     identity,

@@ -23,8 +23,15 @@ internal object VaultPointerKey {
   }
 
   fun readKeys(recipientSid: String, deviceId: String? = null, nowMillis: Long): List<String> {
-    val current = key(recipientSid, deviceId, nowMillis)
-    val previous = key(recipientSid, deviceId, nowMillis - DAY_MILLIS)
-    return if (current == previous) listOf(current) else listOf(current, previous)
+    val keys = LinkedHashSet<String>()
+    val yesterday = nowMillis - DAY_MILLIS
+    keys.add(key(recipientSid, null, nowMillis))
+    keys.add(key(recipientSid, null, yesterday))
+    val device = deviceId?.lowercase()?.takeIf(String::isNotEmpty)
+    if (device != null) {
+      keys.add(key(recipientSid, device, nowMillis))
+      keys.add(key(recipientSid, device, yesterday))
+    }
+    return keys.toList()
   }
 }

@@ -4,6 +4,11 @@ import android.util.Log
 import app.upeer.transport.vault.VaultChannel
 import app.upeer.transport.vault.VaultCustodianCandidate
 import app.upeer.transport.vault.VaultDirectory
+import app.upeer.transport.vault.VaultMailboxInsert
+import app.upeer.transport.vault.VaultMailboxStore
+import app.upeer.transport.vault.VaultStoreEnvelope
+import app.upeer.transport.vault.VaultStoreRequest
+import app.upeer.transport.vault.VaultStoreResult
 import app.upeer.transportbridge.transportbridge.Bridge
 import org.json.JSONObject
 
@@ -13,6 +18,7 @@ internal class OutboxVault(
   private val outbox: OutboxStore,
   private val link: OutboxLink,
   private val admission: DeviceAdmissionGuard,
+  private val mailbox: VaultMailboxStore,
   private val selfAddress: () -> String,
   private val isActive: (Bridge) -> Boolean,
 ) {
@@ -63,24 +69,41 @@ internal class OutboxVault(
     if (messageID.isEmpty()) return false
     val upeerId = entry.optString("upeerId")
     val self = identity.current()?.upeerID() ?: return false
-    val envelope = channel.envelopeForStore(packet, upeerId, System.currentTimeMillis()) ?: return false
+    val now = System.currentTimeMillis()
+    val envelope = channel.envelopeForStore(packet, upeerId, now) ?: return false
+    val local = storeLocally(envelope, self, now)
     val accepted = mutableListOf<VaultCustodianCandidate>()
     for (custodian in channel.custodians(self, upeerId)) {
       val frame = channel.storePacket(custodian.upeerId, envelope.json) ?: continue
       if (link.sendPacket(activeBridge, custodian.address, frame)) accepted.add(custodian)
     }
-    if (accepted.isEmpty()) return false
+    if (!local && accepted.isEmpty()) return false
     outbox.remove(messageID)
     state.messages.markStatus(messageID, "vaulted")
-    Log.i(TAG, "Mensaje $messageID en custodia de ${accepted.size} custodios")
-    publishPointer(accepted)
+    Log.i(TAG, "Mensaje $messageID en custodia local=$local y ${accepted.size} custodios remotos")
+    publishPointer(upeerId, accepted)
     return true
   }
 
-  private fun publishPointer(custodians: List<VaultCustodianCandidate>) {
+  private fun storeLocally(envelope: VaultStoreEnvelope.Envelope, self: String, now: Long): Boolean {
+    val parsed = VaultStoreRequest.parse(JSONObject(envelope.json), self, now)
+    if (parsed !is VaultStoreResult.Accepted) {
+      Log.w(TAG, "No se pudo custodiar en local: el sobre no es válido")
+      return false
+    }
+    return when (val stored = mailbox.insert(parsed.entry, now)) {
+      is VaultMailboxInsert.Stored -> true
+      is VaultMailboxInsert.Rejected -> {
+        Log.w(TAG, "No se pudo custodiar en local: ${stored.reason}")
+        false
+      }
+    }
+  }
+
+  private fun publishPointer(recipientUpeerId: String, custodians: List<VaultCustodianCandidate>) {
     val active = directory ?: return
-    if (active.publish(custodians, System.currentTimeMillis())) {
-      Log.i(TAG, "Puntero de vault publicado para ${custodians.size} custodios")
+    if (active.publish(recipientUpeerId, custodians, System.currentTimeMillis())) {
+      Log.i(TAG, "Puntero de vault publicado para ${recipientUpeerId.take(12)}")
     } else {
       Log.w(TAG, "El puntero de vault no se pudo publicar; la entrega seguirá por sondeo")
     }
