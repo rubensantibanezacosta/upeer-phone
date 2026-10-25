@@ -54,10 +54,10 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
   return <YStack borderBottomColor={theme.border} borderBottomWidth={1} gap={12} paddingHorizontal={20} paddingVertical={20}>
     <XStack alignItems="center" gap={8}>
       <Smartphone color={theme.placeholder} size={16} />
-      <SizableText color={theme.text} flex={1} fontSize={scale(14)} fontWeight="600">Dispositivos de la cuenta</SizableText>
+      <SizableText color={theme.text} flex={1} fontSize={scale(14)} fontWeight="600">AUTORIZADOS EN ESTA CUENTA</SizableText>
       {onInfo ? <NativeRipplePressable accessibilityLabel="¿Qué son los dispositivos de la cuenta?" onPress={onInfo}><Info color={theme.placeholder} size={16} /></NativeRipplePressable> : null}
     </XStack>
-    <Text color={theme.placeholder} fontSize={scale(12)}>Estos dispositivos pueden usar tu cuenta sin tu frase de recuperación</Text>
+    <Text color={theme.placeholder} fontSize={scale(12)}>Pueden usar tu cuenta sin tu frase de recuperación. Revocar uno le quita el acceso sin tocar el resto.</Text>
 
     {state.localAdmitted ? null : <YStack gap={8}>
       <XStack alignItems="center" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={10} borderWidth={1} gap={8} padding={10}>
@@ -88,7 +88,7 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
     {state.error ? <Paragraph accessibilityRole="alert" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={10} borderWidth={1} color={theme.onDangerSoft} fontSize={scale(12)} padding={10}>{state.error}</Paragraph> : null}
     {notice ? <Text accessibilityLiveRegion="polite" color={notice.startsWith('No se pudo') ? theme.danger : theme.textSecondary} fontSize={scale(12)}>{notice}</Text> : null}
 
-    <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={46} icon={<UserPlus color={theme.onAccentSoft} size={18} />} onPress={() => setSheetVisible(true)}>Vincular dispositivo</NativeRippleButton>
+    <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={46} icon={<UserPlus color={theme.onAccentSoft} size={18} />} onPress={() => setSheetVisible(true)}>Añadir otro dispositivo a mi cuenta</NativeRippleButton>
 
     {state.revoked.length > 0 ? <YStack gap={6}>
       <XStack alignItems="center" gap={6}>

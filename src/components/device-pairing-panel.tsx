@@ -45,7 +45,7 @@ export function DevicePairingPanel({ onPaired }: { onPaired?: (summary: Enrollme
     </Card> : null}
 
     {!state.installed && !state.offer ? <YStack gap={12}>
-      <Paragraph color={theme.placeholder} fontSize={scale(13)}>Si tienes otro dispositivo con la cuenta abierta, ábrelo en Seguridad → Dispositivos, genera una invitación y escanéala aquí. También puedes pegar el código a mano.</Paragraph>
+      <Paragraph color={theme.placeholder} fontSize={scale(13)}>Si tienes otro dispositivo con la cuenta abierta, ábrelo en Configuración → Dispositivos, genera una invitación y escanéala aquí. También puedes pegar el código a mano.</Paragraph>
       <TextArea accessibilityLabel="Código de invitación" autoCapitalize="none" autoCorrect={false} backgroundColor="color-2" borderColor="border-color" color="color" height={92} onChangeText={setInviteCode} placeholder="Pega el código de invitación" placeholderTextColor="placeholder-color" textAlignVertical="top" value={inviteCode} />
       <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} disabled={state.busy} height={46} icon={<QrCode color={theme.onAccentSoft} size={17} />} onPress={() => setScanTarget('invite')}>Escanear QR de invitación</NativeRippleButton>
       <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} disabled={state.busy} fontWeight="700" height={46} icon={<ArrowRight color={theme.onAccent} size={17} />} onPress={() => void begin(inviteCode)}>{state.busy ? 'Preparando…' : 'Continuar'}</NativeRippleButton>
@@ -61,7 +61,7 @@ export function DevicePairingPanel({ onPaired }: { onPaired?: (summary: Enrollme
       <Separator borderColor="border-color" />
       <TextArea accessibilityLabel="Código de respuesta" autoCapitalize="none" autoCorrect={false} backgroundColor="color-2" borderColor="border-color" color="color" height={92} onChangeText={setResponseCode} placeholder="Pega el código de respuesta" placeholderTextColor="placeholder-color" textAlignVertical="top" value={responseCode} />
       <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} disabled={state.busy} height={46} icon={<QrCode color={theme.onAccentSoft} size={17} />} onPress={() => setScanTarget('response')}>Escanear QR de respuesta</NativeRippleButton>
-      <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} disabled={state.busy} fontWeight="700" height={46} icon={<ShieldCheck color={theme.onAccent} size={17} />} onPress={() => void handleFinish()}>{state.busy ? 'Verificando…' : 'Vincular dispositivo'}</NativeRippleButton>
+      <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} disabled={state.busy} fontWeight="700" height={46} icon={<ShieldCheck color={theme.onAccent} size={17} />} onPress={() => void handleFinish()}>{state.busy ? 'Verificando…' : 'Terminar vinculación'}</NativeRippleButton>
       <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.textSecondary} height={42} icon={<X color={theme.textSecondary} size={16} />} onPress={() => { setInviteCode(''); setResponseCode(''); void cancel(); }}>Cancelar</NativeRippleButton>
     </YStack> : null}
 

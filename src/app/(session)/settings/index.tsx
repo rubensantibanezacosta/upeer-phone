@@ -1,7 +1,7 @@
 import { Link } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Bell, ChevronRight, HardDrive, Info, LockKeyhole, Network, Palette, ShieldCheck, ShieldOff } from '@tamagui/lucide-icons-2';
+import { ArrowLeft, Bell, ChevronRight, HardDrive, Info, LockKeyhole, Network, Palette, ShieldOff, Smartphone } from '@tamagui/lucide-icons-2';
 import { H1, SizableText, Text, YStack } from 'tamagui';
 
 import { useTextScale } from '@/hooks/use-text-scale';
@@ -10,7 +10,7 @@ import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 
 const settingsSections = [
   { id: 'privacidad', label: 'Privacidad', description: 'Lecturas, presencia y última vez', icon: LockKeyhole },
-  { id: 'seguridad', label: 'Seguridad', description: 'Dispositivos y acceso a la cuenta', icon: ShieldCheck },
+  { id: 'dispositivos', label: 'Dispositivos', description: 'Vincular y revisar los de tu cuenta', icon: Smartphone },
   { id: 'bloqueados', label: 'Bloqueados', description: 'Contactos que no pueden escribirte', icon: ShieldOff },
   { id: 'notificaciones', label: 'Notificaciones', description: 'Mensajes, solicitudes y sonidos', icon: Bell },
   { id: 'apariencia', label: 'Apariencia', description: 'Tema de la aplicación', icon: Palette },

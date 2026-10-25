@@ -40,7 +40,7 @@ export function DeviceInviteSheet({ visible, onClose, onAuthorized }: DeviceInvi
   };
 
   return <>
-    <BottomSheet icon={<Smartphone color={theme.accent} size={20} />} onClose={onClose} title="Vincular dispositivo" visible={visible}>
+    <BottomSheet icon={<Smartphone color={theme.accent} size={20} />} onClose={onClose} title="Añadir otro dispositivo a mi cuenta" visible={visible}>
       {state.issued
         ? <YStack gap={12}>
           <XStack alignItems="center" gap={8}><ShieldCheck color={theme.success} size={20} /><SizableText color={theme.text} fontSize={scale(15)} fontWeight="700">Dispositivo autorizado</SizableText></XStack>
@@ -58,7 +58,7 @@ export function DeviceInviteSheet({ visible, onClose, onAuthorized }: DeviceInvi
           {state.invite
             ? <YStack gap={10}>
               <XStack alignItems="center" gap={8}><Smartphone color={theme.accent} size={18} /><SizableText color={theme.text} fontSize={scale(14)} fontWeight="700">Invitación activa</SizableText></XStack>
-              <Paragraph color={theme.placeholder} fontSize={scale(12)}>Muéstrala o cópiala en el dispositivo que quieres vincular. Caduca en {minutesLeft(state.invite.expiresAt)} min y solo sirve una vez.</Paragraph>
+              <Paragraph color={theme.placeholder} fontSize={scale(12)}>Muéstrala o cópiala en el dispositivo que quieres añadir a tu cuenta. Caduca en {minutesLeft(state.invite.expiresAt)} min y solo sirve una vez.</Paragraph>
               <CopyField accessibilityLabel="Copiar invitación" onCopy={() => void copyToClipboard(state.invite!.code, 'Invitación copiada')} truncate value={state.invite.code} />
               <QrCanvas theme={theme} value={state.invite.code} />
               <NativeRippleButton accessibilityLabel="Descartar invitación" backgroundColor="transparent" color={theme.textSecondary} height={38} icon={<Trash2 color={theme.textSecondary} size={15} />} onPress={() => void cancel(state.invite!.inviteId)}>Descartar invitación</NativeRippleButton>

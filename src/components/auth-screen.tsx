@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { Check, ChevronLeft, Copy, ImagePlus, KeyRound, QrCode, UserPlus } from '@tamagui/lucide-icons-2';
+import { Check, ChevronLeft, Copy, ImagePlus, KeyRound, LogIn, QrCode, UserPlus } from '@tamagui/lucide-icons-2';
 import { Card, H1, Input, Paragraph, Separator, SizableText, TextArea, XStack, YStack } from 'tamagui';
 
 import { DevicePairingPanel } from '@/components/device-pairing-panel';
@@ -131,7 +131,7 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
             <Card borderWidth={1} backgroundColor="color-1" borderColor="border-color" borderRadius={20} padding={24}>
               <YStack gap={20}>
                 <YStack gap={8}>
-                  <SizableText color="color" fontSize={scale(21)} fontWeight="700">{mode === 'create' ? 'Crea tu identidad' : mode === 'link' ? 'Vincula a tu cuenta existente' : mode === 'linkPhrase' ? 'Vincula con la frase de tu cuenta' : mode === 'linkQr' ? 'Vincula con un QR' : mode === 'unlock' ? 'Desbloquea tu identidad' : 'Empieza a conversar en privado'}</SizableText>
+                  <SizableText color="color" fontSize={scale(21)} fontWeight="700">{mode === 'create' ? 'Crea tu identidad' : mode === 'link' ? 'Vincula a tu cuenta existente' : mode === 'linkPhrase' ? 'Entrar con la frase de mi cuenta' : mode === 'linkQr' ? 'Entrar con un QR de otro dispositivo' : mode === 'unlock' ? 'Desbloquea tu identidad' : 'Empieza a conversar en privado'}</SizableText>
                   {!mode && <Paragraph color="placeholder-color">{identityExists ? 'Tu identidad está protegida en este dispositivo. Desbloquéala con tu frase o entra en otra cuenta.' : 'Crea una identidad nueva o entra en la cuenta que ya usas en otro sitio.'}</Paragraph>}
                 </YStack>
                 {generatedPhrase.length > 0 && (
@@ -177,7 +177,7 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
                 {!mode && <YStack gap={12}>
                   {identityExists && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<KeyRound color={theme.onAccent} size={18} />} onPress={() => handleMode('unlock')}>Desbloquear con mi frase</NativeRippleButton>}
                   {!identityExists && <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={50} icon={<UserPlus color={theme.onAccent} size={18} />} onPress={handleCreate}>Crear identidad nueva</NativeRippleButton>}
-                  <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={50} icon={<QrCode color={theme.onAccentSoft} size={18} />} onPress={() => handleMode('link')}>{identityExists ? 'Cambiar a otra cuenta' : 'Vincular a mi cuenta existente'}</NativeRippleButton>
+                  <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={50} icon={<LogIn color={theme.onAccentSoft} size={18} />} onPress={() => handleMode('link')}>{identityExists ? 'Cambiar a otra cuenta' : 'Vincular a mi cuenta existente'}</NativeRippleButton>
                   {identityExists && <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={50} icon={<UserPlus color={theme.onAccentSoft} size={18} />} onPress={handleCreate}>Crear identidad nueva</NativeRippleButton>}
                 </YStack>}
                 {mode && <YStack gap={12}>
