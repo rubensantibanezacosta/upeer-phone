@@ -24,10 +24,6 @@ internal class YggdrasilProtocol(
   ) {
   private val policy = InboundPolicy(rateLimiter)
   private val egress = ProtocolEgress(::selfAddress)
-  private val syncChannel = SyncChannel(identity, state)
-  private val originVerifier: (SyncEventRecord, String, Long) -> Boolean = { record, account, now ->
-    identity.current()?.let { crypto -> SyncEventOrigin.fromBridge(crypto) }?.verify(record, account, now) ?: false
-  }
   private val handshake = YggdrasilHandshake(identity, signedPreKeys, deviceSignedPreKeys, deviceBindings, state)
   private val outbox = YggdrasilOutbox(
     identity,
@@ -52,6 +48,7 @@ internal class YggdrasilProtocol(
 
   private val controlSender = ControlSender(identity, state) { bridge }
   private val controlReplies = ControlReplies(identity, deviceBindings, state, outbox, rateLimiter, controlSender::sendPong)
+  private val chatInbound = ChatInbound(state, chatDecryptor, controlSender, onInboundMessage)
   private val vaultReplies = VaultReplies(
     identity,
     deviceBindings,
@@ -61,26 +58,28 @@ internal class YggdrasilProtocol(
     { active, address, json -> egress.send(active, address, json, "de vault") },
     ::replayVaultEntry,
   )
-  private val syncReplies = SyncReplies(
+  private val sync = ProtocolSync(
     identity,
     deviceSignedPreKeys,
     deviceBindings,
     state,
     policy,
-    syncChannel,
-    originVerifier,
-    ::validateLinked,
     ::selfAddress,
+    ::validateLinked,
     { active, address, json -> egress.send(active, address, json, "de sincronización") },
   )
 
   fun attachVaultDirectory(directory: VaultDirectory) = outbox.attachVaultDirectory(directory)
+
+  fun attachSyncDiscovery(store: (String, String) -> Int, read: (String) -> Any?, registry: () -> String) =
+    sync.attachDiscovery(store, read, registry)
 
   fun start(activeBridge: Bridge) {
     bridge = activeBridge
     outbox.start(activeBridge)
     outbox.queryVaults(activeBridge)
     outbox.renewVaultEntries(activeBridge)
+    sync.start(activeBridge)
   }
 
   fun stop() {
@@ -195,7 +194,7 @@ internal class YggdrasilProtocol(
   private fun handleSignedPacket(activeBridge: Bridge, payload: ByteArray, sourceAddress: String): String {
     val packet = JSONObject(String(payload, Charsets.UTF_8))
     val type = packet.optString("type")
-    if (SyncPackets.isSyncType(type)) return syncReplies.handle(activeBridge, payload, packet, type, sourceAddress)
+    if (sync.isSyncType(type)) return sync.handle(activeBridge, payload, packet, type, sourceAddress)
     val declaredSender = packet.optString("senderUpeerId").lowercase()
     if (declaredSender.isNotEmpty() && state.isBlocked(declaredSender)) {
       Log.i(TAG, "Paquete $type descartado: $declaredSender está bloqueado")
@@ -268,69 +267,10 @@ internal class YggdrasilProtocol(
     if (!policy.allow(metadata, sourceAddress)) return policy.rateLimited(metadata)
     if (!isDevicePacket) state.rememberPeer(metadata)
     return if (type == "CHAT_UPDATE") {
-      handleChatUpdate(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
+      chatInbound.receiveUpdate(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
     } else {
-      handleChat(activeBridge, packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
+      chatInbound.receive(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
     }
-  }
-
-  private fun handleChat(
-    activeBridge: Bridge,
-    packet: JSONObject,
-    senderUpeerId: String,
-    senderIdentityKey: String,
-    isDevicePacket: Boolean,
-    metadataJSON: String,
-  ): String {
-    val messageID = packet.optString("id")
-    if (!ReplayPolicy.validMessageID(messageID)) throw IllegalArgumentException("CHAT message id must be a UUID")
-    state.touchPresence(senderUpeerId)
-    val existingOwner = state.messages.owner(messageID)
-    if (existingOwner != null) {
-      if (existingOwner != senderUpeerId) throw IllegalArgumentException("CHAT message ID collision across conversations")
-      controlSender.scheduleAck(senderUpeerId, messageID)
-      return metadataJSON
-    }
-    state.clearTyping(senderUpeerId)
-    val decrypted = chatDecryptor.decrypt(packet, senderUpeerId, senderIdentityKey, isDevicePacket)
-    if (decrypted.messageID.isNotEmpty()) controlSender.scheduleAck(senderUpeerId, decrypted.messageID)
-    try {
-      onInboundMessage(senderUpeerId, state.peerFor(senderUpeerId)?.optString("alias").orEmpty(), decrypted.plaintext)
-    } catch (cause: Exception) {
-      Log.w(TAG, "No se pudo notificar el mensaje de $senderUpeerId: ${message(cause)}")
-    }
-    return metadataJSON
-  }
-
-  private fun handleChatUpdate(
-    packet: JSONObject,
-    senderUpeerId: String,
-    senderIdentityKey: String,
-    isDevicePacket: Boolean,
-    metadataJSON: String,
-  ): String {
-    val messageID = packet.optString("msgId")
-    if (!ReplayPolicy.validMessageID(messageID)) throw IllegalArgumentException("CHAT_UPDATE msgId must be a UUID")
-    state.touchPresence(senderUpeerId)
-    val version = packet.optInt("version", 0)
-    if (version <= 0) throw IllegalArgumentException("CHAT_UPDATE version must be positive")
-    val current = state.messages.find(messageID)
-    if (current == null || current.optString("upeerId") != senderUpeerId || current.optBoolean("isMine")) {
-      Log.w(TAG, "CHAT_UPDATE ignorado para un mensaje ajeno: $messageID")
-      return metadataJSON
-    }
-    if (version <= current.optInt("version", 0)) {
-      Log.i(TAG, "CHAT_UPDATE duplicado ignorado para $messageID (versión $version)")
-      return metadataJSON
-    }
-    val plaintext = chatDecryptor.decryptUpdate(packet, senderUpeerId, senderIdentityKey, isDevicePacket)
-    val updated = state.messages.updateIncomingContent(messageID, senderUpeerId, plaintext, version)
-    if (updated == null) {
-      Log.w(TAG, "CHAT_UPDATE obsoleto ignorado para $messageID (versión $version)")
-    } else {
-      Log.i(TAG, "CHAT_UPDATE aplicado a $messageID (versión $version)")
-    }
-    return metadataJSON
   }
 
   private fun selfAddress(): String = bridge?.address().orEmpty()
