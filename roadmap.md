@@ -1134,6 +1134,21 @@ El registro firmado ya guardaba los revocados, pero revocar no cambiaba nada en 
 - **El dispositivo revocado ya tiene salida.** El aviso de peligro del panel ofrece «Volver a vincular este dispositivo» y abre el mismo `DevicePairingPanel` que la pantalla de recuperación, dentro de una hoja inferior: `deviceEnrollmentBegin` genera una clave de dispositivo nueva, así que el emparejamiento sustituye la identidad en lugar de reutilizarla. Tras vincularlo hay que cerrar y abrir la sesión con la frase.
 - Pendiente: **propagar el registro nuevo entre dispositivos propios** (B10) para que un dispositivo revocado que siga encendido en otra máquina se entere; hoy solo lo aprende quien recibe su tráfico.
 
+### Gestión de dispositivos en escritorio: sección propia (26/10/2026)
+
+El emparejamiento estaba enterrado en **Seguridad**, entre el PIN, la frase de recuperación y la zona de peligro, dentro de una tarjeta con `borderRadius: 16px` que rompía la convención visual de la sección (cabecera con icono, rótulo en versalitas y `borderBottom: 1px divider`). Nadie lo encontraba: es una acción de alta, no de protección.
+
+Se añade una sección **Dispositivos** en el rail de Ajustes, entre Perfil y Privacidad, con tres bloques y el mismo estilo plano que el resto:
+
+- **Dispositivos de la cuenta** — qué significa compartir cuenta y que ningún dispositivo recibe la semilla.
+- **Vincular un dispositivo nuevo** — la invitación, el código de solicitud y la respuesta.
+- **Dispositivos autorizados** — el registro firmado, con `epoch` y revocación.
+
+Además se resuelve la duplicidad que generaba la confusión: `DeviceSessionList` (lista local de nodos con estado de confianza, `getDevicesByUPeerId`) se titulaba «Sesiones y Dispositivos · Dispositivos vinculados a tu identidad», lo que se leía como el registro de la cuenta sin serlo. Ahora vive en la misma sección como **Confianza local entre nodos**, con el texto explícito de que no forma parte del registro firmado. Seguridad queda con PIN, recuperación y zona de peligro.
+
+**El marcador del rail ahora sirve para algo.** `SyncStatusIndicator` era un icono de nube con `cursor: default` que informaba del estado de sincronización sin ofrecer ninguna acción, justo el elemento que uno pulsa cuando quiere gestionar dispositivos. Ahora es clicable y abre Ajustes → Dispositivos, y el tooltip lo dice. Verificado con un clic real sobre la app en marcha: navega a la sección.
+
+
 ### Entrada a la cuenta: dos formas equivalentes (26/10/2026)
 
 La pantalla de acceso ofrecía «Recuperar identidad» con un enlace escondido «No tengo la frase: vincular este dispositivo». Se sustituye por una sola acción, **«Vincular a mi cuenta existente»**, que abre una elección de dos botones iguales:
