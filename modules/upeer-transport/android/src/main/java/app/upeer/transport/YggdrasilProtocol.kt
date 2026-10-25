@@ -6,6 +6,7 @@ import app.upeer.transport.dht.DhtLocation
 import app.upeer.transport.vault.VaultDirectory
 import app.upeer.transport.vault.VaultMailboxStore
 import app.upeer.transportbridge.transportbridge.Bridge
+import app.upeer.transportbridge.transportbridge.Transportbridge
 import org.json.JSONObject
 
 internal class YggdrasilProtocol(
@@ -22,6 +23,7 @@ internal class YggdrasilProtocol(
   private val rateLimiter: InboundRateLimiter = InboundRateLimiter(),
   ) {
   private val policy = InboundPolicy(rateLimiter)
+  private val egress = ProtocolEgress(::selfAddress)
   private val handshake = YggdrasilHandshake(identity, signedPreKeys, deviceSignedPreKeys, deviceBindings, state)
   private val outbox = YggdrasilOutbox(
     identity,
@@ -52,8 +54,18 @@ internal class YggdrasilProtocol(
     state,
     vaultMailbox,
     policy,
-    ::sendVaultPacket,
+    { active, address, json -> egress.send(active, address, json, "de vault") },
     ::replayVaultEntry,
+  )
+  private val syncReplies = SyncReplies(
+    identity,
+    deviceSignedPreKeys,
+    deviceBindings,
+    state,
+    policy,
+    ::selfAddress,
+    ::validateLinked,
+    { active, address, json -> egress.send(active, address, json, "de sincronización") },
   )
 
   fun attachVaultDirectory(directory: VaultDirectory) = outbox.attachVaultDirectory(directory)
@@ -177,6 +189,7 @@ internal class YggdrasilProtocol(
   private fun handleSignedPacket(activeBridge: Bridge, payload: ByteArray, sourceAddress: String): String {
     val packet = JSONObject(String(payload, Charsets.UTF_8))
     val type = packet.optString("type")
+    if (SyncPackets.isSyncType(type)) return syncReplies.handle(activeBridge, payload, packet, type, sourceAddress)
     val declaredSender = packet.optString("senderUpeerId").lowercase()
     if (declaredSender.isNotEmpty() && state.isBlocked(declaredSender)) {
       Log.i(TAG, "Paquete $type descartado: $declaredSender está bloqueado")
@@ -314,24 +327,11 @@ internal class YggdrasilProtocol(
     return metadataJSON
   }
 
-  private fun sendVaultPacket(activeBridge: Bridge, address: String, packetJSON: String): Boolean {
-    var connectionID = 0
-    return try {
-      connectionID = activeBridge.dialTCP(address, CONTROL_PORT)
-      activeBridge.writeFrame(connectionID, packetJSON.toByteArray(Charsets.UTF_8))
-      true
-    } catch (cause: Exception) {
-      Log.w(TAG, "No se pudo enviar el paquete de vault a $address: ${message(cause)}")
-      false
-    } finally {
-      if (connectionID != 0) {
-        try {
-          activeBridge.closeConnection(connectionID)
-        } catch (cause: Exception) {
-          Log.w(TAG, "No se pudo cerrar la conexión del vault: ${message(cause)}")
-        }
-      }
-    }
+  private fun selfAddress(): String = bridge?.address().orEmpty()
+
+  private fun validateLinked(payload: ByteArray, publicKey: String, sender: String) {
+    val active = bridge ?: throw IllegalStateException("no hay puente activo para validar la firma")
+    active.validateLinkedSignedPacket(payload, publicKey, sender)
   }
 
   private fun replayVaultEntry(activeBridge: Bridge, bytes: ByteArray, sourceAddress: String) {
@@ -342,7 +342,6 @@ internal class YggdrasilProtocol(
 
   private companion object {
     private const val TAG = "UPeerTransport"
-    private const val CONTROL_PORT = 50005L
-    private val VAULT_TYPES = setOf("VAULT_STORE", "VAULT_QUERY", "VAULT_ACK", "VAULT_DELIVERY")
+    private val VAULT_TYPES = setOf("VAULT_STORE", "VAULT_QUERY", "VAULT_ACK", "VAULT_DELIVERY", "VAULT_RENEW")
   }
 }
