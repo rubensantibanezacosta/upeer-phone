@@ -19,6 +19,8 @@ type CryptoIdentity struct {
 	secretKey ed25519.PrivateKey
 }
 
+var ErrRootIdentityUnavailable = errors.New("la identidad raíz no está disponible en este dispositivo")
+
 func NewCryptoIdentity(secretKey []byte) (*CryptoIdentity, error) {
 	if len(secretKey) != ed25519.PrivateKeySize {
 		return nil, errors.New("uPeer identity secret key must be 64 bytes")
@@ -32,6 +34,27 @@ func NewCryptoIdentity(secretKey []byte) (*CryptoIdentity, error) {
 	return &CryptoIdentity{publicKey: publicKey, secretKey: privateKey}, nil
 }
 
+// NewDeviceOnlyCryptoIdentity representa una cuenta enrolada sin la clave raíz: conoce la
+// clave pública de la cuenta y falla cerrado en toda operación que exija firmar como raíz.
+func NewDeviceOnlyCryptoIdentity(accountPublicKeyHex string) (*CryptoIdentity, error) {
+	raw, err := hex.DecodeString(strings.TrimSpace(accountPublicKeyHex))
+	if err != nil || len(raw) != ed25519.PublicKeySize {
+		return nil, errors.New("account public key must be a 32-byte hexadecimal Ed25519 key")
+	}
+	return &CryptoIdentity{publicKey: append(ed25519.PublicKey(nil), raw...)}, nil
+}
+
+func (identity *CryptoIdentity) IsDeviceOnly() bool {
+	return identity == nil || len(identity.secretKey) != ed25519.PrivateKeySize
+}
+
+func (identity *CryptoIdentity) requireSecretKey(operation string) (ed25519.PrivateKey, error) {
+	if identity == nil || len(identity.secretKey) != ed25519.PrivateKeySize {
+		return nil, fmt.Errorf("%s: %w", operation, ErrRootIdentityUnavailable)
+	}
+	return identity.secretKey, nil
+}
+
 func (identity *CryptoIdentity) PublicKeyHex() string {
 	return hex.EncodeToString(identity.publicKey)
 }
@@ -41,7 +64,11 @@ func (identity *CryptoIdentity) UpeerID() string {
 }
 
 func (identity *CryptoIdentity) Sign(payload []byte) string {
-	return hex.EncodeToString(ed25519.Sign(identity.secretKey, payload))
+	secretKey, err := identity.requireSecretKey("sign")
+	if err != nil {
+		return ""
+	}
+	return hex.EncodeToString(ed25519.Sign(secretKey, payload))
 }
 
 func (identity *CryptoIdentity) Seal(plaintext []byte, recipientPublicKeyHex string) (string, error) {
@@ -61,7 +88,11 @@ func (identity *CryptoIdentity) OpenSealed(ciphertextHex string) ([]byte, error)
 	if err != nil {
 		return nil, errors.New("sealed ciphertext must be hexadecimal")
 	}
-	plaintext, err := openSealedBox(ciphertext, identity.secretKey)
+	secretKey, err := identity.requireSecretKey("open sealed")
+	if err != nil {
+		return nil, err
+	}
+	plaintext, err := openSealedBox(ciphertext, secretKey)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +127,11 @@ func (identity *CryptoIdentity) StartOutboundSession(peerPublicKeyHex, peerSPKPu
 	if err != nil {
 		return "", fmt.Errorf("generate X3DH ephemeral key: %w", err)
 	}
-	sharedSecret, _, err := x3dhInitiator(identity.secretKey, peerPublicKey, peerSPKPublicKey, ephemeralSecretKey[:])
+	secretKey, err := identity.requireSecretKey("start outbound session")
+	if err != nil {
+		return "", err
+	}
+	sharedSecret, _, err := x3dhInitiator(secretKey, peerPublicKey, peerSPKPublicKey, ephemeralSecretKey[:])
 	if err != nil {
 		return "", err
 	}
@@ -147,7 +182,11 @@ func (identity *CryptoIdentity) AcceptInboundSession(peerPublicKeyHex, x3dhInitJ
 	if err != nil {
 		return "", fmt.Errorf("derive signed pre-key public key: %w", err)
 	}
-	sharedSecret, err := x3dhResponder(identity.secretKey, spkSecretKey, peerPublicKey, aliceEphemeralPublicKey)
+	secretKey, err := identity.requireSecretKey("accept inbound session")
+	if err != nil {
+		return "", err
+	}
+	sharedSecret, err := x3dhResponder(secretKey, spkSecretKey, peerPublicKey, aliceEphemeralPublicKey)
 	if err != nil {
 		return "", err
 	}

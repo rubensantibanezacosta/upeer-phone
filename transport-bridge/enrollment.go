@@ -177,6 +177,10 @@ func (identity *CryptoIdentity) OpenEnrollmentRequest(inviteJSON, sealedJSON str
 // IssueEnrollmentCertificate signs the certificate for an accepted request and
 // seals it with the invitation secret so only the new device can read it.
 func (identity *CryptoIdentity) IssueEnrollmentCertificate(inviteJSON, requestJSON string, epoch, issuedAt, ttlMillis int64) (string, error) {
+	secretKey, err := identity.requireSecretKey("issue enrollment certificate")
+	if err != nil {
+		return "", err
+	}
 	invite, err := decodeEnrollmentInvite(inviteJSON)
 	if err != nil {
 		return "", err
@@ -188,7 +192,7 @@ func (identity *CryptoIdentity) IssueEnrollmentCertificate(inviteJSON, requestJS
 	if !strings.EqualFold(request.InviteID, invite.Offer.InviteID) {
 		return "", errors.New("enrollment request belongs to another invitation")
 	}
-	certificate, err := dht.IssueEnrollmentCertificate(identity.secretKey, request, epoch, issuedAt, ttlMillis)
+	certificate, err := dht.IssueEnrollmentCertificate(secretKey, request, epoch, issuedAt, ttlMillis)
 	if err != nil {
 		return "", err
 	}

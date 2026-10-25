@@ -9,36 +9,36 @@ import go.Seq;
 
 public final class PeerManager implements Seq.Proxy {
 	static { Transportbridge.touch(); }
-
+	
 	private final int refnum;
-
+	
 	@Override public final int incRefnum() {
 	      Seq.incGoRef(refnum, this);
 	      return refnum;
 	}
-
+	
 	PeerManager(int refnum) { this.refnum = refnum; Seq.trackGoRef(refnum, this); }
-
+	
 	public PeerManager() { this.refnum = __New(); Seq.trackGoRef(refnum, this); }
-
+	
 	private static native int __New();
-
+	
 	// skipped method PeerManager.ActivePeerURIs with unsupported parameter or return types
-
+	
 	public native String peerPoolJSON() throws Exception;
 	// skipped method PeerManager.ReconcileConfiguredPeers with unsupported parameter or return types
-
+	
 	// skipped method PeerManager.RefreshAndReconcile with unsupported parameter or return types
-
+	
 	// skipped method PeerManager.RefreshPeerPool with unsupported parameter or return types
-
+	
 	// skipped method PeerManager.ReplacePeers with unsupported parameter or return types
-
+	
 	// skipped method PeerManager.ReplacePeersWithoutRetry with unsupported parameter or return types
-
+	
 	public native void start() throws Exception;
 	// skipped method PeerManager.StartWithInitialPeers with unsupported parameter or return types
-
+	
 	public native void stop();
 	@Override public boolean equals(Object o) {
 		if (o == null || !(o instanceof PeerManager)) {
@@ -47,11 +47,11 @@ public final class PeerManager implements Seq.Proxy {
 		PeerManager that = (PeerManager)o;
 		return true;
 	}
-
+	
 	@Override public int hashCode() {
 	    return java.util.Arrays.hashCode(new Object[] {});
 	}
-
+	
 	@Override public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append("PeerManager").append("{");

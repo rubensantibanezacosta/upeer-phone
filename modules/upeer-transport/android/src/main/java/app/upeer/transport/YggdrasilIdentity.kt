@@ -10,6 +10,7 @@ internal class YggdrasilIdentity(context: Context) {
   private val vault = IdentityVault(context)
   private val devices = DeviceIdentityStore(context)
   private val registries = AccountRegistryStore(context)
+  private val accountPublic = AccountPublicVault(context)
   private val lock = Any()
   private var identity: CryptoIdentity? = null
 
@@ -20,10 +21,41 @@ internal class YggdrasilIdentity(context: Context) {
   fun set(secretKey: ByteArray) {
     val nextIdentity = CryptoIdentity(secretKey)
     vault.save(secretKey)
+    accountPublic.clear()
     synchronized(lock) { identity = nextIdentity }
     ensureDevice(nextIdentity)
     Log.i(TAG, "Identidad uPeer provisionada en el servicio")
   }
+
+  fun setAccountPublic(accountUpeerId: String, accountPublicKey: String): Boolean {
+    val normalizedId = accountUpeerId.lowercase()
+    val normalizedKey = accountPublicKey.lowercase()
+    val nextIdentity = try {
+      Transportbridge.newDeviceOnlyCryptoIdentity(normalizedKey)
+    } catch (cause: Exception) {
+      Log.e(TAG, "La clave pública de cuenta no es válida", cause)
+      return false
+    }
+    if (nextIdentity.upeerID() != normalizedId) {
+      Log.e(TAG, "La clave pública de cuenta no deriva el upeerId indicado")
+      return false
+    }
+    if (nextIdentity.publicKeyHex() != normalizedKey) {
+      Log.e(TAG, "La identidad de dispositivo no conserva la clave pública de cuenta")
+      return false
+    }
+    if (!accountPublic.save(normalizedId, normalizedKey)) {
+      Log.e(TAG, "No se pudo persistir la identidad pública de la cuenta")
+      return false
+    }
+    vault.clear()
+    synchronized(lock) { identity = nextIdentity }
+    ensureDevice(nextIdentity)
+    Log.i(TAG, "Identidad uPeer en modo dispositivo sin clave raíz")
+    return true
+  }
+
+  fun isDeviceOnly(): Boolean = synchronized(lock) { identity?.isDeviceOnly() ?: false }
 
   fun clear() {
     try {
@@ -35,6 +67,11 @@ internal class YggdrasilIdentity(context: Context) {
       devices.clear()
     } catch (cause: Exception) {
       Log.e(TAG, "No se pudo eliminar la identidad de dispositivo del Keystore", cause)
+    }
+    try {
+      accountPublic.clear()
+    } catch (cause: Exception) {
+      Log.e(TAG, "No se pudo eliminar la identidad pública de la cuenta", cause)
     }
     vault.clear()
     synchronized(lock) { identity = null }
@@ -119,6 +156,7 @@ internal class YggdrasilIdentity(context: Context) {
       val device = devices.current()?.takeIf { it.accountUpeerId == activeIdentity.upeerID() }
       JSONObject()
         .put("ready", true)
+        .put("mode", if (activeIdentity.isDeviceOnly()) "device" else "root")
         .put("publicKey", activeIdentity.publicKeyHex())
         .put("upeerId", activeIdentity.upeerID())
         .put("deviceId", device?.deviceId ?: "")
@@ -128,23 +166,50 @@ internal class YggdrasilIdentity(context: Context) {
   }
 
   private fun load() {
+    if (loadRootIdentity()) return
+    loadDeviceOnlyIdentity()
+  }
+
+  private fun loadRootIdentity(): Boolean {
     val secretKey = try {
       vault.load()
     } catch (cause: Exception) {
       Log.e(TAG, "No se pudo leer la identidad uPeer cifrada", cause)
-      return
-    } ?: return
+      return false
+    } ?: return false
     val storedIdentity = try {
       CryptoIdentity(secretKey)
     } catch (cause: Exception) {
       Log.e(TAG, "La identidad uPeer almacenada no es válida; se elimina", cause)
       vault.clear()
-      return
+      return false
     } finally {
       secretKey.fill(0)
     }
     synchronized(lock) { identity = storedIdentity }
     Log.i(TAG, "Identidad uPeer cargada desde Keystore")
+    ensureDevice(storedIdentity)
+    return true
+  }
+
+  private fun loadDeviceOnlyIdentity() {
+    val stored = accountPublic.load()
+    if (stored == null) {
+      Log.i(TAG, "Sin identidad uPeer provisionada en este dispositivo")
+      return
+    }
+    val storedIdentity = try {
+      Transportbridge.newDeviceOnlyCryptoIdentity(stored.accountPublicKey)
+    } catch (cause: Exception) {
+      Log.e(TAG, "La identidad pública de la cuenta almacenada no es válida", cause)
+      return
+    }
+    if (storedIdentity.upeerID() != stored.accountUpeerId) {
+      Log.e(TAG, "La identidad pública de la cuenta no deriva el upeerId almacenado")
+      return
+    }
+    synchronized(lock) { identity = storedIdentity }
+    Log.i(TAG, "Identidad uPeer cargada en modo dispositivo sin clave raíz")
     ensureDevice(storedIdentity)
   }
 

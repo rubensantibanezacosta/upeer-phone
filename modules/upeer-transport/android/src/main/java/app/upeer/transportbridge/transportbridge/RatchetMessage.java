@@ -9,35 +9,35 @@ import go.Seq;
 
 public final class RatchetMessage implements Seq.Proxy {
 	static { Transportbridge.touch(); }
-
+	
 	private final int refnum;
-
+	
 	@Override public final int incRefnum() {
 	      Seq.incGoRef(refnum, this);
 	      return refnum;
 	}
-
+	
 	RatchetMessage(int refnum) { this.refnum = refnum; Seq.trackGoRef(refnum, this); }
-
+	
 	public RatchetMessage() { this.refnum = __New(); Seq.trackGoRef(refnum, this); }
-
+	
 	private static native int __New();
-
+	
 	// skipped field RatchetMessage.Header with unsupported type: github.com/upeer/upeer/transport-bridge.RatchetHeader
-
+	
 	public final native String getCiphertext();
 	public final native void setCiphertext(String v);
-
+	
 	public final native String getNonce();
 	public final native void setNonce(String v);
-
+	
 	@Override public boolean equals(Object o) {
 		if (o == null || !(o instanceof RatchetMessage)) {
 		    return false;
 		}
 		RatchetMessage that = (RatchetMessage)o;
 		// skipped field RatchetMessage.Header with unsupported type: github.com/upeer/upeer/transport-bridge.RatchetHeader
-
+		
 		String thisCiphertext = getCiphertext();
 		String thatCiphertext = that.getCiphertext();
 		if (thisCiphertext == null) {
@@ -58,11 +58,11 @@ public final class RatchetMessage implements Seq.Proxy {
 		}
 		return true;
 	}
-
+	
 	@Override public int hashCode() {
 	    return java.util.Arrays.hashCode(new Object[] {getCiphertext(), getNonce()});
 	}
-
+	
 	@Override public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append("RatchetMessage").append("{");

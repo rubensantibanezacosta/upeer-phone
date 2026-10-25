@@ -285,7 +285,11 @@ func (identity *CryptoIdentity) VerifySignedPreKey(peerPublicKeyHex, spkPubHex, 
 }
 
 func (identity *CryptoIdentity) buildSignedPacket(data map[string]any, senderYggAddress string) (string, error) {
-	return dht.BuildSignedPacketFromObject(identity.secretKey, senderYggAddress, data)
+	secretKey, err := identity.requireSecretKey("build signed packet")
+	if err != nil {
+		return "", err
+	}
+	return dht.BuildSignedPacketFromObject(secretKey, senderYggAddress, data)
 }
 
 func (identity *CryptoIdentity) validatedSignedPreKey(signedPreKeyJSON string) (signedPreKeyState, error) {

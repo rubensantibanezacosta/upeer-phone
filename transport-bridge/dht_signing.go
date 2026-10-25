@@ -10,11 +10,19 @@ import (
 )
 
 func (identity *CryptoIdentity) SignCanonicalJSON(payloadJSON string) (string, error) {
-	return dht.SignCanonicalJSON(identity.secretKey, payloadJSON)
+	secretKey, err := identity.requireSecretKey("sign canonical json")
+	if err != nil {
+		return "", err
+	}
+	return dht.SignCanonicalJSON(secretKey, payloadJSON)
 }
 
 func (identity *CryptoIdentity) BuildSignedPacket(senderYggAddress, packetJSON string) (string, error) {
-	return dht.BuildSignedPacket(identity.secretKey, senderYggAddress, packetJSON)
+	secretKey, err := identity.requireSecretKey("build signed packet")
+	if err != nil {
+		return "", err
+	}
+	return dht.BuildSignedPacket(secretKey, senderYggAddress, packetJSON)
 }
 
 func BuildSignedPacket(secretKey []byte, senderYggAddress, packetJSON string) (string, error) {
@@ -38,7 +46,11 @@ func BuildDevicePairingRequest(deviceSecretKey []byte, optionsJSON string) (stri
 }
 
 func (identity *CryptoIdentity) BuildDevicePairingRequest(optionsJSON string) (string, error) {
-	return BuildDevicePairingRequest(identity.secretKey, optionsJSON)
+	secretKey, err := identity.requireSecretKey("build device pairing request")
+	if err != nil {
+		return "", err
+	}
+	return BuildDevicePairingRequest(secretKey, optionsJSON)
 }
 
 func VerifyDevicePairingRequest(requestJSON, expectedAccountUpeerID string, nowMillis int64) (bool, error) {
@@ -54,7 +66,11 @@ func ApproveDevicePairingRequest(accountSecretKey []byte, requestJSON string, ep
 }
 
 func (identity *CryptoIdentity) ApproveDevicePairingRequest(requestJSON string, epoch, issuedAt, expiresAt int64) (string, error) {
-	return dht.ApproveDevicePairingRequest(identity.secretKey, requestJSON, epoch, issuedAt, expiresAt)
+	secretKey, err := identity.requireSecretKey("approve device pairing request")
+	if err != nil {
+		return "", err
+	}
+	return dht.ApproveDevicePairingRequest(secretKey, requestJSON, epoch, issuedAt, expiresAt)
 }
 
 func VerifyDeviceCertificate(certificateJSON, expectedAccountUpeerID string, nowMillis int64) (bool, error) {
@@ -103,7 +119,11 @@ func BuildAccountRegistryFromCertificates(accountSecretKey []byte, certificatesJ
 }
 
 func (identity *CryptoIdentity) BuildAccountRegistryFromCertificates(certificatesJSON, revokedJSON string, epoch, issuedAt, ttlMillis int64) (string, error) {
-	return BuildAccountRegistryFromCertificates(identity.secretKey, certificatesJSON, revokedJSON, epoch, issuedAt, ttlMillis)
+	secretKey, err := identity.requireSecretKey("build account registry")
+	if err != nil {
+		return "", err
+	}
+	return BuildAccountRegistryFromCertificates(secretKey, certificatesJSON, revokedJSON, epoch, issuedAt, ttlMillis)
 }
 
 func VerifyAccountRegistry(registryJSON, expectedAccountUpeerID string, nowMillis int64) (bool, error) {
@@ -138,7 +158,11 @@ func RevokeAccountDevice(previousRegistryJSON string, accountSecretKey []byte, d
 }
 
 func (identity *CryptoIdentity) RevokeAccountDevice(previousRegistryJSON, deviceID, reason string, nowMillis int64) (string, error) {
-	return dht.RevokeAccountDevice(previousRegistryJSON, identity.secretKey, deviceID, reason, nowMillis)
+	secretKey, err := identity.requireSecretKey("revoke account device")
+	if err != nil {
+		return "", err
+	}
+	return dht.RevokeAccountDevice(previousRegistryJSON, secretKey, deviceID, reason, nowMillis)
 }
 
 func AccountRegistryKey(accountUpeerID string) (string, error) {

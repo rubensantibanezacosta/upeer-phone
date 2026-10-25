@@ -156,10 +156,14 @@ func (identity *CryptoIdentity) buildHandshakeAccept(senderYggAddress, signedPre
 	if err != nil {
 		return "", fmt.Errorf("canonicalize handshake accept: %w", err)
 	}
+	rootKey, err := identity.requireSecretKey("build handshake accept")
+	if err != nil {
+		return "", err
+	}
 	packet := cloneStringMap(data)
 	packet["senderUpeerId"] = senderUpeerID
 	packet["senderYggAddress"] = senderYggAddress
-	packet["signature"] = hex.EncodeToString(ed25519.Sign(identity.secretKey, []byte(canonical)))
+	packet["signature"] = hex.EncodeToString(ed25519.Sign(rootKey, []byte(canonical)))
 	encoded, err := json.Marshal(packet)
 	if err != nil {
 		return "", fmt.Errorf("encode handshake accept: %w", err)

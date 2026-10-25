@@ -12,7 +12,11 @@ func (identity *CryptoIdentity) BuildLocationBlock(addressesJSON string, dhtSeq,
 	if err := json.Unmarshal([]byte(addressesJSON), &addresses); err != nil {
 		return "", fmt.Errorf("decode location block addresses: %w", err)
 	}
-	return dht.BuildLocationBlock(identity.secretKey, dht.LocationBlockOptions{
+	secretKey, err := identity.requireSecretKey("build location block")
+	if err != nil {
+		return "", err
+	}
+	return dht.BuildLocationBlock(secretKey, dht.LocationBlockOptions{
 		Addresses: addresses,
 		DhtSeq:    dhtSeq,
 		TTLMillis: ttlMillis,

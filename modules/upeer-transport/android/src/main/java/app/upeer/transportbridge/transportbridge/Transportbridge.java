@@ -12,26 +12,29 @@ public abstract class Transportbridge {
 		Seq.touch(); // for loading the native library
 		_init();
 	}
-
+	
 	private Transportbridge() {} // uninstantiable
-
+	
 	// touch is called from other bound packages to initialize this package
 	public static void touch() {}
-
+	
 	private static native void _init();
-
-
+	
+	
 	public static final long MaxFrameBytes = 10485760L;
-
+	
 	public static native void setErrEmptyFrame(java.lang.Exception v);
 	public static native java.lang.Exception getErrEmptyFrame();
-
+	
 	public static native void setErrFrameTooLarge(java.lang.Exception v);
 	public static native java.lang.Exception getErrFrameTooLarge();
-
+	
 	public static native void setErrRatchetAuthentication(java.lang.Exception v);
 	public static native java.lang.Exception getErrRatchetAuthentication();
-
+	
+	public static native void setErrRootIdentityUnavailable(java.lang.Exception v);
+	public static native java.lang.Exception getErrRootIdentityUnavailable();
+	
 	public static native String accountRegistryKey(String accountUpeerID) throws Exception;
 	public static native String approveDevicePairingRequest(byte[] accountSecretKey, String requestJSON, long epoch, long issuedAt, long expiresAt) throws Exception;
 	public static native String buildAccountRegistryFromCertificates(byte[] accountSecretKey, String certificatesJSON, String revokedJSON, long epoch, long issuedAt, long ttlMillis) throws Exception;
@@ -43,6 +46,11 @@ public abstract class Transportbridge {
 	public static native byte[] generateNodeSeed() throws Exception;
 	public static native Bridge newBridge();
 	public static native CryptoIdentity newCryptoIdentity(byte[] secretKey) throws Exception;
+	/**
+	 * NewDeviceOnlyCryptoIdentity representa una cuenta enrolada sin la clave raíz: conoce la
+	clave pública de la cuenta y falla cerrado en toda operación que exija firmar como raíz.
+	 */
+	public static native CryptoIdentity newDeviceOnlyCryptoIdentity(String accountPublicKeyHex) throws Exception;
 	public static native long nextAccountRegistryEpoch(String registryJSON) throws Exception;
 	/**
 	 * OpenEnrollmentCertificate installs the certificate returned by the account

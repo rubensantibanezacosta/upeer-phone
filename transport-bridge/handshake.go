@@ -27,7 +27,11 @@ func (identity *CryptoIdentity) CreateSignedPreKey(spkID int) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("generate signed pre-key: %w", err)
 	}
-	signature := ed25519.Sign(identity.secretKey, publicKey[:])
+	rootKey, err := identity.requireSecretKey("create signed pre-key")
+	if err != nil {
+		return "", err
+	}
+	signature := ed25519.Sign(rootKey, publicKey[:])
 	encoded, err := json.Marshal(signedPreKeyState{
 		SPKPub: hex.EncodeToString(publicKey[:]),
 		SPKSig: hex.EncodeToString(signature),
@@ -67,10 +71,14 @@ func (identity *CryptoIdentity) BuildAck(senderYggAddress, messageID, status str
 	if err != nil {
 		return "", fmt.Errorf("canonicalize ACK: %w", err)
 	}
+	rootKey, err := identity.requireSecretKey("build ack")
+	if err != nil {
+		return "", err
+	}
 	packet := cloneStringMap(data)
 	packet["senderUpeerId"] = identity.UpeerID()
 	packet["senderYggAddress"] = senderYggAddress
-	packet["signature"] = hex.EncodeToString(ed25519.Sign(identity.secretKey, []byte(canonical)))
+	packet["signature"] = hex.EncodeToString(ed25519.Sign(rootKey, []byte(canonical)))
 	encoded, err := json.Marshal(packet)
 	if err != nil {
 		return "", fmt.Errorf("encode ACK: %w", err)
