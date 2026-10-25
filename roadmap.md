@@ -933,12 +933,13 @@ Decisión de producto: **«En línea» significa que la persona ha estado activa
 - **Dos datos, no uno.** `lastSeen` se queda como está, en el servicio, para diagnóstico y para el reintento/reachability del outbox. La etiqueta del usuario pasa a derivarse de `lastActive`, que **solo avanza con actividad humana real**: abrir la app, volver a primer plano, abrir una conversación, escribir, enviar, leer o reaccionar. El `PING`/`PONG`, los ACK, los `DR_RESET` y cualquier tráfico de protocolo **no** tocan `lastActive`.
 - **La ventana no cambia, el dato sí.** `ONLINE_WINDOW_MS` se aplica a `lastActive`: dentro de 65 s es «En línea»; después, «Última vez …» con la hora de la última acción real. `describePresence` no necesita cambios; cambia de dónde sale su entrada.
 - **Nada de estados técnicos en la UI.** No se expone «nodo conectado», «servicio activo» ni equivalentes en la lista, la cabecera ni la ficha del contacto. El estado de red y DHT sigue viviendo solo en Ajustes › Diagnóstico.
-- **Pendiente de implementar** (esto es la decisión, no el código):
-  1. Campo `lastActive` por peer en el estado nativo, con su `touchActive` separado de `touchPresence`, y `lastActive` en el payload de `ProtocolConversations`.
-  2. Marcarlo desde la app: arranque de sesión, `AppState` a `active`, apertura de conversación, envío, lectura, reacción, edición y borrado propios.
-  3. Escritorio: emitir su propia actividad por la misma vía y dejar de considerar `lastSeen` como presencia humana en `topHeaderSupport` y `ContactsPanelDetails`.
-  4. Pruebas: `presence.test.ts` con «el nodo contestó pero no hubo actividad → `Última vez`» y un caso Kotlin de que `PING` no mueve `lastActive`.
-  5. Ajustes › Privacidad sigue mandando: «Conectado» apagado oculta la etiqueta en línea; «Última vez» apagado oculta la hora.
+- **Implementado (26/10/2026).** Lo que sigue es lo que quedó en el código, no el plan:
+  1. `ProtocolPresence.kt` guarda `lastActive` por peer con `touch()`, separado de `touchPresence`. `ProtocolTyping.kt` se extrajo de `ProtocolStateStore` para no pasar de 300 líneas.
+  2. `ControlSender.markActive()` es la única puerta de entrada, con `AtomicLong`, throttle de 20 s y ventana de 5 min; nada de protocolo lo llama. El `PING` que manda el móvil lleva `activeAt`, y `ControlReplies` lo persiste al recibirlo del par; el `PONG` sigue sin payload de actividad.
+  3. `lastActive` viaja en el payload de `ProtocolConversations` y sube por AIDL con `markUserActive`. `use-activity-signal.ts` marca actividad al montar y cada vez que `AppState` vuelve a `active`.
+  4. `presence.activeAt()` prefiere `lastActive` y cae a `lastSeen` solo si nunca hubo actividad, así que `describePresence` no cambió. `use-presence-label.ts` pasa por ahí.
+  5. Pruebas: `ProtocolPresenceTest.kt` (6 casos, incluido que `PING` no mueve `lastActive`) y `presence.test.ts` con el caso «el nodo contestó pero no hubo actividad → `Última vez`».
+  6. Ajustes › Privacidad sigue mandando: «Conectado» apagado oculta la etiqueta en línea; «Última vez» apagado oculta la hora.
 
 ### Buscar en la conversación (26/10/2026)
 
