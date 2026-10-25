@@ -61,6 +61,8 @@ interface IYggdrasilTransport {
   String deviceEnrollmentBegin(String code);
   String deviceEnrollmentRequestJSON();
   String deviceEnrollmentSubmit();
+
+  String deviceEnrollmentLastIssued();
   String deviceEnrollmentFinish(String sealedResponse);
   void deviceEnrollmentCancel();
   String deviceEnrollmentStatusJSON();

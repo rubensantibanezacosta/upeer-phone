@@ -7,6 +7,7 @@ import {
   completeEnrollmentAuthorization,
   createEnrollmentInvite,
   getEnrollmentAuthorizerStatus,
+  getLastIssuedEnrollment,
 } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import type {
   EnrollmentAuthorizerInvite,
@@ -67,6 +68,28 @@ export function useEnrollmentAuthorizer() {
       setState((current) => ({ ...current, busy: false, error: describe(cause, 'No se pudo generar la invitación.') }));
     }
   }, [refresh]);
+
+  const inviteId = state.invite?.inviteId ?? '';
+
+  useEffect(() => {
+    if (!inviteId) return;
+    let active = true;
+    const timer = setInterval(() => {
+      getLastIssuedEnrollment()
+        .then((issued) => {
+          if (!active || !issued || issued.inviteId !== inviteId) return;
+          setState((current) => (current.issued ? current : { ...current, issued, invite: null, accepted: null, busy: false }));
+          void refresh();
+        })
+        .catch((cause: unknown) => {
+          console.warn('No se pudo consultar el último dispositivo autorizado.', cause);
+        });
+    }, 1500);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [inviteId, refresh]);
 
   const accept = useCallback(async (code: string) => {
     const normalized = code.trim();

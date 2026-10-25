@@ -64,7 +64,7 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
         <ShieldAlert color={theme.onDangerSoft} size={16} />
         <Text color={theme.onDangerSoft} flex={1} fontSize={scale(12)}>Este dispositivo fue revocado y ya no puede enviar ni recibir mensajes de la cuenta.</Text>
       </XStack>
-      <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={44} icon={<UserPlus color={theme.onAccentSoft} size={16} />} onPress={() => setPairingVisible(true)}>Volver a vincular este dispositivo</NativeRippleButton>
+      <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={44} icon={<UserPlus color={theme.onAccentSoft} size={16} />} onPress={() => setPairingVisible(true)}>Volver a vincular a mi cuenta</NativeRippleButton>
     </YStack>}
 
     <YStack gap={8}>
@@ -105,8 +105,8 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
     </YStack> : null}
 
     <DeviceInviteSheet onAuthorized={() => void refresh()} onClose={() => setSheetVisible(false)} visible={sheetVisible} />
-    <BottomSheet icon={<Smartphone color={theme.accent} size={20} />} onClose={() => { setPairingVisible(false); void refresh(); }} title="Vincular este dispositivo" visible={pairingVisible}>
-      <Paragraph color={theme.placeholder} fontSize={scale(12)}>Pide a otro dispositivo de tu cuenta una invitación nueva. Al terminar, cierra y abre la sesión otra vez con tu frase de recuperación.</Paragraph>
+    <BottomSheet icon={<Smartphone color={theme.accent} size={20} />} onClose={() => { setPairingVisible(false); void refresh(); }} title="Vincular a mi cuenta" visible={pairingVisible}>
+      <Paragraph color={theme.placeholder} fontSize={scale(12)}>Escanea la invitación de otro dispositivo de tu cuenta. En cuanto la acepte, este dispositivo vuelve a estar autorizado sin cerrar la sesión.</Paragraph>
       <DevicePairingPanel />
     </BottomSheet>
   </YStack>;

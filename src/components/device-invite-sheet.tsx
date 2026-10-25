@@ -26,6 +26,7 @@ export function DeviceInviteSheet({ visible, onClose, onAuthorized }: DeviceInvi
   const { state, start, accept, issue, cancel, reset } = useEnrollmentAuthorizer();
   const [requestCode, setRequestCode] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [manualVisible, setManualVisible] = useState(false);
 
   const runAccept = (code: string) => {
     setScanning(false);
@@ -58,8 +59,7 @@ export function DeviceInviteSheet({ visible, onClose, onAuthorized }: DeviceInvi
           {state.invite
             ? <YStack gap={10}>
               <XStack alignItems="center" gap={8}><Smartphone color={theme.accent} size={18} /><SizableText color={theme.text} fontSize={scale(14)} fontWeight="700">Invitación activa</SizableText></XStack>
-              <Paragraph color={theme.placeholder} fontSize={scale(12)}>Muéstrala o cópiala en el dispositivo que quieres añadir a tu cuenta. Caduca en {minutesLeft(state.invite.expiresAt)} min y solo sirve una vez.</Paragraph>
-              <CopyField accessibilityLabel="Copiar invitación" onCopy={() => void copyToClipboard(state.invite!.code, 'Invitación copiada')} truncate value={state.invite.code} />
+              <Paragraph color={theme.placeholder} fontSize={scale(12)}>Abre la app en el dispositivo nuevo, elige vincular a tu cuenta y escanea este QR. Caduca en {minutesLeft(state.invite.expiresAt)} min y solo sirve una vez.</Paragraph>
               <QrCanvas theme={theme} value={state.invite.code} />
               <NativeRippleButton accessibilityLabel="Descartar invitación" backgroundColor="transparent" color={theme.textSecondary} height={38} icon={<Trash2 color={theme.textSecondary} size={15} />} onPress={() => void cancel(state.invite!.inviteId)}>Descartar invitación</NativeRippleButton>
             </YStack>
@@ -78,7 +78,13 @@ export function DeviceInviteSheet({ visible, onClose, onAuthorized }: DeviceInvi
               </YStack>
               <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} disabled={state.busy} fontWeight="700" height={46} icon={<ShieldCheck color={theme.onAccent} size={17} />} onPress={() => void issue()}>{state.busy ? 'Firmando…' : 'Emitir certificado'}</NativeRippleButton>
             </YStack>
-            : <YStack gap={10}>
+            : state.invite && !manualVisible
+              ? <YStack gap={10}>
+                <XStack alignItems="center" gap={8}><Smartphone color={theme.accent} size={18} /><SizableText color={theme.text} fontSize={scale(14)} fontWeight="700">Esperando al dispositivo</SizableText></XStack>
+                <Paragraph color={theme.placeholder} fontSize={scale(12)}>En cuanto escanee el QR recibirá su certificado. No hay nada que copiar.</Paragraph>
+                <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} height={42} onPress={() => setManualVisible(true)}>Usar códigos manuales</NativeRippleButton>
+              </YStack>
+              : <YStack gap={10}>
               {state.invite ? <Separator borderColor={theme.border} /> : null}
               <Paragraph color={theme.placeholder} fontSize={scale(12)}>Cuando el otro dispositivo te muestre su solicitud, escanéala o pégala aquí.</Paragraph>
               <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} disabled={state.busy} height={44} icon={<QrCode color={theme.onAccentSoft} size={17} />} onPress={() => setScanning(true)}>Escanear solicitud</NativeRippleButton>

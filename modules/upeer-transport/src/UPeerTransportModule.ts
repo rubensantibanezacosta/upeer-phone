@@ -76,6 +76,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   enrollmentAuthorizerStatusJSON(): Promise<string>;
   enrollmentAuthorizerCancel(inviteId: string): Promise<void>;
   enrollmentAuthorizerCancelAll(): Promise<void>;
+  deviceEnrollmentLastIssued(): Promise<string>;
   generateNodeSeed(): Promise<number[]>;
 }
 
@@ -452,5 +453,17 @@ export async function cancelEnrollmentInvite(inviteId: string): Promise<void> {
 
 export async function cancelAllEnrollmentInvites(): Promise<void> {
   return nativeModule.enrollmentAuthorizerCancelAll();
+}
+
+export async function getLastIssuedEnrollment(): Promise<(EnrollmentAuthorizerIssued & { responseCode: string; inviteId: string }) | null> {
+  const raw = await nativeModule.deviceEnrollmentLastIssued();
+  if (!raw.trim()) return null;
+  const issued = JSON.parse(raw) as EnrollmentAuthorizerIssued & { inviteId?: string };
+  if (!issued.code) return null;
+  return {
+    ...issued,
+    inviteId: issued.inviteId ?? '',
+    responseCode: encodeEnrollmentTransfer(JSON.parse(issued.code) as unknown),
+  };
 }
 

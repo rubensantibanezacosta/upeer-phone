@@ -1185,6 +1185,8 @@ El flujo fuera de banda pedía tres códigos copiados a mano: la invitación del
 
 **Verificado de punta a punta en dispositivo real**: invitación creada desde el escritorio, deep link con el código en el móvil, y en el log del escritorio aparecen seguidas «Invitación de enrolamiento consumida» y «Enrolamiento en banda completado», con el `deviceId` del móvil dentro de `getAuthorizedDevices()`. Cero copias de códigos.
 
+**El móvil también autoriza en banda.** Cuando es el móvil el que añade un dispositivo (Ajustes → Dispositivos → «Añadir otro dispositivo a mi cuenta»), el canal funciona igual en sentido contrario: `YggdrasilProtocol.handleEnrollmentRequest` reconoce `ENROLL_REQ`, `DeviceEnrollmentAuthorizer` abre la solicitud y emite el certificado, y la respuesta sale por `EnrollmentChannel.send` a la dirección que anuncia el dispositivo nuevo. El panel del móvil deja de pedir el código de solicitud: muestra el QR y espera, y en cuanto el servicio emite el certificado el hook lo detecta sondeando `deviceEnrollmentLastIssued()` cada 1,5 s y cierra la hoja con «Dispositivo autorizado». Los códigos quedan detrás de «Usar códigos manuales».
+
 **Dos trampas que costaron tiempo y quedan apuntadas:**
 
 - **Recompilar el AAR no basta.** `gomobile bind` genera el `.so` dentro del AAR; hay que copiarlo a mano (`jni/arm64-v8a/libgojni.so` → `modules/upeer-transport/android/src/main/jniLibs/arm64-v8a/`) y `classes.jar` a `libs/`. Si no, el APK arranca con el binario viejo y los métodos nuevos responden «método no encontrado». Comprobación barata: `unzip -j app-debug.apk "lib/arm64-v8a/libgojni.so"` y `strings | grep <simbolo nuevo>`.

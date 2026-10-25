@@ -22,6 +22,7 @@ internal class YggdrasilProtocol(
   private val vaultMailbox: VaultMailboxStore,
   private val rateLimiter: InboundRateLimiter = InboundRateLimiter(),
   private val enrollmentResponse: (String) -> Boolean = { false },
+  private val enrollmentRequest: (String, String) -> String = { _, _ -> "" },
   ) {
   private val policy = InboundPolicy(rateLimiter)
   private val egress = ProtocolEgress(::selfAddress)
@@ -156,6 +157,7 @@ internal class YggdrasilProtocol(
     val outer = JSONObject(String(payload, Charsets.UTF_8))
     val outerType = outer.optString("type")
     if (outerType == EnrollmentChannel.RESPONSE) return handleEnrollmentResponse(outer, sourceAddress)
+    if (outerType == EnrollmentChannel.REQUEST) return handleEnrollmentRequest(activeBridge, outer, sourceAddress)
     if (outerType != "SEALED") return handleSignedPacket(activeBridge, payload, sourceAddress)
     if (!rateLimiter.allow("ip:$sourceAddress", outerType)) {
       Log.w(TAG, "SEALED limitado por origen $sourceAddress")
@@ -292,6 +294,31 @@ internal class YggdrasilProtocol(
     if (!installed) return InboundPolicy.rejected(packet)
     Log.i(TAG, "Certificado de dispositivo instalado desde $sourceAddress")
     return JSONObject().put("type", EnrollmentChannel.RESPONSE).put("installed", true).toString()
+  }
+
+  private fun handleEnrollmentRequest(activeBridge: Bridge, packet: JSONObject, sourceAddress: String): String {
+    if (!rateLimiter.allow("ip:$sourceAddress", EnrollmentChannel.REQUEST)) {
+      Log.w(TAG, "ENROLL_REQ limitado por origen $sourceAddress")
+      return InboundPolicy.rejected(packet)
+    }
+    val target = EnrollmentChannel.dialableAddress(packet.optString("senderAddress"))
+    val sealed = EnrollmentChannel.requestSealed(packet)
+    if (target == null || sealed == null) {
+      Log.w(TAG, "ENROLL_REQ rechazado: sin sobre sellado o sin dirección de vuelta")
+      return InboundPolicy.rejected(packet)
+    }
+    val inviteId = runCatching { JSONObject(sealed).optString("inviteId").lowercase() }.getOrDefault("")
+    val response = runCatching { enrollmentRequest(inviteId, sealed) }.getOrElse { cause ->
+      Log.w(TAG, "ENROLL_REQ no se pudo autorizar: ${message(cause)}")
+      ""
+    }
+    if (!EnrollmentChannel.send(activeBridge, target, EnrollmentChannel.responseFrame(inviteId, response.ifEmpty { null }))) {
+      Log.w(TAG, "ENROLL_RES no se pudo entregar a $target")
+      return InboundPolicy.rejected(packet)
+    }
+    if (response.isEmpty()) return InboundPolicy.rejected(packet)
+    Log.i(TAG, "Certificado de dispositivo emitido para $target")
+    return JSONObject().put("type", EnrollmentChannel.REQUEST).put("handled", true).toString()
   }
 
   private fun selfAddress(): String = bridge?.address().orEmpty()

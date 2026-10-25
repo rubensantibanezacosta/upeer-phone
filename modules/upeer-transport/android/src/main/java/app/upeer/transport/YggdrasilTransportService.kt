@@ -46,6 +46,8 @@ class YggdrasilTransportService : Service() {
   private lateinit var enrollment: DeviceEnrollment
   private lateinit var enrollmentAuthorizer: DeviceEnrollmentAuthorizer
   private var bridge: Bridge? = null
+  @Volatile
+  private var lastIssued: String = ""
 
   private val binder = object : IYggdrasilTransport.Stub() {
     override fun startWithPeers(peersJSON: String, seed: ByteArray): String = synchronized(bridgeLock) {
@@ -257,6 +259,7 @@ class YggdrasilTransportService : Service() {
     override fun enrollmentAuthorizerStatusJSON(): String = enrollmentAuthorizer.pendingJSON()
     override fun enrollmentAuthorizerCancel(inviteId: String) = enrollmentAuthorizer.cancel(inviteId)
     override fun enrollmentAuthorizerCancelAll() = enrollmentAuthorizer.cancelAll()
+    override fun deviceEnrollmentLastIssued(): String = lastIssued
     override fun deviceEnrollmentSubmit(): String =
       this@YggdrasilTransportService.submitEnrollment()
   }
@@ -320,6 +323,7 @@ class YggdrasilTransportService : Service() {
       contactAdmission,
       VaultMailboxStore(this),
       enrollmentResponse = ::installEnrollmentResponse,
+      enrollmentRequest = ::handleInBandEnrollment,
     )
     protocol.attachVaultDirectory(
       VaultDirectory(identity, protocolState, dhtRuntime::storePointer, dhtRuntime::readPointer),
@@ -358,6 +362,22 @@ class YggdrasilTransportService : Service() {
   }.getOrElse { cause ->
     Log.w(TAG, "No se pudo instalar el certificado de dispositivo: ${cause.message}")
     false
+  }
+
+  internal fun handleInBandEnrollment(inviteId: String, sealedJSON: String): String = try {
+    val accepted = enrollmentAuthorizer.acceptRequest(sealedJSON)
+    val issued = enrollmentAuthorizer.complete(accepted, 0)
+    val code = JSONObject(issued).optString("code")
+    if (code.isEmpty()) {
+      Log.w(TAG, "El autorizador no emitió certificado para la invitación $inviteId")
+      ""
+    } else {
+      lastIssued = JSONObject(issued).put("inviteId", inviteId).toString()
+      code
+    }
+  } catch (cause: Exception) {
+    Log.w(TAG, "Enrolamiento en banda rechazado: ${cause.message}")
+    ""
   }
 
   private fun completeEnrollment(sealedResponse: String): String {

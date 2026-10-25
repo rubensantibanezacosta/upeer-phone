@@ -139,6 +139,7 @@ class UPeerTransportModule : Module() {
     AsyncFunction("enrollmentAuthorizerStatusJSON") { service().enrollmentAuthorizerStatusJSON() }
     AsyncFunction("enrollmentAuthorizerCancel") { inviteId: String -> service().enrollmentAuthorizerCancel(inviteId) }
     AsyncFunction("enrollmentAuthorizerCancelAll") { service().enrollmentAuthorizerCancelAll() }
+    AsyncFunction("deviceEnrollmentLastIssued") { service().deviceEnrollmentLastIssued() }
   }
 
   private fun bind() {
