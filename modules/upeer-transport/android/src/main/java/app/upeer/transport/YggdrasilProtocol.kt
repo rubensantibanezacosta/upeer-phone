@@ -24,6 +24,10 @@ internal class YggdrasilProtocol(
   ) {
   private val policy = InboundPolicy(rateLimiter)
   private val egress = ProtocolEgress(::selfAddress)
+  private val syncChannel = SyncChannel(identity, state)
+  private val originVerifier: (SyncEventRecord, String, Long) -> Boolean = { record, account, now ->
+    identity.current()?.let { crypto -> SyncEventOrigin.fromBridge(crypto) }?.verify(record, account, now) ?: false
+  }
   private val handshake = YggdrasilHandshake(identity, signedPreKeys, deviceSignedPreKeys, deviceBindings, state)
   private val outbox = YggdrasilOutbox(
     identity,
@@ -63,8 +67,10 @@ internal class YggdrasilProtocol(
     deviceBindings,
     state,
     policy,
-    ::selfAddress,
+    syncChannel,
+    originVerifier,
     ::validateLinked,
+    ::selfAddress,
     { active, address, json -> egress.send(active, address, json, "de sincronización") },
   )
 

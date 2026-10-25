@@ -11,8 +11,10 @@ internal class SyncReplies(
   private val deviceBindings: DeviceMessagingBindings,
   private val state: ProtocolStateStore,
   private val policy: InboundPolicy,
-  private val selfAddress: () -> String,
+  private val channel: SyncChannel,
+  private val verifyOrigin: (SyncEventRecord, String, Long) -> Boolean,
   private val validate: (ByteArray, String, String) -> Unit,
+  private val selfAddress: () -> String,
   private val send: (Bridge, String, String) -> Boolean,
   private val nowMillis: () -> Long = System::currentTimeMillis,
 ) {
@@ -42,6 +44,7 @@ internal class SyncReplies(
     when (type) {
       SyncPackets.HELLO -> hello(activeBridge, packet, sourceAddress, auth, now)
       SyncPackets.ACK -> acknowledge(packet, auth)
+      SyncPackets.ENVELOPE -> envelope(activeBridge, packet, sourceAddress, auth, now)
       else -> Log.i(TAG, "Paquete $type de ${auth.deviceId.take(12)} todavía no se aplica en el móvil")
     }
     return JSONObject()
@@ -88,20 +91,63 @@ internal class SyncReplies(
     }
   }
 
-  private fun verifyCertificate(certificateJSON: String, accountUpeerId: String, nowMillis: Long): Boolean =
-    Transportbridge.verifyDeviceCertificate(certificateJSON, accountUpeerId, nowMillis)
-
-  private fun isRevoked(deviceId: String): Boolean {
-    val self = identity.current()?.upeerID() ?: return true
-    return deviceBindings.isRevoked(self, deviceId)
+  private fun envelope(
+    activeBridge: Bridge,
+    packet: JSONObject,
+    sourceAddress: String,
+    auth: SyncSelfIdentity,
+    now: Long,
+  ) {
+    val device = identity.currentDevice() ?: return
+    val peer = state.syncPeers.list().firstOrNull { it.deviceId == auth.deviceId } ?: run {
+      Log.w(TAG, "SYNC_ENVELOPE de ${auth.deviceId.take(12)} sin SYNC_HELLO previo")
+      return
+    }
+    val event = channel.open(device, deviceSignedPreKeys, packet, auth.devicePublicKey, auth.deviceId) ?: return
+    val originVerified = verifyOriginSignature(event, now)
+    when (val decision = SyncEnvelope.decide(packet, event, device.deviceId, auth.deviceId, originVerified)) {
+      is SyncEnvelopeDecision.Rejected -> Log.w(TAG, "SYNC_ENVELOPE rechazado: ${decision.reason}")
+      is SyncEnvelopeDecision.Accepted -> {
+        val recorded = state.syncEvents.record(SyncEnvelope.draft(decision.event, decision.originDeviceId), now)
+        if (recorded != null) {
+          Log.i(TAG, "Evento ${decision.event.kind} de ${decision.originDeviceId.take(12)} registrado")
+        }
+      }
+    }
+    state.syncPeers.remember(
+      SyncDeviceBinding(peer.deviceId, peer.devicePublicKey, peer.certificateJSON, peer.signedPreKey),
+      sourceAddress,
+      now,
+    )
+    sendAck(activeBridge, sourceAddress, event)
   }
 
-  private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
+  private fun verifyOriginSignature(event: SyncPlainEvent, now: Long): Boolean {
+    if (event.originSignature == null) return false
+    val account = identity.current()?.upeerID() ?: return false
+    val record = SyncEventRecord(
+      eventId = event.eventId,
+      kind = event.kind,
+      occurredAt = event.occurredAt,
+      sequence = event.sequence,
+      payload = event.payload,
+      direction = "inbound",
+      originDeviceId = event.originDeviceId,
+      originSignature = event.originSignature,
+      originCertificate = event.originCertificate,
+    )
+    return verifyOrigin(record, account, now)
+  }
+
+  private fun sendAck(activeBridge: Bridge, address: String, event: SyncPlainEvent) {
+    val device = identity.currentDevice() ?: return
+    val ack = SyncPackets.ack(SyncSender(device.deviceId, device.certificate), event.eventId, event.sequence) ?: return
+    val frame = syncFrame(ack) ?: return
+    if (!send(activeBridge, address, frame)) Log.w(TAG, "No se pudo enviar SYNC_ACK a $address")
+  }
 
   private fun replyHello(activeBridge: Bridge, address: String, now: Long): Boolean {
     val device = identity.currentDevice() ?: return false
-    val crypto = identity.current() ?: return false
-    val ownAddress = selfAddress().takeIf(String::isNotEmpty) ?: return false
     val signedPreKey = runCatching { JSONObject(deviceSignedPreKeys.currentJSON(device)) }.getOrNull() ?: return false
     val hello = SyncPackets.hello(
       SyncSender(device.deviceId, device.certificate),
@@ -112,11 +158,28 @@ internal class SyncReplies(
       ack = true,
       nowMillis = now,
     )
-    val frame = runCatching {
-      crypto.buildLinkedControl(device.deviceId, crypto.upeerID(), ownAddress, hello.toString())
-    }.getOrNull() ?: return false
+    val frame = syncFrame(hello) ?: return false
     return send(activeBridge, address, frame)
   }
+
+  private fun syncFrame(packet: JSONObject): String? {
+    val device = identity.currentDevice() ?: return null
+    val account = identity.current() ?: return null
+    val address = selfAddress().takeIf(String::isNotEmpty) ?: return null
+    return runCatching {
+      account.buildLinkedControl(device.deviceId, account.upeerID(), address, packet.toString())
+    }.getOrNull()
+  }
+
+  private fun verifyCertificate(certificateJSON: String, accountUpeerId: String, nowMillis: Long): Boolean =
+    Transportbridge.verifyDeviceCertificate(certificateJSON, accountUpeerId, nowMillis)
+
+  private fun isRevoked(deviceId: String): Boolean {
+    val self = identity.current()?.upeerID() ?: return true
+    return deviceBindings.isRevoked(self, deviceId)
+  }
+
+  private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
 
   private companion object {
     private const val TAG = "UPeerTransport"
