@@ -38,7 +38,7 @@ export function SessionShell({ identity, onSignOut, children }: {
   const [profile, setProfile] = useState<IdentityProfile | null>(null);
   const [connection, setConnection] = useState<ConnectionSnapshot>({ address: '', phase: 'Conectando a la red…', peers: [], error: '', management: EMPTY_PEER_MANAGEMENT });
   const preferences = usePreferences();
-  useActivitySignal();
+  const { reportTouch } = useActivitySignal();
   const refreshProfile = useCallback(async () => {
     try {
       setProfile(await loadProfile());
@@ -107,7 +107,9 @@ export function SessionShell({ identity, onSignOut, children }: {
 
   return (
     <SessionContext.Provider value={value}>
-      {children}
+      <View onStartShouldSetResponderCapture={() => { reportTouch(); return false; }} style={{ flex: 1 }}>
+        {children}
+      </View>
       <View pointerEvents="none" style={{ height: 1, left: 0, opacity: 0, overflow: 'hidden', position: 'absolute', top: 0, width: 1 }}>
         <SessionScreen identity={identity} onAddressChange={updateAddress} onSnapshotChange={updateConnection} onSignOut={() => void signOut()} />
       </View>
