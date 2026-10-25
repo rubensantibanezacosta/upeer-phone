@@ -129,8 +129,7 @@ internal class SyncEventLog(
     return kept
   }
 
-  private fun validEventId(value: String): Boolean =
-    value.length in 8..128 && value.all { it.isLetterOrDigit() || it == '-' || it == '_' }
+  private fun validEventId(value: String): Boolean = SyncPackets.validEventId(value)
 
   private fun validDeviceId(value: String): Boolean =
     value.length == 64 && value.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
