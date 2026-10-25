@@ -35,7 +35,9 @@ async function readDevices(): Promise<Omit<AccountDevicesState, 'loading'>> {
       epoch: status.epoch ?? registry.epoch ?? 0,
     };
   } catch (cause) {
-    return { devices: [], revoked: [], localAdmitted: true, ready: false, epoch: 0, error: cause instanceof Error ? cause.message : String(cause) };
+    const message = cause instanceof Error ? cause.message : String(cause);
+    const opaque = /JSON|parse|unexpected/i.test(message);
+    return { devices: [], revoked: [], localAdmitted: true, ready: false, epoch: 0, error: opaque ? '' : message };
   }
 }
 
