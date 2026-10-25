@@ -12,6 +12,8 @@ internal class SyncDiscovery(
   private val store: (String, String) -> Int,
   private val read: (String) -> Any?,
   private val send: (Bridge, String, String) -> Boolean,
+  private val directPeer: () -> String = { "" },
+  private val livePeers: () -> Set<String> = { emptySet() },
   private val nowMillis: () -> Long = System::currentTimeMillis,
 ) {
   @Volatile
@@ -35,10 +37,6 @@ internal class SyncDiscovery(
     val account = identity.current()?.upeerID() ?: return emptyList()
     val myDevice = identity.currentDevice()?.deviceId ?: return emptyList()
     val devices = deviceIds(registryJSON, account).filter { it != myDevice }
-    if (devices.isEmpty()) {
-      Log.i(TAG, "El registro de cuenta no anuncia otros dispositivos propios")
-      return emptyList()
-    }
     val found = mutableListOf<SyncRendezvous>()
     for (deviceId in devices) {
       val key = runCatching { SyncRendezvousKey.key(account, deviceId) }.getOrElse { continue }
@@ -47,15 +45,20 @@ internal class SyncDiscovery(
     }
     if (found.isEmpty()) {
       Log.i(TAG, "Ningún dispositivo propio publicado en la DHT (${devices.size} en el registro)")
-      return emptyList()
     }
+    val direct = directPeer()
+    val live = livePeers()
+    val targets = (found.map { it.address } + listOfNotNull(direct.takeIf(String::isNotEmpty)))
+      .filter { !isSelfAddress(it) }
+      .filter { it !in live }
+      .distinct()
+    if (targets.isEmpty()) return found
     var greeted = 0
-    for (record in found) {
-      if (isSelfAddress(record.address)) continue
+    for (address in targets) {
       val frame = helloFrame() ?: break
-      if (send(activeBridge, record.address, frame)) greeted += 1
+      if (send(activeBridge, address, frame)) greeted += 1
     }
-    Log.i(TAG, "SYNC_HELLO enviado a $greeted de ${found.size} dispositivos propios")
+    Log.i(TAG, "SYNC_HELLO enviado a $greeted de ${targets.size} dispositivos propios")
     return found
   }
 

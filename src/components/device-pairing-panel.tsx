@@ -14,11 +14,11 @@ import { useTheme } from '@/hooks/use-theme';
 
 type ScanTarget = 'invite' | 'response' | null;
 
-export function DevicePairingPanel({ onPaired }: { onPaired?: (summary: EnrollmentCertificateSummary) => void } = {}) {
+export function DevicePairingPanel({ onPaired, reuseInstalled = true }: { onPaired?: (summary: EnrollmentCertificateSummary) => void; reuseInstalled?: boolean }) {
   const theme = useTheme();
   const scale = useTextScale();
   const copyToClipboard = useCopyToClipboard();
-  const { state, linkAccount, finish, cancel } = useDeviceEnrollment();
+  const { state, linkAccount, finish, cancel } = useDeviceEnrollment({ reuseInstalled });
   const [inviteCode, setInviteCode] = useState('');
   const [responseCode, setResponseCode] = useState('');
   const [scanTarget, setScanTarget] = useState<ScanTarget>(null);

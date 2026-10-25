@@ -13,6 +13,14 @@ internal class ProtocolSync(
   private val send: (Bridge, String, String) -> Boolean,
 ) {
   private val channel = SyncChannel(identity, state)
+  private val history = SyncHistory(
+    identity,
+    state,
+    channel,
+    { record -> signOrigin(record) },
+    { record -> verifyOriginRecord(record) },
+    { active, address, json -> send(active, address, json) },
+  )
   private val replies = SyncReplies(
     identity,
     deviceSignedPreKeys,
@@ -20,6 +28,7 @@ internal class ProtocolSync(
     state,
     policy,
     channel,
+    history,
     ::verifyOrigin,
     validate,
     selfAddress,
@@ -28,9 +37,34 @@ internal class ProtocolSync(
   private var discovery: SyncDiscovery? = null
   private var registrySource: () -> String = { "" }
 
-  fun attachDiscovery(store: (String, String) -> Int, read: (String) -> Any?, registry: () -> String) {
-    discovery = SyncDiscovery(identity, deviceSignedPreKeys, selfAddress, store, read, send)
+  @Volatile
+  private var discoveryLoop: Thread? = null
+
+  fun attachDiscovery(
+    store: (String, String) -> Int,
+    read: (String) -> Any?,
+    registry: () -> String,
+    directPeer: () -> String = { "" },
+  ) {
+    discovery = SyncDiscovery(
+      identity,
+      deviceSignedPreKeys,
+      selfAddress,
+      store,
+      read,
+      send,
+      directPeer,
+      { activePeerAddresses() },
+    )
     registrySource = registry
+  }
+
+  private fun activePeerAddresses(): Set<String> {
+    val threshold = System.currentTimeMillis() - LIVE_PEER_WINDOW_MS
+    return state.syncPeers.list()
+      .filter { it.lastSeen >= threshold && it.address.isNotEmpty() }
+      .map { it.address }
+      .toSet()
   }
 
   fun isSyncType(type: String): Boolean = SyncPackets.isSyncType(type)
@@ -41,17 +75,42 @@ internal class ProtocolSync(
   fun start(activeBridge: Bridge) {
     val active = discovery ?: return
     val registry = registrySource
+    discoveryLoop?.interrupt()
     val thread = Thread({
-      active.publish()
-      active.discover(activeBridge, registry())
+      while (!Thread.currentThread().isInterrupted) {
+        runCatching { active.publish() }
+        runCatching { active.discover(activeBridge, registry()) }
+        try {
+          Thread.sleep(DISCOVERY_INTERVAL_MS)
+        } catch (_: InterruptedException) {
+          return@Thread
+        }
+      }
     }, "upeer-sync-discovery")
     thread.isDaemon = true
+    discoveryLoop = thread
     thread.start()
   }
 
   private fun verifyOrigin(record: SyncEventRecord, account: String, now: Long): Boolean {
     val crypto = identity.current() ?: return false
     return SyncEventOrigin.fromBridge(crypto).verify(record, account, now)
+  }
+
+  private fun verifyOriginRecord(record: SyncEventRecord): Boolean {
+    val crypto = identity.current() ?: return false
+    return SyncEventOrigin.fromBridge(crypto).verify(record, crypto.upeerID(), System.currentTimeMillis())
+  }
+
+  private fun signOrigin(record: SyncEventRecord): SyncOriginSignature? {
+    val crypto = identity.current() ?: return null
+    val device = identity.currentDevice() ?: return null
+    return SyncEventOrigin.fromBridge(crypto).sign(record, device.deviceId, device.certificate)
+  }
+
+  private companion object {
+    private const val DISCOVERY_INTERVAL_MS = 60_000L
+    private const val LIVE_PEER_WINDOW_MS = 300_000L
   }
 
 }

@@ -328,7 +328,12 @@ class YggdrasilTransportService : Service() {
     protocol.attachVaultDirectory(
       VaultDirectory(identity, protocolState, dhtRuntime::storePointer, dhtRuntime::readPointer),
     )
-    protocol.attachSyncDiscovery(dhtRuntime::storePointer, dhtRuntime::readPointer) { accountRegistry.registryJSON() }
+    protocol.attachSyncDiscovery(
+      dhtRuntime::storePointer,
+      dhtRuntime::readPointer,
+      { accountRegistry.registryJSON() },
+      { enrollment.installedAuthorizerAddress() },
+    )
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

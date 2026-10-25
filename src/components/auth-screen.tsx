@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { Check, ChevronLeft, Copy, ImagePlus, KeyRound, LogIn, QrCode, UserPlus } from '@tamagui/lucide-icons-2';
-import { Card, H1, Input, Paragraph, Separator, SizableText, TextArea, XStack, YStack } from 'tamagui';
+import { Card, H1, Input, Paragraph, Separator, SizableText, Spinner, TextArea, XStack, YStack } from 'tamagui';
 
 import { DevicePairingPanel } from '@/components/device-pairing-panel';
 import { createMnemonic, deriveIdentity } from '@/domain/identity';
 import { deviceIdentity, type UPeerIdentity } from '@/domain/identity-record';
+import { getDeviceIdentityStatus } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { clearIdentity, loadIdentity, saveIdentity, saveProfile } from '@/storage/identity-store';
 import { CopyField } from '@/components/copy-field';
 import { NativeRippleButton } from '@/components/native-ripple-button';
@@ -30,6 +31,7 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [mode, setMode] = useState<AuthMode | null>(null);
   const [error, setError] = useState('');
+  const [restoring, setRestoring] = useState(true);
   const theme = useTheme();
   const scale = useTextScale();
   const copyToClipboard = useCopyToClipboard();
@@ -57,7 +59,7 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
     }
   };
 
-  const handlePaired = async (summary: { accountUpeerId: string; accountPublicKey: string }) => {
+  const handlePaired = useCallback(async (summary: { accountUpeerId: string; accountPublicKey: string }) => {
     setError('');
     try {
       const identity = deviceIdentity(summary.accountUpeerId, summary.accountPublicKey);
@@ -68,7 +70,24 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No se pudo abrir la sesión del dispositivo vinculado.');
     }
-  };
+  }, [onAuthenticated]);
+
+  useEffect(() => {
+    let active = true;
+    getDeviceIdentityStatus()
+      .then((status) => {
+        if (!active || !status.ready || !status.accountUpeerId) return;
+        const certificate = status.certificate as { accountPublicKey?: string } | undefined;
+        if (!certificate?.accountPublicKey) return;
+        void handlePaired({ accountUpeerId: status.accountUpeerId, accountPublicKey: certificate.accountPublicKey });
+      })
+      .catch((cause: unknown) => {
+        console.warn('No se pudo comprobar el certificado de este dispositivo.', cause);
+      })
+      .finally(() => { if (active) setRestoring(false); });
+    return () => { active = false; };
+  }, [handlePaired]);
+
 
   const chooseAvatar = async () => {
     setAvatarBusy(true);
@@ -118,6 +137,17 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
 
   const matchedPhrase = normalizeMnemonic(mnemonic) === generatedPhrase;
 
+  if (restoring) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.screen }}>
+        <YStack alignItems="center" flex={1} gap={12} justifyContent="center" padding={24}>
+          <Spinner color={theme.accent} size="large" />
+          <Paragraph color="placeholder-color" fontSize={scale(13)}>Comprobando este dispositivo…</Paragraph>
+        </YStack>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.screen }}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
@@ -155,7 +185,7 @@ export function AuthScreen({ identityExists, onAuthenticated }: AuthScreenProps)
                       <Paragraph color="placeholder-color" fontSize={scale(12)} paddingHorizontal={4}>Pide a un dispositivo que ya esté en la cuenta que te genere una invitación.</Paragraph>
                     </YStack>
                   </YStack>}
-                  {mode === 'linkQr' && <DevicePairingPanel onPaired={(summary) => void handlePaired(summary)} />}
+                  {mode === 'linkQr' && <DevicePairingPanel onPaired={(summary) => void handlePaired(summary)} reuseInstalled={false} />}
                   {(mode === 'create' || mode === 'linkPhrase' || mode === 'unlock') && <YStack gap={12}>
                     <TextArea accessibilityLabel="Frase secreta de 12 palabras" autoCapitalize="none" autoCorrect={false} backgroundColor="color-2" borderColor="border-color" color="color" height={mode === 'create' ? 86 : 112} onChangeText={setMnemonic} placeholder={mode === 'create' ? 'Escribe las 12 palabras para confirmar' : 'Escribe las 12 palabras en orden'} placeholderTextColor="placeholder-color" textAlignVertical="top" value={mnemonic} />
                     {mode === 'create' && <YStack gap={10}>

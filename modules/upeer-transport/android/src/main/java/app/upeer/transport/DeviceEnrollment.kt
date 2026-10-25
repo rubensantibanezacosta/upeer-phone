@@ -21,6 +21,7 @@ internal class InstalledEnrollment(
   val deviceId: String,
   val deviceSecretKey: String,
   val certificateJSON: String,
+  val authorizerAddress: String,
 )
 
 internal class DeviceEnrollment(
@@ -81,10 +82,16 @@ internal class DeviceEnrollment(
 
   fun pendingAuthorizerAddress(): String = synchronized(lock) {
     val pending = state.pending ?: return@synchronized ""
-    runCatching {
-      JSONObject(pending.inviteJSON).optJSONObject("offer")?.optString("authorizerAddress").orEmpty()
-    }.getOrDefault("")
+    authorizerAddressOf(pending.inviteJSON)
   }
+
+  fun installedAuthorizerAddress(): String = synchronized(lock) {
+    state.installed?.authorizerAddress.orEmpty()
+  }
+
+  private fun authorizerAddressOf(inviteJSON: String): String = runCatching {
+    JSONObject(inviteJSON).optJSONObject("offer")?.optString("authorizerAddress").orEmpty()
+  }.getOrDefault("")
 
   fun pendingAccount(): String = synchronized(lock) { state.pending?.accountUpeerId.orEmpty() }
 
@@ -98,6 +105,7 @@ internal class DeviceEnrollment(
       deviceId = installed.deviceId,
       deviceSecretKey = installed.deviceSecretKey,
       certificateJSON = installed.certificateJSON,
+      authorizerAddress = installed.authorizerAddress,
     )
   }
 
@@ -128,6 +136,7 @@ internal class DeviceEnrollment(
           deviceId = deviceId,
           deviceSecretKey = DhtLocation.hex(secretKey),
           certificateJSON = certificate.toString(),
+          authorizerAddress = authorizerAddressOf(pending.inviteJSON),
         ),
       )
       persist()
@@ -254,6 +263,7 @@ internal class DeviceEnrollment(
     val deviceId: String,
     val deviceSecretKey: String,
     val certificateJSON: String,
+    val authorizerAddress: String,
   ) {
     fun toJSON(): JSONObject = JSONObject()
       .put("accountUpeerId", accountUpeerId)
@@ -261,6 +271,7 @@ internal class DeviceEnrollment(
       .put("deviceId", deviceId)
       .put("deviceSecretKey", deviceSecretKey)
       .put("certificate", certificateJSON)
+      .put("authorizerAddress", authorizerAddress)
 
     companion object {
       fun fromJSON(value: JSONObject): Installed? {
@@ -272,7 +283,14 @@ internal class DeviceEnrollment(
         if (!DhtLocation.isHex(accountUpeerId, 32) || !DhtLocation.isHex(deviceId, 32)) return null
         if (!DhtLocation.isHex(accountPublicKey, 32) || certificate.isEmpty()) return null
         if (DhtLocation.decodeHex(secretKey, 64) == null) return null
-        return Installed(accountUpeerId, accountPublicKey, deviceId, secretKey, certificate)
+        return Installed(
+          accountUpeerId,
+          accountPublicKey,
+          deviceId,
+          secretKey,
+          certificate,
+          value.optString("authorizerAddress"),
+        )
       }
     }
   }

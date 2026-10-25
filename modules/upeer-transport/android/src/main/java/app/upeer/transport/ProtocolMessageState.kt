@@ -20,8 +20,8 @@ internal object ProtocolMessageState {
       if (existing.optString("id") != id) next.put(existing)
     }
     val trimmed = JSONArray()
-    val start = maxOf(0, next.length() - MAX_MESSAGES)
-    for (index in start until next.length()) trimmed.put(next.get(index))
+    val count = minOf(next.length(), MAX_MESSAGES)
+    for (index in 0 until count) trimmed.put(next.get(index))
     return trimmed
   }
 

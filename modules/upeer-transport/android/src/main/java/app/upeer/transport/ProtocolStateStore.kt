@@ -20,6 +20,7 @@ internal class ProtocolStateStore(context: Context) {
   val presence = ProtocolPresence({ state }, lock, ::persist)
   val syncEvents = SyncEventLog({ state }, lock, ::persist)
   val syncPeers = SyncDevicePeers({ state }, lock, ::persist)
+  val history = SyncHistoryState({ state }, lock, ::persist)
   private val typing = ProtocolTyping({ state }, lock, ::persist)
   val preferences = ProtocolPreferences({ state }, lock, ::persist)
 

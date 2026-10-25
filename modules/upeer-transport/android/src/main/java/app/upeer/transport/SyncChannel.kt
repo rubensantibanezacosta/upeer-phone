@@ -15,6 +15,17 @@ internal class SyncChannel(
     senderDevicePublicKey: String,
     senderDeviceId: String,
   ): SyncPlainEvent? {
+    val plaintext = openRaw(device, decryptedKeys, packet, senderDevicePublicKey, senderDeviceId) ?: return null
+    return runCatching { SyncPackets.plainEvent(JSONObject(plaintext)) }.getOrNull()
+  }
+
+  fun openRaw(
+    device: DeviceIdentity,
+    decryptedKeys: DeviceSignedPreKeyStore,
+    packet: JSONObject,
+    senderDevicePublicKey: String,
+    senderDeviceId: String,
+  ): String? {
     val content = packet.optString("content")
     val nonce = packet.optString("nonce")
     val header = packet.optJSONObject("ratchetHeader")
@@ -33,7 +44,7 @@ internal class SyncChannel(
       Log.w(TAG, "SYNC_ENVELOPE de ${senderDeviceId.take(12)} no descifrable")
       return null
     }
-    return runCatching { SyncPackets.plainEvent(JSONObject(plaintext)) }.getOrNull()
+    return plaintext
   }
 
   fun seal(

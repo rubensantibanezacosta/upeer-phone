@@ -113,6 +113,23 @@ internal class ProtocolMessageList(
     true
   }
 
+  fun historyPage(afterTimestamp: Long, afterId: String, limit: Int): List<JSONObject> = synchronized(lock) {
+    if (limit <= 0) return@synchronized emptyList()
+    val current = messages()
+    val found = mutableListOf<JSONObject>()
+    for (index in 0 until current.length()) {
+      val message = current.optJSONObject(index) ?: continue
+      val timestamp = message.optLong("timestamp", 0L)
+      val id = message.optString("id")
+      if (timestamp <= 0 || id.isBlank()) continue
+      if (timestamp < afterTimestamp) continue
+      if (timestamp == afterTimestamp && afterId.isNotBlank() && id <= afterId) continue
+      found.add(JSONObject(message.toString()))
+    }
+    found.sortWith(compareBy({ it.optLong("timestamp", 0L) }, { it.optString("id") }))
+    found.take(limit)
+  }
+
   fun markRead(upeerId: String): List<String> = synchronized(lock) {
     val current = messages()
     val transitioned = mutableListOf<String>()

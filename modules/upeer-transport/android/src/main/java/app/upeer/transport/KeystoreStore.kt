@@ -4,6 +4,7 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import android.util.Log
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -28,11 +29,17 @@ internal class KeystoreStore(
 
   fun load(): ByteArray? {
     val encoded = preferences.getString(valueKey, null) ?: return null
-    val payload = Base64.decode(encoded, Base64.NO_WRAP)
-    require(payload.size > IV_LENGTH) { "Encrypted value is truncated" }
-    val cipher = Cipher.getInstance(TRANSFORMATION)
-    cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(TAG_BITS, payload.copyOfRange(0, IV_LENGTH)))
-    return cipher.doFinal(payload.copyOfRange(IV_LENGTH, payload.size))
+    return try {
+      val payload = Base64.decode(encoded, Base64.NO_WRAP)
+      require(payload.size > IV_LENGTH) { "Encrypted value is truncated" }
+      val cipher = Cipher.getInstance(TRANSFORMATION)
+      cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(TAG_BITS, payload.copyOfRange(0, IV_LENGTH)))
+      cipher.doFinal(payload.copyOfRange(IV_LENGTH, payload.size))
+    } catch (cause: Exception) {
+      Log.w(TAG, "Estado cifrado descartado: el llavero no pudo descifrarlo (${cause.javaClass.simpleName}: ${cause.message}).")
+      preferences.edit().remove(valueKey).apply()
+      null
+    }
   }
 
   fun clear() {
@@ -54,6 +61,7 @@ internal class KeystoreStore(
   }
 
   private companion object {
+    private const val TAG = "UPeerTransport"
     private const val ANDROID_KEY_STORE = "AndroidKeyStore"
     private const val TRANSFORMATION = "AES/GCM/NoPadding"
     private const val IV_LENGTH = 12

@@ -12,6 +12,7 @@ internal class SyncReplies(
   private val state: ProtocolStateStore,
   private val policy: InboundPolicy,
   private val channel: SyncChannel,
+  private val history: SyncHistory,
   private val verifyOrigin: (SyncEventRecord, String, Long) -> Boolean,
   private val validate: (ByteArray, String, String) -> Unit,
   private val selfAddress: () -> String,
@@ -45,6 +46,8 @@ internal class SyncReplies(
       SyncPackets.HELLO -> hello(activeBridge, packet, sourceAddress, auth, now)
       SyncPackets.ACK -> acknowledge(packet, auth)
       SyncPackets.ENVELOPE -> envelope(activeBridge, packet, sourceAddress, auth, now)
+      SyncPackets.HISTORY_REQ -> historyRequest(activeBridge, packet, sourceAddress, auth, now)
+      SyncPackets.HISTORY_RES -> historyResponse(activeBridge, packet, sourceAddress, auth, now)
       else -> Log.i(TAG, "Paquete $type de ${auth.deviceId.take(12)} todavía no se aplica en el móvil")
     }
     return JSONObject()
@@ -75,10 +78,64 @@ internal class SyncReplies(
     }
     state.syncPeers.remember(binding, sourceAddress, now)
     Log.i(TAG, "Dispositivo propio ${binding.deviceId.take(12)} registrado en $sourceAddress")
-    if (packet.optBoolean("ack", false)) return
-    if (!replyHello(activeBridge, sourceAddress, now)) {
+    if (!packet.optBoolean("ack", false) && !replyHello(activeBridge, sourceAddress, now)) {
       Log.w(TAG, "No se pudo responder SYNC_HELLO a $sourceAddress")
     }
+    val peer = state.syncPeers.list().firstOrNull { it.deviceId == binding.deviceId } ?: return
+    history.requestIfInitiator(activeBridge, peer)
+  }
+
+  private fun historyRequest(
+    activeBridge: Bridge,
+    packet: JSONObject,
+    sourceAddress: String,
+    auth: SyncSelfIdentity,
+    now: Long,
+  ) {
+    val device = identity.currentDevice() ?: return
+    val peer = state.syncPeers.list().firstOrNull { it.deviceId == auth.deviceId } ?: run {
+      Log.w(TAG, "SYNC_HISTORY_REQ de ${auth.deviceId.take(12)} sin SYNC_HELLO previo")
+      return
+    }
+    if (!SyncPackets.recipientMatches(packet, device.deviceId)) return
+    val plaintext = channel.openRaw(device, deviceSignedPreKeys, packet, auth.devicePublicKey, auth.deviceId) ?: run {
+      Log.w(TAG, "SYNC_HISTORY_REQ de ${auth.deviceId.take(12)} no descifrable")
+      return
+    }
+    val payload = runCatching { JSONObject(plaintext) }.getOrNull() ?: return
+    history.respond(activeBridge, peer, payload)
+    state.syncPeers.remember(
+      SyncDeviceBinding(peer.deviceId, peer.devicePublicKey, peer.certificateJSON, peer.signedPreKey),
+      sourceAddress,
+      now,
+    )
+    history.request(activeBridge, peer)
+  }
+
+  private fun historyResponse(
+    activeBridge: Bridge,
+    packet: JSONObject,
+    sourceAddress: String,
+    auth: SyncSelfIdentity,
+    now: Long,
+  ) {
+    val device = identity.currentDevice() ?: return
+    val peer = state.syncPeers.list().firstOrNull { it.deviceId == auth.deviceId } ?: run {
+      Log.w(TAG, "SYNC_HISTORY_RES de ${auth.deviceId.take(12)} sin SYNC_HELLO previo")
+      return
+    }
+    if (!SyncPackets.recipientMatches(packet, device.deviceId)) return
+    val plaintext = channel.openRaw(device, deviceSignedPreKeys, packet, auth.devicePublicKey, auth.deviceId) ?: run {
+      Log.w(TAG, "SYNC_HISTORY_RES de ${auth.deviceId.take(12)} no descifrable")
+      return
+    }
+    val payload = runCatching { JSONObject(plaintext) }.getOrNull() ?: return
+    history.apply(activeBridge, peer, payload)
+    state.syncPeers.remember(
+      SyncDeviceBinding(peer.deviceId, peer.devicePublicKey, peer.certificateJSON, peer.signedPreKey),
+      sourceAddress,
+      now,
+    )
   }
 
   private fun acknowledge(packet: JSONObject, auth: SyncSelfIdentity) {

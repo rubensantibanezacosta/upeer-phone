@@ -59,12 +59,13 @@ function isKeyMismatch(cause: unknown): boolean {
   return message.includes('key') && (message.includes('does not match') || message.includes('mismatch') || message.includes('certificate'));
 }
 
-export function useDeviceEnrollment() {
+export function useDeviceEnrollment({ reuseInstalled = true }: { reuseInstalled?: boolean } = {}) {
   const [state, setState] = useState<DeviceEnrollmentState>(initialState);
   const active = useRef(true);
 
   useEffect(() => {
     active.current = true;
+    if (!reuseInstalled) return () => { active.current = false; };
     getDeviceEnrollmentStatus()
       .then((status) => {
         if (active.current && status.installed) setState((current) => ({ ...current, installed: status.installed ?? null }));
@@ -73,7 +74,7 @@ export function useDeviceEnrollment() {
         console.warn('No se pudo consultar el estado de emparejamiento.', cause);
       });
     return () => { active.current = false; };
-  }, []);
+  }, [reuseInstalled]);
 
   const waitForInstall = useCallback(async (): Promise<EnrollmentCertificateSummary | null> => {
     const deadline = Date.now() + POLL_TIMEOUT_MS;

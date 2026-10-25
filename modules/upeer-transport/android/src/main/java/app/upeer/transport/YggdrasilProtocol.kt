@@ -73,8 +73,12 @@ internal class YggdrasilProtocol(
 
   fun attachVaultDirectory(directory: VaultDirectory) = outbox.attachVaultDirectory(directory)
 
-  fun attachSyncDiscovery(store: (String, String) -> Int, read: (String) -> Any?, registry: () -> String) =
-    sync.attachDiscovery(store, read, registry)
+  fun attachSyncDiscovery(
+    store: (String, String) -> Int,
+    read: (String) -> Any?,
+    registry: () -> String,
+    directPeer: () -> String = { "" },
+  ) = sync.attachDiscovery(store, read, registry, directPeer)
 
   fun start(activeBridge: Bridge) {
     bridge = activeBridge
