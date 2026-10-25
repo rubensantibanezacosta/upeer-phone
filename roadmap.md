@@ -154,10 +154,25 @@ Hecho en esta tanda, con pruebas y sin tocar el runtime:
 - `src/domain/file-transfer.ts` (+ 21 tests): plan de trozos, rangos, comparación de digests en tiempo constante, máquina de fases (`proposed`→…→`vaulted`) idéntica a la del escritorio, progreso acotado, reintentos, detección de transferencia parada, crecimiento de ventana y el **constructor del sobre `{"type":"file",…}`** que el escritorio ya sabe leer.
 - `FileReceivePolicy.kt` (+ 12 tests): valida y normaliza la propuesta con las mismas reglas que `validationFiles.ts`, incluido el descarte de rutas en el nombre (`../../privado/foto.jpg` → `foto.jpg`).
 - `FileChunkAssembler.kt` (+ 9 tests): escribe cada trozo en su offset, tolera llegada desordenada, ignora duplicados sin sumar bytes, verifica hash por trozo y hash global al cerrar, y exige el tamaño exacto.
+- `transport-bridge/file_transfer_crypto.go` (+ 7 tests Go): `OpenFileKey` abre la clave AES con el sobre sellado y `DecryptFileChunk` descifra AES-256-GCM comprobando IV, tag y tamaño. Ambos fallan cerrado con datos manipulados o identidad ajena.
+
+### Bloqueo de interoperabilidad: a quién va sellada la clave
+
+La clave AES se sella a `contact.publicKey` (`senderStart.ts`), que es la **clave de cuenta (raíz)** del destinatario. Un móvil enrolado desde el escritorio corre en modo dispositivo (`YggdrasilIdentity` cae a `newDeviceOnlyCryptoIdentity` cuando solo tiene `accountPublicKey`), así que **no tiene con qué abrir ese sobre**: `OpenFileKey` devuelve `ErrRootIdentityUnavailable`. Hoy, con el teléfono enrolado, escritorio→móvil no puede entregar el contenido de un adjunto por mucho que se cableen los paquetes.
+
+Tres salidas, en orden de preferencia:
+
+1. **Llevar la clave por el ratchet de dispositivo** que ya funciona para el chat (`buildLinkedChat`/`session`). Añadir un campo opcional (`wrappedKey`) junto a `encryptedKey`: el receptor intenta el que puede abrir y el emisor no rompe compatibilidad con escritorio→escritorio.
+2. **Sellar a la clave pública del dispositivo** cuando el par tenga binding. Exige que el escritorio **persista el certificado de dispositivo del contacto**, que hoy no guarda (`contacts` solo tiene su propio `deviceCertificate`).
+3. Sellar dos veces (cuenta y dispositivo) y que el receptor elija. Es la más simple de implementar y la más cara en bytes por propuesta, no por trozo.
+
+Mientras no se decida, el paso 6 solo puede avanzar en el lado del formato y la presentación.
+
+Limpieza pendiente: `identity.OpenFileKey` es hoy el método del puente Go; cuando el móvil cablee el descifrado conviene que reciba la clave de dispositivo explícita en lugar de depender de que la identidad tenga raíz.
 
 Lo que falta y por qué no es cosmético:
 
-1. **Descifrar.** La clave AES llega sellada y los trozos en AES-GCM. Las primitivas viven en Go (`transport-bridge/crypto_primitives.go` ya tiene `openSealedBox`), así que el camino corto es añadir allí `openFileKey` y el descifrado de trozo en vez de reimplementar crypto en Kotlin.
+1. **Descifrar.** ~~La clave AES llega sellada y los trozos en AES-GCM: hecho en Go (`OpenFileKey` y `DecryptFileChunk`).~~ Queda el bloqueo de a quién va sellada la clave, arriba.
 2. **Cablear el `FILE_PROPOSAL`** en el despacho de paquetes entrantes, con `FILE_ACCEPT` de vuelta y ACK por trozo.
 3. **Guardar y abrir.** Ruta final en el almacenamiento de la app, entrada en la caché de adjuntos y visor por tipo (imagen, vídeo, audio, documento).
 4. **Enviar.** Picker y grabación de nota de voz; el sobre ya está construido por `buildFileMessagePayload`, falta el troceado y el flujo de ventana.
