@@ -23,12 +23,25 @@ internal object SyncPackets {
   const val HISTORY_REQ = "SYNC_HISTORY_REQ"
   const val HISTORY_RES = "SYNC_HISTORY_RES"
   const val ACK = "SYNC_ACK"
+  const val RESET = "SYNC_RESET"
+  const val REGISTRY = "SYNC_REGISTRY"
 
-  private val types = setOf(HELLO, ENVELOPE, HISTORY_REQ, HISTORY_RES, ACK)
+  private val types = setOf(HELLO, ENVELOPE, HISTORY_REQ, HISTORY_RES, ACK, RESET, REGISTRY)
 
   fun isSyncType(type: String): Boolean = type in types
 
   fun contextId(deviceId: String): String = "sync:$deviceId"
+
+  fun reset(sender: SyncSender, nowMillis: Long): JSONObject =
+    decorate(
+      JSONObject()
+        .put("type", RESET)
+        .put("deviceId", sender.deviceId)
+        .put("deviceCertificate", sender.certificate)
+        .put("timestamp", nowMillis),
+      sender,
+      null,
+    )
 
   fun hello(sender: SyncSender, signedPreKey: JSONObject, ack: Boolean, nowMillis: Long): JSONObject =
     decorate(

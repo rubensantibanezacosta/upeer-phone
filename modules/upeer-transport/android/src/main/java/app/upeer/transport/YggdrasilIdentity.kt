@@ -113,6 +113,13 @@ internal class YggdrasilIdentity(context: Context) {
     return registries.currentAdmission(account.upeerID(), device.deviceId)
   }
 
+  fun adoptAccountRegistry(accountUpeerId: String, registryJSON: String): AccountRegistrySnapshot? {
+    val account = current() ?: return null
+    if (account.upeerID() != accountUpeerId.trim().lowercase()) return null
+    val certificate = devices.current()?.takeIf { it.accountUpeerId == accountUpeerId }?.certificateJSON
+    return registries.adopt(account.upeerID(), registryJSON, certificate)
+  }
+
   fun refreshRegistry() {
     if (isDeviceOnly()) {
       Log.i(TAG, "Modo dispositivo: el registro de cuenta lo publica la raíz")

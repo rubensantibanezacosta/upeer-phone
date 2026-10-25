@@ -69,6 +69,7 @@ internal class YggdrasilProtocol(
     ::selfAddress,
     ::validateLinked,
     { active, address, json -> egress.send(active, address, json, "de sincronización") },
+    { admission.isAdmitted() },
   )
 
   fun attachVaultDirectory(directory: VaultDirectory) = outbox.attachVaultDirectory(directory)

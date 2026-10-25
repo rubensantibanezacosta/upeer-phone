@@ -55,7 +55,11 @@ internal class SyncDiscovery(
     if (targets.isEmpty()) return found
     var greeted = 0
     for (address in targets) {
-      val frame = helloFrame() ?: break
+      val frame = helloFrame()
+      if (frame == null) {
+        Log.w(TAG, "SYNC_HELLO sin construir: no se puede firmar el saludo de ${myDevice.take(12)}")
+        break
+      }
       if (send(activeBridge, address, frame)) greeted += 1
     }
     Log.i(TAG, "SYNC_HELLO enviado a $greeted de ${targets.size} dispositivos propios")
@@ -77,10 +81,22 @@ internal class SyncDiscovery(
   }
 
   private fun helloFrame(): String? {
-    val account = identity.current() ?: return null
-    val device = identity.currentDevice() ?: return null
-    val address = selfAddress().takeIf(String::isNotEmpty) ?: return null
-    val signedPreKey = runCatching { JSONObject(deviceSignedPreKeys.currentJSON(device)) }.getOrNull() ?: return null
+    val account = identity.current() ?: run {
+      Log.w(TAG, "SYNC_HELLO sin cuenta cargada")
+      return null
+    }
+    val device = identity.currentDevice() ?: run {
+      Log.w(TAG, "SYNC_HELLO sin dispositivo enrolado")
+      return null
+    }
+    val address = selfAddress().takeIf(String::isNotEmpty) ?: run {
+      Log.w(TAG, "SYNC_HELLO sin dirección propia: el nodo aún no tiene identidad de red")
+      return null
+    }
+    val signedPreKey = runCatching { JSONObject(deviceSignedPreKeys.currentJSON(device)) }.getOrElse { cause ->
+      Log.w(TAG, "SYNC_HELLO sin preclave firmada: ${cause.message ?: cause.javaClass.simpleName}")
+      return null
+    }
     val hello = SyncPackets.hello(
       SyncSender(device.deviceId, device.certificate),
       JSONObject()
@@ -91,8 +107,11 @@ internal class SyncDiscovery(
       nowMillis = nowMillis(),
     )
     return runCatching {
-      account.buildLinkedControl(device.deviceId, account.upeerID(), address, hello.toString())
-    }.getOrNull()
+      device.crypto.buildLinkedControl(device.deviceId, account.upeerID(), address, hello.toString())
+    }.getOrElse { cause ->
+      Log.w(TAG, "SYNC_HELLO sin firma: ${cause.message ?: cause.javaClass.simpleName}")
+      null
+    }
   }
 
   private fun isSelfAddress(candidate: String): Boolean =

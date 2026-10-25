@@ -2,6 +2,8 @@ package app.upeer.transport
 
 import android.content.Context
 import android.util.Log
+import app.upeer.transport.dht.DhtLimits
+import app.upeer.transportbridge.transportbridge.Transportbridge
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -29,6 +31,12 @@ internal class AccountRegistryStore(
   private val nowMillis: () -> Long = System::currentTimeMillis,
   private val ttlMillis: Long = REGISTRY_TTL_MS,
   private val renewBeforeMillis: Long = REGISTRY_RENEW_BEFORE_MS,
+  private val verifyRegistry: (String, String, Long) -> Boolean = { registry, account, now ->
+    Transportbridge.verifyAccountRegistry(registry, account, now)
+  },
+  private val verifyAdmission: (String, String, String, Long) -> Boolean = { certificate, registry, account, now ->
+    Transportbridge.validateDeviceAdmission(certificate, registry, account, now)
+  },
 ) {
   private val lock = Any()
   private var cached: AccountRegistrySnapshot? = null
@@ -98,6 +106,56 @@ internal class AccountRegistryStore(
   }
 
   fun currentRegistryJSON(): String = synchronized(lock) { cached?.registryJSON.orEmpty() }
+
+  fun adopt(
+    accountUpeerId: String,
+    registryJSON: String,
+    localCertificateJSON: String?,
+  ): AccountRegistrySnapshot? = synchronized(lock) {
+    val account = runCatching { normalizeAccountUpeerId(accountUpeerId) }.getOrNull() ?: return null
+    if (registryJSON.isEmpty() || registryJSON.length > DhtLimits.MAX_VALUE_CHARS) return null
+    val registry = runCatching { JSONObject(registryJSON) }.getOrNull() ?: return null
+    if (registry.optString("accountUpeerId").trim().lowercase() != account) return null
+    val epoch = registry.optLong("epoch", -1L)
+    if (epoch < 0L || registry.optLong("issuedAt", 0L) <= 0L) return null
+    val now = nowMillis()
+    val previous = cached?.takeIf { it.accountUpeerId == account }
+      ?: readState()?.takeIf { it.accountUpeerId == account }
+    if (previous != null && epoch < previous.epoch) return previous
+    if (!runCatching { verifyRegistry(registryJSON, account, now) }.getOrDefault(false)) {
+      Log.w(TAG, "Registro de cuenta recibido sin firma válida")
+      return null
+    }
+    val revoked = revocationDeviceIds(registry)
+    val certificates = if (localCertificateJSON == null) {
+      previous?.certificates.orEmpty()
+    } else {
+      val certificate = deviceCertificateInfo(localCertificateJSON) ?: return null
+      mergeDeviceCertificate(previous?.certificates.orEmpty(), localCertificateJSON, certificate.deviceId)
+    }
+    val localDeviceId = localCertificateJSON?.let { deviceCertificateInfo(it)?.deviceId }
+      ?: previous?.localDeviceId.orEmpty()
+    val admitted = localCertificateJSON != null && localDeviceId.isNotEmpty() && localDeviceId !in revoked &&
+      runCatching { verifyAdmission(localCertificateJSON, registryJSON, account, now) }.getOrDefault(false)
+    val snapshot = AccountRegistrySnapshot(
+      accountUpeerId = account,
+      registryJSON = registryJSON,
+      epoch = epoch,
+      issuedAt = registry.optLong("issuedAt"),
+      expiresAt = registry.optLong("expiresAt"),
+      certificates = certificates,
+      revoked = revoked.toList().sorted(),
+      deviceCount = registry.optJSONArray("devices")?.length() ?: 0,
+      localDeviceId = localDeviceId,
+      localDeviceAdmitted = admitted,
+    )
+    persist(snapshot)
+    Log.i(
+      TAG,
+      "Registro de cuenta adoptado: epoch=$epoch dispositivos=${snapshot.deviceCount} revocados=${snapshot.revoked.size} admitido=$admitted",
+    )
+    snapshot
+  }
 
   fun addDevice(
     accountUpeerId: String,

@@ -391,6 +391,8 @@ class YggdrasilTransportService : Service() {
     if (installed != null) {
       if (identity.installEnrollment(installed)) {
         contactAdmission.clear()
+        runCatching { protocolState.clearSyncHistory() }
+          .onFailure { cause -> Log.w(TAG, "No se pudo reiniciar el histórico de sincronización", cause) }
         identity.refreshRegistry()
         if (bridge != null && identity.current() != null) dhtRuntime.start()
       } else {

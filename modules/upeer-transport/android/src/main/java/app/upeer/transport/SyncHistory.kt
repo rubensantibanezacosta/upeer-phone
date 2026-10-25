@@ -13,6 +13,7 @@ internal class SyncHistory(
   private val signOrigin: (SyncEventRecord) -> SyncOriginSignature?,
   private val verifyOrigin: (SyncEventRecord) -> Boolean,
   private val send: (Bridge, String, String) -> Boolean,
+  private val applyEvents: () -> Int = { 0 },
   private val nowMillis: () -> Long = System::currentTimeMillis,
 ) {
   private val lastRequest = mutableMapOf<String, Long>()
@@ -34,8 +35,14 @@ internal class SyncHistory(
 
   fun respond(activeBridge: Bridge, peer: SyncPeerRecord, payload: JSONObject) {
     val requestId = payload.optString("requestId")
-    if (!SyncPackets.validRequestId(requestId)) return
-    val device = identity.currentDevice() ?: return
+    if (!SyncPackets.validRequestId(requestId)) {
+      Log.w(TAG, "SYNC_HISTORY_REQ sin requestId válido para ${peer.deviceId.take(12)}")
+      return
+    }
+    val device = identity.currentDevice() ?: run {
+      Log.w(TAG, "SYNC_HISTORY_REQ sin dispositivo enrolado; no se puede responder")
+      return
+    }
     val cursor = SyncHistoryPayload.parseCursor(payload.opt("cursor"))
     val limit = payload.optInt("limit", PAGE_SIZE).coerceIn(1, MAX_PAGE)
     val rows = state.messages.historyPage(cursor.first, cursor.second, limit + 1)
@@ -46,6 +53,7 @@ internal class SyncHistory(
       val entry = historyEntry(device.deviceId, message) ?: continue
       entries.put(entry)
     }
+    Log.i(TAG, "Histórico para ${peer.deviceId.take(12)}: ${entries.length()} de ${page.size} mensajes (${rows.size} leídos)")
     val metadata = SyncPackets.historyMeta(sender(device), peer.deviceId, SyncPackets.HISTORY_RES, requestId) ?: return
     metadata.put("entries", entries)
     val last = page.lastOrNull()
@@ -67,7 +75,9 @@ internal class SyncHistory(
       for (index in 0 until entries.length()) {
         if (applyEntry(entries.optJSONObject(index) ?: continue, now)) applied += 1
       }
-      if (applied > 0) Log.i(TAG, "Histórico de ${peer.deviceId.take(12)}: $applied mensajes aplicados")
+      if (applied > 0) Log.i(TAG, "Histórico de ${peer.deviceId.take(12)}: $applied eventos aplicados")
+      val projected = applyEvents()
+      if (projected > 0) Log.i(TAG, "Histórico de ${peer.deviceId.take(12)}: $projected eventos proyectados")
     }
     val nextCursor = payload.optString("nextCursor").ifBlank { null }
     val done = payload.optBoolean("done", false)
@@ -128,7 +138,7 @@ internal class SyncHistory(
     val eventId = entry.optString("eventId")
     if (!SyncPackets.validEventId(eventId)) return false
     val kind = entry.optString("kind")
-    if (kind != SyncEventKinds.MESSAGE_UPSERT) return false
+    if (!SyncEventKinds.isValid(kind)) return false
     if (state.syncEvents.contains(eventId)) return false
     val occurredAt = entry.optLong("occurredAt", 0L)
     val sequence = entry.optLong("sequence", 0L)
@@ -152,7 +162,6 @@ internal class SyncHistory(
       Log.w(TAG, "Evento de histórico $eventId sin firma de origen válida")
       return false
     }
-    val message = SyncHistoryPayload.local(payload) ?: return false
     val draft = SyncEventDraft(
       eventId = eventId,
       kind = kind,
@@ -163,9 +172,7 @@ internal class SyncHistory(
       originSignature = originSignature,
       originCertificate = originCertificate,
     )
-    if (state.syncEvents.record(draft, now) == null) return false
-    if (state.messages.find(message.optString("id")) == null) state.messages.save(message)
-    return true
+    return state.syncEvents.record(draft, now) != null
   }
 
   private fun sender(device: DeviceIdentity): SyncSender = SyncSender(device.deviceId, device.certificate)

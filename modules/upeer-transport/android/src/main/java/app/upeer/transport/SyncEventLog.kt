@@ -95,6 +95,52 @@ internal class SyncEventLog(
     bucket().optJSONObject("acks")?.optLong(deviceId, 0L) ?: 0L
   }
 
+  fun applied(eventId: String): Boolean {
+    if (!validEventId(eventId)) return true
+    return synchronized(lock) {
+      val applied = bucket().optJSONArray("applied") ?: return@synchronized false
+      (0 until applied.length()).any { applied.optString(it) == eventId }
+    }
+  }
+
+  fun markApplied(eventId: String): Unit = synchronized(lock) {
+    if (!validEventId(eventId)) return@synchronized
+    val sync = bucket()
+    val applied = sync.optJSONArray("applied") ?: org.json.JSONArray()
+    if ((0 until applied.length()).any { applied.optString(it) == eventId }) return@synchronized
+    applied.put(eventId)
+    sync.put("applied", capped(applied))
+    state().put("sync", sync)
+    persist()
+  }
+
+  fun pendingApplication(limit: Int): List<SyncEventRecord> {
+    if (limit <= 0) return emptyList()
+    return synchronized(lock) {
+      val events = bucket().getJSONArray("events")
+      val known = bucket().optJSONArray("applied")
+      val seen = HashSet<String>()
+      if (known != null) for (index in 0 until known.length()) seen.add(known.optString(index))
+      val found = mutableListOf<SyncEventRecord>()
+      for (index in 0 until events.length()) {
+        val record = SyncEventRecord.from(events.optJSONObject(index) ?: continue) ?: continue
+        if (record.direction != "inbound") continue
+        if (record.eventId in seen) continue
+        found.add(record)
+      }
+      found.sortedBy { it.sequence }.take(limit)
+    }
+  }
+
+  private fun capped(values: org.json.JSONArray): org.json.JSONArray {
+    if (values.length() <= MAX_EVENTS) return values
+    val kept = org.json.JSONArray()
+    for (index in values.length() - MAX_EVENTS until values.length()) {
+      values.optString(index).takeIf(String::isNotEmpty)?.let { kept.put(it) }
+    }
+    return kept
+  }
+
   fun pendingFor(deviceId: String): Int {
     val ack = ackFor(deviceId)
     val events = synchronized(lock) { bucket().getJSONArray("events") }

@@ -17,6 +17,8 @@ internal class SyncReplies(
   private val validate: (ByteArray, String, String) -> Unit,
   private val selfAddress: () -> String,
   private val send: (Bridge, String, String) -> Boolean,
+  private val applyEvents: () -> Int = { 0 },
+  private val onAdmissionChanged: () -> Unit = {},
   private val nowMillis: () -> Long = System::currentTimeMillis,
 ) {
   fun handle(
@@ -48,6 +50,8 @@ internal class SyncReplies(
       SyncPackets.ENVELOPE -> envelope(activeBridge, packet, sourceAddress, auth, now)
       SyncPackets.HISTORY_REQ -> historyRequest(activeBridge, packet, sourceAddress, auth, now)
       SyncPackets.HISTORY_RES -> historyResponse(activeBridge, packet, sourceAddress, auth, now)
+      SyncPackets.RESET -> reset(packet, auth)
+      SyncPackets.REGISTRY -> registry(packet, auth)
       else -> Log.i(TAG, "Paquete $type de ${auth.deviceId.take(12)} todavía no se aplica en el móvil")
     }
     return JSONObject()
@@ -97,12 +101,19 @@ internal class SyncReplies(
       Log.w(TAG, "SYNC_HISTORY_REQ de ${auth.deviceId.take(12)} sin SYNC_HELLO previo")
       return
     }
-    if (!SyncPackets.recipientMatches(packet, device.deviceId)) return
-    val plaintext = channel.openRaw(device, deviceSignedPreKeys, packet, auth.devicePublicKey, auth.deviceId) ?: run {
-      Log.w(TAG, "SYNC_HISTORY_REQ de ${auth.deviceId.take(12)} no descifrable")
+    if (!SyncPackets.recipientMatches(packet, device.deviceId)) {
+      Log.w(TAG, "SYNC_HISTORY_REQ de ${auth.deviceId.take(12)} dirigido a otro dispositivo")
       return
     }
-    val payload = runCatching { JSONObject(plaintext) }.getOrNull() ?: return
+    val plaintext = channel.openRaw(device, deviceSignedPreKeys, packet, auth.devicePublicKey, auth.deviceId) ?: run {
+      Log.w(TAG, "SYNC_HISTORY_REQ de ${auth.deviceId.take(12)} no descifrable")
+      requestSessionReset(activeBridge, peer, sourceAddress, now)
+      return
+    }
+    val payload = runCatching { JSONObject(plaintext) }.getOrElse { cause ->
+      Log.w(TAG, "SYNC_HISTORY_REQ de ${auth.deviceId.take(12)} con contenido ilegible: ${message(cause)}")
+      return
+    }
     history.respond(activeBridge, peer, payload)
     state.syncPeers.remember(
       SyncDeviceBinding(peer.deviceId, peer.devicePublicKey, peer.certificateJSON, peer.signedPreKey),
@@ -124,18 +135,78 @@ internal class SyncReplies(
       Log.w(TAG, "SYNC_HISTORY_RES de ${auth.deviceId.take(12)} sin SYNC_HELLO previo")
       return
     }
-    if (!SyncPackets.recipientMatches(packet, device.deviceId)) return
-    val plaintext = channel.openRaw(device, deviceSignedPreKeys, packet, auth.devicePublicKey, auth.deviceId) ?: run {
-      Log.w(TAG, "SYNC_HISTORY_RES de ${auth.deviceId.take(12)} no descifrable")
+    if (!SyncPackets.recipientMatches(packet, device.deviceId)) {
+      Log.w(TAG, "SYNC_HISTORY_RES de ${auth.deviceId.take(12)} dirigido a otro dispositivo")
       return
     }
-    val payload = runCatching { JSONObject(plaintext) }.getOrNull() ?: return
+    val plaintext = channel.openRaw(device, deviceSignedPreKeys, packet, auth.devicePublicKey, auth.deviceId) ?: run {
+      Log.w(TAG, "SYNC_HISTORY_RES de ${auth.deviceId.take(12)} no descifrable")
+      requestSessionReset(activeBridge, peer, sourceAddress, now)
+      return
+    }
+    val payload = runCatching { JSONObject(plaintext) }.getOrElse { cause ->
+      Log.w(TAG, "SYNC_HISTORY_RES de ${auth.deviceId.take(12)} con contenido ilegible: ${message(cause)}")
+      return
+    }
     history.apply(activeBridge, peer, payload)
     state.syncPeers.remember(
       SyncDeviceBinding(peer.deviceId, peer.devicePublicKey, peer.certificateJSON, peer.signedPreKey),
       sourceAddress,
       now,
     )
+  }
+
+  private fun reset(
+    packet: JSONObject,
+    auth: SyncSelfIdentity,
+  ) {
+    state.clearSession(SyncPackets.contextId(auth.deviceId))
+    state.clearSyncHistory(auth.deviceId)
+    Log.i(TAG, "SYNC_RESET de ${auth.deviceId.take(12)}: sesión de sincronización olvidada")
+  }
+
+  private fun registry(
+    packet: JSONObject,
+    auth: SyncSelfIdentity,
+  ) {
+    val account = identity.current()?.upeerID() ?: return
+    val registryJSON = when (val value = packet.opt("registry")) {
+      is JSONObject -> value.toString()
+      is String -> value
+      else -> ""
+    }
+    if (registryJSON.isBlank()) {
+      Log.w(TAG, "SYNC_REGISTRY de ${auth.deviceId.take(12)} sin registro de cuenta")
+      return
+    }
+    val snapshot = identity.adoptAccountRegistry(account, registryJSON) ?: run {
+      Log.w(TAG, "SYNC_REGISTRY de ${auth.deviceId.take(12)} con registro no verificable")
+      return
+    }
+    val mine = identity.currentDevice()?.deviceId.orEmpty()
+    Log.i(
+      TAG,
+      "Registro de cuenta de ${auth.deviceId.take(12)}: epoch=${snapshot.epoch} dispositivos=${snapshot.deviceCount} revocados=${snapshot.revoked.size} admitido=${snapshot.localDeviceAdmitted}",
+    )
+    if (mine.isNotEmpty() && !snapshot.localDeviceAdmitted) {
+      Log.w(TAG, "Este dispositivo ya no está autorizado en la cuenta")
+      onAdmissionChanged()
+    }
+  }
+
+  private fun requestSessionReset(
+    activeBridge: Bridge,
+    peer: SyncPeerRecord,
+    address: String,
+    now: Long,
+  ) {
+    state.clearSession(SyncPackets.contextId(peer.deviceId))
+    state.clearSyncHistory(peer.deviceId)
+    val device = identity.currentDevice() ?: return
+    val frame = syncFrame(SyncPackets.reset(SyncSender(device.deviceId, device.certificate), now)) ?: return
+    if (!send(activeBridge, address.ifBlank { peer.address }, frame)) {
+      Log.w(TAG, "No se pudo pedir el reinicio de la sesión de sincronización a ${peer.deviceId.take(12)}")
+    }
   }
 
   private fun acknowledge(packet: JSONObject, auth: SyncSelfIdentity) {
@@ -160,7 +231,10 @@ internal class SyncReplies(
       Log.w(TAG, "SYNC_ENVELOPE de ${auth.deviceId.take(12)} sin SYNC_HELLO previo")
       return
     }
-    val event = channel.open(device, deviceSignedPreKeys, packet, auth.devicePublicKey, auth.deviceId) ?: return
+    val event = channel.open(device, deviceSignedPreKeys, packet, auth.devicePublicKey, auth.deviceId) ?: run {
+      requestSessionReset(activeBridge, peer, sourceAddress, now)
+      return
+    }
     val originVerified = verifyOriginSignature(event, now)
     when (val decision = SyncEnvelope.decide(packet, event, device.deviceId, auth.deviceId, originVerified)) {
       is SyncEnvelopeDecision.Rejected -> Log.w(TAG, "SYNC_ENVELOPE rechazado: ${decision.reason}")
@@ -168,6 +242,8 @@ internal class SyncReplies(
         val recorded = state.syncEvents.record(SyncEnvelope.draft(decision.event, decision.originDeviceId), now)
         if (recorded != null) {
           Log.i(TAG, "Evento ${decision.event.kind} de ${decision.originDeviceId.take(12)} registrado")
+          val projected = applyEvents()
+          if (projected > 0) Log.i(TAG, "Evento ${decision.event.kind} proyectado en el almacén local")
         }
       }
     }
@@ -224,8 +300,11 @@ internal class SyncReplies(
     val account = identity.current() ?: return null
     val address = selfAddress().takeIf(String::isNotEmpty) ?: return null
     return runCatching {
-      account.buildLinkedControl(device.deviceId, account.upeerID(), address, packet.toString())
-    }.getOrNull()
+      device.crypto.buildLinkedControl(device.deviceId, account.upeerID(), address, packet.toString())
+    }.getOrElse { cause ->
+      Log.w(TAG, "Paquete de sincronización sin firmar: ${message(cause)}")
+      null
+    }
   }
 
   private fun verifyCertificate(certificateJSON: String, accountUpeerId: String, nowMillis: Long): Boolean =

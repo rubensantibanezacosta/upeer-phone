@@ -1,5 +1,6 @@
 package app.upeer.transport
 
+import android.util.Log
 import app.upeer.transportbridge.transportbridge.Bridge
 
 internal class ProtocolSync(
@@ -11,8 +12,10 @@ internal class ProtocolSync(
   private val selfAddress: () -> String,
   private val validate: (ByteArray, String, String) -> Unit,
   private val send: (Bridge, String, String) -> Boolean,
+  private val onAdmissionChanged: () -> Unit = {},
 ) {
   private val channel = SyncChannel(identity, state)
+  private val applier = SyncApplier(state)
   private val history = SyncHistory(
     identity,
     state,
@@ -20,6 +23,7 @@ internal class ProtocolSync(
     { record -> signOrigin(record) },
     { record -> verifyOriginRecord(record) },
     { active, address, json -> send(active, address, json) },
+    { applier.applyAll(state.syncEvents.pendingApplication(APPLY_BATCH)) },
   )
   private val replies = SyncReplies(
     identity,
@@ -33,12 +37,15 @@ internal class ProtocolSync(
     validate,
     selfAddress,
     send,
+    { applier.applyAll(state.syncEvents.pendingApplication(APPLY_BATCH)) },
+    onAdmissionChanged,
   )
   private var discovery: SyncDiscovery? = null
   private var registrySource: () -> String = { "" }
 
   @Volatile
   private var discoveryLoop: Thread? = null
+  private val seenPeers = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
   fun attachDiscovery(
     store: (String, String) -> Int,
@@ -61,16 +68,15 @@ internal class ProtocolSync(
 
   private fun activePeerAddresses(): Set<String> {
     val threshold = System.currentTimeMillis() - LIVE_PEER_WINDOW_MS
-    return state.syncPeers.list()
-      .filter { it.lastSeen >= threshold && it.address.isNotEmpty() }
-      .map { it.address }
-      .toSet()
+    return seenPeers.entries.filter { it.value >= threshold }.map { it.key }.toSet()
   }
 
   fun isSyncType(type: String): Boolean = SyncPackets.isSyncType(type)
 
-  fun handle(activeBridge: Bridge, payload: ByteArray, packet: org.json.JSONObject, type: String, source: String): String =
-    replies.handle(activeBridge, payload, packet, type, source)
+  fun handle(activeBridge: Bridge, payload: ByteArray, packet: org.json.JSONObject, type: String, source: String): String {
+    seenPeers[source] = System.currentTimeMillis()
+    return replies.handle(activeBridge, payload, packet, type, source)
+  }
 
   fun start(activeBridge: Bridge) {
     val active = discovery ?: return
@@ -80,6 +86,7 @@ internal class ProtocolSync(
       while (!Thread.currentThread().isInterrupted) {
         runCatching { active.publish() }
         runCatching { active.discover(activeBridge, registry()) }
+        runCatching { applyPending() }
         try {
           Thread.sleep(DISCOVERY_INTERVAL_MS)
         } catch (_: InterruptedException) {
@@ -90,6 +97,13 @@ internal class ProtocolSync(
     thread.isDaemon = true
     discoveryLoop = thread
     thread.start()
+  }
+
+  private fun applyPending() {
+    val pending = state.syncEvents.pendingApplication(APPLY_BATCH)
+    if (pending.isEmpty()) return
+    val applied = applier.applyAll(pending)
+    Log.i("UPeerTransport", "Eventos de sincronización aplicados: $applied de ${pending.size}")
   }
 
   private fun verifyOrigin(record: SyncEventRecord, account: String, now: Long): Boolean {
@@ -111,6 +125,7 @@ internal class ProtocolSync(
   private companion object {
     private const val DISCOVERY_INTERVAL_MS = 60_000L
     private const val LIVE_PEER_WINDOW_MS = 300_000L
+    private const val APPLY_BATCH = 500
   }
 
 }

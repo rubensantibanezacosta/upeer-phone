@@ -142,6 +142,27 @@ internal class ProtocolStateStore(context: Context) {
     state.optJSONObject("peers")?.optJSONObject(upeerId)?.let(::copy)
   }
 
+  fun rememberContactProfile(upeerId: String, alias: String, avatar: String): Boolean = synchronized(lock) {
+    if (!validId(upeerId)) return@synchronized false
+    val peers = state.optJSONObject("peers") ?: JSONObject()
+    val existing = peers.optJSONObject(upeerId) ?: JSONObject()
+    var changed = false
+    val nextAlias = ProfileFields.alias(alias)
+    if (nextAlias.isNotEmpty() && existing.optString("alias") != nextAlias) {
+      existing.put("alias", nextAlias)
+      changed = true
+    }
+    if (avatar.isNotEmpty() && existing.optString("avatar") != avatar) {
+      existing.put("avatar", avatar)
+      changed = true
+    }
+    if (!changed) return@synchronized false
+    peers.put(upeerId, existing)
+    state.put("peers", peers)
+    persist()
+    true
+  }
+
   fun setProfile(alias: String, avatar: String) {
     synchronized(lock) {
       val profile = state.optJSONObject("profile") ?: JSONObject()
@@ -194,6 +215,10 @@ internal class ProtocolStateStore(context: Context) {
       state.optJSONObject("sessions")?.remove(upeerId)
       persist()
     }
+  }
+
+  fun clearSyncHistory(deviceId: String? = null) {
+    if (deviceId == null) history.clearAll() else history.clear(deviceId)
   }
 
 

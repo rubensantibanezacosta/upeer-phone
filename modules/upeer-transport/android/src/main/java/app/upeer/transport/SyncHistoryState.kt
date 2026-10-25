@@ -17,8 +17,7 @@ internal class SyncHistoryState(
     )
   }
 
-  fun save(deviceId: String, cursor: String?, done: Boolean) {
-    if (!validDeviceId(deviceId)) return
+  fun save(deviceId: String, cursor: String?, done: Boolean) {    if (!validDeviceId(deviceId)) return
     synchronized(lock) {
       val history = bucket()
       val entry = history.optJSONObject(deviceId) ?: JSONObject()
@@ -26,6 +25,21 @@ internal class SyncHistoryState(
       entry.put("done", done)
       history.put(deviceId, entry)
       state().put(KEY, history)
+      persist()
+    }
+  }
+
+  fun clearAll() {
+    synchronized(lock) {
+      state().remove(KEY)
+      persist()
+    }
+  }
+
+  fun clear(deviceId: String) {
+    synchronized(lock) {
+      bucket().remove(deviceId)
+      state().put(KEY, bucket())
       persist()
     }
   }

@@ -63,7 +63,7 @@ internal class VaultChannel(
     val device = identity.currentDevice()
     val signed = runCatching {
       if (device != null) {
-        crypto.buildLinkedControl(device.deviceId, crypto.upeerID(), address, packetJSON)
+        device.crypto.buildLinkedControl(device.deviceId, crypto.upeerID(), address, packetJSON)
       } else {
         crypto.buildSignedPacket(address, packetJSON)
       }

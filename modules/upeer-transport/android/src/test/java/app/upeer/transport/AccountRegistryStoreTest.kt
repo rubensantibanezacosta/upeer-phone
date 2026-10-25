@@ -159,6 +159,63 @@ class AccountRegistryStoreTest {
     assertEquals(false, store.currentAdmission(account, deviceA))
   }
 
+  @Test
+  fun adoptsAnUpdatedRegistryAndDetectsItsOwnRevocation() {
+    val signer = FakeAccountRegistrySigner(account)
+    val store = AccountRegistryStore(
+      MemoryAccountRegistryPersistence(),
+      { now },
+      verifyRegistry = { _, _, _ -> true },
+      verifyAdmission = { certificate, registry, expected, at -> signer.validateAdmission(certificate, registry, expected, at) },
+    )
+    store.ensure(account, certificateA, signer)
+    val revoked = signer.revoke(store.currentRegistryJSON(), deviceA, "revocado por el propietario", now)
+
+    val snapshot = store.adopt(account, revoked, certificateA)
+
+    assertTrue(snapshot != null)
+    assertEquals(2L, snapshot!!.epoch)
+    assertFalse(snapshot.localDeviceAdmitted)
+    assertEquals(listOf(deviceA), snapshot.revoked)
+    assertEquals(false, store.currentAdmission(account, deviceA))
+    assertFalse(JSONObject(store.statusJSON(account, deviceA)).getBoolean("localDeviceAdmitted"))
+  }
+
+  @Test
+  fun ignoresAnOlderRegistryAndKeepsTheCurrentOne() {
+    val signer = FakeAccountRegistrySigner(account)
+    val store = AccountRegistryStore(
+      MemoryAccountRegistryPersistence(),
+      { now },
+      verifyRegistry = { _, _, _ -> true },
+      verifyAdmission = { certificate, registry, expected, at -> signer.validateAdmission(certificate, registry, expected, at) },
+    )
+    store.ensure(account, certificateA, signer)
+    val current = store.currentRegistryJSON()
+    val older = JSONObject(current).put("epoch", 0L).put("issuedAt", now - 5_000).toString()
+
+    val snapshot = store.adopt(account, older, certificateA)
+
+    assertEquals(1L, snapshot?.epoch)
+    assertEquals(current, store.currentRegistryJSON())
+  }
+
+  @Test
+  fun rejectsARegistryThatDoesNotVerify() {
+    val signer = FakeAccountRegistrySigner(account)
+    val store = AccountRegistryStore(
+      MemoryAccountRegistryPersistence(),
+      { now },
+      verifyRegistry = { _, _, _ -> false },
+      verifyAdmission = { certificate, registry, expected, at -> signer.validateAdmission(certificate, registry, expected, at) },
+    )
+    store.ensure(account, certificateA, signer)
+    val revoked = signer.revoke(store.currentRegistryJSON(), deviceA, "revocado", now)
+
+    assertEquals(null, store.adopt(account, revoked, certificateA))
+    assertTrue(store.currentAdmission(account, deviceA) == true)
+  }
+
   private companion object {
     private const val NINETY_DAYS = 90L * 24L * 60L * 60L * 1000L
   }

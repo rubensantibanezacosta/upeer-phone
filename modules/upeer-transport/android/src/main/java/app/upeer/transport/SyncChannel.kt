@@ -30,21 +30,22 @@ internal class SyncChannel(
     val nonce = packet.optString("nonce")
     val header = packet.optJSONObject("ratchetHeader")
     if (content.isEmpty() || nonce.isEmpty() || header == null) {
-      Log.w(TAG, "SYNC_ENVELOPE de ${senderDeviceId.take(12)} sin campos de ratchet")
+      Log.w(TAG, "SYNC de ${senderDeviceId.take(12)} sin campos de ratchet")
       return null
     }
     val message = JSONObject().put("content", content).put("nonce", nonce).put("ratchetHeader", header).toString()
     val context = SyncPackets.contextId(senderDeviceId)
     val existing = state.sessionFor(context)
-    var plaintext = existing?.let { session -> attempt { device.crypto.ratchetDecrypt(session, message) } }
-    if (plaintext == null) {
-      plaintext = acceptFresh(device, decryptedKeys, packet, senderDevicePublicKey, message, existing, context)
+    val decrypted = existing?.let { session -> decrypt(device, session, message) }
+    if (decrypted != null) {
+      state.saveSession(context, decrypted.session)
+      return decrypted.plaintext
     }
-    if (plaintext == null) {
-      Log.w(TAG, "SYNC_ENVELOPE de ${senderDeviceId.take(12)} no descifrable")
-      return null
+    if (existing != null) {
+      state.clearSession(context)
+      Log.w(TAG, "Sesión de sincronización con ${senderDeviceId.take(12)} descartada: el ratchet no pudo descifrar")
     }
-    return plaintext
+    return acceptFresh(device, decryptedKeys, packet, senderDevicePublicKey, message, existing, context)
   }
 
   fun seal(
@@ -64,19 +65,29 @@ internal class SyncChannel(
       val parsed = runCatching { JSONObject(init) }.getOrNull() ?: return null
       Session(parsed.optString("session"), parsed.optString("x3dhInit").takeIf(String::isNotEmpty))
     }
-    val encrypted = attempt { JSONObject(device.crypto.ratchetEncrypt(started.json, metadata.toString().toByteArray(Charsets.UTF_8))) }
-      ?: return null
+    val result = attempt {
+      JSONObject(device.crypto.ratchetEncrypt(started.json, metadata.toString().toByteArray(Charsets.UTF_8)))
+    } ?: return null
+    val encrypted = runCatching { JSONObject(result.optString("message")) }.getOrNull() ?: return null
+    val nextSession = result.optString("session").takeIf(String::isNotEmpty) ?: return null
     val packet = JSONObject(metadata.toString())
       .put("content", encrypted.optString("content"))
       .put("nonce", encrypted.optString("nonce"))
       .put("ratchetHeader", encrypted.optJSONObject("ratchetHeader"))
       .put("senderDeviceCertificate", device.certificate)
     started.x3dhInit?.let { packet.put("x3dhInit", JSONObject(it)) }
-    state.saveSession(SyncPackets.contextId(peer.deviceId), started.json)
+    state.saveSession(SyncPackets.contextId(peer.deviceId), nextSession)
     val address = activeBridge.address()
     return attempt {
-      identity.current()?.buildLinkedControl(device.deviceId, identity.current()?.upeerID().orEmpty(), address, packet.toString())
+      device.crypto.buildLinkedControl(device.deviceId, identity.current()?.upeerID().orEmpty(), address, packet.toString())
     }
+  }
+
+  private fun decrypt(device: DeviceIdentity, session: String, message: String): Decrypted? {
+    val result = attempt { JSONObject(device.crypto.ratchetDecrypt(session, message)) } ?: return null
+    val plaintext = attempt { YggdrasilPayloadCodec.hexToBytes(result.optString("plaintextHex")) } ?: return null
+    val next = result.optString("session").takeIf(String::isNotEmpty) ?: return null
+    return Decrypted(next, String(plaintext, Charsets.UTF_8))
   }
 
   private fun acceptFresh(
@@ -96,10 +107,10 @@ internal class SyncChannel(
     }
     val secret = decryptedKeys.secretFor(device, spkId) ?: return null
     val fresh = attempt { device.crypto.acceptInboundSession(init.optString("ikPub"), init.toString(), secret) } ?: return null
-    val plaintext = attempt { device.crypto.ratchetDecrypt(fresh, message) } ?: return null
+    val decrypted = decrypt(device, fresh, message) ?: return null
     if (existing != null) Log.i(TAG, "Sesión de sincronización reiniciada con el dispositivo")
-    state.saveSession(context, fresh)
-    return plaintext
+    state.saveSession(context, decrypted.session)
+    return decrypted.plaintext
   }
 
   private fun <T> attempt(block: () -> T): T? = try {
@@ -110,6 +121,8 @@ internal class SyncChannel(
   }
 
   private data class Session(val json: String, val x3dhInit: String?)
+
+  private data class Decrypted(val session: String, val plaintext: String)
 
   private companion object {
     private const val TAG = "UPeerTransport"
