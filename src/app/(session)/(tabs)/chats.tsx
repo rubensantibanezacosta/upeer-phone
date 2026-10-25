@@ -11,6 +11,7 @@ import { NewConversationList } from '@/components/new-conversation-list';
 import { ChatListItem, type ChatListEntry } from '@/components/chat-list-item';
 import { CHAT_LIST_FILTERS, filterChatEntries, isChatFilterActive, type ChatListFilter } from '@/domain/chat-list-filters';
 import { messageSummary } from '@/domain/contact-card';
+import { describeMessageContent } from '@/domain/attachment';
 import { flagMessage, flagsFor, orderByPinned, type ConversationFlag } from '@/domain/conversation-flags';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
 import { useNow } from '@/hooks/use-now';
@@ -26,6 +27,7 @@ import { SearchField } from '@/components/search-field';
 import { getConversations, markConversationRead } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { NativeRippleButton } from '@/components/native-ripple-button';
+import { SyncProgressBanner } from '@/components/sync-progress-banner';
 
 const contactStatusLabels: Record<UPeerContact['status'], string> = {
   pending: 'Pendiente',
@@ -69,7 +71,7 @@ export default function ChatsRoute() {
         upeerId: conversation.upeerId,
         title: conversation.alias || conversation.upeerId.slice(0, 12),
         avatar: conversation.avatar,
-        preview: messageSummary(conversation.lastMessage.replace(/^__SYS__\|/, '')) || 'Sin mensajes',
+        preview: describeMessageContent(messageSummary(conversation.lastMessage.replace(/^__SYS__\|/, ''))) || 'Sin mensajes',
         timestamp: conversation.lastTimestamp,
         unread: conversation.unread,
         isMine: conversation.lastIsMine === true,
@@ -154,6 +156,7 @@ export default function ChatsRoute() {
             <NativeRipplePressable accessibilityLabel="Más opciones" accessibilityRole="button" onPress={() => setMenuOpen((value) => !value)} style={styles.chatMenuButton}><Ellipsis color={theme.text} size={22} /></NativeRipplePressable>
           </XStack>
         </XStack>
+        <SyncProgressBanner />
         <SearchField onChangeText={setQuery} placeholder="Buscar un chat o iniciar uno nuevo" value={query} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chatFiltersScroll} contentContainerStyle={styles.chatFilters}>
           {CHAT_LIST_FILTERS.map((item) => {

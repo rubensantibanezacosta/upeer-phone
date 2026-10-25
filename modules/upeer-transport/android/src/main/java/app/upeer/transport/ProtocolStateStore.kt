@@ -15,6 +15,7 @@ internal class ProtocolStateStore(context: Context) {
   )
   private val lock = Any()
   private var state = ProtocolStateCodec.load(store)
+  private var lastSyncState = ""
 
   val messages = ProtocolMessageList({ state }, lock, ::persist)
   val presence = ProtocolPresence({ state }, lock, ::persist)
@@ -286,6 +287,27 @@ internal class ProtocolStateStore(context: Context) {
   }
 
   fun statusJSON(): String = synchronized(lock) { ProtocolStatus.json(state) }
+
+  fun syncStatusJSON(nowMillis: Long = System.currentTimeMillis()): String {
+    val peers = syncPeers.list()
+    val progress = peers.map { history.progress(it.deviceId) }
+    val report = SyncStatusReport.json(
+      progress,
+      peers,
+      syncEvents.pendingCount(),
+      syncEvents.unsupportedCount(),
+      nowMillis,
+    )
+    val current = report.optString("state")
+    if (current != lastSyncState) {
+      lastSyncState = current
+      Log.i(
+        TAG,
+        "Estado de sincronización: $current dispositivos=${report.optInt("devices")} alDía=${report.optInt("devicesDone")} pendientes=${report.optInt("pendingEvents")} noSoportados=${report.optInt("unsupported")}",
+      )
+    }
+    return report.toString()
+  }
 
   private fun copy(value: JSONObject): JSONObject = JSONObject(value.toString())
 

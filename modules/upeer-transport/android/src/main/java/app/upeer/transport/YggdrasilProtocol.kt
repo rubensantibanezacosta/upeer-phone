@@ -200,6 +200,8 @@ internal class YggdrasilProtocol(
     return result.toString()
   }
 
+  fun syncStatusJSON(): String = state.syncStatusJSON()
+
   private fun handleSignedPacket(activeBridge: Bridge, payload: ByteArray, sourceAddress: String): String {
     val packet = JSONObject(String(payload, Charsets.UTF_8))
     val type = packet.optString("type")

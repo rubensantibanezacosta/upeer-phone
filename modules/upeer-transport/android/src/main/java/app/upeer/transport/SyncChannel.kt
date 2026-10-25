@@ -16,7 +16,11 @@ internal class SyncChannel(
     senderDeviceId: String,
   ): SyncPlainEvent? {
     val plaintext = openRaw(device, decryptedKeys, packet, senderDevicePublicKey, senderDeviceId) ?: return null
-    return runCatching { SyncPackets.plainEvent(JSONObject(plaintext)) }.getOrNull()
+    val parsed = runCatching { SyncPackets.plainEvent(JSONObject(plaintext)) }.getOrNull()
+    if (parsed == null) {
+      Log.w(TAG, "SYNC_ENVELOPE de ${senderDeviceId.take(12)} con evento ilegible: ${plaintext.take(120)}")
+    }
+    return parsed
   }
 
   fun openRaw(
@@ -99,15 +103,24 @@ internal class SyncChannel(
     existing: String?,
     context: String,
   ): String? {
-    val init = packet.optJSONObject("x3dhInit") ?: return null
+    val init = packet.optJSONObject("x3dhInit") ?: run {
+      Log.w(TAG, "SYNC de ${packet.optString("senderDeviceId").take(12)} sin x3dhInit y sin sesión previa")
+      return null
+    }
     val spkId = init.optLong("spkId")
     if (!init.optString("ikPub").equals(senderDevicePublicKey, ignoreCase = true)) {
       Log.w(TAG, "SYNC_ENVELOPE con identidad X3DH que no es la del dispositivo emisor")
       return null
     }
-    val secret = decryptedKeys.secretFor(device, spkId) ?: return null
+    val secret = decryptedKeys.secretFor(device, spkId) ?: run {
+      Log.w(TAG, "SYNC de ${packet.optString("senderDeviceId").take(12)} con SPK $spkId desconocida para este dispositivo")
+      return null
+    }
     val fresh = attempt { device.crypto.acceptInboundSession(init.optString("ikPub"), init.toString(), secret) } ?: return null
-    val decrypted = decrypt(device, fresh, message) ?: return null
+    val decrypted = decrypt(device, fresh, message) ?: run {
+      Log.w(TAG, "Sesión entrante de sincronización aceptada pero el mensaje no descifra")
+      return null
+    }
     if (existing != null) Log.i(TAG, "Sesión de sincronización reiniciada con el dispositivo")
     state.saveSession(context, decrypted.session)
     return decrypted.plaintext

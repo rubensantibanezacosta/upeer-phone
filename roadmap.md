@@ -116,27 +116,59 @@ Cada fase B solo puede empezar cuando la anterior tenga su criterio de salida de
 | B10 | Producto 6 | Sincronización online/offline, historial y entrega diferida por dispositivo | En curso (enrolamiento móvil hecho; identidad sin raíz y sincronización pendientes) |
 | B11 | Modo «solo local» | Transporte local sin internet: Bluetooth RFCOMM, LAN y admisión por dispositivo | Bloqueada a propósito: requiere decisión del usuario |
 
-## Orden de ejecución vigente (25/10/2026)
+## Orden de ejecución vigente (28/10/2026)
 
-Las fases B0–B11 siguen siendo las unidades de trabajo, pero su numeración **no es el orden de ejecución**. Este es el orden derivado de bloqueos verificados en código, no de la comodidad de tener un módulo caliente:
+Las fases B0–B11 siguen siendo las unidades de trabajo, pero su numeración **no es el orden de ejecución**. Este es el orden derivado de bloqueos verificados en código, no de la comodidad de tener un módulo caliente. Reordenado el 28/10/2026 al comprobar que el móvil, con `SYNC_*` funcionando, **sigue sin poder representar buena parte de lo que el escritorio ya produce**: grupos, adjuntos, notas de voz y llamadas.
 
 | Orden | Trabajo | Bloquea a | Por qué va aquí |
 |---|---|---|---|
 | 1 | **Runtime en modo dispositivo** (residuo de B6) | ~~B10~~ cerrado el 26/10/2026 | El nodo arranca sin raíz, el enrolamiento activa el certificado y las **tramas de control ya se firman por dispositivo** (`BuildLinkedControl`/`BuildLinkedAck`). Lo que queda de B6 es el **handshake sin raíz**, y **no bloquea B10**: `SYNC_HELLO` de escritorio se autentica con el certificado de dispositivo y su SPK firmada por la clave de dispositivo (`network/sync/auth.ts:36-60`), sin handshake de contacto. Ese residuo bloquea la paridad real de B6/B9 (abrir conversaciones nuevas desde un dispositivo enrolado) y necesita decisión de diseño: ver «Handshake sin raíz». |
 | 2 | **`VAULT_*` y entrega diferida** (en curso: emisor, custodio, buzón, custodia local, puntero en DHT, `VAULT_RENEW` y estados cableados; faltan la prueba cruzada con escritorio como custodio real y la decisión sobre cuotas por reputación) | estados `vaulted`, cierre de UI, fin del `failed` permanente | **No depende de `SYNC_*`**: `vault/manager.ts` de escritorio solo usa Kademlia, contactos, reputación y `sendSecurePacket`. Las primitivas ya están en el móvil: `KademliaNode.storeValue` (85), `KademliaIterative.storeValue` (52), `KademliaRoutingTable.findClosestContacts` (25) y `refreshRegistry`. |
-| 3 | **`SYNC_*`: transporte y aplicador** (cierre de B10; **desbloqueado el 28/10/2026**: saludo, registro, histórico y aplicador funcionando en dispositivo contra escritorio) | estados `synced`, eventos de perfil y grupo, relay con firma de origen | Las piezas puras están hechas y probadas (46 casos) y el canal ya está cableado de punta a punta: ratchet `sync:<deviceId>` con `SYNC_ENVELOPE`, `SYNC_HISTORY_*`, `SYNC_RESET` y `SYNC_REGISTRY`. Queda la proyección de `GROUP_*`, los estados `pending`/`synced`/`vaulted`/`delivered`/`failed` en la UI y la prueba con más de dos dispositivos. `SYNC_HELLO` se autentica por certificado de dispositivo, así que **no necesita la raíz**: el residuo del handshake sin raíz no bloquea este paso, solo abrir conversaciones nuevas desde un dispositivo enrolado. |
-| 4 | **`FILE_*`** | notas de voz, adjuntos en grupo, paridad de adjuntos | La recuperación offline de adjuntos se apoya en los shards del vault, que ya estará hecho. |
-| 5 | **`GROUP_*`** | llamada de grupo | Necesita sender keys, fanout por dispositivo y adjuntos, así que va después de `FILE_*`. |
-| 6 | **`CALL_*`** | — | El bloque más grande y el único con requisitos de hardware y red en tiempo real. |
-| 7 | **Cierre de UI** (ajustes reales, notificaciones, revocación) | — | Solo tiene sentido cuando existan los estados que debe pintar. Incluye sacar «Desconectar» de la notificación persistente y llevar a Ajustes → Conexión el interruptor de segundo plano, que al apagarse debe impedir que el proceso `:yggdrasil` sobreviva al cierre de la app. Cuelga también de aquí la **emisión de presencia del móvil** (ver «Presencia desde el móvil»): no bloquea ningún paso, pero es la razón de que escritorio no vea al móvil «En línea» mientras se usa. |
-| 8 | **B12 (blogs P2P)** | — | Producto nuevo, no transporte. |
-
-B9 no es un paso sino una **puerta**: la matriz de interoperabilidad, fuzzing y presupuesto de batería se ejecuta al cerrar cada uno de los pasos anteriores sobre lo que ese paso toque, no al final de todos. La prueba real Desktop↔móvil del 25/10/2026 ya cubrió la parte de chat, recibos, reacciones, edición, respuesta, borrado y presencia.
+| 3 | **`SYNC_*`: transporte, aplicador y las dos fases** (cierre de B10; **desbloqueado el 28/10/2026**: saludo, registro, histórico y aplicador funcionando en dispositivo contra escritorio) | estados `synced`, eventos de perfil, relay con firma de origen | Las piezas puras están hechas y probadas (46 casos) y el canal ya está cableado de punta a punta: ratchet `sync:<deviceId>` con `SYNC_ENVELOPE`, `SYNC_HISTORY_*`, `SYNC_RESET` y `SYNC_REGISTRY`. La UI ya distingue las dos fases con `SyncStatusReport` (`idle`/`syncing`/`live`): masiva al saludar y en tiempo real después. Verificado en dispositivo: `MESSAGE_UPSERT`, `MESSAGE_STATUS`, `MESSAGE_EDIT` y `CONTACT_PROFILE` se proyectan. **No cierra B10 por sí solo**: los grupos y los adjuntos no son proyectables (ver «Cobertura real de los nueve eventos»), así que la sincronización es hoy 1:1 y de solo texto. **La mitad de Escritorio de las dos fases sigue pendiente** y es requisito de producto, no del port. |
+| **4** | **Grupos en el móvil: modelo de conversación, pantalla y proyección** (28/10/2026). Incluye el modelo local de grupo, la lista y la ficha con sus miembros, la proyección de `GROUP_UPSERT`/`GROUP_DELETE` y la de los mensajes con `chatUpeerId` `grp-…` que ya llegan por `SYNC_*` | **cierre de B10**, recibir cualquier grupo del escritorio | **Es el bloqueo más barato de todos**: los mensajes de grupo ya llegan por el histórico y por `SYNC_ENVELOPE`, y hoy se descartan porque `SyncHistoryPayload.local` exige un `upeerId` de 64 hex. No necesita claves nuevas, ni `FILE_*`, ni `GROUP_*`: solo tabla, UI y proyección. Sin esto, «sincronizado» es falso para cualquier cuenta con grupos |
+| **5** | **Adjuntos de mensaje: presentación y contenido** (28/10/2026). Presentación **hecha**: `domain/attachment.ts` reconoce el sobre `{"type":"file",…}` y la burbuja y la lista de Chats muestran `Documento: informe.pdf` en vez del JSON en crudo. Falta el contenido: descarga, caché y visor | abrir cualquier adjunto, notas de voz, adjuntos en grupo | Va justo después de los grupos porque es el otro contenido que el histórico ya transporta y el móvil no sabe representar. La presentación es cosmética y barata; el contenido real exige `FILE_*` y el vault |
+| **6** | **`FILE_*`**: envío y recepción troceada con hash y progreso, picker de imagen/vídeo/documento y grabación de nota de voz en el móvil | notas de voz, adjuntos en grupo, compartir cualquier cosa | Depende del paso 2 (los shards del vault sostienen la recuperación offline). A partir de aquí el móvil deja de ser solo texto en ambas direcciones |
+| **7** | **`GROUP_*` propio: `GROUP_MSG`, `GROUP_INVITE`, `GROUP_UPDATE`, sender keys, epoch, control de administrador y llamada de grupo como evento de chat** | hablar en grupos, no solo recibirlos | Lo que en el paso 4 era leer grupos del escritorio, aquí es escribir en ellos: fanout por dispositivo y claves de grupo. Necesita los pasos 4 y 6 |
+| **8** | **`CALL_*`**: señalización 1:1, media UDP, vídeo, llamada de grupo, relay de medios, compartir pantalla, historial de llamadas y sus eventos de chat | pestaña Llamadas | **El bloque más grande y el único con hardware y red en tiempo real.** La señalización va firmada con clave de dispositivo, así que depende del paso 1; el vídeo y el grupo, del paso 7. El escritorio ya tiene señalización, pipeline de medios, codecs y panel de historial: aquí no se diseña, se porta |
+| **9** | **Cierre de UI** (ajustes reales, notificaciones, revocación) | — | Solo tiene sentido cuando existan los estados que debe pintar. Incluye sacar «Desconectar» de la notificación persistente y llevar a Ajustes → Conexión el interruptor de segundo plano, que al apagarse debe impedir que el proceso `:yggdrasil` sobreviva al cierre de la app. Cuelga también de aquí la **emisión de presencia del móvil** (ver «Presencia desde el móvil»): no bloquea ningún paso, pero es la razón de que escritorio no vea al móvil «En línea» mientras se usa. |
+| **10** | **B12 (blogs P2P)** | — | Producto nuevo, no transporte. |
 
 Dos correcciones respecto a lo que decía este roadmap antes:
 
 - **El vault no va después de la sincronización.** La dependencia «`VAULT_*` depende de `SYNC_*`» era falsa y venía de confundir el buzón por dispositivo del *destinatario* con la sincronización entre dispositivos *propios*. Son protocolos separados que solo comparten el almacén de mensajes y, por tanto, la regla de deduplicación por `messageId`.
 - **B8 no bloquea nada.** El trabajador DHT está cableado en el servicio; lo que queda de B8 es presupuesto de batería y matriz de pruebas, no integración.
+
+## Mapa de funcionalidades y bloqueos (28/10/2026)
+
+Tabla de verdad, medida en código de los dos clientes el 28/10/2026. **Qué puede hacer el móvil hoy**, qué le falta y qué lo bloquea exactamente. Si una fila dice «etiqueta», significa que el mensaje **ya llega y se guarda**, pero solo se muestra su descripción: el contenido no se puede abrir.
+
+| Funcionalidad | Escritorio | Móvil | Bloqueo | Paso |
+|---|---|---|---|---|
+| Texto 1:1, estados de entrega, recibos | Sí | Sí | — | hecho |
+| Editar, borrar, reaccionar, responder, reenviar, buscar | Sí | Sí | — | hecho |
+| Tarjeta de contacto | Sí | **Sí**: se envía desde la ficha del contacto (`ContactShareSheet`), se pinta como tarjeta (`parseContactCard`) y el resumen de la lista la nombra | — | hecho |
+| Presencia y «escribiendo…» | Sí | Sí (actividad del usuario) | — | hecho |
+| Imagen | Sí | **Etiqueta** | `FILE_*` + visor | 4, 5, 6 |
+| Vídeo | Sí | **Etiqueta** | `FILE_*` + reproductor | 4, 5, 6 |
+| Audio y nota de voz | Sí, con grabación | **Etiqueta**; el micrófono del compositor avisa «próximamente» | `FILE_*` + grabador nativo | 5, 6 |
+| Documento y PDF | Sí | **Etiqueta** | `FILE_*` + visor | 4, 5, 6 |
+| Mensajes de sistema (`__SYS__\|`) | Sí | **Sí**, desde el 28/10/2026: se pintan centrados y sin el prefijo, y los eventos de llamada pierden la marca de tiempo | — | hecho |
+| Grupos: recibir del escritorio | Sí | **No**: los mensajes con `chatUpeerId` `grp-…` se descartan | modelo de grupo + proyección | **4** |
+| Grupos: crear, invitar, escribir, administrar | Sí | No | `GROUP_*` + sender keys | 7 |
+| Llamada de voz 1:1 | Sí | No; la pestaña Llamadas es un estado vacío | `CALL_*` + media UDP | **8** |
+| Videollamada | Sí | No | `CALL_*` + códec de vídeo | **8** |
+| Llamada de grupo, relay de medios, compartir pantalla | Sí | No | `CALL_*` sobre grupos | **8** |
+| Historial de llamadas y evento de llamada en el chat | Sí | El **evento** llega y se pinta como mensaje de sistema; el **historial** no existe | `CALL_*` | 8 |
+| Vault y entrega diferida | Sí | En curso | — | 2 |
+| Sincronización multi-dispositivo | Sí | **Sí**, con cobertura parcial y declarada | grupos y adjuntos | 3, 4, 5 |
+
+**Los tres bloqueos que importan, en orden de coste:**
+
+1. **Grupos de solo lectura** (paso 4). No necesita `FILE_*`, ni claves nuevas, ni `GROUP_*`: los mensajes ya llegan por `SYNC_*` y se tiran por el filtro de `upeerId` de 64 hex de `SyncHistoryPayload.local`. Es tabla, proyección y pantalla. **Bloquea el cierre de B10.**
+2. **Contenido de adjuntos** (pasos 5 y 6). La presentación ya está hecha; abrir el archivo exige `FILE_*`, y la recuperación offline de `FILE_*` se apoya en los shards del vault (paso 2).
+3. **Llamadas** (paso 8). El bloque más grande y el único con hardware en medio. No se puede adelantar sin arrastrar media, codecs y permisos.
+
+**Lo que el móvil no hace y no es un bloqueo, sino una decisión pendiente:** el handshake sin raíz (paso 1, residuo de B6), que impide abrir conversaciones nuevas desde un dispositivo enrolado.
 
 ## Regla de organización de archivos
 
@@ -479,6 +511,14 @@ Salida propuesta, pendiente de decidir con el usuario porque cambia el protocolo
 - **Medido en dispositivo:** `SYNC_HELLO enviado a 1 de 1 dispositivos propios`, `SYNC_REGISTRY` adoptado con `epoch=2968 dispositivos=2 revocados=1 admitido=true`, 7 `MESSAGE_UPSERT` + 6 `MESSAGE_STATUS` + 1 `MESSAGE_EDIT` aplicados y el chat visible en la lista del móvil. Escritorio: `tsc` limpio, `lint` con 0 errores (16 avisos preexistentes) y 1881 pruebas unitarias en verde; los cinco tests que fallaban eran mocks desactualizados (`getMyAccountRegistry`, `broadcastSyncRegistry` y el botón «usar códigos manuales» ya eliminado).
 - **Riesgo abierto:** el receptor verifica la firma del relay inmediato, pero `originDeviceId` no viaja con una firma independiente del origen. Tolerar un dispositivo propio comprometido exige firmar el evento en origen y transportar esa firma.
 
+**Dos fases y cobertura real (28/10/2026).** La sincronización se parte en lo que el usuario ve y en lo que de verdad se replica:
+
+- **Fase masiva, al abrir sesión.** El móvil reabre el histórico de cada dispositivo la primera vez que lo saluda en este proceso (`SyncHistory.restart`, una sola vez por `deviceId` y arranque) y pide páginas de 50 hasta `done`. Mientras dura, `SyncStatusReport` devuelve `syncing` y Chats pinta `SyncProgressBanner` con el progreso; después pasa a `live` y solo quedan los eventos en tiempo real. El estado se calcula en el nativo, no en React: `syncStatusJSON()` por el AIDL, `useSyncStatus` con sondeo de 2 s.
+- **Fase en tiempo real.** `SYNC_ENVELOPE`, `SYNC_ACK` y el histórico incremental sobre el mismo ratchet; sin `SYNC_HELLO` nuevo no se vuelve a pedir la fase masiva.
+- **Cobertura incompleta, y ahora se declara.** `SyncApplier` distingue `APPLIED`, `UNSUPPORTED` y `REJECTED`. Lo no soportado —`GROUP_UPSERT`, `GROUP_DELETE` y los mensajes con contenido de adjunto— se cuenta en `SyncEventLog.markUnsupported` y viaja en el estado como `unsupported`, así que la app puede decirlo en vez de fingir que terminó. Consecuencia registrada en el orden de ejecución: **B10 no se cierra sin grupos (3b) ni sin presentar adjuntos (3c)**.
+- **Por qué no basta con filtrarlos.** El histórico de escritorio es un cursor global ordenado por `timestamp` sobre la tabla `messages`, sin filtrar por tipo de chat (`listSyncHistoryMessages`). Un móvil que descarte `grp-…` no puede distinguir «no hay más» de «no sé pintar esto»; de ahí que se cuenten y se muestren.
+
+
 - [ ] Replicar mensajes salientes/entrantes, ediciones, borrados, reacciones, lecturas y eventos de perfil/grupo a todos los dispositivos autorizados. Cada dispositivo mantiene su propia sesión con el contacto: solo el que descifró un paquete de esa sesión envía ACK y avanza su ratchet; una copia recibida por sincronización no ACK ni toca la sesión del contacto.
 - [ ] Implementar entrega diferida por dispositivo (buzón/vault): sobre cifrado por dispositivo, TTL y cuotas, replicado a N custodios, puntero firmado en DHT, consulta al reconectar, ACK y borrado. La DHT solo publica punteros; no almacena mensajes.
 - [x] Sincronización inicial de historial tras el emparejamiento: transferencia por chunks con cursor y hashes, reanudable y con deduplicación. Si no hay otro dispositivo online, queda pendiente; no se copia la base de datos ni claves privadas. Hecho en las dos direcciones con `SYNC_HISTORY_REQ`/`SYNC_HISTORY_RES`; el cursor vive en `SyncHistoryState` y se reinicia con `SYNC_RESET` o al reenrolar. Queda pendiente el caso de dispositivos que nunca coinciden online.
@@ -806,9 +846,28 @@ Cierre de brechas medido contra el código de `upper-desktop`, no contra lo que 
 | `DHT_*` (12 tipos) | Sí | Sí, códec y Kademlia con vectores | Vectores Go/JVM y fixtures de Desktop |
 | `SYNC_HELLO` / `SYNC_ENVELOPE` / `SYNC_HISTORY_REQ` / `SYNC_HISTORY_RES` / `SYNC_ACK` / `SYNC_RESET` / `SYNC_REGISTRY` | Sí, con relay, firma de origen y backlog | Sí (`SyncChannel`, `SyncReplies`, `SyncHistory`, `SyncDiscovery`, `SyncApplier`) | Verificado en dispositivo contra Desktop: saludo, registro adoptado con revocación, histórico y eventos aplicados. Falta la prueba con tres dispositivos y la firma de origen del evento relayado |
 
-### Sincronización multi-dispositivo: los nueve eventos
+### Sincronización multi-dispositivo: cobertura real de los nueve eventos (28/10/2026)
 
-`SYNC_EVENT_KINDS` de escritorio son `MESSAGE_UPSERT`, `MESSAGE_STATUS`, `MESSAGE_EDIT`, `MESSAGE_DELETE`, `CHAT_CLEAR`, `REACTION_SET`, `GROUP_UPSERT`, `GROUP_DELETE` y `CONTACT_PROFILE`. El móvil no implementa ninguno: no hay store de eventos, ni cursor, ni ACK por dispositivo. Los estados `pending`/`synced`/`vaulted`/`delivered`/`failed` que el roadmap de B10 da por observables solo existen en escritorio.
+`SYNC_EVENT_KINDS` de escritorio son `MESSAGE_UPSERT`, `MESSAGE_STATUS`, `MESSAGE_EDIT`, `MESSAGE_DELETE`, `CHAT_CLEAR`, `REACTION_SET`, `GROUP_UPSERT`, `GROUP_DELETE` y `CONTACT_PROFILE`. El móvil ya tiene store de eventos, cursor, ACK por dispositivo, canal, histórico y aplicador, pero **la proyección no cubre los nueve tipos ni todos los contenidos de mensaje**:
+
+| Tipo | Registro en el móvil | Proyección local | Qué falta |
+|---|---|---|---|
+| `MESSAGE_UPSERT` | Sí | Sí, si el chat es 1:1 | Los mensajes con `chatUpeerId` `grp-…` se descartan: el móvil **no tiene modelo de conversación de grupo** |
+| `MESSAGE_STATUS` | Sí | Sí | — |
+| `MESSAGE_EDIT` | Sí | Sí | — |
+| `MESSAGE_DELETE` | Sí | Sí | — |
+| `CHAT_CLEAR` | Sí | Sí | — |
+| `REACTION_SET` | Sí | Sí | — |
+| `GROUP_UPSERT` / `GROUP_DELETE` | Sí | **No** | No hay tabla ni pantalla de grupos; se cuentan como no soportados |
+| `CONTACT_PROFILE` | Sí | Sí | — |
+
+Dos contenidos de `MESSAGE_UPSERT` tampoco son proyectables todavía, porque el móvil **no tiene `FILE_*`**:
+
+- **Adjuntos.** Escritorio guarda la imagen, el PDF o el audio como texto JSON (`saveFileMessage` → `{"type":"file","transferId":…,"fileName":…}`). El móvil lo aplica como mensaje de texto y la lista de Chats acaba mostrando **el JSON en crudo**. Se detecta con `SyncHistoryPayload.isAttachment` y se cuenta como cobertura incompleta.
+- **Notas de voz.** Mismo caso con `isVoiceNote`.
+
+Los estados `pending`/`synced`/`vaulted`/`delivered`/`failed` siguen sin ser observables en la UI móvil; el único estado que la app pinta ya es el de la sincronización (`SyncStatusReport`: `idle`/`syncing`/`live` más contadores de pendientes y no soportados).
+
 
 ### Funciones de escritorio sin equivalente en móvil
 
@@ -820,9 +879,9 @@ Cierre de brechas medido contra el código de `upper-desktop`, no contra lo que 
 | Historial de llamadas | `CallsPanel.tsx` | Nada |
 | Mensajes de grupo | `messaging/groups.ts`, `groupControl.ts`, `groupState.ts` | Nada |
 | Llamada de grupo como evento de chat | `messaging/groupCallEvent.ts` | Nada |
-| Archivos, imágenes, PDF y audio | `network/file-transfer/`, `features/chat/file/` | Nada; el clip del composer avisa «pendiente» |
+| Archivos, imágenes, PDF y audio | `network/file-transfer/`, `features/chat/file/` | **Se presentan** desde el 28/10/2026 (`domain/attachment.ts`): nombre, tipo y tamaño en la burbuja y en la lista. No se pueden abrir ni enviar; el clip del composer sigue avisando «pendiente». Sin `FILE_*` |
 | Visor de medios y miniaturas | `features/chat/media-viewer/` | Nada |
-| Notas de voz | `features/chat/input/RecordingBar.tsx` | Nada; el micrófono avisa «pendiente» |
+| Notas de voz | `features/chat/input/RecordingBar.tsx` | Se presentan como «Nota de voz»; no se graban ni se reproducen. El micrófono avisa «pendiente» |
 | Responder, reenviar y reaccionar | `MessageReply.tsx`, `ForwardModal.tsx`, `MessageReactions.tsx`, `MessageContextMenu.tsx` | Editar, reaccionar y responder sí; reenviar no |
 | Borrar mensaje y vaciar chat | `chatMutations.ts` | Nada |
 | Escribiendo y presencia | `messaging/heartbeat.ts` | Nada |
@@ -832,7 +891,7 @@ Cierre de brechas medido contra el código de `upper-desktop`, no contra lo que 
 | Selector de emoji | `EmojiPicker.tsx`, `emojiData.ts` | Nada |
 | Buzón cifrado y vault | `network/vault/` | Nada |
 | Revocar dispositivo propio | IPC `revoke-authorized-device` | Equivalente en Perfil → dispositivos: `revokeAccountDevice` y el servicio descarta sus paquetes |
-| Estados de sincronización | `getSyncStatus` + evento `sync-status` | Nada |
+| Estados de sincronización | `getSyncStatus` + evento `sync-status` (solo `disabled`/`pending`/`synced`, sin fase masiva) | `getSyncStatus()` por AIDL, `useSyncStatus` con sondeo de 2 s y `SyncProgressBanner` en Chats con `idle`/`syncing`/`live`, pendientes y no soportados |
 
 ### Cobertura de pruebas real
 
@@ -859,7 +918,7 @@ El port se ha centrado en que el móvil *tenga* las funciones de escritorio, no 
 - **El número de seguridad ya coincide entre plataformas.** `SafetyNumber` (móvil) y `computeSafetyNumber` (escritorio) ordenan las dos claves públicas, las concatenan y hacen SHA-256 de 20 bytes en 8 grupos de 5, con los **mismos vectores** en `SafetyNumberTest` y `safetyNumber.test.ts`. `get-contact-security` expone `hasSession`, `hasContactKey` y el número a la vista de Cifrado de escritorio, que antes no mostraba ninguno: la vista distingue «no hay sesión», «hay sesión pero no clave del contacto» y «no se pudo calcular». Ojo: `computeKeyFingerprint` (BLAKE2b-128 de una clave) sigue vivo para los avisos TOFU de cambio de clave y no es un número de seguridad.
 - **La tarjeta de contacto ya se lee en las dos direcciones.** El móvil enseña su QR en Perfil y en la hoja de tarjeta, y el escritorio incorpora `QrScannerModal` (`getUserMedia` + `jsQR`) en `AddContactModal`, con `parseContactQrPayload` exigiendo `uPeerID@dirección` y rechazando con mensaje el QR de solo identidad. Salvedad honesta: **no se ha probado con una cámara física**; lo verificado es la decodificación de un QR generado con la misma librería.
 - **Lo portado en las últimas semanas está probado contra sí mismo.** Reacciones, borrado para todos, tarjetas, respuestas, reenvíos, reintento de fallidos, recibos de lectura, presencia y escritura tienen pruebas en su plataforma y ninguna cruzada. Un `CHAT_REACTION` que el móvil emite puede estar bien formado y aun así no ser lo que escritorio espera.
-- **La paridad es asimétrica por diseño.** El móvil no tiene `FILE_*`, ni grupos, ni llamadas, ni vault, ni `SYNC_*`. «Probar adjuntos Desktop↔móvil» no es una prueba pendiente: es una función que solo existe en un lado.
+- **La paridad es asimétrica por diseño.** El móvil no tiene `FILE_*`, ni grupos, ni llamadas ni vault. Ya tiene `SYNC_*` (28/10/2026) con cobertura parcial: grupos y adjuntos se cuentan como no soportados. «Probar adjuntos Desktop↔móvil» no es una prueba pendiente: es una función cuyo contenido solo existe en un lado.
 - **Revisión estática de conformidad del plano de control: sin discrepancias.** Se compararon campo a campo emisores y receptores de `CHAT_REACTION`, `CHAT_DELETE`, `READ`, `ACK`, `TYPING` y tarjeta de contacto. Los identificadores son UUID en minúsculas en ambos lados (`ReplayPolicy.validMessageID` frente a los mensajes del escritorio); la reacción viaja con `msgId`/`emoji`/`remove` en los dos; el escritorio atribuye la reacción al `upeerId` del transporte y no al `senderUpeerId` del payload, así que acepta el frame del móvil, que no lo incluye; el borrado usa `msgId` en los dos; `READ` usa `id` y el escritorio lo lee con esa misma clave; y la tarjeta se serializa con el mismo JSON (`type: contact_card`, `text`, `contact.{name,address,upeerId,publicKey,avatar}`). El contenido `CHAT` lo cifra en ambos casos el **mismo bridge Go** (`buildChat`/`buildLinkedChat`), así que el sobre no puede divergir por reimplementación. Lo que sigue sin probarse es el comportamiento: estados, orden y efecto en la base de datos de cada cliente.
 
 Nada de esto invalida el trabajo hecho. Significa que la frase «mensajería cerrada» solo es cierta dentro de cada plataforma, y que la siguiente tanda debe ser de interoperabilidad, no de funciones nuevas.
@@ -1167,6 +1226,37 @@ El registro firmado ya guardaba los revocados, pero revocar no cambiaba nada en 
 - **La UI no miente.** `useAccountDevices` expone `localAdmitted`, `ready` y `epoch`; el panel enseña un aviso de peligro si el dispositivo local está revocado, el motivo y la fecha de cada revocación, el `epoch` en el aviso de éxito, y un mensaje distinto cuando el registro aún no está listo en vez de una lista vacía.
 - **El dispositivo revocado ya tiene salida.** El aviso de peligro del panel ofrece «Volver a vincular este dispositivo» y abre el mismo `DevicePairingPanel` que la pantalla de recuperación, dentro de una hoja inferior: `deviceEnrollmentBegin` genera una clave de dispositivo nueva, así que el emparejamiento sustituye la identidad en lugar de reutilizarla. Tras vincularlo hay que cerrar y abrir la sesión con la frase.
 - Pendiente: **propagar el registro nuevo entre dispositivos propios** (B10) para que un dispositivo revocado que siga encendido en otra máquina se entere; hoy solo lo aprende quien recibe su tráfico.
+
+### Sincronización en dos fases y cobertura declarada (28/10/2026)
+
+**Esto no es una función del móvil: es un requisito de producto de los dos clientes.** Al abrir sesión hay una sincronización **masiva** que debe quedar tapada bajo un indicador de progreso, y solo después el canal pasa a **tiempo real**. El móvil es la mitad que ya lo cumple; Escritorio todavía no distingue las fases (trabajo anotado en [`../upper-desktop/Roadmap.md`](../upper-desktop/Roadmap.md)). La semántica —`idle`/`syncing`/`live`, dispositivos al día, eventos pendientes, frescura del último contacto— se fija aquí porque es la que debe leer el otro lado.
+
+La sincronización no es una sola cosa. Son dos, y ahora se distinguen en el nativo, no en React:
+
+- **Fase masiva, al abrir sesión.** `SyncHistory.request()` ya no se rinde cuando `done` está marcado; al recibir `SYNC_HELLO` de un dispositivo, `SyncReplies` llama a `SyncHistory.restart(deviceId)` una sola vez por arranque y proceso (`reopened`), lo que reabre el cursor (`SyncHistoryState.reopen`) y pide páginas de 50 hasta `done`. Esto es lo que hacía que un móvil recién enrolado no volviera a pedir nada tras el primer intento fallido.
+- **Fase en tiempo real.** `SYNC_ENVELOPE`, `SYNC_ACK` y el histórico incremental sobre el mismo ratchet `sync:<deviceId>`.
+
+El estado que la UI consume lo calcula `SyncStatusReport` en Kotlin y viaja por AIDL (`syncStatusJSON()` → `getSyncStatus()` → `useSyncStatus`):
+
+| Campo | Para qué |
+|---|---|
+| `state` | `idle` sin dispositivos, `syncing` mientras algún histórico no está al día **y** el último contacto con el peer es reciente (45 s), `live` después |
+| `devices` / `devicesDone` | Progreso de la fase masiva. `devices` sale de los peers conocidos, no del registro |
+| `pendingEvents` | Eventos entrantes registrados y sin proyectar (`SyncEventLog.pendingCount`) |
+| `unsupported` | Eventos que el móvil no sabe proyectar (`SyncEventLog.unsupportedCount`) |
+| `lastPeerAt` / `ageMillis` | Frescura del canal, para no quedarse en `syncing` con el otro dispositivo apagado |
+
+En Chats, `SyncProgressBanner` muestra el progreso durante `syncing` y un aviso de **sincronización parcial** cuando hay `unsupported`. La regla de producto es que la fase masiva se esconde bajo un loading y la de tiempo real no: por eso el banner no aparece en `live`.
+
+**Lo que el aplicador puede y no puede proyectar.** `SyncApplier` separa ahora tres desenlaces (`APPLIED`, `UNSUPPORTED`, `REJECTED`) en vez de un booleano:
+
+- **Proyecta:** `MESSAGE_UPSERT` (solo chats 1:1), `MESSAGE_STATUS`, `MESSAGE_EDIT`, `MESSAGE_DELETE`, `CHAT_CLEAR`, `REACTION_SET` y `CONTACT_PROFILE`.
+- **No proyecta:** `GROUP_UPSERT` y `GROUP_DELETE`, porque no hay modelo de conversación de grupo en el móvil.
+- **Proyecta el mensaje, pero no el contenido:** los mensajes `{"type":"file",…}` y las notas de voz se guardan y se pintan ya con `domain/attachment.ts` (nombre, tipo y tamaño), y se siguen contando como no soportados porque el archivo no se puede abrir. Antes se mostraba el JSON en crudo en la lista de Chats y en la burbuja.
+- **Mensajes de sistema `__SYS__|`:** llegan como `MESSAGE_UPSERT` normales y desde el 28/10/2026 se pintan centrados, sin el prefijo y sin la marca de tiempo de los eventos de llamada (`domain/system-message.ts`). Antes se veía el prefijo literal en la conversación.
+- Un mensaje de grupo (`chatUpeerId` `grp-…`) no pasa el filtro de `upeerId` de 64 hex de `SyncHistoryPayload.local`, así que se rechaza en vez de aplicarse mal. Es el bloqueo del paso 4.
+
+**Por qué esto bloquea el cierre de B10 y no es un detalle cosmético.** El histórico de escritorio es **un único cursor global** sobre `messages` ordenado por `timestamp`, sin filtrar por tipo de chat (`listSyncHistoryMessages`). El móvil no puede pedir «solo los 1:1», así que cualquier subconjunto que descarte en silencio rompe la promesa de «todo está sincronizado». De ahí que el orden de ejecución del roadmap meta grupos y presentación de adjuntos **antes** de dar B10 por cerrado.
 
 ### Gestión de dispositivos en escritorio: sección propia (26/10/2026)
 
@@ -1784,7 +1874,7 @@ Portar administración y mensajería grupal con seguridad de miembros.
 
 ### Fase 12 — Transferencias, multimedia y notas de voz
 
-> Estado (23/10/2026): el móvil no implementa ningún `FILE_*`. El clip del composer y el micrófono avisan de que la función está pendiente.
+> Estado (28/10/2026): el móvil no implementa ningún `FILE_*`, pero ya **presenta** lo que llega: `domain/attachment.ts` reconoce el sobre `{"type":"file",…}` y la burbuja y la lista muestran `Documento: informe.pdf` con su tamaño. El clip del composer y el micrófono siguen avisando de que la función está pendiente, porque enviar y abrir exigen `FILE_*`.
 
 #### Objetivo
 

@@ -42,6 +42,13 @@ internal object SyncHistoryPayload {
     return message
   }
 
+  fun isAttachment(content: String): Boolean {
+    val trimmed = content.trimStart()
+    if (!trimmed.startsWith("{")) return false
+    val parsed = runCatching { JSONObject(trimmed) }.getOrNull() ?: return false
+    return parsed.optString("type") == "file" || parsed.optString("type") == "image"
+  }
+
   fun cursor(message: JSONObject): String? {
     val timestamp = message.optLong("timestamp", 0L)
     val id = message.optString("id")

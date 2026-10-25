@@ -167,7 +167,7 @@ internal object SyncPackets {
   }
 
   fun validEventId(value: String): Boolean =
-    value.length in 8..128 && value.all { it.isLetterOrDigit() || it == '-' || it == '_' }
+    value.length in 8..128 && value.all { it.isLetterOrDigit() || it == '-' || it == '_' || it == ':' || it == '.' }
 
   fun validRequestId(value: String): Boolean =
     value.length in 8..128 && value.all { it.isLetterOrDigit() || it == '-' || it == '_' }

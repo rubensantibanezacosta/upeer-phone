@@ -6,7 +6,7 @@ import { sha512 } from '@noble/hashes/sha2.js';
 import { NativeModule, requireNativeModule } from 'expo';
 import { validateMnemonic } from '../../../src/domain/mnemonic';
 import { decodeEnrollmentTransfer, encodeEnrollmentTransfer } from '../../../src/domain/enrollment-transfer';
-import type { AccountRegistryDocument, AccountRegistryStatus, DeviceEnrollmentBeginResult, DeviceEnrollmentStatus, DeviceIdentityStatus, DhtLocationStatus, EnrollmentAuthorizerInvite, EnrollmentAuthorizerIssued, EnrollmentAuthorizerRequest, EnrollmentAuthorizerStatus, EnrollmentCertificateSummary, IdentityTransportStatus, InboundTransportStatus, LocationBlock, PeerInfo, PeerPoolEntry, PeerSecurity, ProtocolConversation, ProtocolMessage, ProtocolTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
+import type { AccountRegistryDocument, AccountRegistryStatus, DeviceEnrollmentBeginResult, DeviceEnrollmentStatus, DeviceIdentityStatus, DhtLocationStatus, EnrollmentAuthorizerInvite, EnrollmentAuthorizerIssued, EnrollmentAuthorizerRequest, EnrollmentAuthorizerStatus, EnrollmentCertificateSummary, IdentityTransportStatus, InboundTransportStatus, LocationBlock, PeerInfo, PeerPoolEntry, PeerSecurity, ProtocolConversation, ProtocolMessage, ProtocolTransportStatus, SyncTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
 
 declare class UPeerTransportModule extends NativeModule<{}> {
   start(configJSON: number[]): Promise<YggdrasilNodeInfo>;
@@ -55,6 +55,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   registerPeer(upeerId: string, address: string, publicKey: string, signedPreKeyJSON: string): Promise<boolean>;
   flushOutbox(): Promise<void>;
   protocolStatus(): Promise<string>;
+  syncStatus(): Promise<string>;
   locationBlock(ttlMillis: number): Promise<string>;
   deviceIdentityStatus(): Promise<string>;
   accountRegistry(): Promise<string>;
@@ -345,6 +346,10 @@ export async function flushOutbox(): Promise<void> {
 
 export async function getProtocolStatus(): Promise<ProtocolTransportStatus> {
   return JSON.parse(await nativeModule.protocolStatus()) as ProtocolTransportStatus;
+}
+
+export async function getSyncStatus(): Promise<SyncTransportStatus> {
+  return JSON.parse(await nativeModule.syncStatus()) as SyncTransportStatus;
 }
 
 export async function getLocationBlock(ttlMillis = 0): Promise<LocationBlock> {

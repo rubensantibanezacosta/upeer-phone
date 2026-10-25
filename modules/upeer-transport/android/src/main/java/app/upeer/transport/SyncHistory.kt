@@ -24,7 +24,17 @@ internal class SyncHistory(
     val now = nowMillis()
     if (now - (lastRequest[peer.deviceId] ?: 0L) < REQUEST_COOLDOWN_MS) return
     lastRequest[peer.deviceId] = now
+    Log.i(TAG, "Pidiendo histórico a ${peer.deviceId.take(12)} desde ${progress.cursor ?: "el principio"}")
     sendRequest(activeBridge, peer, progress.cursor)
+  }
+
+  fun resetBackoff(peerDeviceId: String) {
+    lastRequest.remove(peerDeviceId)
+  }
+
+  fun restart(peerDeviceId: String) {
+    state.history.reopen(peerDeviceId)
+    lastRequest.remove(peerDeviceId)
   }
 
   fun requestIfInitiator(activeBridge: Bridge, peer: SyncPeerRecord) {
@@ -54,6 +64,9 @@ internal class SyncHistory(
       entries.put(entry)
     }
     Log.i(TAG, "Histórico para ${peer.deviceId.take(12)}: ${entries.length()} de ${page.size} mensajes (${rows.size} leídos)")
+    if (page.isNotEmpty() && entries.length() == 0) {
+      Log.w(TAG, "Histórico para ${peer.deviceId.take(12)} sin ningún evento firmado: revisa la clave del dispositivo")
+    }
     val metadata = SyncPackets.historyMeta(sender(device), peer.deviceId, SyncPackets.HISTORY_RES, requestId) ?: return
     metadata.put("entries", entries)
     val last = page.lastOrNull()
@@ -69,17 +82,25 @@ internal class SyncHistory(
 
   fun apply(activeBridge: Bridge, peer: SyncPeerRecord, payload: JSONObject) {
     val entries = payload.optJSONArray("entries")
+    var failed = 0
     if (entries != null && entries.length() <= MAX_PAGE) {
       val now = nowMillis()
       var applied = 0
       for (index in 0 until entries.length()) {
-        if (applyEntry(entries.optJSONObject(index) ?: continue, now)) applied += 1
+        val entry = entries.optJSONObject(index) ?: continue
+        if (applyEntry(entry, now)) applied += 1
+        else if (!state.syncEvents.contains(entry.optString("eventId"))) failed += 1
       }
-      if (applied > 0) Log.i(TAG, "Histórico de ${peer.deviceId.take(12)}: $applied eventos aplicados")
+      if (applied > 0) Log.i(TAG, "Histórico de ${peer.deviceId.take(12)}: $applied eventos registrados")
       val projected = applyEvents()
       if (projected > 0) Log.i(TAG, "Histórico de ${peer.deviceId.take(12)}: $projected eventos proyectados")
     }
     val nextCursor = payload.optString("nextCursor").ifBlank { null }
+    if (failed > 0) {
+      lastRequest.remove(peer.deviceId)
+      Log.w(TAG, "Histórico de ${peer.deviceId.take(12)}: $failed eventos rechazados, no avanzo el cursor")
+      return
+    }
     val done = payload.optBoolean("done", false)
     state.history.save(peer.deviceId, nextCursor, done || nextCursor == null)
     if (!done && nextCursor != null) {
@@ -136,13 +157,22 @@ internal class SyncHistory(
 
   private fun applyEntry(entry: JSONObject, now: Long): Boolean {
     val eventId = entry.optString("eventId")
-    if (!SyncPackets.validEventId(eventId)) return false
+    if (!SyncPackets.validEventId(eventId)) {
+      Log.w(TAG, "Evento de histórico con id inválido: ${eventId.take(40)}")
+      return false
+    }
     val kind = entry.optString("kind")
-    if (!SyncEventKinds.isValid(kind)) return false
+    if (!SyncEventKinds.isValid(kind)) {
+      Log.w(TAG, "Evento de histórico $eventId con tipo desconocido: ${kind.take(30)}")
+      return false
+    }
     if (state.syncEvents.contains(eventId)) return false
     val occurredAt = entry.optLong("occurredAt", 0L)
     val sequence = entry.optLong("sequence", 0L)
-    val payload = entry.optJSONObject("payload") ?: return false
+    val payload = entry.optJSONObject("payload") ?: run {
+      Log.w(TAG, "Evento de histórico $eventId sin payload")
+      return false
+    }
     if (occurredAt <= 0 || sequence <= 0) return false
     val originDeviceId = entry.optString("originDeviceId").lowercase().ifBlank { null }
     val originSignature = entry.optString("originSignature").lowercase().ifBlank { null }

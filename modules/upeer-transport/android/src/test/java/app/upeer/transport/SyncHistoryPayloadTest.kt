@@ -86,6 +86,15 @@ class SyncHistoryPayloadTest {
     assertEquals(0L to "", SyncHistoryPayload.parseCursor("no-numerico:id"))
   }
 
+  @Test
+  fun `attachment content is recognised by its type`() {
+    assertTrue(SyncHistoryPayload.isAttachment("""{"type":"file","transferId":"abc","fileName":"a.pdf"}"""))
+    assertTrue(SyncHistoryPayload.isAttachment("""  {"type":"image","fileId":"abc"}"""))
+    assertFalse(SyncHistoryPayload.isAttachment("hola"))
+    assertFalse(SyncHistoryPayload.isAttachment("""{"type":"contact_card"}"""))
+    assertFalse(SyncHistoryPayload.isAttachment("{"))
+  }
+
   private fun local(occurredAt: Long): JSONObject = JSONObject()
     .put("id", messageId)
     .put("upeerId", peer)

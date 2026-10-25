@@ -49,6 +49,7 @@ interface IYggdrasilTransport {
   boolean registerPeer(String upeerId, String address, String publicKey, String signedPreKeyJSON);
   void flushOutbox();
   String protocolStatusJSON();
+  String syncStatusJSON();
   String locationBlockJSON(long ttlMillis);
   String deviceIdentityStatusJSON();
   String dhtLocationStatusJSON();

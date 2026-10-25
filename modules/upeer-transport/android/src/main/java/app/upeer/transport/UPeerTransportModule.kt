@@ -121,6 +121,7 @@ class UPeerTransportModule : Module() {
       service().validateDeviceAdmission(certificateJSON, registryJSON, expectedAccountUpeerId, nowMillis.toLong())
     }
     AsyncFunction("dhtLocationStatus") { service().dhtLocationStatusJSON() }
+    AsyncFunction("syncStatus") { service().syncStatusJSON() }
     AsyncFunction("lookupContactLocation") { upeerId: String -> service().lookupContactLocation(upeerId) }
     AsyncFunction("verifyLocationBlock") { blockJSON: String, publicKeyHex: String, nowMillis: Double ->
       service().verifyLocationBlock(blockJSON, publicKeyHex, nowMillis.toLong())

@@ -230,6 +230,7 @@ class YggdrasilTransportService : Service() {
     override fun flushOutbox() = protocol.flushOutbox()
     override fun protocolStatusJSON(): String =
       JSONObject(protocol.statusJSON()).put("dht", JSONObject(dhtRuntime.statusJSON())).toString()
+    override fun syncStatusJSON(): String = protocol.syncStatusJSON()
     override fun locationBlockJSON(ttlMillis: Long): String = dhtBindings.locationBlockJSON(ttlMillis)
     override fun accountRegistryJSON(): String = dhtBindings.accountRegistryJSON()
     override fun accountRegistryStatusJSON(): String = dhtBindings.accountRegistryStatusJSON()

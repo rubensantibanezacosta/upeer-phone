@@ -5,9 +5,12 @@ import { Text } from 'tamagui';
 import type { ChatTimelineEntry } from '@/domain/chat-timeline';
 import { formatChatTime } from '@/domain/chat-timeline';
 import { parseContactCard, type ContactCard } from '@/domain/contact-card';
+import { parseAttachment } from '@/domain/attachment';
+import { systemMessageText } from '@/domain/system-message';
 import type { ReactionSummary } from '@/domain/chat-reactions';
 import type { ReplyPreview } from '@/domain/chat-reply';
 import { ChatContactCard } from '@/components/chat/chat-contact-card';
+import { ChatAttachment } from '@/components/chat/chat-attachment';
 import { ChatReplyQuote } from '@/components/chat/chat-reply-quote';
 import { ChatReactionRow } from '@/components/chat/chat-reaction-row';
 import { useTextScale } from '@/hooks/use-text-scale';
@@ -54,8 +57,18 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
   const metaColor = isMine ? theme.bubbleMineText : theme.placeholder;
   const deleted = entry.message.deleted === true;
   const card = deleted ? null : parseContactCard(entry.message.content);
+  const attachment = deleted || card ? null : parseAttachment(entry.message.content);
   const quotedID = deleted ? undefined : entry.message.replyTo;
   const onPressReply = onOpenReply && quotedID ? () => onOpenReply(quotedID) : undefined;
+  const system = deleted ? null : systemMessageText(entry.message.content);
+
+  if (system) {
+    return (
+      <View style={[styles.systemRow, { marginTop: entry.startsGroup ? 10 : 4 }]}>
+        <Text color={theme.placeholder} fontSize={scale(11)} textAlign="center">{system}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.row, { marginTop: entry.startsGroup ? 10 : 4 }, isMine ? styles.rowMine : styles.rowTheirs]}>
@@ -71,7 +84,7 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
           ]}
         >
           {reply && !deleted ? <View style={styles.quote}><ChatReplyQuote isMine={isMine} onPress={onPressReply} reply={reply} /></View> : null}
-          <View style={[styles.body, card ? styles.bodyColumn : null]}>
+          <View style={[styles.body, card || attachment ? styles.bodyColumn : null]}>
             {card && onOpenCard ? (
               <ChatContactCard
                 card={card}
@@ -79,6 +92,8 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
                 saved={savedContacts?.has(card.upeerId.toLowerCase()) === true}
                 tone={isMine ? 'mine' : 'theirs'}
               />
+            ) : attachment ? (
+              <ChatAttachment info={attachment} isMine={isMine} />
             ) : (
               <Text color={textColor} fontSize={scale(14)} opacity={deleted ? 0.6 : 1} style={[styles.content, deleted ? styles.deletedContent : null]}>{entry.message.content}</Text>
             )}
@@ -101,6 +116,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', width: '100%' },
   rowMine: { justifyContent: 'flex-end' },
   rowTheirs: { justifyContent: 'flex-start' },
+  systemRow: { alignItems: 'center', paddingHorizontal: 24, width: '100%' },
   column: { maxWidth: '80%' },
   bubble: {
     borderRadius: 12,

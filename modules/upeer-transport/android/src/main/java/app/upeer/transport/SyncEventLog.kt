@@ -132,6 +132,21 @@ internal class SyncEventLog(
     }
   }
 
+  fun pendingCount(): Int = synchronized(lock) {
+    val events = bucket().getJSONArray("events")
+    val known = bucket().optJSONArray("applied")
+    val seen = HashSet<String>()
+    if (known != null) for (index in 0 until known.length()) seen.add(known.optString(index))
+    var pending = 0
+    for (index in 0 until events.length()) {
+      val event = events.optJSONObject(index) ?: continue
+      if (event.optString("direction") != "inbound") continue
+      if (event.optString("eventId") in seen) continue
+      pending += 1
+    }
+    pending
+  }
+
   private fun capped(values: org.json.JSONArray): org.json.JSONArray {
     if (values.length() <= MAX_EVENTS) return values
     val kept = org.json.JSONArray()
@@ -139,6 +154,25 @@ internal class SyncEventLog(
       values.optString(index).takeIf(String::isNotEmpty)?.let { kept.put(it) }
     }
     return kept
+  }
+
+  fun markUnsupported(kind: String): Unit = synchronized(lock) {
+    if (kind.isBlank()) return@synchronized
+    val sync = bucket()
+    val unsupported = sync.optJSONObject("unsupported") ?: JSONObject()
+    unsupported.put(kind, unsupported.optInt(kind, 0) + 1)
+    sync.put("unsupported", unsupported)
+    state().put("sync", sync)
+    persist()
+  }
+
+  fun unsupportedCount(): Int = synchronized(lock) {
+    val unsupported = bucket().optJSONObject("unsupported") ?: return@synchronized 0
+    unsupported.keys().asSequence().sumOf { unsupported.optInt(it, 0) }
+  }
+
+  fun unsupportedSummary(): JSONObject = synchronized(lock) {
+    bucket().optJSONObject("unsupported")?.let { JSONObject(it.toString()) } ?: JSONObject()
   }
 
   fun pendingFor(deviceId: String): Int {

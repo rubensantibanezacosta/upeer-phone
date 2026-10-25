@@ -117,9 +117,8 @@ internal class ProtocolSync(
   }
 
   private fun signOrigin(record: SyncEventRecord): SyncOriginSignature? {
-    val crypto = identity.current() ?: return null
     val device = identity.currentDevice() ?: return null
-    return SyncEventOrigin.fromBridge(crypto).sign(record, device.deviceId, device.certificate)
+    return SyncEventOrigin.fromBridge(device.crypto).sign(record, device.deviceId, device.certificate)
   }
 
   private companion object {

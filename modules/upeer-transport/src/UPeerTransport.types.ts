@@ -78,6 +78,16 @@ export type ProtocolTransportStatus = {  identityReady: boolean;
   dht?: DhtRuntimeStatus;
 };
 
+export type SyncTransportStatus = {
+  state: 'idle' | 'syncing' | 'live';
+  devices: number;
+  devicesDone: number;
+  pendingEvents: number;
+  unsupported: number;
+  lastPeerAt: number;
+  ageMillis: number;
+};
+
 export type DhtRuntimeStatus = {
   ready: boolean;
   nodeId?: string;
