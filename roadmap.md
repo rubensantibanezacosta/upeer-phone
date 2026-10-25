@@ -1149,6 +1149,21 @@ Además se resuelve la duplicidad que generaba la confusión: `DeviceSessionList
 **El marcador del rail ahora sirve para algo.** `SyncStatusIndicator` era un icono de nube con `cursor: default` que informaba del estado de sincronización sin ofrecer ninguna acción, justo el elemento que uno pulsa cuando quiere gestionar dispositivos. Ahora es clicable y abre Ajustes → Dispositivos, y el tooltip lo dice. Verificado con un clic real sobre la app en marcha: navega a la sección.
 
 
+### Gestión de dispositivos en móvil: misma sección propia (26/10/2026)
+
+El móvil tenía el problema inverso al de escritorio, agravado: la sección **Seguridad** no contenía nada más que el panel del autorizador. Se renombra a **Dispositivos** (`settings-sections.tsx`, entrada con icono `Smartphone` en Configuración) y se elimina `security-settings-section.tsx`, que era solo un envoltorio del mismo panel.
+
+Los textos dejan de hablar de «vincular dispositivos» dentro de la cuenta y de repetir el rótulo de la sección:
+
+- El panel pasa a titularse **Autorizados en esta cuenta**, con la explicación de qué implica revocar uno.
+- La acción de alta es **Añadir otro dispositivo a mi cuenta** y abre la invitación; el diálogo se llama igual y ya no dice «vincula» en ningún sitio.
+- El paso de emparejamiento termina en **Terminar vinculación** y la ruta que menciona es **Configuración → Dispositivos**, que es donde está de verdad ahora.
+
+**Escritorio alineado.** Las mismas etiquetas se aplican al acceso y a la sección: «Entrar con la frase de mi cuenta» y «Entrar con un QR de otro dispositivo» sustituyen a «Ya tengo una cuenta» y «Vincular un dispositivo a mi cuenta», el paso de QR deja de titularse «Vincular este dispositivo», y el bloque de alta de la sección pasa a «Añadir otro dispositivo a mi cuenta». Verificado sobre la app en marcha: la sección renderiza con el estilo plano de cabecera y sin la tarjeta redondeada que rompía la convención.
+
+**Sin verificar en dispositivo:** la sección del móvil está compilada (`tsc` limpio, `vitest` 23 archivos / 160 tests) pero **no se ha visto en pantalla**, porque el dispositivo quedó sin identidad (`SecureStore.xml` vacío) y el emulador no acepta inyección de eventos (`INJECT_EVENTS`), así que no se puede llegar a Configuración sin crear o desbloquear una cuenta a mano.
+
+
 ### Entrada a la cuenta: dos formas equivalentes (26/10/2026)
 
 La pantalla de acceso ofrecía «Recuperar identidad» con un enlace escondido «No tengo la frase: vincular este dispositivo». Se sustituye por una sola acción, **«Vincular a mi cuenta existente»**, que abre una elección de dos botones iguales:
