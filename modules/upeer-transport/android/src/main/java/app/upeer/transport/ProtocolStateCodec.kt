@@ -17,6 +17,7 @@ internal object ProtocolStateCodec {
       if (decoded.optJSONObject("peers") == null) decoded.put("peers", JSONObject())
       if (decoded.optJSONObject("sessions") == null) decoded.put("sessions", JSONObject())
       if (decoded.optJSONArray("messages") == null) decoded.put("messages", JSONArray())
+      if (decoded.optJSONObject("sync") == null) decoded.put("sync", JSONObject())
       Log.i(
         TAG,
         "Estado del protocolo cargado: peers=${decoded.optJSONObject("peers")?.length() ?: 0} " +
@@ -34,6 +35,7 @@ internal object ProtocolStateCodec {
     .put("peers", JSONObject())
     .put("sessions", JSONObject())
     .put("messages", JSONArray())
+    .put("sync", JSONObject())
 
   private const val TAG = "UPeerTransport"
 }
