@@ -39,9 +39,11 @@ export function ProfileHeroSection({ identity, alias, avatar, busy, onAliasChang
   );
 }
 
-export function ProfileStatsSection({ reputation, vaultStats, onInfo }: {
+export function ProfileStatsSection({ reputation, vaultStats, reputationUnavailable = false, vaultUnavailable = false, onInfo }: {
   reputation: { vouchScore: number; connectionCount: number } | null;
   vaultStats: { count: number; sizeBytes: number } | null;
+  reputationUnavailable?: boolean;
+  vaultUnavailable?: boolean;
   onInfo: (key: 'reputacion' | 'almacenamiento') => void;
 }) {
   const theme = useTheme();
@@ -52,7 +54,7 @@ export function ProfileStatsSection({ reputation, vaultStats, onInfo }: {
   const score = vouchScore ?? 0;
   const connections = connectionCount ?? 0;
   const isNew = score === 50 && connections === 0;
-  const reputationLabel = !hasReputation ? 'Cargando…' : isNew ? 'Sin historial' : score >= 80 ? 'Alta' : score >= 65 ? 'Buena' : score < 40 ? 'Baja' : 'Estándar';
+  const reputationLabel = reputationUnavailable ? 'No disponible' : !hasReputation ? 'Cargando…' : isNew ? 'Sin historial' : score >= 80 ? 'Alta' : score >= 65 ? 'Buena' : score < 40 ? 'Baja' : 'Estándar';
   const scoreColor = score >= 80 ? theme.accent : score < 40 ? theme.placeholder : theme.textSecondary;
   const usageGb = (vaultStats?.sizeBytes ?? 0) / 1_073_741_824;
   return (
@@ -60,16 +62,16 @@ export function ProfileStatsSection({ reputation, vaultStats, onInfo }: {
       <YStack borderRightColor={theme.border} borderRightWidth={1} flex={1} gap={13} paddingHorizontal={20} paddingVertical={20}>
         <XStack alignItems="center" justifyContent="space-between">
           <XStack alignItems="center" gap={7}><Shield color={theme.placeholder} size={15} /><SizableText color={theme.placeholder} fontSize={scale(11)} fontWeight="700" letterSpacing={0.7}>REPUTACIÓN</SizableText></XStack>
-          <XStack alignItems="center" gap={4}>{hasReputation ? <Text color={theme.textSecondary} fontSize={scale(10)} fontWeight="600">{reputationLabel}</Text> : null}<NativeRipplePressable accessibilityLabel="¿Qué es la reputación?" onPress={() => onInfo('reputacion')}><Info color={theme.placeholder} size={16} /></NativeRipplePressable></XStack>
+          <XStack alignItems="center" gap={4}>{hasReputation || reputationUnavailable ? <Text color={theme.textSecondary} fontSize={scale(10)} fontWeight="600">{reputationLabel}</Text> : null}<NativeRipplePressable accessibilityLabel="¿Qué es la reputación?" onPress={() => onInfo('reputacion')}><Info color={theme.placeholder} size={16} /></NativeRipplePressable></XStack>
         </XStack>
         {hasReputation ? <><Progress backgroundColor={theme.border} value={score}><Progress.Indicator backgroundColor={scoreColor} /></Progress><XStack>
           <YStack flex={1}><Text color={theme.placeholder} fontSize={scale(10)} textTransform="uppercase">Vouches</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{score}/100</SizableText></YStack>
           <YStack flex={1}><Text color={theme.placeholder} fontSize={scale(10)} textTransform="uppercase">Contactos</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{connections}</SizableText></YStack>
-        </XStack></> : <Text color={theme.placeholder} fontSize={scale(12)}>Cargando...</Text>}
+        </XStack></> : <Text color={theme.placeholder} fontSize={scale(12)}>{reputationUnavailable ? 'No disponible en este cliente' : 'Cargando...'}</Text>}
       </YStack>
       <YStack flex={1} gap={13} paddingHorizontal={20} paddingVertical={20}>
         <XStack alignItems="center" justifyContent="space-between"><XStack alignItems="center" gap={7}><Cloud color={theme.placeholder} size={15} /><SizableText color={theme.placeholder} fontSize={scale(11)} fontWeight="700" letterSpacing={0.5}>ALMAC. CEDIDO</SizableText></XStack><NativeRipplePressable accessibilityLabel="¿Qué es el almacenamiento cedido?" onPress={() => onInfo('almacenamiento')}><Info color={theme.placeholder} size={16} /></NativeRipplePressable></XStack>
-        {vaultStats ? <><XStack alignItems="baseline" justifyContent="space-between"><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{formatBytes(vaultStats.sizeBytes)}</SizableText><Text color={theme.placeholder} fontSize={scale(10)}>usados</Text></XStack><Progress backgroundColor={theme.border} value={Math.min(usageGb * 100, 100)}><Progress.Indicator backgroundColor={usageGb > 0.8 ? theme.accent : theme.placeholder} /></Progress><XStack><YStack flex={1}><Text color={theme.placeholder} fontSize={scale(9)} textTransform="uppercase">Archivos P2P</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{vaultStats.count}</SizableText></YStack><YStack flex={1}><Text color={theme.placeholder} fontSize={scale(9)} textTransform="uppercase">Cuota dinámica</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">Activa</SizableText></YStack></XStack></> : <Text color={theme.placeholder} fontSize={scale(12)}>Cargando...</Text>}
+        {vaultStats ? <><XStack alignItems="baseline" justifyContent="space-between"><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{formatBytes(vaultStats.sizeBytes)}</SizableText><Text color={theme.placeholder} fontSize={scale(10)}>usados</Text></XStack><Progress backgroundColor={theme.border} value={Math.min(usageGb * 100, 100)}><Progress.Indicator backgroundColor={usageGb > 0.8 ? theme.accent : theme.placeholder} /></Progress><XStack><YStack flex={1}><Text color={theme.placeholder} fontSize={scale(9)} textTransform="uppercase">Archivos P2P</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{vaultStats.count}</SizableText></YStack><YStack flex={1}><Text color={theme.placeholder} fontSize={scale(9)} textTransform="uppercase">Cuota dinámica</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">Activa</SizableText></YStack></XStack></> : <Text color={theme.placeholder} fontSize={scale(12)}>{vaultUnavailable ? 'No disponible en este cliente' : 'Cargando...'}</Text>}
       </YStack>
     </XStack>
   );
