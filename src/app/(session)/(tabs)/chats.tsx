@@ -77,7 +77,7 @@ export default function ChatsRoute() {
         incoming: requestIds.has(conversation.upeerId),
         favorite: contacts.some((contact) => contact.upeerId === conversation.upeerId && contact.isFavorite === true),
         typing: conversation.typing === true,
-        lastSeen: conversation.lastSeen,
+        lastSeen: conversation.lastActive || conversation.lastSeen,
         ...flagsFor(conversationFlags, conversation.upeerId),
       }))
     : contacts.filter((contact) => contact.status !== 'blocked').map((contact) => ({

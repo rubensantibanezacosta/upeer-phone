@@ -36,6 +36,7 @@ interface IYggdrasilTransport {
   String peerSecurityJSON(String upeerId);
   void markConversationRead(String upeerId);
   void sendTyping(String upeerId);
+  void markUserActive();
   void sendReaction(String upeerId, String messageId, String emoji, boolean remove);
   void deleteMessage(String upeerId, String messageId);
   boolean deleteConversation(String upeerId);

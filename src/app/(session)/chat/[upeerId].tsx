@@ -52,7 +52,7 @@ export default function ChatRoute() {
   const [error, setError] = useState('');
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
-  const [peerLastSeen, setPeerLastSeen] = useState<number | undefined>(undefined);
+  const [peerPresence, setPeerPresence] = useState<{ lastActive?: number; lastSeen?: number }>({});
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const typingSentAtRef = useRef(0);
 
@@ -65,7 +65,7 @@ export default function ChatRoute() {
     const ownConversation = conversations.find((conversation) => conversation.upeerId === upeerId);
     const conversationAlias = ownConversation?.alias;
     setPeerTyping(ownConversation?.typing === true);
-    setPeerLastSeen(ownConversation?.lastSeen);
+    setPeerPresence({ lastActive: ownConversation?.lastActive, lastSeen: ownConversation?.lastSeen });
     setPeerAvatar(ownConversation?.avatar);
     const resolvedName = resolveContactName(contact?.name, conversationAlias, upeerId);
     setAlias(resolvedName);
@@ -194,7 +194,7 @@ export default function ChatRoute() {
   }, []);
   const reloadContacts = useCallback(() => refresh().catch((cause: unknown) => console.warn('No se pudo recargar la agenda.', cause)), [refresh]);
   const contactCard = useContactCard({ contacts, onOpenContact: openContactInfo, onSaved: reloadContacts });
-  const presence = usePresenceLabel(peerLastSeen);
+  const presence = usePresenceLabel(peerPresence.lastActive, peerPresence.lastSeen);
   const openCard = contactCard.open;
   const savedContactIds = contactCard.savedIds;
 

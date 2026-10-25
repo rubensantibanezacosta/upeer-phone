@@ -42,6 +42,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   peerSecurityJSON(upeerId: string): Promise<string>;
   markConversationRead(upeerId: string): Promise<void>;
   sendTyping(upeerId: string): Promise<void>;
+  markUserActive(): Promise<void>;
   sendReaction(upeerId: string, messageId: string, emoji: string, remove: boolean): Promise<void>;
   deleteMessage(upeerId: string, messageId: string): Promise<void>;
   deleteConversation(upeerId: string): Promise<boolean>;
@@ -269,6 +270,10 @@ export async function getPeerSecurity(upeerId: string): Promise<PeerSecurity> {
 
 export async function markConversationRead(upeerId: string): Promise<void> {
   return nativeModule.markConversationRead(upeerId);
+}
+
+export async function markUserActive(): Promise<void> {
+  return nativeModule.markUserActive();
 }
 
 export async function sendTyping(upeerId: string): Promise<void> {

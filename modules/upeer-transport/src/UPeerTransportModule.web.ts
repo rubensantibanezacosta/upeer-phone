@@ -37,6 +37,7 @@ class UPeerTransportModule extends NativeModule<{}> {
   async peerSecurityJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async markConversationRead(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async sendTyping(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async markUserActive(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async sendReaction(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async deleteMessage(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async deleteConversation(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }

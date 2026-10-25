@@ -17,6 +17,8 @@ internal class ProtocolStateStore(context: Context) {
   private var state = ProtocolStateCodec.load(store)
 
   val messages = ProtocolMessageList({ state }, lock, ::persist)
+  val presence = ProtocolPresence({ state }, lock, ::persist)
+  private val typing = ProtocolTyping({ state }, lock, ::persist)
   val preferences = ProtocolPreferences({ state }, lock, ::persist)
 
   fun rememberPeer(metadata: JSONObject): Boolean {
@@ -226,40 +228,11 @@ internal class ProtocolStateStore(context: Context) {
 
   fun setMutedPeers(upeerIds: List<String>) = preferences.setMuted(upeerIds)
 
-  fun markTyping(upeerId: String, untilMillis: Long) {
-    synchronized(lock) {
-      val typing = state.optJSONObject("typing") ?: JSONObject()
-      typing.put(upeerId, untilMillis)
-      state.put("typing", typing)
-      persist()
-    }
-  }
+  fun markTyping(upeerId: String, untilMillis: Long) = typing.mark(upeerId, untilMillis)
 
-  fun clearTyping(upeerId: String) {
-    synchronized(lock) {
-      val typing = state.optJSONObject("typing") ?: return@synchronized
-      if (typing.remove(upeerId) == null) return@synchronized
-      state.put("typing", typing)
-      persist()
-    }
-  }
+  fun clearTyping(upeerId: String) = typing.clear(upeerId)
 
-  fun typingPeers(nowMillis: Long): Set<String> = synchronized(lock) {
-    val typing = state.optJSONObject("typing") ?: return@synchronized emptySet()
-    val active = mutableSetOf<String>()
-    val stale = mutableListOf<String>()
-    val keys = typing.keys()
-    while (keys.hasNext()) {
-      val key = keys.next()
-      if (TypingIndicators.isActive(typing.optLong(key), nowMillis)) active.add(key) else stale.add(key)
-    }
-    if (stale.isNotEmpty()) {
-      stale.forEach(typing::remove)
-      state.put("typing", typing)
-      persist()
-    }
-    active
-  }
+  fun typingPeers(nowMillis: Long): Set<String> = typing.peers(nowMillis)
 
   fun setNotificationPrefs(prefs: NotificationPrefs) = preferences.setNotifications(prefs)
 

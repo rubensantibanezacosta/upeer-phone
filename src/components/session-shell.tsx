@@ -8,6 +8,7 @@ import { clearIdentity, loadProfile, type IdentityProfile } from '@/storage/iden
 import { publishNativeProfileSafely } from '@/storage/profile-sync';
 import { EMPTY_PEER_MANAGEMENT } from '@/domain/yggdrasil-peers';
 import { pushBlockedPeers } from '@/storage/contact-store';
+import { useActivitySignal } from '@/hooks/use-activity-signal';
 import { usePreferences } from '@/hooks/use-preferences';
 
 export type SessionContextValue = {
@@ -36,6 +37,7 @@ export function SessionShell({ identity, onSignOut, children }: {
   const [profile, setProfile] = useState<IdentityProfile | null>(null);
   const [connection, setConnection] = useState<ConnectionSnapshot>({ address: '', phase: 'Conectando a la red…', peers: [], error: '', management: EMPTY_PEER_MANAGEMENT });
   const preferences = usePreferences();
+  useActivitySignal();
   const refreshProfile = useCallback(async () => {
     try {
       setProfile(await loadProfile());

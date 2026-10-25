@@ -54,6 +54,7 @@ export type ProtocolConversation = {
   unread: number;
   typing?: boolean;
   lastSeen?: number;
+  lastActive?: number;
 };
 
 export type PeerSecurity = {

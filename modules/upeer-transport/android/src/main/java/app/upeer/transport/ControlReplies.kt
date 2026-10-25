@@ -38,6 +38,7 @@ internal class ControlReplies(
     state.touchPresence(senderUpeerId)
     if (deviceBinding == null) state.rememberPeer(metadata)
     if (type == "PING") {
+      state.presence.touch(senderUpeerId, packet.optLong("activeAt", 0L), System.currentTimeMillis())
       sendPong(senderUpeerId)
       return metadataJSON
     }

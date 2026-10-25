@@ -68,6 +68,8 @@ internal class YggdrasilProtocol(
 
   fun retryChat(upeerId: String, messageId: String): Boolean = outbox.retryChat(upeerId, messageId)
 
+  fun markUserActive() = controlSender.markActive(System.currentTimeMillis())
+
   fun registerPeer(upeerId: String, address: String, publicKey: String, signedPreKeyJSON: String): Boolean {
     val accepted = state.upsertPeer(upeerId, address, publicKey, signedPreKeyJSON.ifBlank { null })
     if (accepted) outbox.onHandshakeAccepted(upeerId)

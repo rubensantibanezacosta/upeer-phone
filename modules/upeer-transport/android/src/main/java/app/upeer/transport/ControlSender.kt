@@ -3,6 +3,7 @@ package app.upeer.transport
 import android.util.Log
 import app.upeer.transportbridge.transportbridge.Bridge
 import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicLong
 
 internal class ControlSender(
   private val identity: YggdrasilIdentity,
@@ -11,6 +12,14 @@ internal class ControlSender(
 ) {
   fun sendTyping(upeerId: String) {
     send(upeerId, "upeer-typing", TypingIndicators.data(), "TYPING")
+  }
+
+  fun markActive(nowMillis: Long) {
+    val previous = activeSentAt.get()
+    if (nowMillis - previous < ACTIVE_INTERVAL_MS) return
+    if (!activeSentAt.compareAndSet(previous, nowMillis)) return
+    val targets = state.presence.targets(nowMillis - ACTIVE_TARGET_WINDOW_MS, MAX_ACTIVE_TARGETS)
+    for (upeerId in targets) send(upeerId, "upeer-presence", ControlPings.active(nowMillis), "PING")
   }
 
   fun sendPong(upeerId: String) {
@@ -131,8 +140,13 @@ internal class ControlSender(
 
   private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
 
+  private val activeSentAt = AtomicLong(0L)
+
   private companion object {
     private const val TAG = "UPeerTransport"
     private const val PORT = 50005L
+    private const val ACTIVE_INTERVAL_MS = 20_000L
+    private const val ACTIVE_TARGET_WINDOW_MS = 300_000L
+    private const val MAX_ACTIVE_TARGETS = 20
   }
 }

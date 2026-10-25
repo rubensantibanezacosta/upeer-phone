@@ -34,7 +34,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
   const { showSnackbar } = useSnackbar();
   const copyToClipboard = useCopyToClipboard();
   const [contact, setContact] = useState<UPeerContact | null | undefined>(undefined);
-  const [lastSeen, setLastSeen] = useState<number | undefined>(undefined);
+  const [presenceData, setPresenceData] = useState<{ lastActive?: number; lastSeen?: number }>({});
   const [peerAvatar, setPeerAvatar] = useState<string | undefined>(undefined);
   const [peerAlias, setPeerAlias] = useState<string | undefined>(undefined);
   const [sharing, setSharing] = useState(false);
@@ -52,7 +52,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
   const load = useCallback(() => Promise.all([getContacts(), getConversations()]).then(([list, conversations]) => {
     setContact(list.find((item) => item.upeerId === upeerId) ?? null);
     const ownConversation = conversations.find((conversation) => conversation.upeerId === upeerId);
-    setLastSeen(ownConversation?.lastSeen);
+    setPresenceData({ lastActive: ownConversation?.lastActive, lastSeen: ownConversation?.lastSeen });
     setPeerAvatar(ownConversation?.avatar);
     setPeerAlias(ownConversation?.alias);
   }), [upeerId]);
@@ -61,7 +61,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
     load().catch(reportFailure);
     loadCipher(upeerId);
   }, [load, loadCipher, reportFailure, upeerId]);
-  const presence = usePresenceLabel(lastSeen);
+  const presence = usePresenceLabel(presenceData.lastActive, presenceData.lastSeen);
 
   const toggleBlock = () => {
     if (!contact) return;

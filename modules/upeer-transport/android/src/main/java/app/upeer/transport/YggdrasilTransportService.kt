@@ -181,6 +181,9 @@ class YggdrasilTransportService : Service() {
     override fun sendTyping(upeerId: String) {
       admitted { protocol.sendTyping(upeerId) }
     }
+    override fun markUserActive() {
+      admitted { protocol.markUserActive() }
+    }
     override fun sendReaction(upeerId: String, messageId: String, emoji: String, remove: Boolean) {
       admitted { protocol.sendReaction(upeerId, messageId, emoji, remove) }
     }
