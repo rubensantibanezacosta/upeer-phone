@@ -3,6 +3,7 @@ package app.upeer.transport
 import android.util.Log
 import app.upeer.transport.dht.ContactEncryptionAdmission
 import app.upeer.transport.dht.DhtLocation
+import app.upeer.transport.vault.VaultDirectory
 import app.upeer.transport.vault.VaultMailboxStore
 import app.upeer.transportbridge.transportbridge.Bridge
 import org.json.JSONObject
@@ -53,6 +54,8 @@ internal class YggdrasilProtocol(
     ::sendVaultPacket,
     ::replayVaultEntry,
   )
+
+  fun attachVaultDirectory(directory: VaultDirectory) = outbox.attachVaultDirectory(directory)
 
   fun start(activeBridge: Bridge) {
     bridge = activeBridge

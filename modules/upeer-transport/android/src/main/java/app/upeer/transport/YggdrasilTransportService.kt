@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.IBinder
 import android.util.Log
 import app.upeer.transport.dht.ContactEncryptionAdmission
+import app.upeer.transport.vault.VaultDirectory
 import app.upeer.transport.vault.VaultMailboxStore
 import app.upeer.transport.dht.DhtLocationStore
 import app.upeer.transport.dht.LegacyContactPolicy
@@ -327,6 +328,9 @@ class YggdrasilTransportService : Service() {
       admissionGuard,
       contactAdmission,
       VaultMailboxStore(this),
+    )
+    protocol.attachVaultDirectory(
+      VaultDirectory(identity, protocolState, dhtRuntime::storePointer, dhtRuntime::readPointer),
     )
   }
 

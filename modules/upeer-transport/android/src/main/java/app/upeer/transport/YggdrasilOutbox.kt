@@ -4,7 +4,7 @@ import android.util.Log
 import app.upeer.transport.dht.ContactAdmissionException
 import app.upeer.transport.dht.ContactEncryptionAdmission
 import app.upeer.transport.dht.ExpectedContactDevice
-import app.upeer.transport.vault.VaultChannel
+import app.upeer.transport.vault.VaultDirectory
 import app.upeer.transportbridge.transportbridge.Bridge
 import org.json.JSONObject
 import java.util.UUID
@@ -30,7 +30,16 @@ internal class YggdrasilOutbox(
     Thread(task, "upeer-outbox-send").apply { isDaemon = true }
   })
   private val link = OutboxLink(identity, signedPreKeys, deviceSignedPreKeys, deviceBindings, state) { selfAddress }
-  private val vaultChannel = VaultChannel(identity, state) { synchronized(lock) { selfAddress } }
+  private val sealer = OutboxSealer(identity, state, outbox, link) { selfAddress }
+  private val vault = OutboxVault(
+    identity,
+    state,
+    outbox,
+    link,
+    admission,
+    { synchronized(lock) { selfAddress } },
+    ::isActive,
+  )
   private val actions = OutboxActions(link, state, outbox, admission, { synchronized(lock) { bridge } }, { synchronized(lock) { running } }) { wake() }
   private var bridge: Bridge? = null
   private var selfAddress = ""
@@ -133,33 +142,11 @@ internal class YggdrasilOutbox(
 
   fun sendDrReset(upeerId: String) = actions.sendDrReset(upeerId)
 
-  fun queryVaults(activeBridge: Bridge) {
-    if (!admission.isAdmitted()) return
-    val peers = runCatching { JSONObject(state.peersJSON()) }.getOrNull() ?: return
-    val keys = peers.keys()
-    val targets = mutableListOf<String>()
-    while (keys.hasNext()) {
-      val key = keys.next()
-      if (peers.optJSONObject(key) != null) targets.add(key)
-    }
-    if (targets.isEmpty()) return
-    val thread = Thread({
-      var answered = 0
-      for (target in targets) {
-        if (!isActive(activeBridge)) return@Thread
-        if (queryVault(activeBridge, target)) answered += 1
-      }
-      Log.i(TAG, "Consulta de vault enviada a $answered de ${targets.size} contactos")
-    }, "upeer-vault-query")
-    thread.isDaemon = true
-    thread.start()
-  }
+  fun attachVaultDirectory(directory: VaultDirectory) = vault.attachDirectory(directory)
 
-  fun queryVault(activeBridge: Bridge, upeerId: String): Boolean {
-    val address = state.addressFor(upeerId) ?: return false
-    val frame = vaultChannel.queryPacket(upeerId) ?: return false
-    return link.sendPacket(activeBridge, address, frame)
-  }
+  fun queryVaults(activeBridge: Bridge) = vault.queryVaults(activeBridge)
+
+  fun queryVault(activeBridge: Bridge, upeerId: String): Boolean = vault.queryVault(activeBridge, upeerId)
 
   fun flush() {
     if (!admission.isAdmitted()) return
@@ -238,56 +225,29 @@ internal class YggdrasilOutbox(
     if (packet.isNotEmpty()) {
       val sends = entry.optInt("sends", 0)
       if (entry.has("sentAt") && !OutboxRetryPolicy.canResend(sends)) {
-        if (escrow(activeBridge, entry)) return
+        if (vault.escrow(activeBridge, entry)) return
         fail(messageID, entry, "sin ACK tras $sends reenvíos")
         return
       }
       if (link.sendPacket(activeBridge, address, packet)) markSent(messageID, entry) else retry(messageID, entry, "writeFrame falló")
       return
     }
-    val session = state.sessionFor(upeerId)
-    val signedPreKey = peer.optJSONObject("signedPreKey")
-    val currentIdentity = identity.current()
-    if (currentIdentity == null) {
-      retry(messageID, entry, "identidad no disponible")
-      return
-    }
-    val currentDevice = deviceBinding?.let { identity.currentDevice() }
-      ?.takeIf { it.accountUpeerId == currentIdentity.upeerID() }
-    val useDevice = deviceBinding != null && currentDevice != null
-    val recipientSpk = if (useDevice) deviceBinding?.signedPreKey else signedPreKey
-    if (session == null && recipientSpk == null) {
+    val target = OutboxSealer.Target(
+      upeerId,
+      address,
+      publicKey,
+      state.sessionFor(upeerId),
+      peer.optJSONObject("signedPreKey"),
+      deviceBinding,
+    )
+    if (target.session == null && sealer.recipientSpk(target) == null) {
       link.sendHandshakeRequest(activeBridge, address)
       retry(messageID, entry, "handshake pendiente")
       return
     }
-    Log.i(
-      TAG,
-      "Entregando $messageID a $upeerId (sesión=${session != null}, device=${useDevice}, " +
-        "spk=${recipientSpk?.optLong("spkId") ?: 0})",
-    )
-    try {
-      val result = OutboxPacketFactory.packet(
-        currentIdentity,
-        currentDevice.takeIf { useDevice },
-        deviceBinding,
-        selfAddress,
-        publicKey,
-        session.orEmpty(),
-        signedPreKey,
-        entry,
-      )
-      val nextSession = result.optString("session")
-      val nextPacket = result.optString("packet")
-      if (nextSession.isEmpty() || nextPacket.isEmpty()) {
-        retry(messageID, entry, "resultado de cifrado inválido")
-        return
-      }
-      state.saveSession(upeerId, nextSession)
-      outbox.setPacket(messageID, nextPacket)
-      if (link.sendPacket(activeBridge, address, nextPacket)) markSent(messageID, entry) else retry(messageID, entry, "writeFrame falló")
-    } catch (cause: Exception) {
-      retry(messageID, entry, message(cause))
+    when (val result = sealer.sealAndSend(activeBridge, entry, target)) {
+      OutboxSealer.Result.Sent -> markSent(messageID, entry)
+      is OutboxSealer.Result.Failed -> retry(messageID, entry, result.reason)
     }
   }
 
@@ -311,26 +271,6 @@ internal class YggdrasilOutbox(
     }
     outbox.markAttempt(entryID, attempts, System.currentTimeMillis() + OutboxRetryPolicy.backoffMs(attempts), reason)
     Log.w(TAG, "Reintento $attempts de $entryID para ${entry.optString("upeerId")} en ${OutboxRetryPolicy.backoffMs(attempts)}ms: $reason")
-  }
-
-  private fun escrow(activeBridge: Bridge, entry: JSONObject): Boolean {
-    val packet = entry.optString("packet")
-    if (packet.isEmpty()) return false
-    if (entry.optString("kind", "CHAT") == "CHAT_UPDATE") return false
-    val messageID = entry.optString("id")
-    val upeerId = entry.optString("upeerId")
-    val self = identity.current()?.upeerID() ?: return false
-    val envelope = vaultChannel.envelopeForStore(packet, upeerId, System.currentTimeMillis()) ?: return false
-    var accepted = 0
-    for (custodian in vaultChannel.custodians(self, upeerId)) {
-      val frame = vaultChannel.storePacket(custodian.upeerId, envelope.json) ?: continue
-      if (link.sendPacket(activeBridge, custodian.address, frame)) accepted += 1
-    }
-    if (accepted == 0) return false
-    outbox.remove(messageID)
-    state.messages.markStatus(messageID, "vaulted")
-    Log.i(TAG, "Mensaje $messageID en custodia de $accepted custodios")
-    return true
   }
 
   private fun fail(entryID: String, entry: JSONObject, reason: String) {

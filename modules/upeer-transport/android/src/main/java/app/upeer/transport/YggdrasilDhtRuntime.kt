@@ -198,6 +198,27 @@ internal class YggdrasilDhtRuntime(
     }
   }
 
+  fun storePointer(key: String, valueJSON: String): Int {
+    val current = synchronized(lock) { state } ?: return 0
+    if (!current.bootstrap.isBootstrapped() || !admitted()) return 0
+    val account = identity.current() ?: return 0
+    return runCatching {
+      current.node.storeValue(key, JSONObject(valueJSON), account.upeerID())
+    }.getOrElse { cause ->
+      Log.w(TAG, "No se pudo publicar el puntero de vault en DHT", cause)
+      0
+    }
+  }
+
+  fun readPointer(key: String): Any? {
+    val current = synchronized(lock) { state } ?: return null
+    if (!current.bootstrap.isBootstrapped() || !admitted()) return null
+    return runCatching { current.node.findValue(key, localFirst = false)?.value }.getOrElse { cause ->
+      Log.w(TAG, "No se pudo leer el puntero de vault de la DHT", cause)
+      null
+    }
+  }
+
   fun statusJSON(): String {
     val current = synchronized(lock) { state }
       ?: return JSONObject().put("ready", false).toString()
