@@ -128,7 +128,7 @@ Las fases B0–B11 siguen siendo las unidades de trabajo, pero su numeración **
 | 4 | **`FILE_*`** | notas de voz, adjuntos en grupo, paridad de adjuntos | La recuperación offline de adjuntos se apoya en los shards del vault, que ya estará hecho. |
 | 5 | **`GROUP_*`** | llamada de grupo | Necesita sender keys, fanout por dispositivo y adjuntos, así que va después de `FILE_*`. |
 | 6 | **`CALL_*`** | — | El bloque más grande y el único con requisitos de hardware y red en tiempo real. |
-| 7 | **Cierre de UI** (ajustes reales, notificaciones, revocación) | — | Solo tiene sentido cuando existan los estados que debe pintar. Incluye sacar «Desconectar» de la notificación persistente y llevar a Ajustes → Conexión el interruptor de segundo plano, que al apagarse debe impedir que el proceso `:yggdrasil` sobreviva al cierre de la app. |
+| 7 | **Cierre de UI** (ajustes reales, notificaciones, revocación) | — | Solo tiene sentido cuando existan los estados que debe pintar. Incluye sacar «Desconectar» de la notificación persistente y llevar a Ajustes → Conexión el interruptor de segundo plano, que al apagarse debe impedir que el proceso `:yggdrasil` sobreviva al cierre de la app. Cuelga también de aquí la **emisión de presencia del móvil** (ver «Presencia desde el móvil»): no bloquea ningún paso, pero es la razón de que escritorio no vea al móvil «En línea» mientras se usa. |
 | 8 | **B12 (blogs P2P)** | — | Producto nuevo, no transporte. |
 
 B9 no es un paso sino una **puerta**: la matriz de interoperabilidad, fuzzing y presupuesto de batería se ejecuta al cerrar cada uno de los pasos anteriores sobre lo que ese paso toque, no al final de todos. La prueba real Desktop↔móvil del 25/10/2026 ya cubrió la parte de chat, recibos, reacciones, edición, respuesta, borrado y presencia.
@@ -810,7 +810,7 @@ Lista viva de lo que la interfaz muestra pero todavía no ejecuta, o de lo que f
 | Ficha de grupo | Pendiente | No hay grupos en el móvil; cuando existan `GROUP_*` debe replicar la misma pantalla con miembros y administración |
 | Chat · composer | Parcial | Adjuntar archivo y nota de voz avisan «pendiente». **No hay ningún `FILE_*` en el móvil**: adjuntos, imágenes, vídeo, audio y documentos no existen, así que tampoco hay reintento de archivos que probar |
 | Chat · mensajes | Hecha | Editar, reaccionar, borrar para todos, responder (cita con autor y extracto), reenviar a uno o varios contactos y **reintentar un envío fallido**; el estado de entrega es real (`pending`/`sent`/`delivered`/`read`/`failed`), con 8 reenvíos sin ACK antes de darse por fallido |
-| Chat · presencia | Parcial | «Escribiendo…» real en la cabecera y en la vista previa de la lista, y presencia (`En línea` dentro de 65 s y `Última vez …` después) desde `lastSeen` del servicio. Pendiente: `lastSeen` mide alcanzabilidad del nodo, no actividad del usuario |
+| Chat · presencia | Parcial | «Escribiendo…» real en la cabecera y en la vista previa de la lista, y presencia (`En línea` dentro de 65 s y `Última vez …` después) desde `lastActive` del servicio. Pendiente: **la etiqueta que ve escritorio sobre el móvil casi nunca se refresca** porque el móvil sólo anuncia actividad al montar y al volver a primer plano, y sólo a peers vistos en los últimos 5 min (ver «Presencia desde el móvil: por qué escritorio no se entera») |
 | Accesibilidad | Parcial | El tamaño de texto de Apariencia ya escala toda la app; falta revisión con lector de pantalla |
 
 ### Borrado, bloqueo y solicitudes de mensaje (23/10/2026)
@@ -977,6 +977,27 @@ Decisión de producto: **«En línea» significa que la persona ha estado activa
   4. `presence.activeAt()` prefiere `lastActive` y cae a `lastSeen` solo si nunca hubo actividad, así que `describePresence` no cambió. `use-presence-label.ts` pasa por ahí.
   5. Pruebas: `ProtocolPresenceTest.kt` (6 casos, incluido que `PING` no mueve `lastActive`) y `presence.test.ts` con el caso «el nodo contestó pero no hubo actividad → `Última vez`».
   6. Ajustes › Privacidad sigue mandando: «Conectado» apagado oculta la etiqueta en línea; «Última vez» apagado oculta la hora.
+
+### Presencia desde el móvil: por qué escritorio no se entera (26/10/2026)
+
+Diagnóstico pedido tras observar que navegar conversaciones en el móvil no ponía al contacto «En línea» en escritorio. La etiqueta se calcula bien en los dos lados; **el móvil casi nunca emite el dato**. Cuatro causas, comprobadas en código:
+
+1. **El hook móvil no escucha gestos.** `src/hooks/use-activity-signal.ts` llama a `markUserActive` al montar y cuando `AppState` pasa a `active`, y nada más. El equivalente de escritorio (`src/hooks/useActivitySignal.ts`) escucha `pointerdown`, `keydown`, `focus` y `visibilitychange` con throttle de 15 s. En el móvil, tocar, navegar y escribir no producen ni un `activeAt`.
+2. **Nadie repite el anuncio.** `ControlSender.markActive` tiene throttle de 20 s (`ACTIVE_INTERVAL_MS`) pero **no temporizador**: es «una vez por vuelta a primer plano», no un latido. Escritorio sí reanuncia cada 10 s (`appInitializerSupport.ts` → `checkHeartbeat` → `heartbeat.ts` con `activeAt: localActiveAt()`).
+3. **La ventana de destinatarios es de 5 minutos.** `markActive` envía sólo a `presence.targets(now - ACTIVE_TARGET_WINDOW_MS, MAX_ACTIVE_TARGETS)` y `ProtocolPresence.targets` descarta todo peer con `lastSeen` anterior a esa marca. Abrir una conversación con alguien a quien el nodo no ha oído en 5 minutos devuelve lista vacía y **no sale ni un paquete**.
+4. **La ventana de «En línea» de escritorio es de 65 s.** `useIsOnline.ts` (`DEFAULT_ONLINE_WINDOW_MS = 65_000`). Aunque el `PING` salga, caduca enseguida y no hay reemplazo hasta la siguiente vuelta a primer plano.
+
+A esto se suma que escritorio acepta `activeAt` en **cualquier** paquete (todo lo que no sea `CALL_MEDIA`), pero en el móvil `activeAt` sólo aparece en `ControlPings.kt` y `ControlReplies.kt`: enviar mensajes tampoco refresca la presencia vista desde escritorio.
+
+La dirección inversa sí funciona: el `PING` de escritorio llega cada ~10 s y el móvil lo persiste con `touch`.
+
+Arreglo, pendiente. **No bloquea nada**, así que no entra en el orden de ejecución por bloqueos: viaja con el paso 7 (cierre de UI) y puede tomarse antes en cualquier momento porque es barato.
+
+1. Hook con gestos además de primer plano: `pointerdown`, navegación y `AppState` con throttle ~15 s.
+2. Latido mientras la app está en primer plano cada ~40 s, para no depender de gestos (65 s de ventana deja margen).
+3. `targets` deja de exigir `lastSeen` reciente: interlocutores con dirección y clave conocidas, ordenados por recencia, y sin recortar a 20 si eso deja fuera conversaciones abiertas.
+4. `activeAt` en los paquetes salientes del móvil, `CHAT` incluido, para que escritorio refresque aunque el `PING` no llegue a salir.
+5. Prueba cruzada de presencia dentro de la prueba real Desktop↔móvil.
 
 ### Buscar en la conversación (26/10/2026)
 
