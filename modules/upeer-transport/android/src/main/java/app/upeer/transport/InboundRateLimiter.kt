@@ -79,6 +79,13 @@ internal class InboundRateLimiter(
       "SYNC_ACK" to Rule(windowMs = 60_000, maxTokens = 1_200),
       "SYNC_HISTORY_REQ" to Rule(windowMs = 60_000, maxTokens = 20),
       "SYNC_HISTORY_RES" to Rule(windowMs = 60_000, maxTokens = 60),
+      "FILE_PROPOSAL" to Rule(windowMs = 60_000, maxTokens = 30),
+      "FILE_ACCEPT" to Rule(windowMs = 60_000, maxTokens = 30),
+      "FILE_CHUNK" to Rule(windowMs = 60_000, maxTokens = 4_000),
+      "FILE_ACK" to Rule(windowMs = 60_000, maxTokens = 4_000),
+      "FILE_DONE" to Rule(windowMs = 60_000, maxTokens = 60),
+      "FILE_DONE_ACK" to Rule(windowMs = 60_000, maxTokens = 60),
+      "FILE_CANCEL" to Rule(windowMs = 60_000, maxTokens = 30),
     )
   }
 }

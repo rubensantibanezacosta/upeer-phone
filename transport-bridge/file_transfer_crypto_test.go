@@ -159,3 +159,58 @@ func TestDecryptFileChunkRejectsInvalidArguments(t *testing.T) {
 		}
 	}
 }
+
+func TestDeviceIdentityOpensTheDeviceSealedFileKey(t *testing.T) {
+	account := newFileTestIdentity(t)
+	device := newFileTestIdentity(t)
+	fileKey := bytes.Repeat([]byte{6}, fileKeySize)
+
+	accountPublicKey, err := hex.DecodeString(account.PublicKeyHex())
+	if err != nil {
+		t.Fatalf("account public key: %v", err)
+	}
+	devicePublicKey, err := hex.DecodeString(device.PublicKeyHex())
+	if err != nil {
+		t.Fatalf("device public key: %v", err)
+	}
+
+	sealedToAccount, err := sealBox(fileKey, accountPublicKey)
+	if err != nil {
+		t.Fatalf("seal to account: %v", err)
+	}
+	sealedToDevice, err := sealBox(fileKey, devicePublicKey)
+	if err != nil {
+		t.Fatalf("seal to device: %v", err)
+	}
+
+	if _, err := device.OpenFileKey(hex.EncodeToString(sealedToAccount)); err == nil {
+		t.Fatal("la identidad de dispositivo no debería abrir el sobre de cuenta")
+	}
+
+	opened, err := device.OpenFileKey(hex.EncodeToString(sealedToDevice))
+	if err != nil {
+		t.Fatalf("OpenFileKey con clave de dispositivo: %v", err)
+	}
+	if !bytes.Equal(opened, fileKey) {
+		t.Fatal("la clave abierta por el dispositivo no coincide")
+	}
+
+	iv := bytes.Repeat([]byte{3}, fileChunkIVSize)
+	plaintext := []byte("contenido del adjunto")
+	data, tag, err := encryptFileChunk(opened, plaintext, iv)
+	if err != nil {
+		t.Fatalf("encryptFileChunk: %v", err)
+	}
+	decrypted, err := device.DecryptFileChunk(
+		opened,
+		hex.EncodeToString(iv),
+		hex.EncodeToString(tag),
+		base64.StdEncoding.EncodeToString(data),
+	)
+	if err != nil {
+		t.Fatalf("DecryptFileChunk: %v", err)
+	}
+	if !bytes.Equal(decrypted, plaintext) {
+		t.Fatal("el trozo descifrado no coincide")
+	}
+}

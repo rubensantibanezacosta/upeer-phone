@@ -326,6 +326,7 @@ class YggdrasilTransportService : Service() {
       VaultMailboxStore(this),
       enrollmentResponse = ::installEnrollmentResponse,
       enrollmentRequest = ::handleInBandEnrollment,
+      transferStorage = { filesDir },
     )
     protocol.attachVaultDirectory(
       VaultDirectory(identity, protocolState, dhtRuntime::storePointer, dhtRuntime::readPointer),

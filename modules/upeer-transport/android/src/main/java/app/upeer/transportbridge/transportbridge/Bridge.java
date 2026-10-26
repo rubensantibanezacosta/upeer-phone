@@ -9,23 +9,23 @@ import go.Seq;
 
 public final class Bridge implements Seq.Proxy {
 	static { Transportbridge.touch(); }
-	
+
 	private final int refnum;
-	
+
 	@Override public final int incRefnum() {
 	      Seq.incGoRef(refnum, this);
 	      return refnum;
 	}
-	
+
 	public Bridge() {
 		this.refnum = __NewBridge();
 		Seq.trackGoRef(refnum, this);
 	}
-	
+
 	private static native int __NewBridge();
-	
+
 	Bridge(int refnum) { this.refnum = refnum; Seq.trackGoRef(refnum, this); }
-	
+
 	public native int acceptTCP(int listenerID, long timeoutMillis) throws Exception;
 	public native String address() throws Exception;
 	public native void close() throws Exception;
@@ -70,11 +70,11 @@ public final class Bridge implements Seq.Proxy {
 		Bridge that = (Bridge)o;
 		return true;
 	}
-	
+
 	@Override public int hashCode() {
 	    return java.util.Arrays.hashCode(new Object[] {});
 	}
-	
+
 	@Override public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append("Bridge").append("{");

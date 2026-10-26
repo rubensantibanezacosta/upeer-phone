@@ -23,9 +23,11 @@ internal class YggdrasilProtocol(
   private val rateLimiter: InboundRateLimiter = InboundRateLimiter(),
   private val enrollmentResponse: (String) -> Boolean = { false },
   private val enrollmentRequest: (String, String) -> String = { _, _ -> "" },
+  private val transferStorage: () -> java.io.File = { java.io.File(System.getProperty("java.io.tmpdir") ?: ".") },
   ) {
   private val policy = InboundPolicy(rateLimiter)
   private val egress = ProtocolEgress(::selfAddress)
+  private val transfers = FileTransferState(transferStorage)
   private val handshake = YggdrasilHandshake(identity, signedPreKeys, deviceSignedPreKeys, deviceBindings, state)
   private val outbox = YggdrasilOutbox(
     identity,
@@ -51,6 +53,14 @@ internal class YggdrasilProtocol(
   private val controlSender = ControlSender(identity, state) { bridge }
   private val controlReplies = ControlReplies(identity, deviceBindings, state, outbox, rateLimiter, controlSender::sendPong)
   private val chatInbound = ChatInbound(state, chatDecryptor, controlSender, onInboundMessage)
+  private val fileInbound = FileInbound(identity, state, transfers) { upeerId, data, label ->
+    val active = bridge ?: return@FileInbound false
+    val address = state.addressFor(upeerId) ?: return@FileInbound false
+    val peerPublicKey = state.publicKeyFor(upeerId) ?: return@FileInbound false
+    val current = identity.current() ?: return@FileInbound false
+    val frame = SealedControl.frame(current, identity.currentDevice(), active.address(), peerPublicKey, data)
+    egress.send(active, address, frame, label)
+  }
   private val vaultReplies = VaultReplies(
     identity,
     deviceBindings,
@@ -250,6 +260,9 @@ internal class YggdrasilProtocol(
     if (VAULT_TYPES.contains(type)) {
       return vaultReplies.handle(activeBridge, payload, packet, type, sourceAddress)
     }
+    if (FILE_TYPES.contains(type)) {
+      return handleFilePacket(activeBridge, payload, packet, type, sourceAddress)
+    }
     if (type != "CHAT" && type != "CHAT_UPDATE") throw IllegalArgumentException("unsupported packet type $type")
     val senderUpeerId = packet.optString("senderUpeerId").lowercase()
     val publicKey = state.publicKeyFor(senderUpeerId)
@@ -340,10 +353,51 @@ internal class YggdrasilProtocol(
     handleFrame(activeBridge, bytes, sourceAddress)
   }
 
+  private fun handleFilePacket(
+    activeBridge: Bridge,
+    payload: ByteArray,
+    packet: JSONObject,
+    type: String,
+    sourceAddress: String,
+  ): String {
+    val senderUpeerId = packet.optString("senderUpeerId").lowercase()
+    if (state.isBlocked(senderUpeerId)) {
+      Log.i(TAG, "Paquete $type descartado: $senderUpeerId está bloqueado")
+      return InboundPolicy.blocked(packet, senderUpeerId)
+    }
+    val publicKey = state.publicKeyFor(senderUpeerId) ?: run {
+      Log.w(TAG, "Paquete $type de un contacto desconocido $senderUpeerId")
+      return InboundPolicy.rejected(packet)
+    }
+    when (val signature = PacketSignature.of(packet)) {
+      is PacketSignature.Linked -> {
+        if (deviceBindings.isRevoked(senderUpeerId, signature.deviceId)) {
+          Log.i(TAG, "Paquete $type descartado: el dispositivo ${signature.deviceId} está revocado")
+          return InboundPolicy.rejected(packet)
+        }
+        val peer = state.peerFor(senderUpeerId) ?: return InboundPolicy.rejected(packet)
+        if (!peer.optString("deviceId").equals(signature.deviceId, ignoreCase = true)) {
+          Log.w(TAG, "Paquete $type anuncia un dispositivo desconocido ${signature.deviceId}")
+          return InboundPolicy.rejected(packet)
+        }
+        val deviceKey = peer.optString("devicePublicKey")
+        if (!DhtLocation.isHex(deviceKey, 32)) return InboundPolicy.rejected(packet)
+        activeBridge.validateLinkedSignedPacket(payload, deviceKey, senderUpeerId)
+      }
+      PacketSignature.Account -> activeBridge.validateSignedPacket(payload, publicKey)
+    }
+    if (!rateLimiter.allow("ip:$sourceAddress", type) || !rateLimiter.allow("id:$senderUpeerId", type)) {
+      Log.w(TAG, "Límite de recepción alcanzado para $type de $senderUpeerId")
+      return InboundPolicy.rateLimitedMetadata(type)
+    }
+    return fileInbound.handle(packet, senderUpeerId, type)
+  }
+
   private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
 
   private companion object {
     private const val TAG = "UPeerTransport"
     private val VAULT_TYPES = setOf("VAULT_STORE", "VAULT_QUERY", "VAULT_ACK", "VAULT_DELIVERY", "VAULT_RENEW")
+    private val FILE_TYPES = setOf("FILE_PROPOSAL", "FILE_CHUNK", "FILE_DONE", "FILE_CANCEL")
   }
 }
