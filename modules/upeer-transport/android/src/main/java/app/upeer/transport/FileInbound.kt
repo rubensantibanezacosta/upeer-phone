@@ -4,9 +4,10 @@ import android.util.Log
 import org.json.JSONObject
 
 internal class FileInbound(
-  private val identity: YggdrasilIdentity,
-  private val state: ProtocolStateStore,
+  private val accountCrypto: () -> FileReceiveCrypto?,
+  private val deviceCrypto: () -> FileReceiveCrypto?,
   private val transfers: FileTransferState,
+  private val messages: TransportMessages,
   private val send: (String, JSONObject, String) -> Boolean,
 ) {
   fun handle(packet: JSONObject, senderUpeerId: String, type: String): String {
@@ -97,13 +98,9 @@ internal class FileInbound(
   }
 
   private fun unsealKey(packet: JSONObject, fileId: String): ByteArray? {
-    val device = identity.currentDevice()
     val deviceSealed = packet.optString("deviceEncryptedKey")
-    if (device != null && deviceSealed.isNotEmpty()) {
-      val opened = runCatching { device.crypto.openFileKey(deviceSealed) }.getOrElse { cause ->
-        Log.w(TAG, "No se pudo abrir la clave de archivo con el dispositivo: ${message(cause)}")
-        null
-      }
+    if (deviceSealed.isNotEmpty()) {
+      val opened = open(deviceCrypto(), deviceSealed, "el dispositivo")
       if (opened != null) return opened.takeIf { it.size == FileTransferState.FILE_KEY_SIZE }
     }
     val accountSealed = packet.optString("encryptedKey")
@@ -111,18 +108,22 @@ internal class FileInbound(
       Log.w(TAG, "FILE_PROPOSAL sin clave de archivo ($fileId)")
       return null
     }
-    val account = identity.current()
-    val opened = account?.let {
-      runCatching { it.openFileKey(accountSealed) }.getOrElse { cause ->
-        Log.w(TAG, "No se pudo abrir la clave de archivo con la cuenta: ${message(cause)}")
-        null
-      }
-    }
+    val opened = open(accountCrypto(), accountSealed, "la cuenta")
     if (opened == null) {
       Log.w(TAG, "La clave de archivo de $fileId no se puede abrir en este dispositivo")
       return null
     }
     return opened.takeIf { it.size == FileTransferState.FILE_KEY_SIZE }
+  }
+
+  private fun open(crypto: FileReceiveCrypto?, sealed: String, label: String): ByteArray? {
+    if (crypto == null) return null
+    return try {
+      crypto.openFileKey(sealed)
+    } catch (cause: Exception) {
+      Log.w(TAG, "No se pudo abrir la clave de archivo con $label: ${message(cause)}")
+      null
+    }
   }
 
   private fun decryptChunk(packet: JSONObject, key: ByteArray): ByteArray {
@@ -131,14 +132,14 @@ internal class FileInbound(
     val iv = packet.optString("iv")
     val tag = packet.optString("tag")
     require(iv.isNotEmpty() && tag.isNotEmpty()) { "El trozo no trae iv o tag" }
-    val crypto = identity.currentDevice()?.crypto ?: identity.current()
+    val crypto = deviceCrypto() ?: accountCrypto()
     requireNotNull(crypto) { "No hay identidad para descifrar el trozo" }
     return crypto.decryptFileChunk(key, iv, tag, data)
   }
 
   private fun saveProposalMessage(entry: FileTransferState.Entry) {
     val messageId = entry.proposal.messageId ?: entry.proposal.fileId
-    state.messages.save(
+    messages.save(
       JSONObject()
         .put("id", messageId)
         .put("upeerId", entry.senderUpeerId)
@@ -154,9 +155,9 @@ internal class FileInbound(
 
   private fun saveCompletedMessage(entry: FileTransferState.Entry, savedPath: String) {
     val messageId = entry.proposal.messageId ?: entry.proposal.fileId
-    val existing = state.messages.find(messageId) ?: return
+    val existing = messages.find(messageId) ?: return
     existing.put("content", envelope(entry, savedPath))
-    state.messages.save(existing)
+    messages.save(existing)
   }
 
   private fun envelope(entry: FileTransferState.Entry, savedPath: String?): String {

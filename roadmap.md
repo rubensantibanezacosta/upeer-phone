@@ -187,14 +187,14 @@ Lo que falta y por qué no es cosmético:
 El móvil ya no descarta los paquetes de archivo: los valida, los limita y los descifra.
 
 - `FileTransferState.kt` guarda el registro de transferencias (fase, bytes recibidos, trozos aplicados, clave AES por `fileId`) y la ruta de destino por chat: `attachments/direct/<peerUpeerId>/` o `attachments/grp-…/`, saneando siempre el nombre.
-- `FileInbound.kt` atiende `FILE_PROPOSAL`, `FILE_CHUNK`, `FILE_DONE` y `FILE_CANCEL`. En la propuesta abre la clave AES **probando primero `encryptedKey` (cuenta) y después `deviceEncryptedKey` (dispositivo)** con `openFileKey`; si ninguna abre, registra el motivo y descarta la transferencia en vez de dejarla a medias.
+- `FileInbound.kt` atiende `FILE_PROPOSAL`, `FILE_CHUNK`, `FILE_DONE` y `FILE_CANCEL`. En la propuesta abre la clave AES **probando primero `deviceEncryptedKey` (dispositivo) y después `encryptedKey` (cuenta)** con `openFileKey`; si ninguna abre, registra el motivo y descarta la transferencia en vez de dejarla a medias.
 - `YggdrasilProtocol.kt` gana el conjunto `FILE_TYPES` y `handleFilePacket`: bloqueo de contacto, comprobación de firma con `validateSignedPacket`, `PacketSignature` ligada a dispositivo (revocación y `deviceId` anunciado) y límites por IP y por identidad antes de delegar.
 - Las respuestas (`FILE_ACCEPT`, `FILE_ACK` por trozo, `FILE_DONE_ACK`) salen **firmadas y selladas** por el mismo camino que el resto de control (`SealedControl.frame`), no como JSON suelto: el escritorio descarta un paquete sin `senderUpeerId` ni firma. Un móvil enrolado firma con su clave de dispositivo, y por eso el escritorio valida `FILE_*` con cuenta **o** dispositivo (`verifyFileTransferPacketFromSigner`).
 - Si la clave AES no se puede abrir con ninguno de los dos sobres, la propuesta **no se acepta** y la transferencia no arranca; y un `FILE_CHUNK` sin clave abre fallo cerrado en vez de guardar el trozo en claro.
 - `InboundRateLimiter.kt` añade reglas para `FILE_*`, más estrechas que las de `CHAT` porque un remitente legítimo envía muchos trozos seguidos.
 - Al cerrar el ensamblado se escribe el sobre `{"type":"file",…}` como contenido del mensaje, que es exactamente lo que `domain/attachment.ts` ya sabe presentar.
 
-Verificación: `:upeer-transport:testDebugUnitTest` en verde con 607 casos, 10 de ellos nuevos en `FileTransferStateTest`, y `go test ./...` del puente sin regresiones.
+Verificación: `:upeer-transport:testDebugUnitTest` en verde con 654 casos, 10 de ellos nuevos en `FileTransferStateTest` y 14 en `FileInboundTest`, y `go test ./...` del puente sin regresiones. `FileInbound` recibe la criptografía de cuenta y de dispositivo, el registro de transferencias y el almacén de mensajes por parámetro, así que la prueba los sustituye por dobles (`FileReceiveCrypto`, `TransportMessages`) con **AES-GCM real** de la JVM: cubre aceptación con y sin sobre de dispositivo, clave que no abre, propuesta con nombre o trozos fuera de rango, los tres trozos acusados y el archivo guardado con su hash global, trozo duplicado, hash por trozo incorrecto, trozo de otro contacto, trozo sin propuesta, `FILE_DONE` con huecos, hash global distinto, cancelación y el progreso visible.
 
 ## Envío `FILE_*` en el móvil (29/10/2026)
 
@@ -210,9 +210,9 @@ El móvil ya **envía** archivos a un contacto, no solo los recibe. El flujo es 
 - UI: `services/attachment-picker.ts` (galería, cámara y documento con permisos explícitos y tipo MIME por extensión), `services/attachment-send.ts` y `hooks/use-attachment-send.ts`, conectados al botón «Adjuntar archivo» del compositor.
 - **Los grupos quedan fuera a propósito**: `canSendAttachment` rechaza `grp-…` con un aviso, porque el fanout de `GROUP_*` (paso 7) todavía no existe y una propuesta a un grupo se quedaría sin destinatario con clave.
 
-Verificación: `:upeer-transport:testDebugUnitTest` en verde con **640 casos** (12 de `FileSendPlanTest`, 10 de `FileSendWindowTest` y 11 de `FileOutboundTest` sobre el ciclo completo propuesta → aceptación → trozos → acuse final), `go test -count=1 ./...` y `go vet` limpios, 259 casos de Vitest en 31 archivos, `tsc --noEmit` sin errores y eslint sin avisos nuevos (solo quedan los dos `{}` heredados de los módulos nativos). **Sin probar en dispositivo**: el envío móvil → escritorio y la regresión escritorio → móvil siguen pendientes de hardware.
+Verificación: `:upeer-transport:testDebugUnitTest` en verde con **654 casos** (12 de `FileSendPlanTest`, 10 de `FileSendWindowTest`, 11 de `FileOutboundTest` sobre el ciclo completo propuesta → aceptación → trozos → acuse final y 14 de `FileInboundTest` sobre la recepción), `go test -count=1 ./...` y `go vet` limpios, 259 casos de Vitest en 31 archivos, `tsc --noEmit` sin errores y eslint sin avisos nuevos (solo quedan los dos `{}` heredados de los módulos nativos). **Sin probar en dispositivo**: el envío móvil → escritorio y la regresión escritorio → móvil siguen pendientes de hardware.
 
-La maquinaria de envío se puede además probar sin hardware: `FileOutbound` recibe la identidad, el directorio de claves y el almacén de mensajes por interfaces (`FileSendCrypto`, `FileSendDirectory`, `FileSendMessages`), así que `FileOutboundTest` lo ejercita con dobles. El sobre de la clave y el formato del trozo tienen vectores fijos: `file_transfer_chunk_interop_test.go` descifra un trozo generado con OpenSSL (lo mismo que hace el escritorio con `node:crypto`), y `crypto_test.go` ya abría un `crypto_box_seal` real de libsodium.
+La maquinaria de archivos se puede además probar sin hardware: `FileOutbound` y `FileInbound` reciben la criptografía, el directorio de claves y el almacén de mensajes por interfaces (`FileSendCrypto`, `FileReceiveCrypto`, `FileSendDirectory`, `TransportMessages`), así que `FileOutboundTest` y `FileInboundTest` los ejercitan con dobles. El sobre y el trozo tienen vectores fijos cruzados con las otras implementaciones: `file_transfer_chunk_interop_test.go` descifra un trozo generado con OpenSSL (lo mismo que hace el escritorio con `node:crypto`), `crypto_test.go` abre un `crypto_box_seal` real de libsodium, y en el repo del escritorio `tests/unit/network/file-transfer-mobile-interop.test.ts` valida una propuesta generada por el puente Go del móvil (`tests/fixtures/file-transfer-mobile-go.json`): pasa `validateIncomingFile`, abre el sobre de cuenta con libsodium real, descifra los tres trozos y reconstruye el archivo con el `fileHash` de la propuesta.
 
 Nota de entorno: `expo-document-picker` arrastra `commons-io:2.6`, que no está en la caché de Gradle del proyecto. El plugin de configuración `plugins/with-commons-io-version.js` fuerza `commons-io:2.16.1` (presente en la caché) desde `expo prebuild`, de modo que `:app:assembleDebug --offline` compila sin red.
 
@@ -265,10 +265,10 @@ Tabla de verdad, medida en código de los dos clientes el 28/10/2026. **Qué pue
 | Editar, borrar, reaccionar, responder, reenviar, buscar | Sí | Sí | — | hecho |
 | Tarjeta de contacto | Sí | **Sí**: se envía desde la ficha del contacto (`ContactShareSheet`), se pinta como tarjeta (`parseContactCard`) y el resumen de la lista la nombra | — | hecho |
 | Presencia y «escribiendo…» | Sí | Sí (actividad del usuario) | — | hecho |
-| Imagen | Sí | **Se recibe, se previsualiza en local y se abre** desde el 29/10/2026; falta el envío | `FILE_*` de salida | 4, 5, 6 |
-| Vídeo | Sí | **Se recibe y se abre** con el reproductor del sistema desde el 29/10/2026; falta el envío y la miniatura | `FILE_*` de salida | 4, 5, 6 |
-| Audio y nota de voz | Sí, con grabación | **Etiqueta**; el micrófono del compositor avisa «próximamente» | `FILE_*` + grabador nativo | 5, 6 |
-| Documento y PDF | Sí | **Se recibe y se abre** con la app del sistema desde el 29/10/2026; falta el envío | `FILE_*` de salida | 4, 5, 6 |
+| Imagen | Sí | **Se envía desde el 29/10/2026** (galería o cámara), se recibe, se previsualiza en local y se abre | — | 6 hecho |
+| Vídeo | Sí | **Se envía y se recibe desde el 29/10/2026** y se reproduce con el reproductor del sistema; falta la miniatura | miniatura | 6 hecho |
+| Audio y nota de voz | Sí, con grabación | Se **recibe y se abre** desde el 29/10/2026; el micrófono del compositor sigue avisando «próximamente» | grabador nativo | 6 (residuo) |
+| Documento y PDF | Sí | **Se envía desde el 29/10/2026** (documento), se recibe y se abre con la app del sistema | — | 6 hecho |
 | Mensajes de sistema (`__SYS__\|`) | Sí | **Sí**, desde el 28/10/2026: se pintan centrados y sin el prefijo, y los eventos de llamada pierden la marca de tiempo | — | hecho |
 | Grupos: recibir del escritorio | Sí | **Sí** desde el 28/10/2026: el grupo se proyecta con nombre, avatar y miembros, aparece en la lista aunque no tenga mensajes y su ficha lista los miembros. Los mensajes `grp-…` ya no se descartan | `GROUP_*` para escribir en él | **4 hecho**, escribir en 7 |
 | Grupos: crear, invitar, escribir, administrar | Sí | No | `GROUP_*` + sender keys | 7 |
@@ -282,7 +282,7 @@ Tabla de verdad, medida en código de los dos clientes el 28/10/2026. **Qué pue
 **Los tres bloqueos que importan, en orden de coste:**
 
 1. **Grupos de solo lectura** (paso 4). No necesita `FILE_*`, ni claves nuevas, ni `GROUP_*`: los mensajes ya llegan por `SYNC_*` y se tiran por el filtro de `upeerId` de 64 hex de `SyncHistoryPayload.local`. Es tabla, proyección y pantalla. **Bloquea el cierre de B10.**
-2. **Contenido de adjuntos** (pasos 5 y 6). La presentación ya está hecha; abrir el archivo exige `FILE_*`, y la recuperación offline de `FILE_*` se apoya en los shards del vault (paso 2).
+2. **Contenido de adjuntos** (pasos 5 y 6). La presentación, el envío y la recepción están hechos; lo que queda es la prueba en hardware y la recuperación offline, que se apoya en los shards del vault (paso 2). Residual: la grabación de nota de voz, que necesita un módulo nativo de audio y compilar APK.
 3. **Llamadas** (paso 8). El bloque más grande y el único con hardware en medio. No se puede adelantar sin arrastrar media, codecs y permisos.
 
 **Lo que el móvil no hace y no es un bloqueo, sino una decisión pendiente:** el handshake sin raíz (paso 1, residuo de B6), que impide abrir conversaciones nuevas desde un dispositivo enrolado.

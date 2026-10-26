@@ -9,7 +9,7 @@ internal class FileOutbound(
   private val accountCrypto: () -> FileSendCrypto?,
   private val deviceCrypto: () -> FileSendCrypto?,
   private val directory: FileSendDirectory,
-  private val messages: FileSendMessages,
+  private val messages: TransportMessages,
   private val send: (String, JSONObject, String) -> Boolean,
   private val windowFactory: (Int) -> FileSendWindow = { FileSendWindow(it) },
 ) {

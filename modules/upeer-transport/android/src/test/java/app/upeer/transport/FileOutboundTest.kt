@@ -39,7 +39,7 @@ class FileOutboundTest {
     override fun devicePublicKeyFor(upeerId: String): String? = DEVICE_KEY.takeIf { withDeviceKey }
   }
 
-  private val messages = object : FileSendMessages {
+  private val messages = object : TransportMessages {
     override fun find(messageId: String): JSONObject? = stored[messageId]
 
     override fun save(message: JSONObject) {

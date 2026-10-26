@@ -53,19 +53,25 @@ internal class YggdrasilProtocol(
   private val controlSender = ControlSender(identity, state) { bridge }
   private val controlReplies = ControlReplies(identity, deviceBindings, state, outbox, rateLimiter, controlSender::sendPong)
   private val chatInbound = ChatInbound(state, chatDecryptor, controlSender, onInboundMessage)
-  private val fileInbound = FileInbound(identity, state, transfers) { upeerId, data, label ->
-    val active = bridge ?: return@FileInbound false
-    val address = state.addressFor(upeerId) ?: return@FileInbound false
-    val peerPublicKey = state.publicKeyFor(upeerId) ?: return@FileInbound false
-    val current = identity.current() ?: return@FileInbound false
-    val frame = SealedControl.frame(current, identity.currentDevice(), active.address(), peerPublicKey, data)
-    egress.send(active, address, frame, label)
-  }
+  private val fileInbound = FileInbound(
+    accountCrypto = { identity.current()?.let { BridgeFileReceiveCrypto(it) } },
+    deviceCrypto = { identity.currentDevice()?.crypto?.let { BridgeFileReceiveCrypto(it) } },
+    transfers = transfers,
+    messages = StateTransportMessages(state),
+    send = { upeerId, data, label ->
+      val active = bridge ?: return@FileInbound false
+      val address = state.addressFor(upeerId) ?: return@FileInbound false
+      val peerPublicKey = state.publicKeyFor(upeerId) ?: return@FileInbound false
+      val current = identity.current() ?: return@FileInbound false
+      val frame = SealedControl.frame(current, identity.currentDevice(), active.address(), peerPublicKey, data)
+      egress.send(active, address, frame, label)
+    },
+  )
   private val fileOutbound = FileOutbound(
     accountCrypto = { identity.current()?.let { BridgeFileSendCrypto(it) } },
     deviceCrypto = { identity.currentDevice()?.crypto?.let { BridgeFileSendCrypto(it) } },
     directory = StateFileSendDirectory(state),
-    messages = StateFileSendMessages(state),
+    messages = StateTransportMessages(state),
     send = { upeerId, data, label ->
       val active = bridge ?: return@FileOutbound false
       val address = state.addressFor(upeerId) ?: return@FileOutbound false

@@ -18,7 +18,7 @@ internal object FileOutboundMessage {
   }
 
   fun save(
-    messages: FileSendMessages,
+    messages: TransportMessages,
     messageId: String,
     upeerId: String,
     plan: FileSendPlan.Plan,
