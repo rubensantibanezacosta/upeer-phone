@@ -9,6 +9,7 @@ type ChatComposerProps = {
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
+  onAttach: () => void;
   onUnavailable: (label: string) => void;
 };
 
@@ -20,12 +21,12 @@ function ComposerAction({ label, onPress, children }: { label: string; onPress: 
   );
 }
 
-export function ChatComposer({ value, onChange, onSend, onUnavailable }: ChatComposerProps) {
+export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable }: ChatComposerProps) {
   const theme = useTheme();
   const hasText = value.trim().length > 0;
   return (
     <XStack alignItems="flex-end" backgroundColor={theme.backgroundElement} borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={6} paddingHorizontal={8} paddingVertical={8}>
-      <ComposerAction label="Adjuntar archivo" onPress={() => onUnavailable('Adjuntar archivo')}><Plus color={theme.textSecondary} size={24} /></ComposerAction>
+      <ComposerAction label="Adjuntar archivo" onPress={onAttach}><Plus color={theme.textSecondary} size={24} /></ComposerAction>
       <Input
         accessibilityLabel="Mensaje"
         backgroundColor={theme.backgroundSelected}

@@ -142,6 +142,20 @@ class UPeerTransportModule : Module() {
     AsyncFunction("enrollmentAuthorizerCancel") { inviteId: String -> service().enrollmentAuthorizerCancel(inviteId) }
     AsyncFunction("enrollmentAuthorizerCancelAll") { service().enrollmentAuthorizerCancelAll() }
     AsyncFunction("deviceEnrollmentLastIssued") { service().deviceEnrollmentLastIssued() }
+    AsyncFunction("sendFile") {
+        upeerId: String,
+        path: String,
+        fileName: String,
+        mimeType: String,
+        caption: String,
+        isVoiceNote: Boolean,
+        chatUpeerId: String,
+        messageId: String,
+      ->
+      service().sendFile(upeerId, path, fileName, mimeType, caption, isVoiceNote, chatUpeerId, messageId)
+    }
+    AsyncFunction("cancelFile") { fileId: String -> service().cancelFile(fileId) }
+    AsyncFunction("outboundFilesJSON") { service().outboundFilesJSON() }
   }
 
   private fun bind() {

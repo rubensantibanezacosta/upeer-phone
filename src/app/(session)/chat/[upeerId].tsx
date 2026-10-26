@@ -19,6 +19,7 @@ import { buildReplyPreview, type ReplyPreview } from '@/domain/chat-reply';
 import { decideRequestState } from '@/domain/message-request';
 import { useChatComposer } from '@/hooks/use-chat-composer';
 import { useAttachmentOpener } from '@/hooks/use-attachment-opener';
+import { useAttachmentSender } from '@/hooks/use-attachment-send';
 import { useChatMessageSheet } from '@/hooks/use-chat-message-sheet';
 import { placeholderName, resolveContactName } from '@/domain/contact-name';
 import { useChatSearch } from '@/hooks/use-chat-search';
@@ -187,6 +188,7 @@ export default function ChatRoute() {
   }, [showSnackbar]);
 
   const openAttachment = useAttachmentOpener();
+  const attach = useAttachmentSender(upeerId, refresh);
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offset = Math.max(0, event.nativeEvent.contentOffset.y);
@@ -271,6 +273,7 @@ export default function ChatRoute() {
               error,
               hidden: isRequest,
               onChange: handleChange,
+              onAttach: attach,
               onCancelContext: cancelContext,
               onSend: () => { void submit(); },
               onUnavailable: showUnavailable,

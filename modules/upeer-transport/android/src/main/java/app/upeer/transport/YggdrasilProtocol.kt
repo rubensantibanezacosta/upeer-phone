@@ -61,6 +61,14 @@ internal class YggdrasilProtocol(
     val frame = SealedControl.frame(current, identity.currentDevice(), active.address(), peerPublicKey, data)
     egress.send(active, address, frame, label)
   }
+  private val fileOutbound = FileOutbound(identity, state) { upeerId, data, label ->
+    val active = bridge ?: return@FileOutbound false
+    val address = state.addressFor(upeerId) ?: return@FileOutbound false
+    val peerPublicKey = state.publicKeyFor(upeerId) ?: return@FileOutbound false
+    val current = identity.current() ?: return@FileOutbound false
+    val frame = SealedControl.frame(current, identity.currentDevice(), active.address(), peerPublicKey, data)
+    egress.send(active, address, frame, label)
+  }
   private val vaultReplies = VaultReplies(
     identity,
     deviceBindings,
@@ -390,14 +398,44 @@ internal class YggdrasilProtocol(
       Log.w(TAG, "Límite de recepción alcanzado para $type de $senderUpeerId")
       return InboundPolicy.rateLimitedMetadata(type)
     }
+    if (fileOutbound.handle(packet, senderUpeerId, type)) return packet.toString()
     return fileInbound.handle(packet, senderUpeerId, type)
   }
+
+  fun sendFile(
+    upeerId: String,
+    path: String,
+    fileName: String,
+    mimeType: String,
+    caption: String?,
+    isVoiceNote: Boolean,
+    chatUpeerId: String?,
+    messageId: String?,
+  ): String {
+    if (bridge == null) throw IllegalStateException("El transporte no está iniciado")
+    if (state.publicKeyFor(upeerId) == null) throw IllegalStateException("El contacto $upeerId no es conocido")
+    return fileOutbound.start(
+      FileOutbound.Request(upeerId, path, fileName, mimeType, caption, isVoiceNote, chatUpeerId, messageId),
+    )
+  }
+
+  fun cancelFile(fileId: String): Boolean = fileOutbound.cancel(fileId)
+
+  fun outboundFiles(): String = fileOutbound.sendingJSON()
 
   private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
 
   private companion object {
     private const val TAG = "UPeerTransport"
     private val VAULT_TYPES = setOf("VAULT_STORE", "VAULT_QUERY", "VAULT_ACK", "VAULT_DELIVERY", "VAULT_RENEW")
-    private val FILE_TYPES = setOf("FILE_PROPOSAL", "FILE_CHUNK", "FILE_DONE", "FILE_CANCEL")
+    private val FILE_TYPES = setOf(
+      "FILE_PROPOSAL",
+      "FILE_ACCEPT",
+      "FILE_CHUNK",
+      "FILE_ACK",
+      "FILE_DONE",
+      "FILE_DONE_ACK",
+      "FILE_CANCEL",
+    )
   }
 }

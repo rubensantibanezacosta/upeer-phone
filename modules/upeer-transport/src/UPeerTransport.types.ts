@@ -278,3 +278,13 @@ export type PeerPoolEntry = {
   lat: number | null;
   lon: number | null;
 };
+
+export type OutboundFileTransfer = {
+  fileId: string;
+  upeerId: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  path: string;
+  progress: { acked: number; total: number };
+};

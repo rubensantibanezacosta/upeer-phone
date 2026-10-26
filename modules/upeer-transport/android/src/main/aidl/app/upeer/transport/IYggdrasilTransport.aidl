@@ -74,4 +74,7 @@ interface IYggdrasilTransport {
   void enrollmentAuthorizerCancel(String inviteId);
   void enrollmentAuthorizerCancelAll();
   String groupsJSON();
+  String sendFile(String upeerId, String path, String fileName, String mimeType, String caption, boolean isVoiceNote, String chatUpeerId, String messageId);
+  boolean cancelFile(String fileId);
+  String outboundFilesJSON();
 }

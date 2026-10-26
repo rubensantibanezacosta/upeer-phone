@@ -261,6 +261,18 @@ class YggdrasilTransportService : Service() {
     override fun enrollmentAuthorizerCancel(inviteId: String) = enrollmentAuthorizer.cancel(inviteId)
     override fun enrollmentAuthorizerCancelAll() = enrollmentAuthorizer.cancelAll()
     override fun groupsJSON(): String = protocol.groupsJSON()
+    override fun sendFile(
+      upeerId: String,
+      path: String,
+      fileName: String,
+      mimeType: String,
+      caption: String,
+      isVoiceNote: Boolean,
+      chatUpeerId: String,
+      messageId: String,
+    ): String = protocol.sendFile(upeerId, path, fileName, mimeType, caption, isVoiceNote, chatUpeerId, messageId)
+    override fun cancelFile(fileId: String): Boolean = protocol.cancelFile(fileId)
+    override fun outboundFilesJSON(): String = protocol.outboundFiles()
     override fun deviceEnrollmentLastIssued(): String = lastIssued
     override fun deviceEnrollmentSubmit(): String =
       this@YggdrasilTransportService.submitEnrollment()

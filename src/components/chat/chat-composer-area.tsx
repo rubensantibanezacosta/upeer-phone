@@ -15,12 +15,13 @@ type ChatComposerAreaProps = {
   onChange: (value: string) => void;
   onCancelContext: () => void;
   onSend: () => void;
+  onAttach: () => void;
   onUnavailable: (label: string) => void;
   reply: ReplyPreview | null;
   value: string;
 };
 
-export function ChatComposerArea({ editing, error, hidden, onChange, onCancelContext, onSend, onUnavailable, reply, value }: ChatComposerAreaProps) {
+export function ChatComposerArea({ editing, error, hidden, onChange, onAttach, onCancelContext, onSend, onUnavailable, reply, value }: ChatComposerAreaProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const context = editing ? { icon: <Pencil color={theme.accent} size={15} />, label: 'Editando mensaje', detail: '' }
@@ -48,7 +49,7 @@ export function ChatComposerArea({ editing, error, hidden, onChange, onCancelCon
         </NativeRipplePressable>
       </XStack>
     ) : null}
-    {hidden ? null : <ChatComposer onChange={onChange} onSend={onSend} onUnavailable={onUnavailable} value={value} />}
+    {hidden ? null : <ChatComposer onAttach={onAttach} onChange={onChange} onSend={onSend} onUnavailable={onUnavailable} value={value} />}
   </>;
 }
 

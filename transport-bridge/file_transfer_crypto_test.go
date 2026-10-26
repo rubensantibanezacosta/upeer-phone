@@ -160,6 +160,126 @@ func TestDecryptFileChunkRejectsInvalidArguments(t *testing.T) {
 	}
 }
 
+func TestSealFileKeyRoundTripsThroughTheRecipient(t *testing.T) {
+	sender := newFileTestIdentity(t)
+	recipient := newFileTestIdentity(t)
+
+	fileKey, err := sender.NewFileKey()
+	if err != nil {
+		t.Fatalf("NewFileKey: %v", err)
+	}
+	if len(fileKey) != fileKeySize {
+		t.Fatalf("clave de %d bytes", len(fileKey))
+	}
+
+	sealed, err := sender.SealFileKeyFor(fileKey, recipient.PublicKeyHex())
+	if err != nil {
+		t.Fatalf("SealFileKeyFor: %v", err)
+	}
+	opened, err := recipient.OpenFileKey(sealed)
+	if err != nil {
+		t.Fatalf("OpenFileKey: %v", err)
+	}
+	if !bytes.Equal(opened, fileKey) {
+		t.Fatal("la clave abierta no coincide")
+	}
+}
+
+func TestNewFileKeyIsNotRepeated(t *testing.T) {
+	identity := newFileTestIdentity(t)
+
+	first, err := identity.NewFileKey()
+	if err != nil {
+		t.Fatalf("NewFileKey: %v", err)
+	}
+	second, err := identity.NewFileKey()
+	if err != nil {
+		t.Fatalf("NewFileKey: %v", err)
+	}
+	if bytes.Equal(first, second) {
+		t.Fatal("dos claves de archivo no pueden coincidir")
+	}
+}
+
+func TestSealFileKeyRejectsInvalidArguments(t *testing.T) {
+	identity := newFileTestIdentity(t)
+	validKey := bytes.Repeat([]byte{9}, fileKeySize)
+
+	if _, err := identity.SealFileKeyFor([]byte{1, 2, 3}, identity.PublicKeyHex()); err == nil {
+		t.Fatal("se esperaba error con clave corta")
+	}
+	if _, err := identity.SealFileKeyFor(validKey, "no-hex"); err == nil {
+		t.Fatal("se esperaba error con clave pública no hexadecimal")
+	}
+	if _, err := identity.SealFileKeyFor(validKey, "00ff"); err == nil {
+		t.Fatal("se esperaba error con clave pública corta")
+	}
+	if _, err := identity.SealFileKeyFor(validKey, ""); err == nil {
+		t.Fatal("se esperaba error con clave pública vacía")
+	}
+}
+
+func TestEncryptFileChunkRoundTripsThroughDecrypt(t *testing.T) {
+	identity := newFileTestIdentity(t)
+	key := bytes.Repeat([]byte{4}, fileKeySize)
+	plaintext := bytes.Repeat([]byte("adjunto"), 512)
+
+	sealed, err := identity.EncryptFileChunk(key, plaintext)
+	if err != nil {
+		t.Fatalf("EncryptFileChunk: %v", err)
+	}
+	if sealed == nil {
+		t.Fatal("EncryptFileChunk devolvió nil")
+	}
+	if len(sealed.IV) != fileChunkIVSize*2 {
+		t.Fatalf("iv de %d caracteres", len(sealed.IV))
+	}
+	if len(sealed.Tag) != fileChunkTagSize*2 {
+		t.Fatalf("tag de %d caracteres", len(sealed.Tag))
+	}
+
+	decrypted, err := identity.DecryptFileChunk(key, sealed.IV, sealed.Tag, sealed.Data)
+	if err != nil {
+		t.Fatalf("DecryptFileChunk: %v", err)
+	}
+	if !bytes.Equal(decrypted, plaintext) {
+		t.Fatal("el trozo descifrado no coincide")
+	}
+}
+
+func TestEncryptFileChunkUsesAFreshIVPerChunk(t *testing.T) {
+	identity := newFileTestIdentity(t)
+	key := bytes.Repeat([]byte{4}, fileKeySize)
+	plaintext := []byte("mismo contenido")
+
+	first, err := identity.EncryptFileChunk(key, plaintext)
+	if err != nil {
+		t.Fatalf("EncryptFileChunk: %v", err)
+	}
+	second, err := identity.EncryptFileChunk(key, plaintext)
+	if err != nil {
+		t.Fatalf("EncryptFileChunk: %v", err)
+	}
+	if first.IV == second.IV {
+		t.Fatal("el IV debe ser distinto en cada trozo")
+	}
+}
+
+func TestEncryptFileChunkRejectsInvalidArguments(t *testing.T) {
+	identity := newFileTestIdentity(t)
+	key := bytes.Repeat([]byte{4}, fileKeySize)
+
+	if _, err := identity.EncryptFileChunk([]byte{1, 2, 3}, []byte("x")); err == nil {
+		t.Fatal("se esperaba error con clave corta")
+	}
+	if _, err := identity.EncryptFileChunk(key, nil); err == nil {
+		t.Fatal("se esperaba error con trozo vacío")
+	}
+	if _, err := identity.EncryptFileChunk(key, make([]byte, maxFileChunkSize+1)); err == nil {
+		t.Fatal("se esperaba error con trozo demasiado grande")
+	}
+}
+
 func TestDeviceIdentityOpensTheDeviceSealedFileKey(t *testing.T) {
 	account := newFileTestIdentity(t)
 	device := newFileTestIdentity(t)

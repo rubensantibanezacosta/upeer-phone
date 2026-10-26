@@ -53,8 +53,10 @@ public final class CryptoIdentity implements Seq.Proxy {
 	public native String createEnrollmentInviteWithAddress(long ttlMillis, long nowMillis, String authorizerAddress) throws Exception;
 	public native String createSignedPreKey(long spkID) throws Exception;
 	public native byte[] decryptFileChunk(byte[] key, String ivHex, String tagHex, String dataBase64) throws Exception;
+	public native FileChunkCiphertext encryptFileChunk(byte[] key, byte[] plaintext) throws Exception;
 	public native boolean isDeviceOnly();
 	public native String issueEnrollmentCertificate(String inviteJSON, String requestJSON, long epoch, long issuedAt, long ttlMillis) throws Exception;
+	public native byte[] newFileKey() throws Exception;
 	public native String openEnrollmentRequest(String inviteJSON, String sealedJSON, long nowMillis) throws Exception;
 	public native byte[] openFileKey(String encryptedKeyHex) throws Exception;
 	public native byte[] openSealed(String ciphertextHex) throws Exception;
@@ -63,6 +65,7 @@ public final class CryptoIdentity implements Seq.Proxy {
 	public native String ratchetEncrypt(String sessionJSON, byte[] plaintext) throws Exception;
 	public native String revokeAccountDevice(String previousRegistryJSON, String deviceID, String reason, long nowMillis) throws Exception;
 	public native String seal(byte[] plaintext, String recipientPublicKeyHex) throws Exception;
+	public native String sealFileKeyFor(byte[] fileKey, String recipientPublicKeyHex) throws Exception;
 	public native String sign(byte[] payload);
 	public native String signCanonicalJSON(String payloadJSON) throws Exception;
 	public native String startOutboundSession(String peerPublicKeyHex, String peerSPKPublicKeyHex, long peerSPKID) throws Exception;

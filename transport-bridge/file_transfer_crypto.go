@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -83,6 +84,71 @@ func decryptFileChunk(key []byte, ivHex, tagHex, dataBase64 string) ([]byte, err
 		return nil, errors.New("el trozo no se pudo descifrar")
 	}
 	return plaintext, nil
+}
+
+func newFileKey() ([]byte, error) {
+	key := make([]byte, fileKeySize)
+	if _, err := rand.Read(key); err != nil {
+		return nil, fmt.Errorf("no se pudo generar la clave de archivo: %w", err)
+	}
+	return key, nil
+}
+
+func (identity *CryptoIdentity) NewFileKey() ([]byte, error) {
+	if identity == nil {
+		return nil, errors.New("no hay identidad para generar la clave de archivo")
+	}
+	return newFileKey()
+}
+
+func (identity *CryptoIdentity) SealFileKeyFor(fileKey []byte, recipientPublicKeyHex string) (string, error) {
+	if identity == nil {
+		return "", errors.New("no hay identidad para sellar la clave de archivo")
+	}
+	if len(fileKey) != fileKeySize {
+		return "", errors.New("la clave de archivo debe tener 32 bytes")
+	}
+	recipientPublicKey, err := hex.DecodeString(strings.TrimSpace(recipientPublicKeyHex))
+	if err != nil {
+		return "", errors.New("la clave pública del destinatario no es hexadecimal")
+	}
+	if len(recipientPublicKey) != ed25519.PublicKeySize {
+		return "", errors.New("la clave pública del destinatario debe tener 32 bytes")
+	}
+	sealed, err := sealBox(fileKey, recipientPublicKey)
+	if err != nil {
+		return "", fmt.Errorf("no se pudo sellar la clave de archivo: %w", err)
+	}
+	return hex.EncodeToString(sealed), nil
+}
+
+// FileChunkCiphertext es el trozo cifrado tal y como viaja en un FILE_CHUNK.
+type FileChunkCiphertext struct {
+	Data string
+	IV   string
+	Tag  string
+}
+
+func (identity *CryptoIdentity) EncryptFileChunk(key, plaintext []byte) (*FileChunkCiphertext, error) {
+	if identity == nil {
+		return nil, errors.New("no hay identidad para cifrar el trozo")
+	}
+	if len(plaintext) == 0 || len(plaintext) > maxFileChunkSize {
+		return nil, errors.New("el trozo tiene un tamaño no válido")
+	}
+	iv := make([]byte, fileChunkIVSize)
+	if _, err := rand.Read(iv); err != nil {
+		return nil, fmt.Errorf("no se pudo generar el IV del trozo: %w", err)
+	}
+	data, tag, err := encryptFileChunk(key, plaintext, iv)
+	if err != nil {
+		return nil, err
+	}
+	return &FileChunkCiphertext{
+		Data: base64.StdEncoding.EncodeToString(data),
+		IV:   hex.EncodeToString(iv),
+		Tag:  hex.EncodeToString(tag),
+	}, nil
 }
 
 func encryptFileChunk(key, plaintext, iv []byte) (data, tag []byte, err error) {

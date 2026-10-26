@@ -6,7 +6,7 @@ import { sha512 } from '@noble/hashes/sha2.js';
 import { NativeModule, requireNativeModule } from 'expo';
 import { validateMnemonic } from '../../../src/domain/mnemonic';
 import { decodeEnrollmentTransfer, encodeEnrollmentTransfer } from '../../../src/domain/enrollment-transfer';
-import type { AccountRegistryDocument, AccountRegistryStatus, DeviceEnrollmentBeginResult, DeviceEnrollmentStatus, DeviceIdentityStatus, DhtLocationStatus, EnrollmentAuthorizerInvite, EnrollmentAuthorizerIssued, EnrollmentAuthorizerRequest, EnrollmentAuthorizerStatus, EnrollmentCertificateSummary, IdentityTransportStatus, InboundTransportStatus, LocationBlock, PeerInfo, PeerPoolEntry, PeerSecurity, ProtocolConversation, ProtocolGroup, ProtocolMessage, ProtocolTransportStatus, SyncTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
+import type { AccountRegistryDocument, AccountRegistryStatus, DeviceEnrollmentBeginResult, DeviceEnrollmentStatus, DeviceIdentityStatus, DhtLocationStatus, EnrollmentAuthorizerInvite, EnrollmentAuthorizerIssued, EnrollmentAuthorizerRequest, EnrollmentAuthorizerStatus, EnrollmentCertificateSummary, IdentityTransportStatus, InboundTransportStatus, LocationBlock, OutboundFileTransfer, PeerInfo, PeerPoolEntry, PeerSecurity, ProtocolConversation, ProtocolGroup, ProtocolMessage, ProtocolTransportStatus, SyncTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
 
 declare class UPeerTransportModule extends NativeModule<{}> {
   start(configJSON: number[]): Promise<YggdrasilNodeInfo>;
@@ -79,6 +79,18 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   enrollmentAuthorizerCancel(inviteId: string): Promise<void>;
   enrollmentAuthorizerCancelAll(): Promise<void>;
   deviceEnrollmentLastIssued(): Promise<string>;
+  sendFile(
+    upeerId: string,
+    path: string,
+    fileName: string,
+    mimeType: string,
+    caption: string,
+    isVoiceNote: boolean,
+    chatUpeerId: string,
+    messageId: string,
+  ): Promise<string>;
+  cancelFile(fileId: string): Promise<boolean>;
+  outboundFilesJSON(): Promise<string>;
   generateNodeSeed(): Promise<number[]>;
 }
 
@@ -475,5 +487,37 @@ export async function getLastIssuedEnrollment(): Promise<(EnrollmentAuthorizerIs
     inviteId: issued.inviteId ?? '',
     responseCode: encodeEnrollmentTransfer(JSON.parse(issued.code) as unknown),
   };
+}
+
+export type SendFileInput = {
+  upeerId: string;
+  path: string;
+  fileName: string;
+  mimeType: string;
+  caption?: string | null;
+  isVoiceNote?: boolean;
+  chatUpeerId?: string | null;
+  messageId?: string | null;
+};
+
+export async function sendFile(input: SendFileInput): Promise<string> {
+  return nativeModule.sendFile(
+    input.upeerId,
+    input.path,
+    input.fileName,
+    input.mimeType,
+    input.caption ?? '',
+    input.isVoiceNote === true,
+    input.chatUpeerId ?? '',
+    input.messageId ?? '',
+  );
+}
+
+export async function cancelFile(fileId: string): Promise<boolean> {
+  return nativeModule.cancelFile(fileId);
+}
+
+export async function getOutboundFiles(): Promise<OutboundFileTransfer[]> {
+  return JSON.parse(await nativeModule.outboundFilesJSON()) as OutboundFileTransfer[];
 }
 
