@@ -8,9 +8,11 @@ export type AttachmentInfo = {
   transferId: string;
   caption?: string;
   thumbnail?: string;
+  localPath?: string;
 };
 
 const MAX_TEXT_LENGTH = 400;
+const MAX_PATH_LENGTH = 1024;
 const LEGACY_PREFIX = 'FILE_TRANSFER|';
 
 function kindOf(mimeType: string, fileName: string, isVoiceNote: boolean, declaredImage: boolean): AttachmentKind {
@@ -35,6 +37,15 @@ function text(value: unknown): string {
   return typeof value === 'string' ? value.slice(0, MAX_TEXT_LENGTH) : '';
 }
 
+function localPathOf(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const path = value.trim();
+  if (path.length === 0 || path.length > MAX_PATH_LENGTH) return undefined;
+  if (!path.startsWith('/') && !path.startsWith('file://')) return undefined;
+  if (path.includes('\u0000')) return undefined;
+  return path;
+}
+
 function buildAttachment(payload: Record<string, unknown>, declaredImage: boolean): AttachmentInfo {
   const fileName = text(payload.fileName);
   const mimeType = text(payload.mimeType);
@@ -48,6 +59,7 @@ function buildAttachment(payload: Record<string, unknown>, declaredImage: boolea
     transferId: text(payload.transferId) || text(payload.fileId),
     caption: caption || undefined,
     thumbnail: thumbnail.startsWith('data:image/') ? thumbnail : undefined,
+    localPath: localPathOf(payload.savedPath),
   };
 }
 
@@ -92,6 +104,17 @@ export function formatFileSize(bytes: number): string {
 
 export function attachmentLabel(info: AttachmentInfo): string {
   return info.kind === 'voice' ? 'Nota de voz' : info.fileName;
+}
+
+export function attachmentUri(info: AttachmentInfo): string | null {
+  const path = info.localPath;
+  if (!path) return null;
+  if (path.startsWith('file://')) return path;
+  return `file://${path.split('/').map((segment) => encodeURIComponent(segment)).join('/')}`;
+}
+
+export function canOpenAttachment(info: AttachmentInfo): boolean {
+  return attachmentUri(info) !== null;
 }
 
 export function attachmentDetail(info: AttachmentInfo): string {

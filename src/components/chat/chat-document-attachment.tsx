@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { Download, FileText } from '@tamagui/lucide-icons-2';
+import { Download, ExternalLink, FileText } from '@tamagui/lucide-icons-2';
 import { Text } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
@@ -7,9 +7,10 @@ import { attachmentDetail, attachmentLabel, type AttachmentInfo } from '@/domain
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
-export function ChatDocumentAttachment({ info, isMine, onUnavailable }: {
+export function ChatDocumentAttachment({ info, isMine, onOpen, onUnavailable }: {
   info: AttachmentInfo;
   isMine: boolean;
+  onOpen?: () => void;
   onUnavailable?: (label: string) => void;
 }) {
   const theme = useTheme();
@@ -21,10 +22,10 @@ export function ChatDocumentAttachment({ info, isMine, onUnavailable }: {
 
   return (
     <NativeRipplePressable
-      accessibilityHint="Descarga el archivo"
+      accessibilityHint={onOpen ? 'Abre el archivo' : 'Descarga el archivo'}
       accessibilityLabel={attachmentLabel(info)}
       accessibilityRole="button"
-      onPress={() => onUnavailable?.('Descargar archivo')}
+      onPress={() => (onOpen ? onOpen() : onUnavailable?.('Descargar archivo'))}
       style={[styles.card, { backgroundColor: isMine ? `${theme.bubbleMineText}14` : theme.backgroundSelected }]}
     >
       <View style={[styles.circle, { backgroundColor: circleColor }]}>
@@ -34,7 +35,9 @@ export function ChatDocumentAttachment({ info, isMine, onUnavailable }: {
         <Text color={titleColor} fontSize={scale(14)} fontWeight="600" numberOfLines={1}>{info.fileName}</Text>
         <Text color={detailColor} fontSize={scale(11)} numberOfLines={1}>{attachmentDetail(info)}</Text>
       </View>
-      {isMine ? null : <Download color={iconColor} size={20} strokeWidth={2} />}
+      {isMine ? null : onOpen
+        ? <ExternalLink color={iconColor} size={20} strokeWidth={2} />
+        : <Download color={iconColor} size={20} strokeWidth={2} />}
     </NativeRipplePressable>
   );
 }

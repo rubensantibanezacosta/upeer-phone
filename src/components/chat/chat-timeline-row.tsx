@@ -2,6 +2,7 @@ import { View } from 'react-native';
 
 import { ChatDateSeparator } from '@/components/chat/chat-date-separator';
 import { ChatMessageBubble } from '@/components/chat/chat-message-bubble';
+import type { AttachmentInfo } from '@/domain/attachment';
 import { summarizeReactions } from '@/domain/chat-reactions';
 import type { ReplyPreview } from '@/domain/chat-reply';
 import type { ChatTimelineEntry } from '@/domain/chat-timeline';
@@ -12,6 +13,7 @@ type ChatTimelineRowProps = {
   entry: ChatTimelineEntry;
   highlighted: boolean;
   onLongPress?: (message: ProtocolMessage) => void;
+  onOpenAttachment?: (info: AttachmentInfo) => void;
   onOpenCard?: (card: ContactCard) => void;
   onOpenReply?: (messageID: string) => void;
   onToggleReaction?: (message: ProtocolMessage, emoji: string) => void;
@@ -21,7 +23,7 @@ type ChatTimelineRowProps = {
   selfUpeerId: string;
 };
 
-export function ChatTimelineRow({ entry, highlighted, onLongPress, onOpenCard, onOpenReply, onToggleReaction, onUnavailable, reply, savedContacts, selfUpeerId }: ChatTimelineRowProps) {
+export function ChatTimelineRow({ entry, highlighted, onLongPress, onOpenAttachment, onOpenCard, onOpenReply, onToggleReaction, onUnavailable, reply, savedContacts, selfUpeerId }: ChatTimelineRowProps) {
   return (
     <View>
       {entry.showDateSeparator ? <ChatDateSeparator timestamp={entry.message.timestamp} /> : null}
@@ -29,6 +31,7 @@ export function ChatTimelineRow({ entry, highlighted, onLongPress, onOpenCard, o
         entry={entry}
         highlighted={highlighted}
         onLongPress={onLongPress}
+        onOpenAttachment={onOpenAttachment}
         onOpenCard={onOpenCard}
         onOpenReply={onOpenReply}
         onToggleReaction={onToggleReaction}

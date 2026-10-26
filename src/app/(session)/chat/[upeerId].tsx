@@ -18,6 +18,7 @@ import { useFirstLoad } from '@/hooks/use-first-load';
 import { buildReplyPreview, type ReplyPreview } from '@/domain/chat-reply';
 import { decideRequestState } from '@/domain/message-request';
 import { useChatComposer } from '@/hooks/use-chat-composer';
+import { useAttachmentOpener } from '@/hooks/use-attachment-opener';
 import { useChatMessageSheet } from '@/hooks/use-chat-message-sheet';
 import { placeholderName, resolveContactName } from '@/domain/contact-name';
 import { useChatSearch } from '@/hooks/use-chat-search';
@@ -185,6 +186,8 @@ export default function ChatRoute() {
     showSnackbar(`${label}: pendiente en el roadmap`);
   }, [showSnackbar]);
 
+  const openAttachment = useAttachmentOpener();
+
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offset = Math.max(0, event.nativeEvent.contentOffset.y);
     atLatestRef.current = offset < LATEST_OFFSET;
@@ -235,6 +238,7 @@ export default function ChatRoute() {
       entry={item}
       highlighted={item.message.id === highlightedID}
       onLongPress={openActions}
+      onOpenAttachment={openAttachment}
       onOpenCard={openCard}
       onOpenReply={openQuoted}
       onToggleReaction={toggleReaction}
@@ -243,7 +247,7 @@ export default function ChatRoute() {
       savedContacts={savedContactIds}
       selfUpeerId={selfUpeerId}
     />
-  ), [highlightedID, openActions, openCard, openQuoted, replyPreviews, savedContactIds, selfUpeerId, showUnavailable, toggleReaction]);
+  ), [highlightedID, openActions, openAttachment, openCard, openQuoted, replyPreviews, savedContactIds, selfUpeerId, showUnavailable, toggleReaction]);
 
   return (
     <View style={styles.root}>

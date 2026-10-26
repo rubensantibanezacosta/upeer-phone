@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   attachmentDetail,
   attachmentLabel,
+  attachmentUri,
+  canOpenAttachment,
   describeMessageContent,
   fileExtension,
   formatFileSize,
@@ -69,6 +71,40 @@ describe('parseAttachment', () => {
   it('solo acepta miniaturas que sean imágenes en linea', () => {
     expect(parseAttachment(JSON.stringify({ type: 'file', thumbnail: 'data:image/png;base64,AAA' }))?.thumbnail).toBe('data:image/png;base64,AAA');
     expect(parseAttachment(JSON.stringify({ type: 'file', thumbnail: '/tmp/foto.png' }))?.thumbnail).toBeUndefined();
+  });
+
+  it('lee la ruta local que deja el descifrado', () => {
+    const info = parseAttachment(JSON.stringify({ type: 'file', fileName: 'a.png', savedPath: '/data/user/0/app/files/attachments/direct/peer/a.png' }));
+    expect(info?.localPath).toBe('/data/user/0/app/files/attachments/direct/peer/a.png');
+  });
+
+  it('ignora rutas locales que no son absolutas o vienen vacias', () => {
+    expect(parseAttachment(JSON.stringify({ type: 'file', savedPath: 'attachments/a.png' }))?.localPath).toBeUndefined();
+    expect(parseAttachment(JSON.stringify({ type: 'file', savedPath: '  ' }))?.localPath).toBeUndefined();
+    expect(parseAttachment(JSON.stringify({ type: 'file', savedPath: 42 }))?.localPath).toBeUndefined();
+    expect(parseAttachment(JSON.stringify({ type: 'file', savedPath: `/tmp/${'x'.repeat(1100)}` }))?.localPath).toBeUndefined();
+  });
+
+  it('acepta la ruta ya en forma de uri file', () => {
+    expect(parseAttachment(JSON.stringify({ type: 'file', savedPath: 'file:///tmp/a.png' }))?.localPath).toBe('file:///tmp/a.png');
+  });
+});
+
+describe('attachmentUri', () => {
+  it('convierte la ruta absoluta en uri y escapa los segmentos', () => {
+    expect(attachmentUri({ kind: 'document', fileName: 'a b.pdf', fileSize: 1, mimeType: '', transferId: '', localPath: '/tmp/mis fotos/a b.pdf' }))
+      .toBe('file:///tmp/mis%20fotos/a%20b.pdf');
+  });
+
+  it('deja intacta la uri que ya viene con esquema', () => {
+    expect(attachmentUri({ kind: 'document', fileName: 'a.pdf', fileSize: 1, mimeType: '', transferId: '', localPath: 'file:///tmp/a.pdf' }))
+      .toBe('file:///tmp/a.pdf');
+  });
+
+  it('no inventa uri cuando el archivo no se ha descargado', () => {
+    expect(attachmentUri({ kind: 'document', fileName: 'a.pdf', fileSize: 1, mimeType: '', transferId: '' })).toBeNull();
+    expect(canOpenAttachment({ kind: 'document', fileName: 'a.pdf', fileSize: 1, mimeType: '', transferId: '' })).toBe(false);
+    expect(canOpenAttachment({ kind: 'document', fileName: 'a.pdf', fileSize: 1, mimeType: '', transferId: '', localPath: '/tmp/a.pdf' })).toBe(true);
   });
 });
 

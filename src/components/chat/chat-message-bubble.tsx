@@ -4,7 +4,7 @@ import { Text } from 'tamagui';
 import type { ChatTimelineEntry } from '@/domain/chat-timeline';
 import { formatChatTime } from '@/domain/chat-timeline';
 import { parseContactCard, type ContactCard } from '@/domain/contact-card';
-import { parseAttachmentMessage } from '@/domain/attachment';
+import { type AttachmentInfo, parseAttachmentMessage } from '@/domain/attachment';
 import { parseSystemMessage } from '@/domain/system-message';
 import type { ReactionSummary } from '@/domain/chat-reactions';
 import type { ReplyPreview } from '@/domain/chat-reply';
@@ -18,10 +18,11 @@ import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeerTransport.types';
 
-export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onOpenCard, onOpenReply, onToggleReaction, onUnavailable, reactions, reply, savedContacts }: {
+export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onOpenAttachment, onOpenCard, onOpenReply, onToggleReaction, onUnavailable, reactions, reply, savedContacts }: {
   entry: ChatTimelineEntry;
   highlighted?: boolean;
   onLongPress?: (message: ProtocolMessage) => void;
+  onOpenAttachment?: (info: AttachmentInfo) => void;
   onOpenCard?: (card: ContactCard) => void;
   onOpenReply?: (messageID: string) => void;
   onToggleReaction?: (message: ProtocolMessage, emoji: string) => void;
@@ -69,7 +70,7 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
                 tone={isMine ? 'mine' : 'theirs'}
               />
             ) : attachment ? (
-              <ChatAttachment info={attachment} isMine={isMine} onUnavailable={onUnavailable} status={entry.message.status} timestamp={entry.message.timestamp} />
+              <ChatAttachment info={attachment} isMine={isMine} onOpen={onOpenAttachment} onUnavailable={onUnavailable} status={entry.message.status} timestamp={entry.message.timestamp} />
             ) : (
               <Text color={textColor} fontSize={scale(14)} opacity={deleted ? 0.6 : 1} style={[styles.content, deleted ? styles.deletedContent : null]}>{entry.message.content}</Text>
             )}

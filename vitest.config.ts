@@ -12,6 +12,9 @@ export default {
       },
     },
   },
+  resolve: {
+    alias: { '@': `${process.cwd()}/src` },
+  },
   test: {
     environment: 'node',
     server: { deps: { external: ['expo'] } },

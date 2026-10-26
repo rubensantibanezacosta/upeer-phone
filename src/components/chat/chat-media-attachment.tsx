@@ -3,13 +3,14 @@ import { FileImage, FileVideo } from '@tamagui/lucide-icons-2';
 import { Text } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
-import { attachmentDetail, attachmentLabel, fileExtension, type AttachmentInfo } from '@/domain/attachment';
+import { attachmentDetail, attachmentLabel, attachmentUri, fileExtension, type AttachmentInfo } from '@/domain/attachment';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
-export function ChatMediaAttachment({ info, isMine, onUnavailable }: {
+export function ChatMediaAttachment({ info, isMine, onOpen, onUnavailable }: {
   info: AttachmentInfo;
   isMine: boolean;
+  onOpen?: () => void;
   onUnavailable?: (label: string) => void;
 }) {
   const theme = useTheme();
@@ -17,16 +18,17 @@ export function ChatMediaAttachment({ info, isMine, onUnavailable }: {
   const isVideo = info.kind === 'video';
   const Icon = isVideo ? FileVideo : FileImage;
   const extension = fileExtension(info.fileName);
+  const preview = info.thumbnail ?? (isVideo ? null : attachmentUri(info));
 
   return (
     <NativeRipplePressable
       accessibilityLabel={`${attachmentLabel(info)}${attachmentDetail(info) ? `, ${attachmentDetail(info)}` : ''}`}
       accessibilityRole="imagebutton"
-      onPress={() => onUnavailable?.(isVideo ? 'Reproducir vídeo' : 'Abrir imagen')}
+      onPress={() => (onOpen ? onOpen() : onUnavailable?.(isVideo ? 'Reproducir vídeo' : 'Abrir imagen'))}
       style={[styles.frame, { backgroundColor: theme.backgroundSelected }]}
     >
-      {info.thumbnail ? (
-        <Image resizeMode="cover" source={{ uri: info.thumbnail }} style={styles.image} />
+      {preview ? (
+        <Image resizeMode="cover" source={{ uri: preview }} style={styles.image} />
       ) : (
         <View style={styles.placeholder}>
           <Icon color={isMine ? theme.bubbleMineText : theme.placeholder} size={48} strokeWidth={1.5} />
