@@ -1,6 +1,7 @@
 package app.upeer.transport.vault
 
 import app.upeer.transport.ProtocolStateStore
+import app.upeer.transport.SealedControl
 import app.upeer.transport.YggdrasilIdentity
 import app.upeer.transport.dht.DhtLocation
 import org.json.JSONObject
@@ -40,39 +41,27 @@ internal class VaultChannel(
 
   fun storePacket(custodianUpeerId: String, envelopeJSON: String): String? {
     val peerPublicKey = state.publicKeyFor(custodianUpeerId) ?: return null
-    return wrap(envelopeJSON, peerPublicKey)
+    return wrap(envelopeJSON, peerPublicKey, "VAULT_STORE")
   }
 
   fun renewPacket(custodianUpeerId: String, payloadHash: String, expiresAt: Long): String? {
     val peerPublicKey = state.publicKeyFor(custodianUpeerId) ?: return null
     val renew = VaultRenewal.build(payloadHash, expiresAt) ?: return null
-    return wrap(renew.toString(), peerPublicKey)
+    return wrap(renew.toString(), peerPublicKey, VaultRenewal.TYPE)
   }
 
-  fun queryPacket(custodianUpeerId: String, payloadHash: String? = null): String? {    val self = identity.current()?.upeerID() ?: return null
+  fun queryPacket(custodianUpeerId: String, payloadHash: String? = null): String? {
+    val self = identity.current()?.upeerID() ?: return null
     val peerPublicKey = state.publicKeyFor(custodianUpeerId) ?: return null
     val query = runCatching {
       VaultQueryDelivery.buildQuery(self, identity.currentDevice()?.deviceId, payloadHash)
     }.getOrNull() ?: return null
-    return wrap(query.toString(), peerPublicKey)
+    return wrap(query.toString(), peerPublicKey, "VAULT_QUERY")
   }
 
-  private fun wrap(packetJSON: String, peerPublicKey: String): String? {
+  private fun wrap(packetJSON: String, peerPublicKey: String, label: String): String? {
     val crypto = identity.current() ?: return null
     val address = selfAddress().takeIf(String::isNotEmpty) ?: return null
-    val device = identity.currentDevice()
-    val signed = runCatching {
-      if (device != null) {
-        device.crypto.buildLinkedControl(device.deviceId, crypto.upeerID(), address, packetJSON)
-      } else {
-        crypto.buildSignedPacket(address, packetJSON)
-      }
-    }.getOrNull() ?: return null
-    val ciphertext = runCatching { crypto.seal(signed.toByteArray(Charsets.UTF_8), peerPublicKey) }.getOrNull()
-      ?: return null
-    return JSONObject()
-      .put("type", "SEALED")
-      .put("ciphertext", ciphertext)
-      .toString()
+    return SealedControl.tryFrame(crypto, identity.currentDevice(), address, peerPublicKey, JSONObject(packetJSON), label)
   }
 }
