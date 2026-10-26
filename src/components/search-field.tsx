@@ -7,6 +7,9 @@ import { useTheme } from '@/hooks/use-theme';
 
 const HEIGHT = 54;
 const TEXT_HEIGHT = 24;
+const ICON_SIZE = 18;
+const ICON_INSET = (HEIGHT - ICON_SIZE) / 2;
+const CLEAR_SIZE = 24;
 const FIELD_RADIUS = HEIGHT / 2;
 
 type SearchFieldProps = {
@@ -20,8 +23,8 @@ export function SearchField({ onChangeText, placeholder, value }: SearchFieldPro
   const scale = useTextScale();
 
   return (
-    <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={FIELD_RADIUS} gap={8} height={HEIGHT} paddingHorizontal={14}>
-      <Search color={theme.placeholder} size={18} />
+    <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={FIELD_RADIUS} gap={8} height={HEIGHT} paddingHorizontal={ICON_INSET}>
+      <Search color={theme.placeholder} size={ICON_SIZE} />
       <Input
         backgroundColor="transparent"
         borderWidth={0}
@@ -49,4 +52,4 @@ export function SearchField({ onChangeText, placeholder, value }: SearchFieldPro
   );
 }
 
-const styles = { clear: { alignItems: 'center' as const, height: 24, justifyContent: 'center' as const, width: 24 } };
+const styles = { clear: { alignItems: 'center' as const, height: CLEAR_SIZE, justifyContent: 'center' as const, marginRight: -(CLEAR_SIZE - ICON_SIZE) / 2, width: CLEAR_SIZE } };
