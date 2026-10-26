@@ -14,10 +14,10 @@ export default function SettingsSectionRoute() {
   const theme = useTheme();
   const scale = useTextScale();
   const copyToClipboard = useCopyToClipboard();
-  const { connection } = useSession();
+  const { connection, identity } = useSession();
   const { section } = useLocalSearchParams<{ section: string }>();
   const label = SETTINGS_SECTION_LABELS[section] ?? 'Configuración';
-  const rendered = renderSettingsSection({ section, connection, onCopy: (value) => { void copyToClipboard(value, 'Dirección copiada'); } });
+  const rendered = renderSettingsSection({ section, connection, identity, onCopy: (value) => { void copyToClipboard(value, 'Dirección copiada'); } });
 
   return <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
     <ScrollView contentContainerStyle={styles.content}>
