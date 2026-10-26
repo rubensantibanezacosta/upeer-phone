@@ -61,14 +61,20 @@ internal class YggdrasilProtocol(
     val frame = SealedControl.frame(current, identity.currentDevice(), active.address(), peerPublicKey, data)
     egress.send(active, address, frame, label)
   }
-  private val fileOutbound = FileOutbound(identity, state) { upeerId, data, label ->
-    val active = bridge ?: return@FileOutbound false
-    val address = state.addressFor(upeerId) ?: return@FileOutbound false
-    val peerPublicKey = state.publicKeyFor(upeerId) ?: return@FileOutbound false
-    val current = identity.current() ?: return@FileOutbound false
-    val frame = SealedControl.frame(current, identity.currentDevice(), active.address(), peerPublicKey, data)
-    egress.send(active, address, frame, label)
-  }
+  private val fileOutbound = FileOutbound(
+    accountCrypto = { identity.current()?.let { BridgeFileSendCrypto(it) } },
+    deviceCrypto = { identity.currentDevice()?.crypto?.let { BridgeFileSendCrypto(it) } },
+    directory = StateFileSendDirectory(state),
+    messages = StateFileSendMessages(state),
+    send = { upeerId, data, label ->
+      val active = bridge ?: return@FileOutbound false
+      val address = state.addressFor(upeerId) ?: return@FileOutbound false
+      val peerPublicKey = state.publicKeyFor(upeerId) ?: return@FileOutbound false
+      val current = identity.current() ?: return@FileOutbound false
+      val frame = SealedControl.frame(current, identity.currentDevice(), active.address(), peerPublicKey, data)
+      egress.send(active, address, frame, label)
+    },
+  )
   private val vaultReplies = VaultReplies(
     identity,
     deviceBindings,

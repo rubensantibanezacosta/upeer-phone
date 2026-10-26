@@ -210,9 +210,11 @@ El móvil ya **envía** archivos a un contacto, no solo los recibe. El flujo es 
 - UI: `services/attachment-picker.ts` (galería, cámara y documento con permisos explícitos y tipo MIME por extensión), `services/attachment-send.ts` y `hooks/use-attachment-send.ts`, conectados al botón «Adjuntar archivo» del compositor.
 - **Los grupos quedan fuera a propósito**: `canSendAttachment` rechaza `grp-…` con un aviso, porque el fanout de `GROUP_*` (paso 7) todavía no existe y una propuesta a un grupo se quedaría sin destinatario con clave.
 
-Verificación: `:upeer-transport:testDebugUnitTest` en verde con **629 casos** (12 de `FileSendPlanTest` y 10 de `FileSendWindowTest`), `go test -count=1 ./...` y `go vet` limpios, 259 casos de Vitest en 31 archivos, `tsc --noEmit` sin errores y eslint sin avisos nuevos (solo quedan los dos `{}` heredados de los módulos nativos). **Sin probar en dispositivo**: el envío móvil → escritorio y la regresión escritorio → móvil siguen pendientes de hardware.
+Verificación: `:upeer-transport:testDebugUnitTest` en verde con **640 casos** (12 de `FileSendPlanTest`, 10 de `FileSendWindowTest` y 11 de `FileOutboundTest` sobre el ciclo completo propuesta → aceptación → trozos → acuse final), `go test -count=1 ./...` y `go vet` limpios, 259 casos de Vitest en 31 archivos, `tsc --noEmit` sin errores y eslint sin avisos nuevos (solo quedan los dos `{}` heredados de los módulos nativos). **Sin probar en dispositivo**: el envío móvil → escritorio y la regresión escritorio → móvil siguen pendientes de hardware.
 
-Nota de entorno: `expo-document-picker` arrastra `commons-io:2.6`, que no está en la caché de Gradle del proyecto; la compilación del APK funciona en línea pero falla con `--offline` hasta que esa dependencia se descargue una vez.
+La maquinaria de envío se puede además probar sin hardware: `FileOutbound` recibe la identidad, el directorio de claves y el almacén de mensajes por interfaces (`FileSendCrypto`, `FileSendDirectory`, `FileSendMessages`), así que `FileOutboundTest` lo ejercita con dobles. El sobre de la clave y el formato del trozo tienen vectores fijos: `file_transfer_chunk_interop_test.go` descifra un trozo generado con OpenSSL (lo mismo que hace el escritorio con `node:crypto`), y `crypto_test.go` ya abría un `crypto_box_seal` real de libsodium.
+
+Nota de entorno: `expo-document-picker` arrastra `commons-io:2.6`, que no está en la caché de Gradle del proyecto. El plugin de configuración `plugins/with-commons-io-version.js` fuerza `commons-io:2.16.1` (presente en la caché) desde `expo prebuild`, de modo que `:app:assembleDebug --offline` compila sin red.
 
 ## Botón atrás jerárquico (28/10/2026)
 

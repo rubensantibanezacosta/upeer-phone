@@ -6,9 +6,12 @@ import org.json.JSONObject
 import java.util.UUID
 
 internal class FileOutbound(
-  private val identity: YggdrasilIdentity,
-  private val state: ProtocolStateStore,
+  private val accountCrypto: () -> FileSendCrypto?,
+  private val deviceCrypto: () -> FileSendCrypto?,
+  private val directory: FileSendDirectory,
+  private val messages: FileSendMessages,
   private val send: (String, JSONObject, String) -> Boolean,
+  private val windowFactory: (Int) -> FileSendWindow = { FileSendWindow(it) },
 ) {
   internal class Request(
     val upeerId: String,
@@ -30,9 +33,9 @@ internal class FileOutbound(
     val plan: FileSendPlan.Plan,
     val key: ByteArray,
     val proposal: JSONObject,
+    val window: FileSendWindow,
   ) {
     val lock = Object()
-    val window = FileSendWindow(plan.totalChunks)
     @Volatile var phase = Phase.PROPOSED
     @Volatile var lastProgress = System.currentTimeMillis()
   }
@@ -42,15 +45,13 @@ internal class FileOutbound(
   fun start(request: Request): String {
     val plan = FileSendPlan.plan(request.path, request.fileName, request.mimeType)
     require(plan.fileSize > 0L) { "El archivo está vacío" }
-    val account = identity.current() ?: throw IllegalStateException("No hay identidad para enviar el archivo")
-    val crypto = identity.currentDevice()?.crypto ?: account
-    val peerPublicKey = state.publicKeyFor(request.upeerId)
+    val account = accountCrypto() ?: throw IllegalStateException("No hay identidad para enviar el archivo")
+    val crypto = deviceCrypto() ?: account
+    val peerPublicKey = directory.publicKeyFor(request.upeerId)
       ?: throw IllegalStateException("El contacto ${request.upeerId} no es conocido")
-    val peerDeviceKey = state.peerFor(request.upeerId)
-      ?.optString("devicePublicKey")
-      .orEmpty()
-      .lowercase()
-      .takeIf { DhtLocation.isHex(it, 32) }
+    val peerDeviceKey = directory.devicePublicKeyFor(request.upeerId)
+      ?.lowercase()
+      ?.takeIf { DhtLocation.isHex(it, 32) }
     val key = crypto.newFileKey()
     require(key.size == FileTransferState.FILE_KEY_SIZE) { "Clave de archivo no válida" }
 
@@ -75,7 +76,7 @@ internal class FileOutbound(
     if (request.isVoiceNote) proposal.put("isVoiceNote", true)
     request.chatUpeerId?.takeIf { it.startsWith("grp-") }?.let { proposal.put("chatUpeerId", it) }
 
-    val sending = Sending(fileId, request.upeerId, messageId, plan, key, proposal)
+    val sending = Sending(fileId, request.upeerId, messageId, plan, key, proposal, windowFactory(plan.totalChunks))
     entries[fileId] = sending
     saveMessage(sending, "pending", null)
     Log.i(TAG, "FILE_PROPOSAL $fileId (${plan.fileName}, ${plan.fileSize} bytes, ${plan.totalChunks} trozos)")
@@ -209,7 +210,7 @@ internal class FileOutbound(
   }
 
   private fun sendChunk(sending: Sending, index: Int): Boolean {
-    val crypto = identity.currentDevice()?.crypto ?: identity.current() ?: run {
+    val crypto = deviceCrypto() ?: accountCrypto() ?: run {
       abort(sending, "sin identidad para cifrar el trozo")
       return false
     }
@@ -267,7 +268,7 @@ internal class FileOutbound(
 
   private fun saveMessage(sending: Sending, status: String, savedPath: String?) {
     FileOutboundMessage.save(
-      state = state,
+      messages = messages,
       messageId = sending.messageId,
       upeerId = sending.upeerId,
       plan = sending.plan,

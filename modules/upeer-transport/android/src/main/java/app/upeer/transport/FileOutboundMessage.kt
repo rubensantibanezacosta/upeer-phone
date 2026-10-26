@@ -18,7 +18,7 @@ internal object FileOutboundMessage {
   }
 
   fun save(
-    state: ProtocolStateStore,
+    messages: FileSendMessages,
     messageId: String,
     upeerId: String,
     plan: FileSendPlan.Plan,
@@ -27,14 +27,14 @@ internal object FileOutboundMessage {
     savedPath: String?,
   ) {
     val content = content(plan, proposal, savedPath)
-    val existing = state.messages.find(messageId)
+    val existing = messages.find(messageId)
     if (existing != null) {
       existing.put("content", content)
       existing.put("status", status)
-      state.messages.save(existing)
+      messages.save(existing)
       return
     }
-    state.messages.save(
+    messages.save(
       JSONObject()
         .put("id", messageId)
         .put("upeerId", upeerId)

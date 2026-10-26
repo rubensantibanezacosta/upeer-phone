@@ -1,6 +1,5 @@
 package app.upeer.transport
 
-import app.upeer.transportbridge.transportbridge.CryptoIdentity
 import org.json.JSONObject
 
 internal object FileChunkPacket {
@@ -9,7 +8,7 @@ internal object FileChunkPacket {
     plan: FileSendPlan.Plan,
     index: Int,
     key: ByteArray,
-    crypto: CryptoIdentity,
+    crypto: FileSendCrypto,
   ): JSONObject? {
     val plain = FileSendPlan.readChunk(plan.file, index, plan.chunkSize, plan.fileSize) ?: return null
     val hash = FileSendPlan.sha256(plain)
@@ -24,8 +23,8 @@ internal object FileChunkPacket {
       .put("fileId", fileId)
       .put("chunkIndex", index)
       .put("chunkHash", hash)
-      .put("data", sealed.getData())
-      .put("iv", sealed.getIV())
-      .put("tag", sealed.getTag())
+      .put("data", sealed.data)
+      .put("iv", sealed.iv)
+      .put("tag", sealed.tag)
   }
 }
