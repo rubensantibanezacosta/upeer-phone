@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CallsScreen } from '@/components/account-sections';
+import { CallsScreen } from '@/components/calls-screen';
 
 export default function CallsRoute() {
   return <SafeAreaView edges={['top']} style={styles.root}><CallsScreen /></SafeAreaView>;

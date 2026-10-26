@@ -3,7 +3,7 @@ import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import QRCode from 'react-native-qrcode-svg';
-import { Clock3, Copy, LogOut, X } from '@tamagui/lucide-icons-2';
+import { Copy, LogOut, X } from '@tamagui/lucide-icons-2';
 import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import type { UPeerIdentity } from '@/domain/identity-record';
@@ -18,26 +18,6 @@ import { DeviceAuthorizerPanel } from '@/components/device-authorizer-panel';
 import { InfoDialog } from '@/components/info-dialog';
 import { profileHelpContent, type ProfileInfoKey } from '@/components/profile-help-content';
 import { ProfileAddressSection, ProfileHeroSection, ProfileStatsSection, ProfileTechnicalSection } from '@/components/profile-sections';
-
-export function CallsScreen() {
-  const theme = useTheme();
-  const scale = useTextScale();
-  return (
-    <YStack flex={1} backgroundColor={theme.background}>
-      <ScrollView contentContainerStyle={styles.callsContent}>
-        <XStack alignItems="center" justifyContent="space-between">
-          <H1 color={theme.text} fontSize={scale(24)} fontWeight="700">Llamadas</H1>
-        </XStack>
-        <YStack alignItems="center" flex={1} gap={12} justifyContent="center" padding={24}>
-          <YStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={32} height={64} justifyContent="center" width={64}>
-            <Clock3 color={theme.placeholder} size={28} /></YStack>
-          <SizableText color={theme.text} fontSize={scale(17)} fontWeight="600">Aún no hay llamadas</SizableText>
-          <Paragraph color={theme.placeholder} textAlign="center">El historial y las llamadas estarán disponibles cuando se implemente esta función en la app móvil.</Paragraph>
-        </YStack>
-      </ScrollView>
-    </YStack>
-  );
-}
 
 export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }: { identity: UPeerIdentity; address: string; onProfileUpdated: () => void; onSignOut: () => void }) {
   const theme = useTheme();
