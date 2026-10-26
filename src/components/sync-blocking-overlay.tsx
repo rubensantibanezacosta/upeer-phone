@@ -40,12 +40,13 @@ export function SyncBlockingOverlay() {
 
   useAndroidBack(() => true, syncing);
 
-  const total = Math.max(status.devices, status.devicesDone);
-  const detail = status.pendingEvents > 0
-    ? `${status.pendingEvents} eventos pendientes de aplicar`
-    : `${status.devicesDone} de ${total} dispositivos al día`;
-  const ratio = total > 0 ? Math.min(1, status.devicesDone / total) : 0.12;
   const finished = !syncing;
+  const progress = status.progress;
+  const determinate = progress?.determinate === true;
+  const percent = Math.round(progress?.percent ?? 0);
+  const detail = progress?.detail ?? 'Conectando con tus dispositivos';
+  const headline = progress?.headline ?? 'Sincronizando tus dispositivos…';
+  const width = finished ? 100 : determinate ? Math.max(4, Math.min(100, percent)) : 30;
 
   return (
     <Animated.View pointerEvents={syncing ? 'auto' : 'none'} style={[styles.root, { backgroundColor: theme.background, opacity }]}>
@@ -60,11 +61,11 @@ export function SyncBlockingOverlay() {
       <YStack alignItems="center" gap={6} maxWidth={320}>
         <SizableText color={theme.text} fontSize={scale(20)} fontWeight="700">uPeer</SizableText>
         <Text color={finished ? theme.accent : theme.placeholder} fontSize={scale(13)} textAlign="center">
-          {finished ? '¡Al día!' : 'Sincronizando tus dispositivos…'}
+          {finished ? '¡Al día!' : headline}
         </Text>
       </YStack>
       <View style={[styles.track, { backgroundColor: theme.backgroundElement }]}>
-        <View style={[styles.fill, { backgroundColor: theme.accent, width: `${Math.max(8, Math.round((finished ? 1 : ratio) * 100))}%` }]} />
+        <View style={[styles.fill, { backgroundColor: theme.accent, width: `${width}%` }]} />
       </View>
       <Text color={theme.placeholder} fontSize={scale(12)} textAlign="center">
         {finished ? 'Los chats ya están disponibles.' : `${detail}. Los chats aparecerán en cuanto termine.`}

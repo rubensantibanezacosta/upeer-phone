@@ -13,6 +13,7 @@ internal object SyncStatusReport {
     pendingEvents: Int,
     unsupported: Int,
     nowMillis: Long,
+    activeFiles: Int = 0,
   ): JSONObject {
     val done = progress.isNotEmpty() && progress.all { it.done }
     val lastSeen = peers.maxOfOrNull { it.lastSeen } ?: 0L
@@ -30,6 +31,7 @@ internal object SyncStatusReport {
       .put("unsupported", unsupported)
       .put("lastPeerAt", lastSeen)
       .put("ageMillis", if (peers.isEmpty()) 0L else nowMillis - lastSeen)
+      .put("progress", SyncProgress.json(progress, pendingEvents, activeFiles, state))
   }
 
   private const val STALE_MS = 45_000L

@@ -1,9 +1,30 @@
 import { useEffect, useState } from 'react';
 
 import { getSyncStatus } from '../../modules/upeer-transport/src/UPeerTransportModule';
-import type { SyncTransportStatus } from '../../modules/upeer-transport/src/UPeerTransport.types';
+import type { SyncProgressStatus, SyncTransportStatus } from '../../modules/upeer-transport/src/UPeerTransport.types';
 
-const INITIAL: SyncTransportStatus = { state: 'idle', devices: 0, devicesDone: 0, pendingEvents: 0, unsupported: 0, lastPeerAt: 0, ageMillis: 0 };
+const DISABLED_PROGRESS: SyncProgressStatus = {
+  determinate: false,
+  percent: 0,
+  historyDone: 0,
+  historyTotal: 0,
+  historyKnown: false,
+  pendingEvents: 0,
+  pendingFiles: 0,
+  headline: 'Sincronizando tus dispositivos…',
+  detail: 'Conectando con tus dispositivos',
+};
+
+const INITIAL: SyncTransportStatus = {
+  state: 'idle',
+  devices: 0,
+  devicesDone: 0,
+  pendingEvents: 0,
+  unsupported: 0,
+  lastPeerAt: 0,
+  ageMillis: 0,
+  progress: DISABLED_PROGRESS,
+};
 
 export function useSyncStatus(): SyncTransportStatus {
   const [status, setStatus] = useState<SyncTransportStatus>(INITIAL);
@@ -13,7 +34,7 @@ export function useSyncStatus(): SyncTransportStatus {
     const read = () => {
       void getSyncStatus()
         .then((next) => {
-          if (active) setStatus(next);
+          if (active) setStatus({ ...next, progress: next.progress ?? DISABLED_PROGRESS });
         })
         .catch((cause: unknown) => console.warn('No se pudo leer el estado de sincronización.', cause));
     };

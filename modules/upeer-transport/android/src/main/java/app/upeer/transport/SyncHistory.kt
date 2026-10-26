@@ -85,9 +85,9 @@ internal class SyncHistory(
   fun apply(activeBridge: Bridge, peer: SyncPeerRecord, payload: JSONObject) {
     val entries = payload.optJSONArray("entries")
     var failed = 0
+    var applied = 0
     if (entries != null && entries.length() <= MAX_PAGE) {
       val now = nowMillis()
-      var applied = 0
       for (index in 0 until entries.length()) {
         val entry = entries.optJSONObject(index) ?: continue
         if (applyEntry(entry, now)) applied += 1
@@ -105,11 +105,20 @@ internal class SyncHistory(
     }
     val done = payload.optBoolean("done", false)
     state.history.save(peer.deviceId, nextCursor, done || nextCursor == null)
+    state.history.addCounters(peer.deviceId, applied, if (done || nextCursor == null) 0 else pendingCount(payload))
+    if (done || nextCursor == null) state.history.finishCounters(peer.deviceId)
     if (!done && nextCursor != null) {
       val refreshed = state.syncPeers.list().firstOrNull { it.deviceId == peer.deviceId } ?: return
       lastRequest[peer.deviceId] = nowMillis()
       sendRequest(activeBridge, refreshed, nextCursor)
     }
+  }
+
+  private fun pendingCount(payload: JSONObject): Int? {
+    val value = payload.opt("pending")
+    if (value !is Number) return null
+    val count = value.toInt()
+    return if (count < 0) null else count
   }
 
   private fun pendingAfter(cursor: String?): Int {

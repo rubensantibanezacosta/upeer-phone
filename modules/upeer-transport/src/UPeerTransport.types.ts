@@ -92,6 +92,18 @@ export type ProtocolTransportStatus = {  identityReady: boolean;
   dht?: DhtRuntimeStatus;
 };
 
+export type SyncProgressStatus = {
+  determinate: boolean;
+  percent: number;
+  historyDone: number;
+  historyTotal: number;
+  historyKnown: boolean;
+  pendingEvents: number;
+  pendingFiles: number;
+  headline: string;
+  detail: string;
+};
+
 export type SyncTransportStatus = {
   state: 'idle' | 'syncing' | 'live';
   devices: number;
@@ -100,6 +112,7 @@ export type SyncTransportStatus = {
   unsupported: number;
   lastPeerAt: number;
   ageMillis: number;
+  progress?: SyncProgressStatus;
 };
 
 export type DhtRuntimeStatus = {

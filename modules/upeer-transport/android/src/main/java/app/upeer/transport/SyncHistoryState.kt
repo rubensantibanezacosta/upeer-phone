@@ -2,7 +2,13 @@ package app.upeer.transport
 
 import org.json.JSONObject
 
-internal data class SyncHistoryProgress(val cursor: String?, val done: Boolean)
+internal data class SyncHistoryProgress(
+  val cursor: String?,
+  val done: Boolean,
+  val applied: Int = 0,
+  val total: Int = 0,
+  val known: Boolean = false,
+)
 
 internal class SyncHistoryState(
   private val state: () -> JSONObject,
@@ -14,7 +20,47 @@ internal class SyncHistoryState(
     SyncHistoryProgress(
       cursor = entry?.optString("cursor")?.ifBlank { null },
       done = entry?.optBoolean("done", false) == true,
+      applied = entry?.optInt("applied", 0) ?: 0,
+      total = entry?.optInt("total", 0) ?: 0,
+      known = entry?.optBoolean("known", false) == true,
     )
+  }
+
+  fun addCounters(deviceId: String, applied: Int, pending: Int?) {
+    if (!validDeviceId(deviceId)) return
+    synchronized(lock) {
+      val history = bucket()
+      val entry = history.optJSONObject(deviceId) ?: JSONObject()
+      val done = (entry.optInt("applied", 0) + applied.coerceAtLeast(0)).coerceAtLeast(0)
+      val currentTotal = entry.optInt("total", 0).coerceAtLeast(0)
+      if (pending == null) {
+        entry.put("applied", done)
+        entry.put("total", maxOf(currentTotal, done))
+      } else {
+        val total = maxOf(currentTotal, done + pending.coerceAtLeast(0))
+        entry.put("applied", minOf(done, total))
+        entry.put("total", total)
+        entry.put("known", true)
+      }
+      history.put(deviceId, entry)
+      state().put(KEY, history)
+      persist()
+    }
+  }
+
+  fun finishCounters(deviceId: String) {
+    if (!validDeviceId(deviceId)) return
+    synchronized(lock) {
+      val history = bucket()
+      val entry = history.optJSONObject(deviceId) ?: return
+      val total = entry.optInt("total", 0).coerceAtLeast(entry.optInt("applied", 0))
+      entry.put("applied", total)
+      entry.put("total", total)
+      entry.put("known", true)
+      history.put(deviceId, entry)
+      state().put(KEY, history)
+      persist()
+    }
   }
 
   fun save(deviceId: String, cursor: String?, done: Boolean) {    if (!validDeviceId(deviceId)) return
@@ -36,6 +82,9 @@ internal class SyncHistoryState(
       val entry = history.optJSONObject(deviceId) ?: return
       if (!entry.optBoolean("done", false)) return
       entry.put("done", false)
+      entry.remove("applied")
+      entry.remove("total")
+      entry.remove("known")
       history.put(deviceId, entry)
       state().put(KEY, history)
       persist()
