@@ -1,6 +1,7 @@
+import { Bell } from '@tamagui/lucide-icons-2';
 import { YStack } from 'tamagui';
 
-import { SettingsNote, SettingsSectionHeader } from '@/components/settings-section-parts';
+import { SettingsGroup, SettingsNote, SettingsSectionHeader } from '@/components/settings-section-parts';
 import { SettingsToggleRow } from '@/components/settings-rows';
 import { usePreferences } from '@/hooks/use-preferences';
 import { useTheme } from '@/hooks/use-theme';
@@ -11,9 +12,9 @@ export function NotificationSettingsSection() {
   const preferences = usePreferences();
 
   return <YStack gap={12}>
-    <SettingsSectionHeader title="Notificaciones">Avisos que llegan mientras la app está en segundo plano. La previsualización del mensaje ya es privada.</SettingsSectionHeader>
+    <SettingsSectionHeader icon={<Bell color={theme.accent} size={18} />} title="Notificaciones">Avisos que llegan mientras la app está en segundo plano. La previsualización del mensaje ya es privada.</SettingsSectionHeader>
 
-    <YStack borderColor={theme.border} borderRadius={14} borderWidth={1} overflow="hidden">
+    <SettingsGroup>
       <SettingsToggleRow
         description="Avisar cuando recibes un mensaje"
         label="Nuevos mensajes"
@@ -32,7 +33,7 @@ export function NotificationSettingsSection() {
         onChange={(value) => void updatePreferences({ notificationSound: value })}
         value={preferences.notificationSound}
       />
-    </YStack>
+    </SettingsGroup>
 
     <SettingsNote>Se guardan en este dispositivo y se envían al servicio, que ya omite el aviso y el sonido según estas preferencias; el canal de mensajes respeta el permiso del sistema.</SettingsNote>
   </YStack>;

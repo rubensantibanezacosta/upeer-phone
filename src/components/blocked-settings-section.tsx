@@ -5,7 +5,7 @@ import { Paragraph, SizableText, Text, YStack } from 'tamagui';
 
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
-import { SettingsNote, SettingsSectionHeader } from '@/components/settings-section-parts';
+import { SettingsGroup, SettingsNote, SettingsSectionHeader } from '@/components/settings-section-parts';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
@@ -59,7 +59,7 @@ export function BlockedSettingsSection() {
   };
 
   return <YStack gap={12}>
-    <SettingsSectionHeader title="Bloqueados">Estos contactos no pueden enviarte mensajes nuevos. El servicio descarta sus paquetes antes de descifrarlos.</SettingsSectionHeader>
+    <SettingsSectionHeader icon={<ShieldOff color={theme.accent} size={18} />} title="Bloqueados">Estos contactos no pueden enviarte mensajes nuevos. El servicio descarta sus paquetes antes de descifrarlos.</SettingsSectionHeader>
 
     {error ? <Paragraph accessibilityRole="alert" color={theme.danger} fontSize={scale(12)}>{error}</Paragraph> : null}
 
@@ -67,7 +67,7 @@ export function BlockedSettingsSection() {
       <View style={[styles.circle, { backgroundColor: theme.backgroundElement }]}><ShieldOff color={theme.placeholder} size={26} /></View>
       <SizableText color={theme.text} fontSize={scale(17)} fontWeight="600">No has bloqueado a nadie</SizableText>
       <Paragraph color={theme.placeholder} fontSize={scale(13)} textAlign="center">Puedes bloquear desde la ficha de un contacto o desde una solicitud de mensaje.</Paragraph>
-    </YStack> : <YStack borderColor={theme.border} borderRadius={14} borderWidth={1} overflow="hidden">
+    </YStack> : <SettingsGroup>
       {blocked.map((contact) => (
         <NativeRipplePressable
           accessibilityHint="Vuelve a permitir sus mensajes"
@@ -75,7 +75,7 @@ export function BlockedSettingsSection() {
           accessibilityRole="button"
           key={contact.upeerId}
           onPress={() => unblock(contact)}
-          style={{ alignItems: 'center', borderBottomColor: theme.border, borderBottomWidth: 1, flexDirection: 'row', gap: 12, minHeight: 68, paddingHorizontal: 14, paddingVertical: 10 }}
+          style={{ alignItems: 'center', borderBottomColor: theme.border, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 12, minHeight: 68, paddingHorizontal: 14, paddingVertical: 10 }}
         >
           <ContactTrustAvatar name={contact.name} size={40} />
           <YStack flex={1} gap={1}>
@@ -85,7 +85,7 @@ export function BlockedSettingsSection() {
           <Text color={theme.accent} fontSize={scale(13)} fontWeight="600">Desbloquear</Text>
         </NativeRipplePressable>
       ))}
-    </YStack>}
+    </SettingsGroup>}
 
     {blocked.length === 0 ? null : <SettingsNote>Pulsa un contacto para desbloquearlo. La conversación no reaparece hasta que esa persona vuelva a escribir.</SettingsNote>}
   </YStack>;

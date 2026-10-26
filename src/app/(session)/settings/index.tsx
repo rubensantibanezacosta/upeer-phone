@@ -9,11 +9,11 @@ import { useTheme } from '@/hooks/use-theme';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 
 const settingsSections = [
-  { id: 'privacidad', label: 'Privacidad', description: 'Lecturas, presencia y última vez', icon: LockKeyhole },
   { id: 'dispositivos', label: 'Dispositivos', description: 'Añadir y revisar los de tu cuenta', icon: Smartphone },
+  { id: 'privacidad', label: 'Privacidad', description: 'Lecturas, presencia y última vez', icon: LockKeyhole },
   { id: 'bloqueados', label: 'Bloqueados', description: 'Contactos que no pueden escribirte', icon: ShieldOff },
   { id: 'notificaciones', label: 'Notificaciones', description: 'Mensajes, solicitudes y sonidos', icon: Bell },
-  { id: 'apariencia', label: 'Apariencia', description: 'Tema de la aplicación', icon: Palette },
+  { id: 'apariencia', label: 'Apariencia', description: 'Tema y tamaño de texto', icon: Palette },
   { id: 'almacenamiento', label: 'Almacenamiento', description: 'Mensajes guardados y archivos', icon: HardDrive },
   { id: 'red', label: 'Conexión', description: 'Estado y dirección de red', icon: Network },
   { id: 'acerca', label: 'Acerca de', description: 'Versión y licencia', icon: Info },
@@ -31,13 +31,17 @@ export default function SettingsIndexRoute() {
         </Pressable>
       </Link>
       <YStack gap={4} paddingBottom={8}><H1 color={theme.text} fontSize={scale(24)}>Configuración</H1><Text color={theme.placeholder} fontSize={scale(14)}>Elige una sección para administrar tu cuenta</Text></YStack>
-      <YStack gap={4}>{settingsSections.map((item) => <Link key={item.id} href={{ pathname: '/settings/[section]', params: { section: item.id } }} asChild>
-        <NativeRipplePressable accessibilityRole="button" style={StyleSheet.flatten([styles.row, { backgroundColor: theme.backgroundElement }])}>
-          <item.icon color={theme.placeholder} size={22} /><YStack flex={1} gap={3}><SizableText color={theme.text} fontSize={scale(15)} fontWeight="600">{item.label}</SizableText><Text color={theme.placeholder} fontSize={scale(12)}>{item.description}</Text></YStack><ChevronRight color={theme.placeholder} size={15} />
-        </NativeRipplePressable>
-      </Link>)}</YStack>
+      <YStack backgroundColor={theme.backgroundElement} borderRadius={14} overflow="hidden">
+        {settingsSections.map((item, index) => <Link key={item.id} href={{ pathname: '/settings/[section]', params: { section: item.id } }} asChild>
+          <NativeRipplePressable accessibilityLabel={item.label} accessibilityRole="button" style={StyleSheet.flatten([styles.row, index === 0 ? null : styles.separator, index === 0 ? null : { borderTopColor: theme.border }])}>
+            <YStack alignItems="center" height={40} justifyContent="center" width={40}><item.icon color={theme.placeholder} size={20} /></YStack>
+            <YStack flex={1} gap={2}><SizableText color={theme.text} fontSize={scale(15)} fontWeight="500">{item.label}</SizableText><Text color={theme.placeholder} fontSize={scale(12)} numberOfLines={1}>{item.description}</Text></YStack>
+            <ChevronRight color={theme.placeholder} size={15} />
+          </NativeRipplePressable>
+        </Link>)}
+      </YStack>
     </ScrollView>
   </SafeAreaView>;
 }
 
-const styles = StyleSheet.create({ root: { flex: 1 }, content: { gap: 12, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 24 }, back: { alignItems: 'center', flexDirection: 'row', gap: 8, minHeight: 40, paddingHorizontal: 4 }, row: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 14, minHeight: 66, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 10 } });
+const styles = StyleSheet.create({ root: { flex: 1 }, content: { gap: 12, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 24 }, back: { alignItems: 'center', flexDirection: 'row', gap: 8, minHeight: 40, paddingHorizontal: 4 }, row: { alignItems: 'center', flexDirection: 'row', gap: 12, minHeight: 68, paddingHorizontal: 14, paddingVertical: 10 }, separator: { borderTopWidth: StyleSheet.hairlineWidth } });

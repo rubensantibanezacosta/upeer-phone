@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ellipsis, MessageCircle, MessageSquarePlus, Settings, Users } from '@tamagui/lucide-icons-2';
+import { Ellipsis, MessageCircle, MessageSquarePlus } from '@tamagui/lucide-icons-2';
 import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ChatContextMenu } from '@/components/chat-context-menu';
+import { ChatListMenu } from '@/components/chat-list-menu';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { LoadingState } from '@/components/loading-state';
 import { useFirstLoad } from '@/hooks/use-first-load';
@@ -26,6 +27,8 @@ import { getContacts, setContactFavorite } from '@/storage/contact-store';
 import type { ProtocolConversation } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
 import { SearchField } from '@/components/search-field';
 import { getConversations, markConversationRead } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
+import { unreadConversationIds } from '@/domain/chat-unread';
+import { useSession } from '@/components/session-shell';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { SyncProgressBanner } from '@/components/sync-progress-banner';
@@ -43,6 +46,7 @@ export default function ChatsRoute() {
   const scale = useTextScale();
   const { showSnackbar } = useSnackbar();
   const conversationFlags = useConversationFlags();
+  const { signOut } = useSession();
   const now = useNow();
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const [conversations, setConversations] = useState<ProtocolConversation[]>([]);
@@ -155,6 +159,24 @@ export default function ChatsRoute() {
       });
   };
 
+  const markAllRead = () => {
+    const targets = unreadConversationIds(conversations);
+    if (targets.length === 0) {
+      showSnackbar('No hay conversaciones sin leer');
+      return;
+    }
+    Promise.all(targets.map((upeerId) => markConversationRead(upeerId)))
+      .then(getConversations)
+      .then((next) => {
+        setConversations(next);
+        showSnackbar('Todo marcado como leído');
+      })
+      .catch((cause: unknown) => {
+        console.warn('No se pudieron marcar las conversaciones como leídas.', cause);
+        showSnackbar('No se pudieron marcar como leídas');
+      });
+  };
+
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.chatContent}>
@@ -200,7 +222,17 @@ export default function ChatsRoute() {
         )}
       </ScrollView>
       <ChatContextMenu entry={selectedEntry} onClose={() => setSelectedEntry(null)} onMarkRead={markEntryRead} onToggleFavorite={toggleEntryFavorite} onToggleFlag={toggleEntryFlag} onUnavailable={showUnavailableAction} />
-      {menuOpen ? <><Pressable accessibilityLabel="Cerrar menú" onPress={() => setMenuOpen(false)} style={styles.menuDismiss} /><View style={[styles.chatMenu, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}><NativeRipplePressable accessibilityRole="button" onPress={() => { setMenuOpen(false); router.navigate('/contacts'); }} style={styles.chatMenuItem}><Users color={theme.text} size={18} /><Text color={theme.text} fontSize={scale(14)}>Contactos</Text></NativeRipplePressable><NativeRipplePressable accessibilityRole="button" onPress={() => { setMenuOpen(false); router.navigate('/settings'); }} style={styles.chatMenuItem}><Settings color={theme.text} size={18} /><Text color={theme.text} fontSize={scale(14)}>Configuración</Text></NativeRipplePressable></View></> : null}
+      {menuOpen ? (
+        <ChatListMenu
+          onClose={() => setMenuOpen(false)}
+          onMarkAllRead={markAllRead}
+          onNewConversation={() => setComposerOpen(true)}
+          onOpenContacts={() => router.navigate('/contacts')}
+          onOpenSettings={() => router.navigate('/settings')}
+          onSignOut={() => void signOut()}
+          onUnavailable={(label) => showSnackbar(`${label} estará disponible próximamente`)}
+        />
+      ) : null}
       <BottomSheet icon={<MessageSquarePlus color={theme.accent} size={20} />} onClose={() => setComposerOpen(false)} title="Nueva conversación" visible={composerOpen}>
         <NewConversationList contacts={contacts} onPick={(contact) => { setComposerOpen(false); router.push({ pathname: '/chat/[upeerId]', params: { upeerId: contact.upeerId } }); }} onUnavailable={(label) => { setComposerOpen(false); showSnackbar(`${label} estará disponible próximamente`); }} />
       </BottomSheet>
@@ -208,4 +240,4 @@ export default function ChatsRoute() {
   );
 }
 
-const styles = StyleSheet.create({ root: { flex: 1 }, chatContent: { flexGrow: 1, gap: 12, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 18 }, chatFiltersScroll: { flexGrow: 0 }, chatFilters: { alignItems: 'center', gap: 8 }, chatClearButton: { alignItems: 'center', height: 24, justifyContent: 'center', width: 24 }, chatFilterChip: { alignItems: 'center', borderRadius: 999, justifyContent: 'center', marginTop: 8, minHeight: 30, overflow: 'hidden', paddingHorizontal: 12 }, chatMenuButton: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 }, menuDismiss: { ...StyleSheet.absoluteFill, zIndex: 1 }, chatMenu: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, elevation: 8, paddingVertical: 6, position: 'absolute', right: 20, top: 72, width: 190, zIndex: 2 }, chatMenuItem: { alignItems: 'center', flexDirection: 'row', gap: 12, minHeight: 46, paddingHorizontal: 14 }, emptyAvatar: { alignItems: 'center', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 } });
+const styles = StyleSheet.create({ root: { flex: 1 }, chatContent: { flexGrow: 1, gap: 12, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 18 }, chatFiltersScroll: { flexGrow: 0 }, chatFilters: { alignItems: 'center', gap: 8 }, chatClearButton: { alignItems: 'center', height: 24, justifyContent: 'center', width: 24 }, chatFilterChip: { alignItems: 'center', borderRadius: 999, justifyContent: 'center', marginTop: 8, minHeight: 30, overflow: 'hidden', paddingHorizontal: 12 }, chatMenuButton: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 }, emptyAvatar: { alignItems: 'center', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 } });

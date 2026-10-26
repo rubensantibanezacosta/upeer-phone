@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import { Smartphone } from '@tamagui/lucide-icons-2';
 import { YStack } from 'tamagui';
 
 import { DeviceAuthorizerPanel } from '@/components/device-authorizer-panel';
 import { InfoDialog } from '@/components/info-dialog';
 import { profileHelpContent } from '@/components/profile-help-content';
-import { SettingsSectionHeader } from '@/components/settings-section-parts';
+import { SettingsGroup, SettingsSectionHeader } from '@/components/settings-section-parts';
 import { useTheme } from '@/hooks/use-theme';
 
 export function DevicesSettingsSection() {
@@ -12,11 +13,11 @@ export function DevicesSettingsSection() {
   const [infoOpen, setInfoOpen] = useState(false);
 
   return <YStack gap={12}>
-    <SettingsSectionHeader title="Dispositivos">Los dispositivos vinculados comparten la misma cuenta, los contactos y las conversaciones. Ninguno recibe la frase de recuperación.</SettingsSectionHeader>
+    <SettingsSectionHeader icon={<Smartphone color={theme.accent} size={18} />} title="Dispositivos">Los dispositivos vinculados comparten la misma cuenta, los contactos y las conversaciones. Ninguno recibe la frase de recuperación.</SettingsSectionHeader>
 
-    <YStack borderColor={theme.border} borderRadius={14} borderWidth={1} overflow="hidden">
+    <SettingsGroup>
       <DeviceAuthorizerPanel onInfo={() => setInfoOpen(true)} />
-    </YStack>
+    </SettingsGroup>
 
     <InfoDialog content={infoOpen ? profileHelpContent.dispositivos : null} onClose={() => setInfoOpen(false)} />
   </YStack>;

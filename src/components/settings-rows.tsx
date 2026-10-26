@@ -18,7 +18,7 @@ export function SettingsToggleRow({ label, description, value, onChange }: Setti
     accessibilityRole="switch"
     accessibilityState={{ checked: value }}
     onPress={() => onChange(!value)}
-    style={[styles.row, { borderBottomColor: theme.border }]}
+    style={styles.row}
   >
     <YStack flex={1} gap={2}>
       <SizableText color={theme.text} fontSize={scale(15)} fontWeight="500">{label}</SizableText>
@@ -33,14 +33,14 @@ export function SettingsToggleRow({ label, description, value, onChange }: Setti
 export function SettingsInfoRow({ label, value }: { label: string; value: string }) {
   const theme = useTheme();
   const scale = useTextScale();
-  return <View style={[styles.row, { borderBottomColor: theme.border }]}>
+  return <View style={styles.row}>
     <SizableText color={theme.text} flex={1} fontSize={scale(15)} fontWeight="500">{label}</SizableText>
     <Text color={theme.placeholder} fontSize={scale(13)}>{value}</Text>
   </View>;
 }
 
 const styles = StyleSheet.create({
-  row: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: 12, minHeight: 64, paddingHorizontal: 16, paddingVertical: 12 },
+  row: { alignItems: 'center', flexDirection: 'row', gap: 12, minHeight: 64, paddingHorizontal: 16, paddingVertical: 12 },
   track: { borderRadius: 14, borderWidth: 1, height: 28, justifyContent: 'center', width: 48 },
   thumb: { borderRadius: 10, height: 20, position: 'absolute', width: 20 },
   thumbOff: { left: 3 },

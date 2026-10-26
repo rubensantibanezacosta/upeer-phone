@@ -7,6 +7,7 @@ import { ChatHeader } from '@/components/chat/chat-header';
 import { GroupInfoSheet } from '@/components/chat/group-info-sheet';
 import { ChatInputArea } from '@/components/chat/chat-input-area';
 import { ChatMessageOverlays } from '@/components/chat/chat-message-overlays';
+import { ChatOptionsMenu } from '@/components/chat/chat-options-menu';
 import { ChatRequestScreen } from '@/components/chat/chat-request-screen';
 import { ChatTimelineList } from '@/components/chat/chat-timeline-list';
 import { ChatTimelineRow } from '@/components/chat/chat-timeline-row';
@@ -21,6 +22,7 @@ import { useChatComposer } from '@/hooks/use-chat-composer';
 import { useAttachmentOpener } from '@/hooks/use-attachment-opener';
 import { useAttachmentSender } from '@/hooks/use-attachment-send';
 import { useChatMessageSheet } from '@/hooks/use-chat-message-sheet';
+import { useRequestResolution } from '@/hooks/use-request-resolution';
 import { placeholderName, resolveContactName } from '@/domain/contact-name';
 import { useChatSearch } from '@/hooks/use-chat-search';
 import { useContactCard } from '@/hooks/use-contact-card';
@@ -166,22 +168,13 @@ export default function ChatRoute() {
   const openCard = contactCard.open;
   const savedContactIds = contactCard.savedIds;
 
-  const resolveRequest = useCallback((status: UPeerContact['status'], message: string) => {
-    if (!upeerId) return;
-    saveContact({ address: '', createdAt: Date.now(), name: alias || upeerId.slice(0, 12), publicKey: null, status, upeerId })
-      .then(() => {
-        setIsRequest(false);
-        setContactStatus(status);
-        showSnackbar(message);
-      })
-      .catch((cause: unknown) => {
-        console.warn('No se pudo resolver la solicitud de mensaje.', cause);
-        showSnackbar('No se pudo resolver la solicitud');
-      });
-  }, [alias, showSnackbar, upeerId]);
-
-  const acceptRequest = useCallback(() => resolveRequest('connected', 'Solicitud aceptada'), [resolveRequest]);
-  const blockRequest = useCallback(() => resolveRequest('blocked', 'Remitente bloqueado'), [resolveRequest]);
+  const resolveRequestStatus = useCallback((status: UPeerContact['status']) => {
+    setIsRequest(false);
+    setContactStatus(status);
+  }, []);
+  const request = useRequestResolution({ name: alias, onResolved: resolveRequestStatus, upeerId });
+  const acceptRequest = request.accept;
+  const blockRequest = request.block;
 
   const showUnavailable = useCallback((label: string) => {
     showSnackbar(`${label}: pendiente en el roadmap`);
@@ -254,7 +247,7 @@ export default function ChatRoute() {
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
-        <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} menuOpen={menuOpen} onMenuOpenChange={setMenuOpen} onBack={() => router.back()} onOpenInfo={openInfo} onSearch={search.open} onUnavailable={showUnavailable} presence={isGroup ? (groupMembers > 0 ? `${groupMembers} miembros` : 'Grupo') : presence} status={contactStatus} typing={peerTyping} upeerId={upeerId ?? ''} />
+        <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={openInfo} onOpenMenu={() => setMenuOpen(true)} onUnavailable={showUnavailable} presence={isGroup ? (groupMembers > 0 ? `${groupMembers} miembros` : 'Grupo') : presence} status={contactStatus} typing={peerTyping} upeerId={upeerId ?? ''} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.root, androidKeyboard > 0 ? { paddingBottom: androidKeyboard } : null]}>
           {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} /> : (
             <ChatTimelineList
@@ -289,6 +282,7 @@ export default function ChatRoute() {
       ) : null}
       <ContactCardSheet action={contactCard.action} card={contactCard.selected} error={contactCard.error} onClose={contactCard.close} visible={contactCard.selected !== null} />
       <GroupInfoSheet groupId={isGroup && groupInfoOpen ? upeerId ?? null : null} onClose={() => setGroupInfoOpen(false)} />
+      <ChatOptionsMenu isGroup={isGroup} messages={messages} name={alias} onChanged={refresh} onCloseChat={() => router.back()} onCloseMenu={() => setMenuOpen(false)} onOpenInfo={openInfo} onSearch={search.open} upeerId={upeerId ?? ''} visible={menuOpen} />
       <ChatMessageOverlays contacts={contacts} forwarding={forwarding} onForwardClose={cancelForwarding} onForwarded={handleForwarded} selfUpeerId={selfUpeerId} sheet={sheet} />
     </View>
   );

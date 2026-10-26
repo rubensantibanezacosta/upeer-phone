@@ -77,7 +77,7 @@ export function SyncBlockingOverlay() {
 const styles = StyleSheet.create({
   root: { alignItems: 'center', bottom: 0, elevation: 30, gap: 18, justifyContent: 'center', left: 0, paddingHorizontal: 32, position: 'absolute', right: 0, top: 0, zIndex: 9999 },
   ring: { alignItems: 'center', height: 80, justifyContent: 'center', width: 80 },
-  spinner: { borderRadius: 20, borderWidth: 3, bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
+  spinner: { borderRadius: 40, borderWidth: 3, bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
   track: { borderRadius: 4, height: 6, overflow: 'hidden', width: 200 },
   fill: { borderRadius: 4, height: 6 },
 });

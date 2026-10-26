@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { countUnreadChats, formatBadgeCount, MAX_BADGE_COUNT } from './chat-unread';
+import { countUnreadChats, formatBadgeCount, MAX_BADGE_COUNT, unreadConversationIds } from './chat-unread';
 
 function conversation(overrides: { unread?: number; lastIsMine?: boolean }): Parameters<typeof countUnreadChats>[0][number] {
   return {
@@ -45,5 +45,15 @@ describe('formatBadgeCount', () => {
 
   it('recorta por encima del límite como escritorio', () => {
     expect(formatBadgeCount(MAX_BADGE_COUNT + 1)).toBe('99+');
+  });
+});
+
+describe('unreadConversationIds', () => {
+  it('devuelve solo las conversaciones con mensajes sin leer', () => {
+    expect(unreadConversationIds([conversation({ unread: 2 }), conversation({ unread: 0 })])).toHaveLength(1);
+  });
+
+  it('incluye las conversaciones cuyo último mensaje es propio pero tienen pendientes', () => {
+    expect(unreadConversationIds([conversation({ lastIsMine: true, unread: 1 })])).toHaveLength(1);
   });
 });

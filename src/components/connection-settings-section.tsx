@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Globe2, LockKeyhole, Network } from '@tamagui/l
 import { Card, Paragraph, SizableText, XStack, YStack } from 'tamagui';
 
 import { CopyField } from '@/components/copy-field';
+import { SettingsSectionHeader } from '@/components/settings-section-parts';
 import { NetworkMap } from '@/components/network-map';
 import type { PeerInfo, PeerPoolEntry } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import type { PeerManagementSnapshot } from '@/domain/yggdrasil-peers';
@@ -46,8 +47,10 @@ export function ConnectionSettingsSection({ address, phase, peers, error, manage
   const latencyColor = (latency: number | null) => latency === null ? '#4b5563' : latency < 100 ? '#22c55e' : latency < 250 ? '#f59e0b' : '#ef4444';
 
   return (
-    <YStack gap={10}>
-      <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={18} borderWidth={1} padding={16}>
+    <YStack gap={12}>
+      <SettingsSectionHeader icon={<Network color={theme.accent} size={18} />} title="Conexión">Estado de tu nodo en la red: peers conectados, latencia y dirección.</SettingsSectionHeader>
+
+      <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} padding={16}>
         <YStack gap={12}>
           <XStack alignItems="center" gap={14}>
             <View style={[styles.statusIcon, { backgroundColor: `${statusColor}20` }]}>

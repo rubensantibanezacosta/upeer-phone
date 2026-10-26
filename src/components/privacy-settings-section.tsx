@@ -1,6 +1,7 @@
+import { LockKeyhole } from '@tamagui/lucide-icons-2';
 import { YStack } from 'tamagui';
 
-import { SettingsNote, SettingsSectionHeader } from '@/components/settings-section-parts';
+import { SettingsGroup, SettingsNote, SettingsSectionHeader } from '@/components/settings-section-parts';
 import { SettingsToggleRow } from '@/components/settings-rows';
 import { usePreferences } from '@/hooks/use-preferences';
 import { useTheme } from '@/hooks/use-theme';
@@ -11,9 +12,9 @@ export function PrivacySettingsSection() {
   const preferences = usePreferences();
 
   return <YStack gap={12}>
-    <SettingsSectionHeader title="Privacidad">Qué comparte la app sobre tu actividad. Si desactivas algo, tus contactos dejan de verlo.</SettingsSectionHeader>
+    <SettingsSectionHeader icon={<LockKeyhole color={theme.accent} size={18} />} title="Privacidad">Qué comparte la app sobre tu actividad. Si desactivas algo, tus contactos dejan de verlo.</SettingsSectionHeader>
 
-    <YStack borderColor={theme.border} borderRadius={14} borderWidth={1} overflow="hidden">
+    <SettingsGroup>
       <SettingsToggleRow
         description="Enviar y recibir confirmaciones de leído"
         label="Confirmaciones de lectura"
@@ -32,7 +33,7 @@ export function PrivacySettingsSection() {
         onChange={(value) => void updatePreferences({ lastSeen: value })}
         value={preferences.lastSeen}
       />
-    </YStack>
+    </SettingsGroup>
 
     <SettingsNote>Las confirmaciones de lectura ya se aplican en el servicio de red: al desactivarlas, la conversación se marca como leída solo en este dispositivo y no se envía el mensaje `READ`. Conectado y última vez usan la presencia real que ya viaja con los paquetes.</SettingsNote>
   </YStack>;
