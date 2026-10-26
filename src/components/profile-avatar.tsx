@@ -13,10 +13,10 @@ export function ProfileAvatar({ avatar, name, size = 96, borderColor = 'transpar
   const initial = (name || '?').charAt(0).toUpperCase() || '?';
   const fontSize = Math.round(size * 0.42);
   return (
-    <View style={[styles.avatar, { backgroundColor: theme.backgroundSelected, borderColor, borderWidth, height: size, width: size }]}>
+    <View style={[styles.avatar, { backgroundColor: theme.backgroundSelected, borderColor, borderWidth, borderRadius: size / 2, height: size, width: size }]}>
       {avatar ? <Image resizeMode="cover" source={{ uri: avatar }} style={styles.image} /> : <Text style={[styles.initial, { color: theme.text, fontSize, lineHeight: Math.round(fontSize * 1.35) }]}>{initial}</Text>}
     </View>
   );
 }
 
-const styles = StyleSheet.create({ avatar: { alignItems: 'center', borderRadius: 8, justifyContent: 'center', overflow: 'hidden' }, image: { height: '100%', width: '100%' }, initial: { fontWeight: '700', textAlign: 'center' } });
+const styles = StyleSheet.create({ avatar: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, image: { height: '100%', width: '100%' }, initial: { fontWeight: '700', textAlign: 'center' } });

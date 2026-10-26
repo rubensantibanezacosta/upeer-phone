@@ -120,6 +120,6 @@ export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemPro
 }
 
 const styles = StyleSheet.create({
-  groupAvatar: { alignItems: 'center', borderRadius: 28, borderWidth: StyleSheet.hairlineWidth, height: 55, justifyContent: 'center', width: 55 },
+  groupAvatar: { alignItems: 'center', borderRadius: 27.5, borderWidth: StyleSheet.hairlineWidth, height: 55, justifyContent: 'center', width: 55 },
   item: { borderBottomWidth: StyleSheet.hairlineWidth, marginHorizontal: -12, paddingHorizontal: 12 },
 });

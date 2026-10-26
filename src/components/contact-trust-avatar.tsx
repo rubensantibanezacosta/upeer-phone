@@ -42,7 +42,7 @@ export function ContactTrustAvatar({ avatar, name, size = 96, vouchScore }: {
 const styles = StyleSheet.create({
   badge: {
     alignItems: 'center',
-    borderRadius: 6,
+    borderRadius: 10,
     borderWidth: 1,
     bottom: -2,
     height: 20,
