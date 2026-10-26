@@ -8,6 +8,7 @@ import { type AttachmentInfo, parseAttachmentMessage } from '@/domain/attachment
 import { parseSystemMessage } from '@/domain/system-message';
 import type { ReactionSummary } from '@/domain/chat-reactions';
 import type { ReplyPreview } from '@/domain/chat-reply';
+import { resolveBubbleShape } from '@/domain/bubble-shape';
 import { ChatContactCard } from '@/components/chat/chat-contact-card';
 import { ChatAttachment } from '@/components/chat/chat-attachment';
 import { ChatSystemMessage } from '@/components/chat/chat-system-message';
@@ -56,7 +57,7 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
           style={[
             styles.bubble,
             { backgroundColor: isMine ? theme.bubbleMine : theme.backgroundElement },
-            isMine ? styles.bubbleMine : styles.bubbleTheirs,
+            resolveBubbleShape({ isMine, startsGroup: entry.startsGroup, endsGroup: entry.endsGroup }),
             highlighted ? { borderColor: theme.accent, borderWidth: 1.5 } : null,
           ]}
         >
@@ -107,8 +108,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 8,
   },
-  bubbleMine: { borderTopRightRadius: 4 },
-  bubbleTheirs: { borderTopLeftRadius: 4 },
   quote: { alignSelf: 'stretch', paddingBottom: 3, paddingTop: 2 },
   deletedContent: { fontStyle: 'italic' },
   body: { alignItems: 'flex-end', columnGap: 8, flexDirection: 'row', minWidth: 80 },
