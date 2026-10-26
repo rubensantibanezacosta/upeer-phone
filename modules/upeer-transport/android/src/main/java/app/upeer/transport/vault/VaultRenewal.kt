@@ -11,6 +11,7 @@ internal sealed class VaultRenewalResult {
 
 internal object VaultRenewal {
   const val HASH_LENGTH = 64
+  const val TYPE = "VAULT_RENEW"
 
   fun parse(
     packet: JSONObject,
@@ -18,6 +19,7 @@ internal object VaultRenewal {
     entry: VaultEntry?,
     nowMillis: Long,
   ): VaultRenewalResult {
+    if (packet.optString("type") != TYPE) return reject("tipo inesperado")
     val hash = packet.optString("payloadHash").trim().lowercase()
     if (hash.length != HASH_LENGTH || !isHex(hash)) return reject("hash inválido")
     val requested = packet.opt("newExpiresAt")
@@ -41,7 +43,7 @@ internal object VaultRenewal {
     val hash = payloadHash.trim().lowercase()
     if (hash.length != HASH_LENGTH || !isHex(hash)) return null
     if (expiresAt < 0L) return null
-    return JSONObject().put("payloadHash", hash).put("newExpiresAt", expiresAt)
+    return JSONObject().put("type", TYPE).put("payloadHash", hash).put("newExpiresAt", expiresAt)
   }
 
   private fun reject(reason: String) = VaultRenewalResult.Rejected(reason)

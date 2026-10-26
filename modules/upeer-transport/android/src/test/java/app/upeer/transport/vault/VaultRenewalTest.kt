@@ -26,6 +26,7 @@ class VaultRenewalTest {
   )
 
   private fun packet(newExpiresAt: Any?, payloadHash: String = hash) = JSONObject()
+    .put("type", VaultRenewal.TYPE)
     .put("payloadHash", payloadHash)
     .apply { if (newExpiresAt != null) put("newExpiresAt", newExpiresAt) }
 
@@ -101,6 +102,17 @@ class VaultRenewalTest {
 
     assertTrue(result is VaultRenewalResult.Accepted)
     assertEquals(hash, built.getString("payloadHash"))
+    assertEquals("VAULT_RENEW", built.getString("type"))
+  }
+
+  @Test
+  fun `a packet without the vault renew type is rejected`() {
+    val withoutType = JSONObject(packet(now + day).toString()).apply { remove("type") }
+
+    val result = VaultRenewal.parse(withoutType, owner, entry(now + day), now)
+
+    assertTrue(result is VaultRenewalResult.Rejected)
+    assertEquals("tipo inesperado", (result as VaultRenewalResult.Rejected).reason)
   }
 
   @Test
