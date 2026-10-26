@@ -1,8 +1,6 @@
 export const BUBBLE_RADIUS = 12;
 
-export const BUBBLE_TAIL_RADIUS = 4;
-
-export const BUBBLE_JOIN_RADIUS = 6;
+export const BUBBLE_JOIN_RADIUS = 4;
 
 export type BubbleShapeInput = {
   isMine: boolean;
@@ -18,20 +16,19 @@ export type BubbleShape = {
 };
 
 export function resolveBubbleShape({ isMine, startsGroup, endsGroup }: BubbleShapeInput): BubbleShape {
-  const outerTop = startsGroup ? BUBBLE_TAIL_RADIUS : BUBBLE_JOIN_RADIUS;
-  const outerBottom = endsGroup ? BUBBLE_RADIUS : BUBBLE_JOIN_RADIUS;
-  if (isMine) {
-    return {
-      borderTopLeftRadius: BUBBLE_RADIUS,
-      borderTopRightRadius: outerTop,
-      borderBottomLeftRadius: BUBBLE_RADIUS,
-      borderBottomRightRadius: outerBottom,
-    };
-  }
-  return {
-    borderTopLeftRadius: outerTop,
+  const shape: BubbleShape = {
+    borderTopLeftRadius: BUBBLE_RADIUS,
     borderTopRightRadius: BUBBLE_RADIUS,
-    borderBottomLeftRadius: outerBottom,
+    borderBottomLeftRadius: BUBBLE_RADIUS,
     borderBottomRightRadius: BUBBLE_RADIUS,
   };
+  if (startsGroup && endsGroup) return shape;
+  if (isMine) {
+    if (!startsGroup) shape.borderTopRightRadius = BUBBLE_JOIN_RADIUS;
+    if (!endsGroup) shape.borderBottomRightRadius = BUBBLE_JOIN_RADIUS;
+    return shape;
+  }
+  if (!startsGroup) shape.borderTopLeftRadius = BUBBLE_JOIN_RADIUS;
+  if (!endsGroup) shape.borderBottomLeftRadius = BUBBLE_JOIN_RADIUS;
+  return shape;
 }

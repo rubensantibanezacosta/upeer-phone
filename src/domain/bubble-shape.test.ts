@@ -1,47 +1,55 @@
 import { describe, expect, it } from 'vitest';
 
-import { BUBBLE_JOIN_RADIUS, BUBBLE_RADIUS, BUBBLE_TAIL_RADIUS, resolveBubbleShape } from './bubble-shape';
+import { BUBBLE_JOIN_RADIUS, BUBBLE_RADIUS, resolveBubbleShape } from './bubble-shape';
+
+const allRounded = {
+  borderTopLeftRadius: BUBBLE_RADIUS,
+  borderTopRightRadius: BUBBLE_RADIUS,
+  borderBottomLeftRadius: BUBBLE_RADIUS,
+  borderBottomRightRadius: BUBBLE_RADIUS,
+};
 
 describe('resolveBubbleShape', () => {
-  it('deja las cuatro esquinas redondeadas salvo la cola cuando el mensaje va solo', () => {
-    expect(resolveBubbleShape({ isMine: true, startsGroup: true, endsGroup: true })).toEqual({
-      borderTopLeftRadius: BUBBLE_RADIUS,
-      borderTopRightRadius: BUBBLE_TAIL_RADIUS,
-      borderBottomLeftRadius: BUBBLE_RADIUS,
-      borderBottomRightRadius: BUBBLE_RADIUS,
-    });
-    expect(resolveBubbleShape({ isMine: false, startsGroup: true, endsGroup: true })).toEqual({
-      borderTopLeftRadius: BUBBLE_TAIL_RADIUS,
-      borderTopRightRadius: BUBBLE_RADIUS,
-      borderBottomLeftRadius: BUBBLE_RADIUS,
-      borderBottomRightRadius: BUBBLE_RADIUS,
-    });
+  it('redondea las cuatro esquinas cuando el mensaje va solo', () => {
+    expect(resolveBubbleShape({ isMine: true, startsGroup: true, endsGroup: true })).toEqual(allRounded);
+    expect(resolveBubbleShape({ isMine: false, startsGroup: true, endsGroup: true })).toEqual(allRounded);
   });
 
-  it('pega la esquina inferior al siguiente mensaje del mismo remitente', () => {
+  it('afila la esquina inferior derecha en el primer mensaje propio de una cadena', () => {
     expect(resolveBubbleShape({ isMine: true, startsGroup: true, endsGroup: false })).toEqual({
-      borderTopLeftRadius: BUBBLE_RADIUS,
-      borderTopRightRadius: BUBBLE_TAIL_RADIUS,
-      borderBottomLeftRadius: BUBBLE_RADIUS,
+      ...allRounded,
       borderBottomRightRadius: BUBBLE_JOIN_RADIUS,
     });
   });
 
-  it('pega ambas esquinas exteriores en los mensajes intermedios', () => {
-    expect(resolveBubbleShape({ isMine: false, startsGroup: false, endsGroup: false })).toEqual({
-      borderTopLeftRadius: BUBBLE_JOIN_RADIUS,
-      borderTopRightRadius: BUBBLE_RADIUS,
-      borderBottomLeftRadius: BUBBLE_JOIN_RADIUS,
-      borderBottomRightRadius: BUBBLE_RADIUS,
+  it('afila la esquina superior derecha en el último mensaje propio de una cadena', () => {
+    expect(resolveBubbleShape({ isMine: true, startsGroup: false, endsGroup: true })).toEqual({
+      ...allRounded,
+      borderTopRightRadius: BUBBLE_JOIN_RADIUS,
     });
   });
 
-  it('cierra el grupo con la esquina inferior redondeada', () => {
-    expect(resolveBubbleShape({ isMine: true, startsGroup: false, endsGroup: true })).toEqual({
-      borderTopLeftRadius: BUBBLE_RADIUS,
+  it('afila las dos esquinas derechas en los mensajes propios intermedios', () => {
+    expect(resolveBubbleShape({ isMine: true, startsGroup: false, endsGroup: false })).toEqual({
+      ...allRounded,
       borderTopRightRadius: BUBBLE_JOIN_RADIUS,
-      borderBottomLeftRadius: BUBBLE_RADIUS,
-      borderBottomRightRadius: BUBBLE_RADIUS,
+      borderBottomRightRadius: BUBBLE_JOIN_RADIUS,
+    });
+  });
+
+  it('afila el lado izquierdo en las cadenas del otro usuario', () => {
+    expect(resolveBubbleShape({ isMine: false, startsGroup: true, endsGroup: false })).toEqual({
+      ...allRounded,
+      borderBottomLeftRadius: BUBBLE_JOIN_RADIUS,
+    });
+    expect(resolveBubbleShape({ isMine: false, startsGroup: false, endsGroup: true })).toEqual({
+      ...allRounded,
+      borderTopLeftRadius: BUBBLE_JOIN_RADIUS,
+    });
+    expect(resolveBubbleShape({ isMine: false, startsGroup: false, endsGroup: false })).toEqual({
+      ...allRounded,
+      borderTopLeftRadius: BUBBLE_JOIN_RADIUS,
+      borderBottomLeftRadius: BUBBLE_JOIN_RADIUS,
     });
   });
 });
