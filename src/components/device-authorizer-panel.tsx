@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { Ban, Info, ShieldAlert, Smartphone, Trash2, UserPlus } from '@tamagui/lucide-icons-2';
-import { Card, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
+import { Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { DeviceInviteSheet } from '@/components/device-invite-sheet';
 import { DevicePairingPanel } from '@/components/device-pairing-panel';
@@ -51,26 +51,28 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
     );
   }, [refresh]);
 
-  return <YStack borderBottomColor={theme.border} borderBottomWidth={1} gap={12} paddingHorizontal={20} paddingVertical={20}>
-    <XStack alignItems="center" gap={8}>
-      <Smartphone color={theme.placeholder} size={16} />
-      <SizableText color={theme.text} flex={1} fontSize={scale(14)} fontWeight="600">AUTORIZADOS EN ESTA CUENTA</SizableText>
-      {onInfo ? <NativeRipplePressable accessibilityLabel="¿Qué son los dispositivos de la cuenta?" onPress={onInfo}><Info color={theme.placeholder} size={16} /></NativeRipplePressable> : null}
+  return <YStack gap={14} paddingHorizontal={16} paddingVertical={16}>
+    <XStack alignItems="flex-start" gap={4}>
+      <YStack flex={1} gap={4}>
+        <SizableText color={theme.text} fontSize={scale(15)} fontWeight="700">Dispositivos autorizados</SizableText>
+        <Text color={theme.placeholder} fontSize={scale(12)}>Pueden usar tu cuenta sin tu frase de recuperación. Revocar uno le quita el acceso sin tocar el resto.</Text>
+      </YStack>
+      {onInfo ? <NativeRipplePressable accessibilityLabel="¿Qué son los dispositivos de la cuenta?" onPress={onInfo} style={{ padding: 6 }}><Info color={theme.placeholder} size={16} /></NativeRipplePressable> : null}
     </XStack>
-    <Text color={theme.placeholder} fontSize={scale(12)}>Pueden usar tu cuenta sin tu frase de recuperación. Revocar uno le quita el acceso sin tocar el resto.</Text>
 
     {state.localAdmitted ? null : <YStack gap={8}>
       <XStack alignItems="center" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={10} borderWidth={1} gap={8} padding={10}>
         <ShieldAlert color={theme.onDangerSoft} size={16} />
         <Text color={theme.onDangerSoft} flex={1} fontSize={scale(12)}>Este dispositivo fue revocado y ya no puede enviar ni recibir mensajes de la cuenta.</Text>
       </XStack>
-      <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={44} icon={<UserPlus color={theme.onAccentSoft} size={16} />} onPress={() => setPairingVisible(true)}>Volver a vincular a mi cuenta</NativeRippleButton>
+      <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.onAccentSoft} height={44} icon={<UserPlus color={theme.onAccentSoft} size={16} />} onPress={() => setPairingVisible(true)}>Volver a vincular a mi cuenta</NativeRippleButton>
     </YStack>}
 
-    <YStack gap={8}>
+    <YStack>
       {state.loading && state.devices.length === 0
         ? <Paragraph color={theme.placeholder} fontSize={scale(13)}>Leyendo dispositivos autorizados…</Paragraph>
-        : state.devices.map((device) => <DeviceRow
+        : state.devices.map((device, index) => <DeviceRow
+          first={index === 0}
           authorizedAt={device.authorizedAt}
           busy={busyId === device.deviceId}
           current={device.deviceId === state.localDeviceId}
@@ -88,7 +90,7 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
     {state.error ? <Paragraph accessibilityRole="alert" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={10} borderWidth={1} color={theme.onDangerSoft} fontSize={scale(12)} padding={10}>{state.error}</Paragraph> : null}
     {notice ? <Text accessibilityLiveRegion="polite" color={notice.startsWith('No se pudo') ? theme.danger : theme.textSecondary} fontSize={scale(12)}>{notice}</Text> : null}
 
-    <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.text} height={46} icon={<UserPlus color={theme.onAccentSoft} size={18} />} onPress={() => setSheetVisible(true)}>Añadir otro dispositivo a mi cuenta</NativeRippleButton>
+    <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.onAccentSoft} height={46} icon={<UserPlus color={theme.onAccentSoft} size={18} />} onPress={() => setSheetVisible(true)}>Añadir otro dispositivo a mi cuenta</NativeRippleButton>
 
     {state.revoked.length > 0 ? <YStack gap={6}>
       <XStack alignItems="center" gap={6}>
@@ -112,10 +114,10 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
   </YStack>;
 }
 
-function DeviceRow({ authorizedAt, busy, current, onRevoke, platform, theme, value }: { authorizedAt: number; busy: boolean; current: boolean; onRevoke: () => void; platform?: string; theme: ReturnType<typeof useTheme>; value: string }) {
+function DeviceRow({ authorizedAt, busy, current, first, onRevoke, platform, theme, value }: { authorizedAt: number; busy: boolean; current: boolean; first: boolean; onRevoke: () => void; platform?: string; theme: ReturnType<typeof useTheme>; value: string }) {
   const scale = useTextScale();
-  return <Card backgroundColor={theme.backgroundElement} borderColor={current ? theme.accent : theme.border} borderRadius={12} borderWidth={1} padding={12}>
-    <XStack alignItems="center" gap={10}>
+  return <View style={first ? undefined : [styles.separator, { borderTopColor: theme.border }]}>
+    <XStack alignItems="center" gap={10} paddingVertical={12}>
       <YStack flex={1} gap={2}>
         <XStack alignItems="center" gap={6}>
           <SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{platformLabel(platform)}</SizableText>
@@ -131,8 +133,12 @@ function DeviceRow({ authorizedAt, busy, current, onRevoke, platform, theme, val
         <Trash2 color={theme.danger} size={17} />
       </NativeRipplePressable>}
     </XStack>
-  </Card>;
+  </View>;
 }
+
+const styles = StyleSheet.create({
+  separator: { borderTopWidth: StyleSheet.hairlineWidth },
+});
 
 function authorizedLabel(authorizedAt: number): string {
   if (!Number.isFinite(authorizedAt) || authorizedAt <= 0) return '';

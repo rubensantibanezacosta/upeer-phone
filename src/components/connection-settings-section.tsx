@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp, Globe2, LockKeyhole, Network } from '@tamagui/l
 import { Card, Paragraph, SizableText, XStack, YStack } from 'tamagui';
 
 import { CopyField } from '@/components/copy-field';
-import { SettingsSectionHeader } from '@/components/settings-section-parts';
+import { SettingsGroup, SettingsSectionHeader } from '@/components/settings-section-parts';
 import { NetworkMap } from '@/components/network-map';
 import type { PeerInfo, PeerPoolEntry } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import type { PeerManagementSnapshot } from '@/domain/yggdrasil-peers';
@@ -50,8 +50,8 @@ export function ConnectionSettingsSection({ address, phase, peers, error, manage
     <YStack gap={12}>
       <SettingsSectionHeader icon={<Network color={theme.accent} size={18} />} title="Conexión">Estado de tu nodo en la red: peers conectados, latencia y dirección.</SettingsSectionHeader>
 
-      <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} padding={16}>
-        <YStack gap={12}>
+      <SettingsGroup>
+        <YStack gap={12} padding={16}>
           <XStack alignItems="center" gap={14}>
             <View style={[styles.statusIcon, { backgroundColor: `${statusColor}20` }]}>
               {activeCount ? <Network color={statusColor} size={22} /> : <ActivityIndicator color={statusColor} size="small" />}
@@ -63,7 +63,7 @@ export function ConnectionSettingsSection({ address, phase, peers, error, manage
           </XStack>
           {error ? <Paragraph accessibilityRole="alert" color={theme.placeholder} fontSize={scale(12)}>{error}</Paragraph> : null}
         </YStack>
-      </Card>
+      </SettingsGroup>
 
       {activeCount > 0 ? <>
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -83,13 +83,13 @@ export function ConnectionSettingsSection({ address, phase, peers, error, manage
           </XStack>
           <NetworkMap peers={managedPeers} connectedUris={connectedUris} selfLat={management.selfLat} selfLon={management.selfLon} />
           <SizableText color={theme.text} fontSize={scale(13)} fontWeight="700">Conectados ahora · {connected.length}</SizableText>
-          {connected.length ? connected.map((peer) => <PeerRow key={peer.uri} peer={peer} latencyColor={latencyColor} theme={theme} />) : <Paragraph color={theme.placeholder} fontSize={scale(12)}>Sin peers públicos conectados.</Paragraph>}
+          {connected.length ? <SettingsGroup>{connected.map((peer, index) => <PeerRow first={index === 0} key={peer.uri} peer={peer} latencyColor={latencyColor} theme={theme} />)}</SettingsGroup> : <Paragraph color={theme.placeholder} fontSize={scale(12)}>Sin peers públicos conectados.</Paragraph>}
           <SizableText color={theme.text} fontSize={scale(13)} fontWeight="700">Peers públicos en reserva · {reserve.length}</SizableText>
           {reserve.length ? <>
             <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false}>
               <XStack gap={8}>
                 {(showAllReserve ? reserve : reserve.slice(0, 5)).map((peer) => <View key={peer.uri} style={{ width: 228 }}>
-                  <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={10} borderWidth={1} padding={10}>
+                  <Card backgroundColor={theme.backgroundElement} borderRadius={10} padding={10}>
                     <YStack gap={4}><SizableText color={theme.text} fontSize={scale(12)} fontWeight="600">{peer.country}</SizableText><TextSmall color={theme.placeholder}>{peer.host}</TextSmall><TextSmall color={theme.placeholder}>{peer.uri}</TextSmall><TextSmall color={theme.placeholder}>{peer.alive ? `${peer.latencyMs ?? '—'} ms · score ${Math.round(peer.score)}` : 'Sin respuesta'}</TextSmall></YStack>
                   </Card>
                 </View>)}
@@ -125,13 +125,13 @@ export function ConnectionSettingsSection({ address, phase, peers, error, manage
   );
 }
 
-function PeerRow({ peer, latencyColor, theme }: { peer: PeerPoolEntry; latencyColor: (latency: number | null) => string; theme: ReturnType<typeof useTheme> }) {
+function PeerRow({ first, peer, latencyColor, theme }: { first: boolean; peer: PeerPoolEntry; latencyColor: (latency: number | null) => string; theme: ReturnType<typeof useTheme> }) {
   const scale = useTextScale();
   const latency = peer.latencyMs;
   const color = latencyColor(latency);
   const width = `${Math.min(((latency ?? 0) / LATENCY_MAX) * 100, 100)}%` as `${number}%`;
-  return <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={10} borderWidth={1} padding={10}>
-    <YStack gap={8}>
+  return <View style={first ? undefined : [styles.separator, { borderTopColor: theme.border }]}>
+    <YStack gap={8} padding={14}>
       <XStack alignItems="center" gap={10}>
         <YStack flex={1} gap={2}>
           <SizableText color={theme.text} fontSize={scale(12)} fontWeight="600">{peer.country}</SizableText>
@@ -142,7 +142,7 @@ function PeerRow({ peer, latencyColor, theme }: { peer: PeerPoolEntry; latencyCo
       </XStack>
       <View style={[styles.latencyTrack, { backgroundColor: theme.backgroundSelected }]}><View style={[styles.latencyBar, { backgroundColor: color, width }]} /></View>
     </YStack>
-  </Card>;
+  </View>;
 }
 
 function TextSmall({ children, color }: { children: React.ReactNode; color: string }) {
@@ -186,4 +186,5 @@ const styles = StyleSheet.create({
   techIcon: { alignItems: 'center', borderRadius: 7, height: 30, justifyContent: 'center', width: 30 },
   latencyTrack: { borderRadius: 99, height: 6, overflow: 'hidden' },
   latencyBar: { borderRadius: 99, height: '100%' },
+  separator: { borderTopWidth: StyleSheet.hairlineWidth },
 });

@@ -15,7 +15,7 @@ export function SettingsSectionHeader({ children, icon, title }: SettingsSection
   const theme = useTheme();
   const scale = useTextScale();
   return (
-    <YStack alignItems="flex-start" flexDirection="row" gap={12} paddingHorizontal={4}>
+    <YStack alignItems="flex-start" flexDirection="row" gap={12}>
       {icon ? <YStack alignItems="center" backgroundColor={theme.accentSoft} borderRadius={10} height={34} justifyContent="center" width={34}>{icon}</YStack> : null}
       <YStack flex={1} gap={4}>
         <SizableText color={theme.text} fontSize={scale(20)} fontWeight="700">{title}</SizableText>
@@ -29,7 +29,7 @@ export function SettingsGroupLabel({ children, icon, title }: { children?: React
   const theme = useTheme();
   const scale = useTextScale();
   return (
-    <YStack gap={2} paddingHorizontal={4}>
+    <YStack gap={2}>
       <YStack alignItems="center" flexDirection="row" gap={8}>
         {icon}
         <SizableText color={theme.text} fontSize={scale(15)} fontWeight="700">{title}</SizableText>
@@ -53,7 +53,7 @@ export function SettingsGroup({ children }: { children: ReactNode }) {
 export function SettingsNote({ children }: { children: ReactNode }) {
   const theme = useTheme();
   const scale = useTextScale();
-  return <Paragraph color={theme.placeholder} fontSize={scale(12)} paddingHorizontal={4}>{children}</Paragraph>;
+  return <Paragraph color={theme.placeholder} fontSize={scale(12)}>{children}</Paragraph>;
 }
 
 const styles = StyleSheet.create({

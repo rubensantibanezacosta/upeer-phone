@@ -1,11 +1,12 @@
 import { StyleSheet, View } from 'react-native';
-import { Check, Cloud, Copy, Fingerprint, Info, Pencil, QrCode, Shield } from '@tamagui/lucide-icons-2';
+import { Check, Cloud, Copy, Info, Pencil, QrCode, Shield } from '@tamagui/lucide-icons-2';
 import { Input, Progress, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import type { UPeerIdentity } from '@/domain/identity-record';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { CopyField } from '@/components/copy-field';
+import { SettingsGroup } from '@/components/settings-section-parts';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ProfileAvatar } from '@/components/profile-avatar';
@@ -22,7 +23,7 @@ export function ProfileHeroSection({ identity, alias, avatar, busy, onAliasChang
   const theme = useTheme();
   const scale = useTextScale();
   return (
-    <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderBottomColor={theme.border} borderBottomWidth={1} gap={24} paddingHorizontal={20} paddingVertical={24}>
+    <XStack alignItems="center" backgroundColor={theme.backgroundElement} gap={24} paddingHorizontal={20} paddingVertical={24}>
       <NativeRipplePressable accessibilityLabel="Cambiar foto de perfil" accessibilityRole="button" disabled={busy} onPress={onAvatarPress} style={styles.avatar}>
         <ProfileAvatar avatar={avatar} name={alias || identity.upeerId} />
         <View style={[styles.avatarEditBadge, { backgroundColor: theme.accent, borderColor: theme.backgroundElement }]}><Pencil color={theme.onAccent} size={12} /></View>
@@ -58,22 +59,43 @@ export function ProfileStatsSection({ reputation, vaultStats, reputationUnavaila
   const scoreColor = score >= 80 ? theme.accent : score < 40 ? theme.placeholder : theme.textSecondary;
   const usageGb = (vaultStats?.sizeBytes ?? 0) / 1_073_741_824;
   return (
-    <XStack borderBottomColor={theme.border} borderBottomWidth={1}>
-      <YStack borderRightColor={theme.border} borderRightWidth={1} flex={1} gap={13} paddingHorizontal={20} paddingVertical={20}>
-        <XStack alignItems="center" justifyContent="space-between">
-          <XStack alignItems="center" gap={7}><Shield color={theme.placeholder} size={15} /><SizableText color={theme.placeholder} fontSize={scale(11)} fontWeight="700" letterSpacing={0.7}>REPUTACIÓN</SizableText></XStack>
-          <XStack alignItems="center" gap={4}>{hasReputation || reputationUnavailable ? <Text color={theme.textSecondary} fontSize={scale(10)} fontWeight="600">{reputationLabel}</Text> : null}<NativeRipplePressable accessibilityLabel="¿Qué es la reputación?" onPress={() => onInfo('reputacion')}><Info color={theme.placeholder} size={16} /></NativeRipplePressable></XStack>
-        </XStack>
-        {hasReputation ? <><Progress backgroundColor={theme.border} value={score}><Progress.Indicator backgroundColor={scoreColor} /></Progress><XStack>
-          <YStack flex={1}><Text color={theme.placeholder} fontSize={scale(10)} textTransform="uppercase">Vouches</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{score}/100</SizableText></YStack>
-          <YStack flex={1}><Text color={theme.placeholder} fontSize={scale(10)} textTransform="uppercase">Contactos</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{connections}</SizableText></YStack>
-        </XStack></> : <Text color={theme.placeholder} fontSize={scale(12)}>{reputationUnavailable ? 'No disponible en este cliente' : 'Cargando...'}</Text>}
-      </YStack>
-      <YStack flex={1} gap={13} paddingHorizontal={20} paddingVertical={20}>
-        <XStack alignItems="center" justifyContent="space-between"><XStack alignItems="center" gap={7}><Cloud color={theme.placeholder} size={15} /><SizableText color={theme.placeholder} fontSize={scale(11)} fontWeight="700" letterSpacing={0.5}>ALMAC. CEDIDO</SizableText></XStack><NativeRipplePressable accessibilityLabel="¿Qué es el almacenamiento cedido?" onPress={() => onInfo('almacenamiento')}><Info color={theme.placeholder} size={16} /></NativeRipplePressable></XStack>
-        {vaultStats ? <><XStack alignItems="baseline" justifyContent="space-between"><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{formatBytes(vaultStats.sizeBytes)}</SizableText><Text color={theme.placeholder} fontSize={scale(10)}>usados</Text></XStack><Progress backgroundColor={theme.border} value={Math.min(usageGb * 100, 100)}><Progress.Indicator backgroundColor={usageGb > 0.8 ? theme.accent : theme.placeholder} /></Progress><XStack><YStack flex={1}><Text color={theme.placeholder} fontSize={scale(9)} textTransform="uppercase">Archivos P2P</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{vaultStats.count}</SizableText></YStack><YStack flex={1}><Text color={theme.placeholder} fontSize={scale(9)} textTransform="uppercase">Cuota dinámica</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">Activa</SizableText></YStack></XStack></> : <Text color={theme.placeholder} fontSize={scale(12)}>{vaultUnavailable ? 'No disponible en este cliente' : 'Cargando...'}</Text>}
-      </YStack>
-    </XStack>
+    <YStack paddingHorizontal={16}>
+      <SettingsGroup>
+        <YStack gap={10} padding={16}>
+          <XStack alignItems="center" gap={8}>
+            <Shield color={theme.placeholder} size={15} />
+            <SizableText color={theme.text} flexShrink={1} fontSize={scale(14)} fontWeight="600" numberOfLines={1}>Reputación</SizableText>
+            <YStack flex={1} />
+            {hasReputation || reputationUnavailable ? <Text color={theme.textSecondary} fontSize={scale(11)} fontWeight="600">{reputationLabel}</Text> : null}
+            <NativeRipplePressable accessibilityLabel="¿Qué es la reputación?" onPress={() => onInfo('reputacion')}><Info color={theme.placeholder} size={16} /></NativeRipplePressable>
+          </XStack>
+          {hasReputation ? <>
+            <Progress backgroundColor={theme.border} value={score}><Progress.Indicator backgroundColor={scoreColor} /></Progress>
+            <XStack>
+              <YStack flex={1}><Text color={theme.placeholder} fontSize={scale(10)} textTransform="uppercase">Vouches</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{score}/100</SizableText></YStack>
+              <YStack flex={1}><Text color={theme.placeholder} fontSize={scale(10)} textTransform="uppercase">Contactos</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{connections}</SizableText></YStack>
+            </XStack>
+          </> : <Text color={theme.placeholder} fontSize={scale(12)}>{reputationUnavailable ? 'No disponible en este cliente' : 'Cargando...'}</Text>}
+        </YStack>
+  
+        <YStack gap={10} padding={16}>
+          <XStack alignItems="center" gap={8}>
+            <Cloud color={theme.placeholder} size={15} />
+            <SizableText color={theme.text} flexShrink={1} fontSize={scale(14)} fontWeight="600" numberOfLines={1}>Almacenamiento cedido</SizableText>
+            <YStack flex={1} />
+            <NativeRipplePressable accessibilityLabel="¿Qué es el almacenamiento cedido?" onPress={() => onInfo('almacenamiento')}><Info color={theme.placeholder} size={16} /></NativeRipplePressable>
+          </XStack>
+          {vaultStats ? <>
+            <XStack alignItems="baseline" justifyContent="space-between"><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{formatBytes(vaultStats.sizeBytes)}</SizableText><Text color={theme.placeholder} fontSize={scale(10)}>usados</Text></XStack>
+            <Progress backgroundColor={theme.border} value={Math.min(usageGb * 100, 100)}><Progress.Indicator backgroundColor={usageGb > 0.8 ? theme.accent : theme.placeholder} /></Progress>
+            <XStack>
+              <YStack flex={1}><Text color={theme.placeholder} fontSize={scale(10)} textTransform="uppercase">Archivos P2P</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{vaultStats.count}</SizableText></YStack>
+              <YStack flex={1}><Text color={theme.placeholder} fontSize={scale(10)} textTransform="uppercase">Cuota dinámica</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">Activa</SizableText></YStack>
+            </XStack>
+          </> : <Text color={theme.placeholder} fontSize={scale(12)}>{vaultUnavailable ? 'No disponible en este cliente' : 'Cargando...'}</Text>}
+        </YStack>
+      </SettingsGroup>
+    </YStack>
   );
 }
 
@@ -86,13 +108,18 @@ export function ProfileAddressSection({ fullId, onCopy, onShowQr, onInfo }: {
   const theme = useTheme();
   const scale = useTextScale();
   return (
-    <YStack borderBottomColor={theme.border} borderBottomWidth={1} gap={12} paddingHorizontal={20} paddingVertical={20}>
-      <XStack alignItems="center" gap={8}><Fingerprint color={theme.placeholder} size={16} /><SizableText color={theme.text} flex={1} fontSize={scale(14)} fontWeight="600">Tu dirección de contacto</SizableText><NativeRipplePressable accessibilityLabel="¿Qué es la dirección de contacto?" onPress={onInfo}><Info color={theme.placeholder} size={16} /></NativeRipplePressable></XStack>
-      <Text color={theme.placeholder} fontSize={scale(12)}>Comparte esta dirección para que puedan escribirte</Text>
+    <YStack gap={12} paddingHorizontal={16} paddingVertical={20}>
+      <XStack alignItems="flex-start" gap={4}>
+        <YStack flex={1} gap={4}>
+          <SizableText color={theme.text} fontSize={scale(15)} fontWeight="700">Tu dirección de contacto</SizableText>
+          <Text color={theme.placeholder} fontSize={scale(12)}>Compártela para que puedan escribirte sin usar tu frase de recuperación.</Text>
+        </YStack>
+        <NativeRipplePressable accessibilityLabel="¿Qué es la dirección de contacto?" onPress={onInfo} style={{ padding: 6 }}><Info color={theme.placeholder} size={16} /></NativeRipplePressable>
+      </XStack>
       <CopyField accessibilityLabel="Copiar dirección de contacto" onCopy={onCopy} value={fullId} />
       <XStack gap={8}>
-          <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} icon={<QrCode color={theme.placeholder} size={15} />} onPress={onShowQr}>Mostrar QR</NativeRippleButton>
-          <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} icon={<Copy color={theme.placeholder} size={15} />} onPress={onCopy}>Copiar</NativeRippleButton>
+        <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} icon={<QrCode color={theme.placeholder} size={15} />} onPress={onShowQr}>Mostrar QR</NativeRippleButton>
+        <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} icon={<Copy color={theme.placeholder} size={15} />} onPress={onCopy}>Copiar</NativeRippleButton>
       </XStack>
     </YStack>
   );
@@ -106,7 +133,7 @@ export function ProfileTechnicalSection({ identity, address, onInfo, onCopy }: {
 }) {
   const theme = useTheme();
   return (
-    <YStack paddingHorizontal={20} paddingVertical={12}>
+    <YStack paddingHorizontal={16} paddingVertical={12}>
       <TechnicalField label="ID de contacto" value={identity.upeerId} onInfo={() => onInfo('id')} onCopy={onCopy} />
       <View style={[styles.divider, { backgroundColor: theme.border }]} />
       <TechnicalField label="Clave de verificación" value={identity.publicKey} onInfo={() => onInfo('clave')} onCopy={onCopy} />
