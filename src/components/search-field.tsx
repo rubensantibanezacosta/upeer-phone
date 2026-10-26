@@ -5,8 +5,8 @@ import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
-const HEIGHT = 50;
-const TEXT_HEIGHT = 22;
+const HEIGHT = 54;
+const TEXT_HEIGHT = 24;
 const FIELD_RADIUS = HEIGHT / 2;
 
 type SearchFieldProps = {

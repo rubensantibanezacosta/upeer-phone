@@ -35,7 +35,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
         flex={1}
         maxHeight={128}
         maxLength={4000}
-        minHeight={40}
+        minHeight={44}
         multiline
         onChangeText={onChange}
         placeholder="Escribe un mensaje..."
@@ -56,6 +56,6 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
 }
 
 const styles = StyleSheet.create({
-  action: { alignItems: 'center', borderRadius: 20, height: 40, justifyContent: 'center', overflow: 'hidden', width: 40 },
+  action: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', overflow: 'hidden', width: 44 },
   input: { paddingHorizontal: 8, paddingVertical: 8, textAlignVertical: 'center' },
 });
