@@ -31,17 +31,7 @@ internal class SyncHistoryState(
     synchronized(lock) {
       val history = bucket()
       val entry = history.optJSONObject(deviceId) ?: JSONObject()
-      val done = (entry.optInt("applied", 0) + applied.coerceAtLeast(0)).coerceAtLeast(0)
-      val currentTotal = entry.optInt("total", 0).coerceAtLeast(0)
-      if (pending == null) {
-        entry.put("applied", done)
-        entry.put("total", maxOf(currentTotal, done))
-      } else {
-        val total = maxOf(currentTotal, done + pending.coerceAtLeast(0))
-        entry.put("applied", minOf(done, total))
-        entry.put("total", total)
-        entry.put("known", true)
-      }
+      addCountersTo(entry, applied, pending)
       history.put(deviceId, entry)
       state().put(KEY, history)
       persist()
@@ -53,17 +43,15 @@ internal class SyncHistoryState(
     synchronized(lock) {
       val history = bucket()
       val entry = history.optJSONObject(deviceId) ?: return
-      val total = entry.optInt("total", 0).coerceAtLeast(entry.optInt("applied", 0))
-      entry.put("applied", total)
-      entry.put("total", total)
-      entry.put("known", true)
+      finishCountersIn(entry)
       history.put(deviceId, entry)
       state().put(KEY, history)
       persist()
     }
   }
 
-  fun save(deviceId: String, cursor: String?, done: Boolean) {    if (!validDeviceId(deviceId)) return
+  fun save(deviceId: String, cursor: String?, done: Boolean) {
+    if (!validDeviceId(deviceId)) return
     synchronized(lock) {
       val history = bucket()
       val entry = history.optJSONObject(deviceId) ?: JSONObject()
@@ -73,6 +61,42 @@ internal class SyncHistoryState(
       state().put(KEY, history)
       persist()
     }
+  }
+
+  fun savePage(deviceId: String, cursor: String?, done: Boolean, applied: Int, pending: Int?) {
+    if (!validDeviceId(deviceId)) return
+    synchronized(lock) {
+      val history = bucket()
+      val entry = history.optJSONObject(deviceId) ?: JSONObject()
+      if (cursor.isNullOrBlank()) entry.remove("cursor") else entry.put("cursor", cursor)
+      entry.put("done", done)
+      addCountersTo(entry, applied, pending)
+      if (done) finishCountersIn(entry)
+      history.put(deviceId, entry)
+      state().put(KEY, history)
+      persist()
+    }
+  }
+
+  private fun addCountersTo(entry: JSONObject, applied: Int, pending: Int?) {
+    val done = (entry.optInt("applied", 0) + applied.coerceAtLeast(0)).coerceAtLeast(0)
+    val currentTotal = entry.optInt("total", 0).coerceAtLeast(0)
+    if (pending == null) {
+      entry.put("applied", done)
+      entry.put("total", maxOf(currentTotal, done))
+      return
+    }
+    val total = maxOf(currentTotal, done + pending.coerceAtLeast(0))
+    entry.put("applied", minOf(done, total))
+    entry.put("total", total)
+    entry.put("known", true)
+  }
+
+  private fun finishCountersIn(entry: JSONObject) {
+    val total = entry.optInt("total", 0).coerceAtLeast(entry.optInt("applied", 0))
+    entry.put("applied", total)
+    entry.put("total", total)
+    entry.put("known", true)
   }
 
   fun reopen(deviceId: String) {

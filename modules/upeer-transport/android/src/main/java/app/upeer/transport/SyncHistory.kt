@@ -104,9 +104,8 @@ internal class SyncHistory(
       return
     }
     val done = payload.optBoolean("done", false)
-    state.history.save(peer.deviceId, nextCursor, done || nextCursor == null)
-    state.history.addCounters(peer.deviceId, applied, if (done || nextCursor == null) 0 else pendingCount(payload))
-    if (done || nextCursor == null) state.history.finishCounters(peer.deviceId)
+    val finished = done || nextCursor == null
+    state.history.savePage(peer.deviceId, nextCursor, finished, applied, if (finished) 0 else pendingCount(payload))
     if (!done && nextCursor != null) {
       val refreshed = state.syncPeers.list().firstOrNull { it.deviceId == peer.deviceId } ?: return
       lastRequest[peer.deviceId] = nowMillis()

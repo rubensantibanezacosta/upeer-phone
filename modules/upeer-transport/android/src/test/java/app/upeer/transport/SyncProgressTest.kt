@@ -114,6 +114,37 @@ class SyncProgressTest {
     assertFalse(history.progress(DEVICE).known)
   }
 
+  @Test
+  fun `guardar una pagina actualiza cursor y contadores en una sola escritura`() {
+    val state = JSONObject()
+    var writes = 0
+    val history = SyncHistoryState({ state }, Any(), { writes += 1 })
+
+    history.savePage(DEVICE, "17:id", false, 50, 150)
+    history.savePage(DEVICE, "34:id", false, 50, 100)
+
+    assertEquals(2, writes)
+    val progress = history.progress(DEVICE)
+    assertEquals("34:id", progress.cursor)
+    assertEquals(100, progress.applied)
+    assertEquals(200, progress.total)
+    assertTrue(progress.known)
+  }
+
+  @Test
+  fun `la ultima pagina cierra los contadores`() {
+    val state = JSONObject()
+    val history = SyncHistoryState({ state }, Any(), {})
+
+    history.savePage(DEVICE, "17:id", false, 50, 150)
+    history.savePage(DEVICE, null, true, 150, 0)
+
+    val progress = history.progress(DEVICE)
+    assertTrue(progress.done)
+    assertEquals(200, progress.applied)
+    assertEquals(200, progress.total)
+  }
+
   private companion object {
     val DEVICE = "aa".repeat(32)
   }
