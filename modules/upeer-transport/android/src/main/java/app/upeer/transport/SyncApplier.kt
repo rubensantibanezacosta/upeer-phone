@@ -107,8 +107,9 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
     if (upeerId.length != 64) return false
     val name = payload.optString("name").trim()
     val avatar = ProfileFields.avatar(payload.optString("avatar"))
-    if (name.isEmpty() && avatar.isEmpty()) return false
-    return state.rememberContactProfile(upeerId, name, avatar)
+    val learnedKey = state.rememberContactKey(upeerId, payload.optString("publicKey"))
+    if (name.isEmpty() && avatar.isEmpty()) return learnedKey
+    return state.rememberContactProfile(upeerId, name, avatar) || learnedKey
   }
 
   private companion object {

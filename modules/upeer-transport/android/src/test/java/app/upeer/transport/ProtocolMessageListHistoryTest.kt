@@ -54,6 +54,25 @@ class ProtocolMessageListHistoryTest {
   }
 
   @Test
+  fun `history pending counts every message still unknown to the peer`() {
+    seed(1)
+    seed(2)
+    seed(3)
+
+    assertEquals(3, messages.historyPending(0L, ""))
+    assertEquals(2, messages.historyPending(1L, id(1)))
+    assertEquals(0, messages.historyPending(3L, id(3)))
+  }
+
+  @Test
+  fun `history pending ignores messages without timestamp`() {
+    seed(1)
+    messages.save(JSONObject().put("id", id(9)).put("upeerId", peer).put("content", "sin fecha").put("isMine", false))
+
+    assertEquals(1, messages.historyPending(0L, ""))
+  }
+
+  @Test
   fun `upsert keeps the newest messages when the list is full`() {
     val list = JSONArray()
     for (index in 5000 downTo 1) list.put(message(index.toLong()))

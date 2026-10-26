@@ -72,7 +72,9 @@ internal class SyncHistory(
     val last = page.lastOrNull()
     val nextCursor = last?.let(SyncHistoryPayload::cursor)
     if (nextCursor == null) metadata.put("nextCursor", JSONObject.NULL) else metadata.put("nextCursor", nextCursor)
-    metadata.put("done", done || nextCursor == null)
+    val historyDone = done || nextCursor == null
+    metadata.put("done", historyDone)
+    metadata.put("pending", if (historyDone) 0 else pendingAfter(nextCursor))
     val frame = channel.seal(activeBridge, device, peer, metadata) ?: run {
       Log.w(TAG, "No se pudo sellar el histórico para ${peer.deviceId.take(12)}")
       return
@@ -108,6 +110,12 @@ internal class SyncHistory(
       lastRequest[peer.deviceId] = nowMillis()
       sendRequest(activeBridge, refreshed, nextCursor)
     }
+  }
+
+  private fun pendingAfter(cursor: String?): Int {
+    if (cursor.isNullOrBlank()) return 0
+    val (timestamp, id) = SyncHistoryPayload.parseCursor(cursor)
+    return state.messages.historyPending(timestamp, id)
   }
 
   private fun sendRequest(activeBridge: Bridge, peer: SyncPeerRecord, cursor: String?) {

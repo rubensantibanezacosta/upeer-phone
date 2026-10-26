@@ -144,6 +144,18 @@ internal class ProtocolStateStore(context: Context) {
     state.optJSONObject("peers")?.optJSONObject(upeerId)?.let(::copy)
   }
 
+  fun rememberContactKey(upeerId: String, publicKey: String): Boolean = synchronized(lock) {
+    val peers = state.optJSONObject("peers") ?: JSONObject()
+    val existing = peers.optJSONObject(upeerId) ?: JSONObject()
+    val learned = PeerKeyLearning.keyToLearn(upeerId, publicKey, existing.optString("publicKey"))
+      ?: return@synchronized false
+    existing.put("publicKey", learned)
+    peers.put(upeerId, existing)
+    state.put("peers", peers)
+    persist()
+    true
+  }
+
   fun rememberContactProfile(upeerId: String, alias: String, avatar: String): Boolean = synchronized(lock) {
     if (!validId(upeerId)) return@synchronized false
     val peers = state.optJSONObject("peers") ?: JSONObject()
