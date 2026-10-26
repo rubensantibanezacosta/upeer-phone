@@ -50,7 +50,8 @@
           "style": "light"
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "./plugins/with-commons-io-version"
     ],
     "autolinking": {
       "nativeModulesDir": "./modules"
