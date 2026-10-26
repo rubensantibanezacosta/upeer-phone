@@ -30,7 +30,7 @@ export function ChatComposerArea({ editing, error, hidden, onChange, onAttach, o
 
   return <>
     {error ? (
-      <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={7} paddingHorizontal={14} paddingVertical={7}>
+      <XStack alignItems="center" backgroundColor={theme.backgroundElement} gap={7} paddingHorizontal={14} paddingVertical={7}>
         <CircleAlert color={theme.danger} size={15} />
         <Text color={theme.danger} flex={1} fontSize={scale(12)}>{error}</Text>
       </XStack>

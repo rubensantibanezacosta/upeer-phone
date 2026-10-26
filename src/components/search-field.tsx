@@ -7,6 +7,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 const HEIGHT = 50;
 const TEXT_HEIGHT = 22;
+const FIELD_RADIUS = HEIGHT / 2;
 
 type SearchFieldProps = {
   onChangeText: (value: string) => void;
@@ -19,7 +20,7 @@ export function SearchField({ onChangeText, placeholder, value }: SearchFieldPro
   const scale = useTextScale();
 
   return (
-    <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={8} gap={8} height={HEIGHT} paddingHorizontal={10}>
+    <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={FIELD_RADIUS} gap={8} height={HEIGHT} paddingHorizontal={14}>
       <Search color={theme.placeholder} size={18} />
       <Input
         backgroundColor="transparent"

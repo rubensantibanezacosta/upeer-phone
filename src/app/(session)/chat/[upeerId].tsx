@@ -285,7 +285,7 @@ export default function ChatRoute() {
         </KeyboardAvoidingView>
       </SafeAreaView>
       {insets.bottom > 0 ? (
-        <View pointerEvents="none" style={[styles.nativeBarBackground, { backgroundColor: theme.backgroundElement, height: insets.bottom }]} />
+        <View pointerEvents="none" style={[styles.nativeBarBackground, { backgroundColor: theme.background, height: insets.bottom }]} />
       ) : null}
       <ContactCardSheet action={contactCard.action} card={contactCard.selected} error={contactCard.error} onClose={contactCard.close} visible={contactCard.selected !== null} />
       <GroupInfoSheet groupId={isGroup && groupInfoOpen ? upeerId ?? null : null} onClose={() => setGroupInfoOpen(false)} />

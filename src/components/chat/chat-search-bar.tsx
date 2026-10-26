@@ -32,7 +32,7 @@ export function ChatSearchBar({ index, matches, onChangeQuery, onClose, onNext, 
   return (
     <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={2} paddingHorizontal={4} paddingVertical={8}>
       <BarAction label="Cerrar búsqueda" onPress={onClose}><X color={theme.text} size={22} /></BarAction>
-      <XStack alignItems="center" backgroundColor={theme.backgroundSelected} borderRadius={8} flex={1} gap={8} paddingLeft={12} style={styles.field}>
+      <XStack alignItems="center" backgroundColor={theme.backgroundSelected} borderRadius={23} flex={1} gap={8} paddingLeft={12} style={styles.field}>
         <Search color={theme.placeholder} size={18} />
         <Input
           accessibilityLabel="Buscar en la conversación"
@@ -64,7 +64,7 @@ export function ChatSearchBar({ index, matches, onChangeQuery, onClose, onNext, 
 }
 
 const styles = StyleSheet.create({
-  action: { alignItems: 'center', borderRadius: 8, height: 44, justifyContent: 'center', overflow: 'hidden', width: 36 },
+  action: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', overflow: 'hidden', width: 36 },
   field: { minHeight: 46 },
   input: { paddingHorizontal: 0, paddingVertical: 0 },
 });

@@ -25,18 +25,17 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
   const theme = useTheme();
   const hasText = value.trim().length > 0;
   return (
-    <XStack alignItems="flex-end" backgroundColor={theme.backgroundElement} borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={6} paddingHorizontal={8} paddingVertical={8}>
-      <ComposerAction label="Adjuntar archivo" onPress={onAttach}><Plus color={theme.textSecondary} size={24} /></ComposerAction>
+    <XStack alignItems="flex-end" backgroundColor={theme.backgroundSelected} borderRadius={24} gap={2} marginHorizontal={8} marginVertical={8} paddingHorizontal={4} paddingVertical={4}>
+      <ComposerAction label="Adjuntar archivo" onPress={onAttach}><Plus color={theme.textSecondary} size={22} /></ComposerAction>
       <Input
         accessibilityLabel="Mensaje"
-        backgroundColor={theme.backgroundSelected}
+        backgroundColor="transparent"
         borderWidth={0}
-        borderRadius={8}
         color={theme.text}
         flex={1}
         maxHeight={128}
         maxLength={4000}
-        minHeight={48}
+        minHeight={40}
         multiline
         onChangeText={onChange}
         placeholder="Escribe un mensaje..."
@@ -48,16 +47,15 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
         accessibilityLabel={hasText ? 'Enviar mensaje' : 'Grabar nota de voz'}
         accessibilityRole="button"
         onPress={hasText ? onSend : () => onUnavailable('Grabar nota de voz')}
-        style={styles.send}
+        style={styles.action}
       >
-        {hasText ? <Send color={theme.accent} size={24} /> : <Mic color={theme.accent} size={24} />}
+        {hasText ? <Send color={theme.accent} size={22} /> : <Mic color={theme.accent} size={22} />}
       </NativeRipplePressable>
     </XStack>
   );
 }
 
 const styles = StyleSheet.create({
-  action: { alignItems: 'center', borderRadius: 8, height: 48, justifyContent: 'center', overflow: 'hidden', width: 48 },
-  input: { paddingHorizontal: 16, paddingVertical: 12, textAlignVertical: 'center' },
-  send: { alignItems: 'center', borderRadius: 8, height: 48, justifyContent: 'center', width: 48 },
+  action: { alignItems: 'center', borderRadius: 20, height: 40, justifyContent: 'center', overflow: 'hidden', width: 40 },
+  input: { paddingHorizontal: 8, paddingVertical: 8, textAlignVertical: 'center' },
 });
