@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { TamaguiProvider, createTamagui } from 'tamagui';
 import { defaultConfig } from '@tamagui/config/v6';
 
+import { BiometricLockGate } from '@/components/biometric-lock-gate';
 import { SnackbarProvider } from '@/components/snackbar';
 import { ThemeChrome } from '@/components/theme-chrome';
 import { useResolvedColorScheme } from '@/hooks/use-resolved-color-scheme';
@@ -21,6 +22,7 @@ export default function RootLayout() {
         <SnackbarProvider>
           <ThemeChrome />
           <Stack screenOptions={{ headerShown: false }} />
+          <BiometricLockGate />
         </SnackbarProvider>
       </TamaguiProvider>
     </ThemeProvider>

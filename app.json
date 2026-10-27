@@ -69,6 +69,12 @@
         {
           "microphonePermission": "uPeer usa el micrófono para grabar notas de voz."
         }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "uPeer usa Face ID para desbloquear la app."
+        }
       ]
     ],
     "autolinking": {

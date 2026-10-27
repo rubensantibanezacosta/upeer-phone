@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
-import { Check, Copy, KeyRound, ShieldAlert } from '@tamagui/lucide-icons-2';
+import { Check, Copy, Fingerprint, KeyRound, ShieldAlert } from '@tamagui/lucide-icons-2';
 import { Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import type { UPeerIdentity } from '@/domain/identity-record';
+import { biometricRowDetail, biometricRowTitle, canUseBiometrics, type BiometricAvailability } from '@/domain/biometric-lock';
 import { describeRecoveryPhrase } from '@/domain/recovery-phrase';
+import { askForBiometrics, readBiometricAvailability, writeBiometricEnabled } from '@/services/biometric-lock';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
@@ -18,6 +20,24 @@ export function SecuritySettingsSection({ identity }: { identity: UPeerIdentity 
   const scale = useTextScale();
   const phrase = describeRecoveryPhrase(identity);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [biometrics, setBiometrics] = useState<BiometricAvailability>({ enabled: false, enrolled: false, hasHardware: false, kind: 'none' });
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void readBiometricAvailability().then(setBiometrics);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const toggleBiometrics = async () => {
+    const check = await askForBiometrics(biometrics.kind);
+    if (!check.success) {
+      if (check.message) Alert.alert('No se pudo comprobar', check.message);
+      return;
+    }
+    await writeBiometricEnabled(!biometrics.enabled);
+    setBiometrics(await readBiometricAvailability());
+  };
 
   const openPhrase = () => {
     Alert.alert(
@@ -43,6 +63,22 @@ export function SecuritySettingsSection({ identity }: { identity: UPeerIdentity 
           <Text color={theme.placeholder} fontSize={scale(12)}>{phrase.available ? 'Doce palabras, una sola vez' : phrase.reason}</Text>
         </YStack>
         <KeyRound color={theme.placeholder} size={18} />
+      </NativeRipplePressable>
+    </SettingsGroup>
+
+    <SettingsGroupLabel title="Bloqueo con huella">{biometrics.enabled ? 'Activo' : 'Sin activar'}</SettingsGroupLabel>
+    <SettingsGroup>
+      <NativeRipplePressable
+        accessibilityLabel={biometricRowTitle(biometrics)}
+        disabled={!canUseBiometrics(biometrics)}
+        onPress={() => void toggleBiometrics()}
+        style={[styles.row, { opacity: canUseBiometrics(biometrics) ? 1 : 0.55 }]}
+      >
+        <YStack flex={1} gap={2}>
+          <SizableText color={theme.text} fontSize={scale(15)} fontWeight="500">{biometricRowTitle(biometrics)}</SizableText>
+          <Text color={theme.placeholder} fontSize={scale(12)}>{biometricRowDetail(biometrics)}</Text>
+        </YStack>
+        <Fingerprint color={biometrics.enabled ? theme.accent : theme.placeholder} size={18} />
       </NativeRipplePressable>
     </SettingsGroup>
 
