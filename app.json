@@ -36,6 +36,15 @@
         }
       ],
       [
+        "expo-media-library",
+        {
+          "photosPermission": "uPeer accede a tus fotos para enviarlas por el chat.",
+          "savePhotosPermission": "uPeer guarda en tu galería las fotos que recibes.",
+          "isAccessMediaLocationEnabled": false,
+          "granularPermissions": ["photo", "video"]
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",

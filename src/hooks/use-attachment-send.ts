@@ -1,18 +1,33 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 
 import { useSnackbar } from '@/components/snackbar';
-import { pickAttachment, pickResultMessage, type PickSource } from '@/services/attachment-picker';
+import { pickAttachment, pickResultMessage, type PickSource, type PickedAttachment } from '@/services/attachment-picker';
 import { attachmentSendMessage, canSendAttachment, sendAttachment } from '@/services/attachment-send';
 
 const SOURCES: { label: string; source: PickSource }[] = [
   { label: 'Galería', source: 'library' },
-  { label: 'Cámara', source: 'camera' },
   { label: 'Documento', source: 'document' },
 ];
 
 export function useAttachmentSender(upeerId: string | undefined, onSent?: () => void) {
   const { showSnackbar } = useSnackbar();
+  const [cameraOpen, setCameraOpen] = useState(false);
+
+  const sendPicked = useCallback(async (attachment: PickedAttachment) => {
+    if (!canSendAttachment(upeerId)) {
+      showSnackbar('Todavía no se pueden enviar adjuntos a un grupo');
+      return;
+    }
+    try {
+      await sendAttachment({ attachment, upeerId: upeerId as string });
+      showSnackbar(`Enviando ${attachment.fileName}`);
+      onSent?.();
+    } catch (cause) {
+      console.warn('No se pudo enviar el adjunto.', cause);
+      showSnackbar(attachmentSendMessage(cause));
+    }
+  }, [onSent, showSnackbar, upeerId]);
 
   const send = useCallback(async (source: PickSource) => {
     if (!canSendAttachment(upeerId)) {
@@ -26,15 +41,8 @@ export function useAttachmentSender(upeerId: string | undefined, onSent?: () => 
       return;
     }
     if (result.status !== 'picked') return;
-    try {
-      await sendAttachment({ attachment: result.attachment, upeerId: upeerId as string });
-      showSnackbar(`Enviando ${result.attachment.fileName}`);
-      onSent?.();
-    } catch (cause) {
-      console.warn('No se pudo enviar el adjunto.', cause);
-      showSnackbar(attachmentSendMessage(cause));
-    }
-  }, [onSent, showSnackbar, upeerId]);
+    await sendPicked(result.attachment);
+  }, [sendPicked, showSnackbar, upeerId]);
 
   const attach = useCallback(() => {
     if (!canSendAttachment(upeerId)) {
@@ -47,9 +55,19 @@ export function useAttachmentSender(upeerId: string | undefined, onSent?: () => 
     ]);
   }, [send, showSnackbar, upeerId]);
 
-  const attachFromCamera = useCallback(() => {
-    void send('camera');
+  const closeCamera = useCallback(() => setCameraOpen(false), []);
+
+  const openLibrary = useCallback(() => {
+    void send('library').then(() => setCameraOpen(false));
   }, [send]);
 
-  return { attach, attachFromCamera };
+  const attachFromCamera = useCallback(() => {
+    if (!canSendAttachment(upeerId)) {
+      showSnackbar('Todavía no se pueden enviar adjuntos a un grupo');
+      return;
+    }
+    setCameraOpen(true);
+  }, [showSnackbar, upeerId]);
+
+  return { attach, attachFromCamera, cameraOpen, closeCamera, openLibrary, sendPicked };
 }

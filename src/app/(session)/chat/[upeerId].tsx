@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View, type FlatList, type ListRenderItemInfo, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CameraCaptureSheet } from '@/components/chat/camera-capture-sheet';
 import { ContactCardSheet } from '@/components/chat/contact-card-sheet';
 import { ChatHeader } from '@/components/chat/chat-header';
 import { GroupInfoSheet } from '@/components/chat/group-info-sheet';
@@ -184,7 +185,7 @@ export default function ChatRoute() {
   }, [showSnackbar]);
 
   const openAttachment = useAttachmentOpener();
-  const { attach, attachFromCamera } = useAttachmentSender(upeerId, refresh);
+  const { attach, attachFromCamera, cameraOpen, closeCamera, openLibrary, sendPicked } = useAttachmentSender(upeerId, refresh);
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offset = Math.max(0, event.nativeEvent.contentOffset.y);
@@ -287,6 +288,7 @@ export default function ChatRoute() {
       {insets.bottom > 0 ? (
         <View pointerEvents="none" style={[styles.nativeBarBackground, { backgroundColor: theme.background, height: insets.bottom }]} />
       ) : null}
+      <CameraCaptureSheet onClose={closeCamera} onOpenLibrary={openLibrary} onPick={(attachment) => { void sendPicked(attachment); }} visible={cameraOpen} />
       <ContactCardSheet action={contactCard.action} card={contactCard.selected} error={contactCard.error} onClose={contactCard.close} visible={contactCard.selected !== null} />
       <GroupInfoSheet groupId={isGroup && groupInfoOpen ? upeerId ?? null : null} onClose={() => setGroupInfoOpen(false)} />
       <ChatOptionsMenu isGroup={isGroup} messages={messages} name={alias} onChanged={refresh} onCloseChat={() => router.back()} onCloseMenu={() => setMenuOpen(false)} onOpenInfo={openInfo} onSearch={search.open} upeerId={upeerId ?? ''} visible={menuOpen} />
