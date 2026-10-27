@@ -98,7 +98,7 @@ func buildLinkedHandshakeVector(t *testing.T) []byte {
 		t.Fatal(err)
 	}
 	build := func(packetType string) linkedHandshakePacket {
-		packet, err := device.buildLinkedHandshakePacket(
+		packet, err := device.buildLinkedHandshakePacketAt(
 			packetType,
 			account.PublicKeyHex(),
 			account.UpeerID(),
@@ -106,6 +106,7 @@ func buildLinkedHandshakeVector(t *testing.T) []byte {
 			"móvil",
 			"",
 			string(fields),
+			time.UnixMilli(linkedVectorNow),
 		)
 		if err != nil {
 			t.Fatal(err)

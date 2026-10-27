@@ -22,6 +22,10 @@ func (identity *CryptoIdentity) BuildLinkedHandshakeAccept(accountPublicKeyHex, 
 }
 
 func (identity *CryptoIdentity) buildLinkedHandshakePacket(packetType, accountPublicKeyHex, accountUpeerID, senderYggAddress, alias, avatar, deviceJSON string) (string, error) {
+	return identity.buildLinkedHandshakePacketAt(packetType, accountPublicKeyHex, accountUpeerID, senderYggAddress, alias, avatar, deviceJSON, time.Now())
+}
+
+func (identity *CryptoIdentity) buildLinkedHandshakePacketAt(packetType, accountPublicKeyHex, accountUpeerID, senderYggAddress, alias, avatar, deviceJSON string, now time.Time) (string, error) {
 	if identity == nil || len(identity.secretKey) != ed25519.PrivateKeySize {
 		return "", errors.New("linked handshake requires the device secret key")
 	}
@@ -37,7 +41,7 @@ func (identity *CryptoIdentity) buildLinkedHandshakePacket(packetType, accountPu
 	if !isYggdrasilAddress(net.ParseIP(senderYggAddress)) {
 		return "", errors.New("senderYggAddress must be a Yggdrasil IPv6 address")
 	}
-	device, err := parseDeviceHandshakeFieldsFor(accountUpeerID, deviceJSON, time.Now().UnixMilli())
+	device, err := parseDeviceHandshakeFieldsFor(accountUpeerID, deviceJSON, now.UnixMilli())
 	if err != nil {
 		return "", err
 	}
@@ -64,7 +68,7 @@ func (identity *CryptoIdentity) buildLinkedHandshakePacket(packetType, accountPu
 		data["avatar"] = avatarValue
 	}
 	if packetType == handshakeRequest {
-		if proof := generateContactPowProof(accountUpeerID, time.Now()); proof != "" {
+		if proof := generateContactPowProof(accountUpeerID, now); proof != "" {
 			data["powProof"] = proof
 		}
 	}
