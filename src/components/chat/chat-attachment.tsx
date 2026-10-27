@@ -24,7 +24,7 @@ export function ChatAttachment({ info, isMine, onOpen, onUnavailable, status, ti
   return (
     <View style={styles.wrapper}>
       {info.kind === 'voice' ? (
-        <ChatVoiceNote isMine={isMine} onUnavailable={onUnavailable} status={status} timestamp={timestamp} />
+        <ChatVoiceNote info={info} isMine={isMine} onUnavailable={onUnavailable} status={status} timestamp={timestamp} />
       ) : info.kind === 'image' || info.kind === 'video' ? (
         <ChatMediaAttachment info={info} isMine={isMine} onOpen={open} onUnavailable={onUnavailable} />
       ) : (

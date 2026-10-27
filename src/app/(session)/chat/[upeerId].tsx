@@ -185,7 +185,7 @@ export default function ChatRoute() {
   }, [showSnackbar]);
 
   const openAttachment = useAttachmentOpener();
-  const { attach, attachFromCamera, cameraOpen, closeCamera, openLibrary, sendPicked } = useAttachmentSender(upeerId, refresh);
+  const { attach, attachFromCamera, cameraOpen, closeCamera, openLibrary, sendPicked, sendVoiceNote } = useAttachmentSender(upeerId, refresh);
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offset = Math.max(0, event.nativeEvent.contentOffset.y);
@@ -276,7 +276,8 @@ export default function ChatRoute() {
               onCancelContext: cancelContext,
               onDismissPreview: dismissPreview,
               onSend: () => { void submit(); },
-              onUnavailable: showUnavailable,
+              onVoiceError: showSnackbar,
+              onVoiceNote: (attachment) => { void sendVoiceNote(attachment); },
               preview: linkPreview,
               reply: buildReplyPreview(replyingTo ?? undefined, { mine: 'Tú', peer: alias || 'Contacto' }),
               value: text,

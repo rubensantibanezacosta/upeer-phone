@@ -38,10 +38,17 @@ describe('sendAttachment', () => {
       caption: null,
       chatUpeerId: 'grp-ignored',
       fileName: 'informe.pdf',
+      isVoiceNote: false,
       mimeType: 'application/pdf',
       path: '/cache/informe.pdf',
       upeerId: 'b'.repeat(64),
     }]);
+  });
+
+  it('marca las notas de voz para que el receptor las reconozca', async () => {
+    const voice = { path: '/cache/nueva.m4a', fileName: 'voice_note_1.m4a', mimeType: 'audio/mp4' };
+    await sendAttachment({ attachment: voice, isVoiceNote: true, upeerId: 'd'.repeat(64) });
+    expect(native.calls[0][0]).toMatchObject({ isVoiceNote: true, mimeType: 'audio/mp4' });
   });
 
   it('rechaza los grupos antes de llamar al transporte', async () => {

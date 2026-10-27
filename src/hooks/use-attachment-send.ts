@@ -14,13 +14,13 @@ export function useAttachmentSender(upeerId: string | undefined, onSent?: () => 
   const { showSnackbar } = useSnackbar();
   const [cameraOpen, setCameraOpen] = useState(false);
 
-  const sendPicked = useCallback(async (attachment: PickedAttachment) => {
+  const sendPicked = useCallback(async (attachment: PickedAttachment, isVoiceNote = false) => {
     if (!canSendAttachment(upeerId)) {
       showSnackbar('Todavía no se pueden enviar adjuntos a un grupo');
       return;
     }
     try {
-      await sendAttachment({ attachment, upeerId: upeerId as string });
+      await sendAttachment({ attachment, isVoiceNote, upeerId: upeerId as string });
       showSnackbar(`Enviando ${attachment.fileName}`);
       onSent?.();
     } catch (cause) {
@@ -69,5 +69,9 @@ export function useAttachmentSender(upeerId: string | undefined, onSent?: () => 
     setCameraOpen(true);
   }, [showSnackbar, upeerId]);
 
-  return { attach, attachFromCamera, cameraOpen, closeCamera, openLibrary, sendPicked };
+  const sendVoiceNote = useCallback(async (attachment: PickedAttachment) => {
+    await sendPicked(attachment, true);
+  }, [sendPicked]);
+
+  return { attach, attachFromCamera, cameraOpen, closeCamera, openLibrary, sendPicked, sendVoiceNote };
 }

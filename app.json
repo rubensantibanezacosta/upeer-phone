@@ -41,7 +41,10 @@
           "photosPermission": "uPeer accede a tus fotos para enviarlas por el chat.",
           "savePhotosPermission": "uPeer guarda en tu galería las fotos que recibes.",
           "isAccessMediaLocationEnabled": false,
-          "granularPermissions": ["photo", "video"]
+          "granularPermissions": [
+            "photo",
+            "video"
+          ]
         }
       ],
       [
@@ -60,7 +63,13 @@
         }
       ],
       "expo-sharing",
-      "./plugins/with-commons-io-version"
+      "./plugins/with-commons-io-version",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "uPeer usa el micrófono para grabar notas de voz."
+        }
+      ]
     ],
     "autolinking": {
       "nativeModulesDir": "./modules"

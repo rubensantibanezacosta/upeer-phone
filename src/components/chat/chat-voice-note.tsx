@@ -1,16 +1,20 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Play } from '@tamagui/lucide-icons-2';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { Pause, Play } from '@tamagui/lucide-icons-2';
 import { SizableText } from 'tamagui';
 
 import { MessageStatus } from '@/components/chat/message-status';
 import { formatChatTime } from '@/domain/chat-timeline';
+import { attachmentUri, canOpenAttachment, type AttachmentInfo } from '@/domain/attachment';
+import { formatVoiceDuration } from '@/domain/voice-note';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeerTransport.types';
 
 const WAVE_HEIGHTS = [6, 9, 12, 8, 13, 10, 7, 12, 9, 6, 11, 14, 8, 12, 7, 10, 13, 9, 6, 12, 10, 7, 12, 8, 11, 14, 9, 6, 12, 10, 8, 12];
 
-export function ChatVoiceNote({ isMine, onUnavailable, status, timestamp }: {
+export function ChatVoiceNote({ info, isMine, onUnavailable, status, timestamp }: {
+  info: AttachmentInfo;
   isMine: boolean;
   onUnavailable?: (label: string) => void;
   status?: ProtocolMessage['status'];
@@ -20,15 +24,35 @@ export function ChatVoiceNote({ isMine, onUnavailable, status, timestamp }: {
   const scale = useTextScale();
   const tint = isMine ? theme.bubbleMineText : theme.accent;
   const metaColor = isMine ? theme.bubbleMineText : theme.placeholder;
+  const uri = canOpenAttachment(info) ? attachmentUri(info) : null;
+  const player = useAudioPlayer(uri);
+  const playback = useAudioPlayerStatus(player);
+  const playing = playback.playing;
+  const position = playback.currentTime ?? 0;
+  const length = playback.duration ?? 0;
+  const Icon = playing ? Pause : Play;
+
+  const toggle = () => {
+    if (!uri) {
+      onUnavailable?.('Reproducir nota de voz');
+      return;
+    }
+    if (playing) {
+      player.pause();
+      return;
+    }
+    player.play();
+  };
 
   return (
-    <View accessibilityLabel="Nota de voz, pendiente de descarga" style={styles.row}>
+    <View accessibilityLabel={length > 0 ? `Nota de voz de ${formatVoiceDuration(length)}` : 'Nota de voz'} style={styles.row}>
       <Pressable
+        accessibilityLabel={playing ? 'Pausar nota de voz' : 'Reproducir nota de voz'}
         accessibilityRole="button"
-        onPress={() => onUnavailable?.('Reproducir nota de voz')}
+        onPress={toggle}
         style={({ pressed }) => [styles.play, pressed ? styles.playPressed : null]}
       >
-        <Play color={tint} fill={tint} size={20} strokeWidth={1.5} style={styles.playIcon} />
+        <Icon color={tint} fill={playing ? undefined : tint} size={20} strokeWidth={1.5} style={styles.playIcon} />
       </Pressable>
       <View style={styles.track}>
         <View style={styles.wave}>
@@ -37,7 +61,7 @@ export function ChatVoiceNote({ isMine, onUnavailable, status, timestamp }: {
           ))}
         </View>
         <View style={styles.meta}>
-          <SizableText color={metaColor} fontSize={scale(10)} opacity={0.8}>0:00</SizableText>
+          <SizableText color={metaColor} fontSize={scale(10)} opacity={0.8}>{formatVoiceDuration(position)} / {formatVoiceDuration(length)}</SizableText>
           <View style={styles.metaRight}>
             <SizableText color={metaColor} fontSize={scale(10)} opacity={0.8}>{formatChatTime(timestamp)}</SizableText>
             {isMine && status ? <MessageStatus color={metaColor} status={status} /> : null}

@@ -6,6 +6,7 @@ export type SendAttachmentInput = {
   attachment: PickedAttachment;
   caption?: string | null;
   chatUpeerId?: string | null;
+  isVoiceNote?: boolean;
 };
 
 export function canSendAttachment(upeerId: string | undefined): boolean {
@@ -22,6 +23,7 @@ export async function sendAttachment(input: SendAttachmentInput): Promise<string
     mimeType: input.attachment.mimeType,
     caption: input.caption ?? null,
     chatUpeerId: input.chatUpeerId ?? null,
+    isVoiceNote: input.isVoiceNote === true,
   });
 }
 
