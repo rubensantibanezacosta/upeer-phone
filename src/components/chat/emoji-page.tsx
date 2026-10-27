@@ -7,11 +7,7 @@ import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 export const EMOJI_MIN_CELL = 44;
-export const EMOJI_ROWS = 6;
-export const EMOJI_MIN_ROWS = 4;
-export const EMOJI_MAX_ROWS = 6;
-export const EMOJI_ROWS_RATIO = 0.32;
-export const EMOJI_EMPTY_HEIGHT = 132;
+export const EMOJI_ROWS = 3;
 
 export function emojiMetrics(width: number) {
   const columns = width > 0 ? Math.max(7, Math.floor(width / EMOJI_MIN_CELL)) : 7;

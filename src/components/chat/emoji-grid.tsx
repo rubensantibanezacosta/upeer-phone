@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from 'react-native';
+import { ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from 'react-native';
 import { Car, Clock, Flag, Heart, Lightbulb, PawPrint, Search, Smile, Utensils, Volleyball } from '@tamagui/lucide-icons-2';
 import { Input, SizableText, XStack, YStack } from 'tamagui';
 
 import { EMOJI_GROUPS, searchEmojis } from '@/domain/emoji-catalog';
 import { pageIndexFromOffset, pageOffset, shouldMountPage } from '@/domain/emoji-pager';
-import { EMOJI_EMPTY_HEIGHT, EMOJI_MAX_ROWS, EMOJI_MIN_ROWS, EMOJI_ROWS_RATIO, EmojiPage, emojiMetrics } from '@/components/chat/emoji-page';
+import { EMOJI_ROWS, EmojiPage, emojiMetrics } from '@/components/chat/emoji-page';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { getRecentEmojis } from '@/storage/recent-emojis-store';
 import { useRecentEmojis } from '@/hooks/use-recent-emojis';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
@@ -42,18 +43,16 @@ type EmojiGridProps = {
 export function EmojiGrid({ onPick }: EmojiGridProps) {
   const theme = useTheme();
   const scale = useTextScale();
-  const window = useWindowDimensions();
   const { recent, ready, remember } = useRecentEmojis();
   const pager = useRef<ScrollViewInstance>(null);
   const aligned = useRef(false);
   const [search, setSearch] = useState('');
   const [width, setWidth] = useState(0);
-  const [tabIndex, setTabIndex] = useState(1);
+  const [tabIndex, setTabIndex] = useState(() => (getRecentEmojis().length > 0 ? 0 : 1));
   const activeTab = useRef(tabIndex);
   const query = search.trim();
   const { cell, columns } = emojiMetrics(width);
-  const rows = width > 0 ? Math.min(EMOJI_MAX_ROWS, Math.max(EMOJI_MIN_ROWS, Math.floor((window.height * EMOJI_ROWS_RATIO) / cell))) : EMOJI_MIN_ROWS;
-  const gridHeight = rows * cell;
+  const gridHeight = EMOJI_ROWS * cell;
 
   const pages = useMemo<EmojiPageModel[]>(() => {
     if (query) return [{ id: 'search', label: 'Resultados de búsqueda', emojis: searchEmojis(query) }];
@@ -66,7 +65,6 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
 
   const activeIndex = query ? 0 : Math.min(tabIndex, pages.length - 1);
   const active = pages[activeIndex];
-  const pageHeight = active.emojis.length === 0 ? EMOJI_EMPTY_HEIGHT : gridHeight;
 
   const alignToTab = useCallback(() => {
     if (width === 0) return;
@@ -84,8 +82,11 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
   useEffect(() => {
     if (aligned.current || !ready || width === 0) return;
     aligned.current = true;
-    setTabIndex(recent.length > 0 ? 0 : 1);
-  }, [ready, recent.length, width]);
+    const next = recent.length > 0 ? 0 : 1;
+    setTabIndex(next);
+    activeTab.current = next;
+    pager.current?.scrollTo({ animated: false, x: pageOffset(next, width, pages.length), y: 0 });
+  }, [pages.length, ready, recent.length, width]);
 
   const pick = useCallback((emoji: string) => {
     remember(emoji);
@@ -141,14 +142,14 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
       ref={pager}
       scrollEnabled={!query && width > 0}
       showsHorizontalScrollIndicator={false}
-      style={[styles.pager, { height: pageHeight }]}
+      style={[styles.pager, { height: gridHeight }]}
     >
-      {pages.map((page, index) => <View key={page.id} style={{ height: pageHeight, width: width || 1 }}>
+      {pages.map((page, index) => <View key={page.id} style={{ height: gridHeight, width: width || 1 }}>
         {shouldMountPage(index, activeIndex) ? <EmojiPage
           cell={cell}
           columns={columns}
           emojis={page.emojis}
-          height={page.emojis.length === 0 ? EMOJI_EMPTY_HEIGHT : gridHeight}
+          height={gridHeight}
           onPick={pick}
           pageId={page.id}
         /> : null}

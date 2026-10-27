@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Keyboard, StyleSheet } from 'react-native';
 import { Mic, Plus, Send, Smile } from '@tamagui/lucide-icons-2';
 import { Input, XStack } from 'tamagui';
 
 import { EmojiPanel } from '@/components/chat/emoji-panel';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { insertAtSelection } from '@/domain/composer-text';
 import { useTheme } from '@/hooks/use-theme';
 
 type ChatComposerProps = {
@@ -26,7 +27,22 @@ function ComposerAction({ label, onPress, children }: { label: string; onPress: 
 export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable }: ChatComposerProps) {
   const theme = useTheme();
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [forcedSelection, setForcedSelection] = useState<{ end: number; start: number } | null>(null);
+  const selection = useRef({ end: value.length, start: value.length });
   const hasText = value.trim().length > 0;
+
+  const handleSelection = useCallback((event: { nativeEvent: { selection: { end: number; start: number } } }) => {
+    selection.current = event.nativeEvent.selection;
+    setForcedSelection(null);
+  }, []);
+
+  const insertEmoji = useCallback((emoji: string) => {
+    const next = insertAtSelection(value, selection.current, emoji);
+    selection.current = next.selection;
+    setForcedSelection(next.selection);
+    onChange(next.value);
+  }, [onChange, value]);
+
   const toggleEmoji = () => {
     setEmojiOpen((open) => {
       if (open) return false;
@@ -51,8 +67,10 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
         multiline
         onChangeText={onChange}
         onFocus={() => setEmojiOpen(false)}
+        onSelectionChange={handleSelection}
         placeholder="Escribe un mensaje..."
         placeholderTextColor={theme.placeholder}
+        selection={forcedSelection ?? undefined}
         style={styles.input}
         value={value}
       />
@@ -65,7 +83,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
         {hasText ? <Send color={theme.accent} size={22} /> : <Mic color={theme.accent} size={22} />}
       </NativeRipplePressable>
     </XStack>
-    {emojiOpen ? <EmojiPanel onPick={(emoji) => onChange(`${value}${emoji}`)} /> : null}
+    {emojiOpen ? <EmojiPanel onPick={insertEmoji} /> : null}
   </>;
 }
 
