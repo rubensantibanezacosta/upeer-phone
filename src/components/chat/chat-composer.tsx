@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Keyboard, StyleSheet, View, type StyleProp, type TextInputInstance, type ViewStyle } from 'react-native';
-import { Mic, Plus, Send, Smile } from '@tamagui/lucide-icons-2';
+import { Camera, Mic, Paperclip, Send, Smile } from '@tamagui/lucide-icons-2';
 import { Input, XStack } from 'tamagui';
 
 import { EmojiPanel } from '@/components/chat/emoji-panel';
@@ -13,6 +13,7 @@ type ChatComposerProps = {
   onChange: (value: string) => void;
   onSend: () => void;
   onAttach: () => void;
+  onCamera: () => void;
   onUnavailable: (label: string) => void;
 };
 
@@ -24,7 +25,7 @@ function ComposerAction({ label, onPress, style, children }: { children: React.R
   );
 }
 
-export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable }: ChatComposerProps) {
+export function ChatComposer({ value, onChange, onSend, onAttach, onCamera, onUnavailable }: ChatComposerProps) {
   const theme = useTheme();
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [forcedSelection, setForcedSelection] = useState<{ end: number; start: number } | null>(null);
@@ -102,38 +103,41 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
   }, []);
 
   return <>
-    <XStack alignItems="flex-end" backgroundColor={theme.backgroundSelected} borderRadius={24} gap={2} marginHorizontal={8} marginVertical={8} paddingHorizontal={4} paddingVertical={4}>
-      <ComposerAction label="Adjuntar archivo" onPress={onAttach}><Plus color={theme.textSecondary} size={22} /></ComposerAction>
-      <ComposerAction label="Abrir emojis" onPress={toggleEmoji} style={styles.emojiAction}><Smile color={emojiOpen ? theme.accent : theme.textSecondary} size={22} /></ComposerAction>
-      <View onTouchStart={returnToTyping} style={styles.inputWrap}>
-        <Input
-          accessibilityLabel="Mensaje"
-          backgroundColor="transparent"
-          borderWidth={0}
-          color={theme.text}
-          flex={1}
-          maxHeight={128}
-          maxLength={4000}
-          minHeight={44}
-          multiline
-          onChangeText={handleChangeText}
-          onFocus={handleFocus}
-          onSelectionChange={handleSelection}
-          placeholder="Escribe un mensaje..."
-          placeholderTextColor={theme.placeholder}
-          ref={input}
-          selection={forcedSelection ?? undefined}
-          selectionColor={theme.accent}
-          showSoftInputOnFocus={!emojiOpen}
-          style={styles.input}
-          value={value}
-        />
-      </View>
+    <XStack alignItems="flex-end" gap={6} marginHorizontal={8} marginVertical={8}>
+      <XStack alignItems="flex-end" backgroundColor={theme.backgroundSelected} borderRadius={24} flex={1} gap={2} paddingHorizontal={4} paddingVertical={4}>
+        <ComposerAction label="Abrir emojis" onPress={toggleEmoji}><Smile color={emojiOpen ? theme.accent : theme.textSecondary} size={22} /></ComposerAction>
+        <View onTouchStart={returnToTyping} style={styles.inputWrap}>
+          <Input
+            accessibilityLabel="Mensaje"
+            backgroundColor="transparent"
+            borderWidth={0}
+            color={theme.text}
+            flex={1}
+            maxHeight={128}
+            maxLength={4000}
+            minHeight={44}
+            multiline
+            onChangeText={handleChangeText}
+            onFocus={handleFocus}
+            onSelectionChange={handleSelection}
+            placeholder="Escribe un mensaje..."
+            placeholderTextColor={theme.placeholder}
+            ref={input}
+            selection={forcedSelection ?? undefined}
+            selectionColor={theme.accent}
+            showSoftInputOnFocus={!emojiOpen}
+            style={styles.input}
+            value={value}
+          />
+        </View>
+        <ComposerAction label="Adjuntar archivo" onPress={onAttach} style={styles.innerAction}><Paperclip color={theme.textSecondary} size={21} /></ComposerAction>
+        <ComposerAction label="Abrir cámara" onPress={onCamera} style={styles.innerAction}><Camera color={theme.textSecondary} size={21} /></ComposerAction>
+      </XStack>
       <NativeRipplePressable
         accessibilityLabel={hasText ? 'Enviar mensaje' : 'Grabar nota de voz'}
         accessibilityRole="button"
         onPress={hasText ? onSend : () => onUnavailable('Grabar nota de voz')}
-        style={styles.action}
+        style={[styles.sendAction, { backgroundColor: theme.backgroundSelected }]}
       >
         {hasText ? <Send color={theme.accent} size={22} /> : <Mic color={theme.accent} size={22} />}
       </NativeRipplePressable>
@@ -144,7 +148,8 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
 
 const styles = StyleSheet.create({
   action: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', overflow: 'hidden', width: 44 },
-  emojiAction: { marginLeft: -14 },
+  innerAction: { borderRadius: 20, height: 40, width: 40 },
   input: { paddingHorizontal: 8, paddingVertical: 8, textAlignVertical: 'center' },
   inputWrap: { flex: 1 },
+  sendAction: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', overflow: 'hidden', width: 44 },
 });

@@ -36,7 +36,7 @@ export function useAttachmentSender(upeerId: string | undefined, onSent?: () => 
     }
   }, [onSent, showSnackbar, upeerId]);
 
-  return useCallback(() => {
+  const attach = useCallback(() => {
     if (!canSendAttachment(upeerId)) {
       showSnackbar('Todavía no se pueden enviar adjuntos a un grupo');
       return;
@@ -46,4 +46,10 @@ export function useAttachmentSender(upeerId: string | undefined, onSent?: () => 
       { style: 'cancel' as const, text: 'Cancelar' },
     ]);
   }, [send, showSnackbar, upeerId]);
+
+  const attachFromCamera = useCallback(() => {
+    void send('camera');
+  }, [send]);
+
+  return { attach, attachFromCamera };
 }

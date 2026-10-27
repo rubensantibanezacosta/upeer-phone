@@ -99,11 +99,14 @@ export default function ChatRoute() {
   const {
     cancelContext,
     cancelForwarding,
+    dismissPreview,
     editing,
     error,
     forwarding,
     handleChange,
     handleForwarded,
+    linkPreview,
+    loadingPreview,
     replyingTo,
     setError,
     startEditing,
@@ -181,7 +184,7 @@ export default function ChatRoute() {
   }, [showSnackbar]);
 
   const openAttachment = useAttachmentOpener();
-  const attach = useAttachmentSender(upeerId, refresh);
+  const { attach, attachFromCamera } = useAttachmentSender(upeerId, refresh);
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offset = Math.max(0, event.nativeEvent.contentOffset.y);
@@ -265,11 +268,15 @@ export default function ChatRoute() {
               editing: editing !== null,
               error,
               hidden: isRequest,
+              loadingPreview,
               onChange: handleChange,
               onAttach: attach,
+              onCamera: attachFromCamera,
               onCancelContext: cancelContext,
+              onDismissPreview: dismissPreview,
               onSend: () => { void submit(); },
               onUnavailable: showUnavailable,
+              preview: linkPreview,
               reply: buildReplyPreview(replyingTo ?? undefined, { mine: 'Tú', peer: alias || 'Contacto' }),
               value: text,
             }}

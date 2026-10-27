@@ -3,8 +3,10 @@ import { CircleAlert, Pencil, Reply, X } from '@tamagui/lucide-icons-2';
 import { Text, XStack } from 'tamagui';
 
 import { ChatComposer } from '@/components/chat/chat-composer';
+import { ChatLinkPreviewBar } from '@/components/chat/chat-link-preview-bar';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import type { ReplyPreview } from '@/domain/chat-reply';
+import type { LinkPreview } from '@/domain/link-preview';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -12,16 +14,20 @@ type ChatComposerAreaProps = {
   editing: boolean;
   error: string;
   hidden: boolean;
+  loadingPreview: boolean;
   onChange: (value: string) => void;
   onCancelContext: () => void;
+  onDismissPreview: () => void;
   onSend: () => void;
   onAttach: () => void;
+  onCamera: () => void;
   onUnavailable: (label: string) => void;
+  preview: LinkPreview | null;
   reply: ReplyPreview | null;
   value: string;
 };
 
-export function ChatComposerArea({ editing, error, hidden, onChange, onAttach, onCancelContext, onSend, onUnavailable, reply, value }: ChatComposerAreaProps) {
+export function ChatComposerArea({ editing, error, hidden, loadingPreview, onChange, onAttach, onCamera, onCancelContext, onDismissPreview, onSend, onUnavailable, preview, reply, value }: ChatComposerAreaProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const context = editing ? { icon: <Pencil color={theme.accent} size={15} />, label: 'Editando mensaje', detail: '' }
@@ -49,7 +55,8 @@ export function ChatComposerArea({ editing, error, hidden, onChange, onAttach, o
         </NativeRipplePressable>
       </XStack>
     ) : null}
-    {hidden ? null : <ChatComposer onAttach={onAttach} onChange={onChange} onSend={onSend} onUnavailable={onUnavailable} value={value} />}
+    {hidden ? null : <ChatLinkPreviewBar loading={loadingPreview} onDismiss={onDismissPreview} preview={preview} />}
+    {hidden ? null : <ChatComposer onAttach={onAttach} onCamera={onCamera} onChange={onChange} onSend={onSend} onUnavailable={onUnavailable} value={value} />}
   </>;
 }
 
