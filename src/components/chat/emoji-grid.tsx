@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from 'react-native';
-import { Car, Clock, Flag, Heart, Lightbulb, PawPrint, Search, Smile, Utensils, Volleyball } from '@tamagui/lucide-icons-2';
+import { ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from 'react-native';import { Car, Clock, Flag, Heart, Lightbulb, PawPrint, Search, Smile, Utensils, Volleyball } from '@tamagui/lucide-icons-2';
 import { Input, SizableText, XStack, YStack } from 'tamagui';
 
 import { EMOJI_GROUPS, searchEmojis } from '@/domain/emoji-catalog';
-import { pageIndexFromOffset, pageOffset, shouldMountPage } from '@/domain/emoji-pager';
+import { pageIndexFromOffset, pageOffset } from '@/domain/emoji-pager';
 import { EMOJI_ROWS, EmojiPage, emojiMetrics } from '@/components/chat/emoji-page';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { getRecentEmojis } from '@/storage/recent-emojis-store';
@@ -13,6 +12,11 @@ import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 const RECENT_TAB = 'recent';
+const PRELOAD_STEP_MS = 60;
+
+function initialTabIndex(): number {
+  return getRecentEmojis().length > 0 ? 0 : 1;
+}
 
 const GROUP_ICONS: Record<string, typeof Smile> = {
   activities: Volleyball,
@@ -43,12 +47,12 @@ type EmojiGridProps = {
 export function EmojiGrid({ onPick }: EmojiGridProps) {
   const theme = useTheme();
   const scale = useTextScale();
-  const { recent, ready, remember } = useRecentEmojis();
+  const { recent, remember } = useRecentEmojis();
   const pager = useRef<ScrollViewInstance>(null);
-  const aligned = useRef(false);
   const [search, setSearch] = useState('');
   const [width, setWidth] = useState(0);
-  const [tabIndex, setTabIndex] = useState(() => (getRecentEmojis().length > 0 ? 0 : 1));
+  const [tabIndex, setTabIndex] = useState(initialTabIndex);
+  const [warm, setWarm] = useState<readonly number[]>(() => [initialTabIndex()]);
   const activeTab = useRef(tabIndex);
   const query = search.trim();
   const { cell, columns } = emojiMetrics(width);
@@ -66,6 +70,12 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
   const activeIndex = query ? 0 : Math.min(tabIndex, pages.length - 1);
   const active = pages[activeIndex];
 
+  const warmUp = useCallback((index: number) => {
+    setWarm((current) => (current.includes(index) ? current : [...current, index]));
+  }, []);
+
+  const isMounted = (index: number) => query || warm.includes(index) || Math.abs(index - activeIndex) <= 1;
+
   const alignToTab = useCallback(() => {
     if (width === 0) return;
     pager.current?.scrollTo({ animated: false, x: pageOffset(activeTab.current, width, pages.length), y: 0 });
@@ -73,20 +83,16 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
 
   useEffect(() => {
     activeTab.current = tabIndex;
-  }, [tabIndex]);
-
-  useEffect(() => {
     alignToTab();
-  }, [alignToTab]);
+  }, [alignToTab, tabIndex]);
 
   useEffect(() => {
-    if (aligned.current || !ready || width === 0) return;
-    aligned.current = true;
-    const next = recent.length > 0 ? 0 : 1;
-    setTabIndex(next);
-    activeTab.current = next;
-    pager.current?.scrollTo({ animated: false, x: pageOffset(next, width, pages.length), y: 0 });
-  }, [pages.length, ready, recent.length, width]);
+    if (query) return;
+    const timers = pages.map((_, index) => setTimeout(() => warmUp(index), PRELOAD_STEP_MS * (index + 1)));
+    return () => {
+      for (const timer of timers) clearTimeout(timer);
+    };
+  }, [pages, query, warmUp]);
 
   const pick = useCallback((emoji: string) => {
     remember(emoji);
@@ -100,13 +106,16 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
 
   const goToTab = useCallback((index: number) => {
     setTabIndex(index);
+    warmUp(index);
     pager.current?.scrollTo({ animated: true, x: pageOffset(index, width, pages.length), y: 0 });
-  }, [pages.length, width]);
+  }, [pages.length, warmUp, width]);
 
   const handleSettled = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (query) return;
-    setTabIndex(pageIndexFromOffset(event.nativeEvent.contentOffset.x, width, pages.length));
-  }, [pages.length, query, width]);
+    const next = pageIndexFromOffset(event.nativeEvent.contentOffset.x, width, pages.length);
+    setTabIndex(next);
+    warmUp(next);
+  }, [pages.length, query, warmUp, width]);
 
   return <YStack gap={8} onLayout={handleLayout}>
     <XStack alignItems="center" backgroundColor={theme.background} borderColor={theme.border} borderRadius={10} borderWidth={StyleSheet.hairlineWidth} gap={8} paddingHorizontal={10} paddingVertical={8}>
@@ -145,7 +154,7 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
       style={[styles.pager, { height: gridHeight }]}
     >
       {pages.map((page, index) => <View key={page.id} style={{ height: gridHeight, width: width || 1 }}>
-        {shouldMountPage(index, activeIndex) ? <EmojiPage
+        {isMounted(index) ? <EmojiPage
           cell={cell}
           columns={columns}
           emojis={page.emojis}

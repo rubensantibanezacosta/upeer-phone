@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { clampPageIndex, nextPageIndex, pageIndexFromOffset, pageOffset, shouldMountPage } from './emoji-pager';
+import { clampPageIndex, emojiRowWindow, nextPageIndex, pageIndexFromOffset, pageOffset } from './emoji-pager';
 
 describe('emoji pager', () => {
   it('clampa un indice suelto', () => {
@@ -42,11 +42,16 @@ describe('emoji pager', () => {
     expect(pageOffset(3, 0, 9)).toBe(0);
   });
 
-  it('solo monta la pagina activa y sus vecinas', () => {
-    expect(shouldMountPage(4, 4)).toBe(true);
-    expect(shouldMountPage(3, 4)).toBe(true);
-    expect(shouldMountPage(5, 4)).toBe(true);
-    expect(shouldMountPage(2, 4)).toBe(false);
-    expect(shouldMountPage(6, 4)).toBe(false);
+  it('recorta la ventana de filas al principio y al final', () => {
+    expect(emojiRowWindow(0, 46, 15, 3)).toEqual({ first: 0, last: 4 });
+    expect(emojiRowWindow(46 * 5, 46, 15, 3)).toEqual({ first: 4, last: 8 });
+    expect(emojiRowWindow(46 * 13, 46, 15, 3)).toEqual({ first: 12, last: 15 });
+    expect(emojiRowWindow(99999, 46, 15, 3)).toEqual({ first: 12, last: 15 });
+  });
+
+  it('devuelve una ventana vacia sin filas', () => {
+    expect(emojiRowWindow(0, 46, 0, 3)).toEqual({ first: 0, last: 0 });
+    expect(emojiRowWindow(10, 0, 15, 3)).toEqual({ first: 0, last: 0 });
+    expect(emojiRowWindow(Number.NaN, 46, 15, 3)).toEqual({ first: 0, last: 0 });
   });
 });
