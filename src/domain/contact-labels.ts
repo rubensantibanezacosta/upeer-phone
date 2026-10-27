@@ -7,3 +7,9 @@ export const CONTACT_STATUS_LABELS: Record<UPeerContact['status'], string> = {
   offline: 'Desconectado',
   blocked: 'Bloqueado',
 };
+
+export function presenceText(presence: string | null | undefined, status: UPeerContact['status']): string {
+  if (presence) return presence;
+  if (status === 'connected') return CONTACT_STATUS_LABELS.offline;
+  return CONTACT_STATUS_LABELS[status];
+}

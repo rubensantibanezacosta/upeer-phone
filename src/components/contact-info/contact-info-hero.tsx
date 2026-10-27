@@ -4,7 +4,7 @@ import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { InteractiveRow } from '@/components/contact-info/interactive-row';
-import { CONTACT_STATUS_LABELS } from '@/domain/contact-labels';
+import { presenceText } from '@/domain/contact-labels';
 import { getTrustLabel } from '@/domain/trust';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
@@ -34,7 +34,7 @@ export function ContactInfoHero({ alias, avatar, upeerId, status, presence = nul
       <Text color={theme.placeholder} ellipsizeMode="middle" fontFamily="monospace" fontSize={scale(12)} numberOfLines={1}>{upeerId}</Text>
       <XStack alignItems="center" gap={5}>
         <View style={[styles.dot, { backgroundColor: statusColor }]} />
-        <Text color={statusColor} fontSize={scale(12)}>{presence ?? CONTACT_STATUS_LABELS[status]}</Text>
+        <Text color={statusColor} fontSize={scale(12)}>{presenceText(presence, status)}</Text>
       </XStack>
       <Text color={theme.placeholder} fontSize={scale(12)}>{getTrustLabel(vouchScore)}</Text>
       <XStack gap={18} paddingTop={12}>

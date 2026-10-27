@@ -5,7 +5,7 @@ import { SizableText, Text, XStack, YStack } from 'tamagui';
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import type { ConversationActivity } from '@/domain/chat-preview';
-import { CONTACT_STATUS_LABELS } from '@/domain/contact-labels';
+import { presenceText } from '@/domain/contact-labels';
 import { getTrustLabel } from '@/domain/trust';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
@@ -37,7 +37,7 @@ function HeaderAction({ label, onPress, children }: { label: string; onPress: ()
 export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isRequest = false, activity = '', presence = null, onBack, onOpenInfo, onOpenMenu, onUnavailable }: ChatHeaderProps) {
   const theme = useTheme();
   const scale = useTextScale();
-  const subtitle = activity === 'recording' ? 'Grabando audio…' : activity === 'typing' ? 'Escribiendo…' : presence ?? CONTACT_STATUS_LABELS[status];
+  const subtitle = activity === 'recording' ? 'Grabando audio…' : activity === 'typing' ? 'Escribiendo…' : presenceText(presence, status);
 
   return (
     <XStack alignItems="center" backgroundColor={theme.background} borderBottomColor={theme.border} borderBottomWidth={StyleSheet.hairlineWidth} gap={4} minHeight={72} paddingHorizontal={8} paddingVertical={8}>
