@@ -12,6 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 const RECENT_TAB = 'recent';
 const CELL = 38;
 const VISIBLE_ROWS = 6;
+const EMPTY_HEIGHT = 132;
 const MIN_COLUMNS = 7;
 
 const GROUP_ICONS: Record<string, typeof Smile> = {
@@ -75,7 +76,7 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
     </NativeRipplePressable>;
   }, [groupId, theme.accent, theme.backgroundSelected, theme.placeholder]);
 
-  const gridHeight = VISIBLE_ROWS * cell;
+  const gridHeight = emojis.length === 0 ? EMPTY_HEIGHT : VISIBLE_ROWS * cell;
 
   return <YStack gap={8} onLayout={handleLayout}>
     <XStack alignItems="center" backgroundColor={theme.background} borderColor={theme.border} borderRadius={10} borderWidth={StyleSheet.hairlineWidth} gap={8} paddingHorizontal={10} paddingVertical={8}>
