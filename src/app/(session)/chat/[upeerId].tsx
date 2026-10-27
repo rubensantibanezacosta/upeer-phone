@@ -238,6 +238,7 @@ export default function ChatRoute() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.root, androidKeyboard > 0 ? { paddingBottom: androidKeyboard } : null]}>
           {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} /> : (
             <ChatTimelineList
+              activity={peerActivity}
               data={timeline}
               listRef={listRef}
               loading={loadingMessages}

@@ -2,13 +2,16 @@ import type { ReactElement } from 'react';
 import { memo, useCallback } from 'react';
 import { FlatList, StyleSheet, View, type ListRenderItemInfo, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 
+import { ChatActivityBubble } from '@/components/chat/chat-activity-bubble';
 import { ChatEmptyState } from '@/components/chat/chat-empty-state';
 import { ChatScrollButton } from '@/components/chat/chat-scroll-button';
+import type { ConversationActivity } from '@/domain/chat-preview';
 import type { ChatTimelineEntry } from '@/domain/chat-timeline';
 import type { ChatScrollToIndexFailure } from '@/hooks/use-chat-anchor';
 import { LoadingState } from '@/components/loading-state';
 
 type ChatTimelineListProps = {
+  activity?: ConversationActivity | '';
   data: ChatTimelineEntry[];
   listRef: React.RefObject<FlatList<ChatTimelineEntry> | null>;
   loading?: boolean;
@@ -21,7 +24,7 @@ type ChatTimelineListProps = {
 
 const keyExtractor = (entry: ChatTimelineEntry) => entry.message.id;
 
-export const ChatTimelineList = memo(function ChatTimelineList({ data, listRef, loading = false, onScroll, onScrollToIndexFailed, onScrollToLatest, renderItem, showScrollButton }: ChatTimelineListProps) {
+export const ChatTimelineList = memo(function ChatTimelineList({ activity = '', data, listRef, loading = false, onScroll, onScrollToIndexFailed, onScrollToLatest, renderItem, showScrollButton }: ChatTimelineListProps) {
   const fallbackScrollToIndexFailed = useCallback((info: ChatScrollToIndexFailure) => {
     listRef.current?.scrollToOffset({ animated: false, offset: info.averageItemLength * info.index });
     setTimeout(() => {
@@ -41,6 +44,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({ data, listRef, 
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
           keyExtractor={keyExtractor}
+          ListHeaderComponent={activity ? <ChatActivityBubble activity={activity} /> : undefined}
           maxToRenderPerBatch={16}
           onScroll={onScroll}
           onScrollToIndexFailed={onScrollToIndexFailed ?? fallbackScrollToIndexFailed}
