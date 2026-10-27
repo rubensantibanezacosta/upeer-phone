@@ -1,4 +1,5 @@
 import type { ChatListFilter } from './chat-list-filters';
+import { isSearchableContact, matchesChatChip, matchesContactChip, matchesGroupChip, matchesMessageChip } from './search-chip-predicates';
 import { searchExcerpt } from './chat-search';
 import { systemMessageText } from './system-message';
 
@@ -75,33 +76,6 @@ export function searchMessageText(content: string): string | null {
   return systemMessageText(raw) ?? searchExcerpt(raw);
 }
 
-function chatMatchesChip(chat: SearchChat, chip: ChatListFilter): boolean {
-  if (chip === 'unread') return chat.unread > 0;
-  if (chip === 'favorites') return chat.favorite === true;
-  if (chip === 'groups') return chat.group === true;
-  return true;
-}
-
-function groupMatchesChip(group: SearchGroup, chip: ChatListFilter, chats: Map<string, SearchChat>): boolean {
-  const chat = chats.get(group.groupId);
-  if (chip === 'unread') return (chat?.unread ?? 0) > 0;
-  if (chip === 'favorites') return chat?.favorite === true;
-  return true;
-}
-
-function messageMatchesChip(message: SearchMessage, chip: ChatListFilter, chats: Map<string, SearchChat>): boolean {
-  if (chip === 'all') return true;
-  const chat = chats.get(message.chatUpeerId);
-  if (!chat) return false;
-  return chatMatchesChip(chat, chip);
-}
-
-function contactMatchesChip(contact: SearchContact, chip: ChatListFilter, chats: Map<string, SearchChat>): boolean {
-  if (chip === 'favorites') return contact.favorite === true;
-  if (chip === 'unread') return (chats.get(contact.upeerId)?.unread ?? 0) > 0;
-  return true;
-}
-
 function contactRank(contact: SearchContact, needle: string): number {
   const name = normalizeSearchText(contact.name);
   if (name === needle) return 0;
@@ -115,7 +89,7 @@ export function buildSearchSections(query: string, chip: ChatListFilter, data: S
 
   const chats = new Map(data.chats.map((chat) => [chat.upeerId, chat]));
   const chatRows = data.chats
-    .filter((chat) => chatMatchesChip(chat, chip)
+    .filter((chat) => matchesChatChip(chat, chip)
       && (normalizeSearchText(chat.title).includes(needle) || chat.upeerId.toLowerCase().includes(needle)))
     .sort((left, right) => Number(right.pinned === true) - Number(left.pinned === true) || right.timestamp - left.timestamp)
     .map<SearchRow>((chat) => ({
@@ -127,14 +101,14 @@ export function buildSearchSections(query: string, chip: ChatListFilter, data: S
   const listedChats = new Set(chatRows.map((row) => (row.target.kind === 'chat' ? row.target.upeerId : '')));
 
   const matchingContacts = data.contacts
-    .filter((contact) => contact.blocked !== true)
+    .filter(isSearchableContact)
     .filter((contact) => normalizeSearchText(contact.name).includes(needle)
       || contact.upeerId.toLowerCase().startsWith(needle)
       || normalizeSearchText(contact.address).includes(needle));
   const contactRows = chip === 'groups'
     ? []
     : matchingContacts
-      .filter((contact) => contactMatchesChip(contact, chip, chats))
+      .filter((contact) => matchesContactChip(contact, chip, chats))
       .filter((contact) => !listedChats.has(contact.upeerId))
       .sort((left, right) => contactRank(left, needle) - contactRank(right, needle) || left.name.localeCompare(right.name))
       .map<SearchRow>((contact) => ({
@@ -145,10 +119,10 @@ export function buildSearchSections(query: string, chip: ChatListFilter, data: S
       }));
 
   const ownedGroups = data.groups
-    .filter((group) => groupMatchesChip(group, chip, chats) && normalizeSearchText(group.name).includes(needle))
+    .filter((group) => matchesGroupChip(group, chip, chats) && normalizeSearchText(group.name).includes(needle))
     .map<{ group: SearchGroup; subtitle: string }>((group) => ({ group, subtitle: `${group.members.length} miembros` }));
   const sharedGroups = matchingContacts.flatMap((contact) => data.groups
-    .filter((group) => groupMatchesChip(group, chip, chats) && group.members.includes(contact.upeerId))
+    .filter((group) => matchesGroupChip(group, chip, chats) && group.members.includes(contact.upeerId))
     .map((group) => ({ group, subtitle: `Compartido con ${contact.name}` })));
   const listedGroups = new Set<string>();
   const groupRows = [...ownedGroups, ...sharedGroups]
@@ -167,7 +141,7 @@ export function buildSearchSections(query: string, chip: ChatListFilter, data: S
     }));
 
   const messageRows = data.messages
-    .filter((message) => messageMatchesChip(message, chip, chats))
+    .filter((message) => matchesMessageChip(message, chip, chats))
     .filter((message) => normalizeSearchText(searchMessageText(message.content) ?? '').includes(needle))
     .sort((left, right) => right.timestamp - left.timestamp)
     .map<SearchRow>((message) => ({

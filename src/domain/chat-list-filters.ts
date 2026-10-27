@@ -1,3 +1,5 @@
+import { matchesChatChip } from './search-chip-predicates';
+
 export type ChatListFilter = 'all' | 'unread' | 'favorites' | 'groups';
 
 type FilterableEntry = {
@@ -25,10 +27,7 @@ export function matchesChatQuery(entry: FilterableEntry, query: string): boolean
 }
 
 export function filterChatEntries<T extends FilterableEntry>(entries: T[], filter: ChatListFilter, query: string): T[] {
-  return entries.filter((entry) => matchesChatQuery(entry, query)
-    && (filter !== 'groups' || entry.group === true)
-    && (filter !== 'unread' || entry.unread > 0)
-    && (filter !== 'favorites' || entry.favorite === true));
+  return entries.filter((entry) => matchesChatQuery(entry, query) && matchesChatChip(entry, filter));
 }
 
 export function isChatFilterActive(filter: ChatListFilter, query: string): boolean {
