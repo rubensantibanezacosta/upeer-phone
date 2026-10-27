@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { SizableText } from 'tamagui';
 
@@ -25,12 +25,19 @@ type EmojiPageProps = {
   emojis: string[];
   height: number;
   onPick: (emoji: string) => void;
+  pageId: string;
 };
 
-export const EmojiPage = memo(function EmojiPage({ cell, columns, emojis, height, onPick }: EmojiPageProps) {
+export const EmojiPage = memo(function EmojiPage({ cell, columns, emojis, height, onPick, pageId }: EmojiPageProps) {
   const theme = useTheme();
   const scale = useTextScale();
-  const renderItem = useCallback(({ item }: { item: string }) => <EmojiCell cell={cell} emoji={item} onPick={onPick} />, [cell, onPick]);
+  const list = useRef<FlatList<string>>(null);
+  const color = theme.text;
+  const renderItem = useCallback(({ item }: { item: string }) => <EmojiCell cell={cell} color={color} emoji={item} onPick={onPick} />, [cell, color, onPick]);
+
+  useEffect(() => {
+    list.current?.scrollToOffset({ animated: false, offset: 0 });
+  }, [pageId]);
 
   if (emojis.length === 0) {
     return <View style={[styles.empty, { height }]}>
@@ -41,21 +48,23 @@ export const EmojiPage = memo(function EmojiPage({ cell, columns, emojis, height
   return <FlatList
     data={emojis}
     getItemLayout={(_, index) => ({ index, length: cell, offset: Math.floor(index / columns) * cell })}
-    initialNumToRender={columns * EMOJI_ROWS}
-    key={`${columns}-${Math.ceil(emojis.length / columns)}`}
-    keyExtractor={(emoji, index) => `${index}-${emoji}`}
+    initialNumToRender={columns * (EMOJI_ROWS + 2)}
+    key={`grid-${columns}`}
+    keyExtractor={(_, index) => String(index)}
     keyboardShouldPersistTaps="handled"
-    maxToRenderPerBatch={columns * EMOJI_ROWS}
+    maxToRenderPerBatch={columns * (EMOJI_ROWS + 2)}
     numColumns={columns}
+    ref={list}
+    removeClippedSubviews
     renderItem={renderItem}
     showsVerticalScrollIndicator={false}
     style={{ height }}
+    updateCellsBatchingPeriod={16}
     windowSize={3}
   />;
 });
 
-const EmojiCell = memo(function EmojiCell({ cell, emoji, onPick }: { cell: number; emoji: string; onPick: (emoji: string) => void }) {
-  const theme = useTheme();
+const EmojiCell = memo(function EmojiCell({ cell, color, emoji, onPick }: { cell: number; color: string; emoji: string; onPick: (emoji: string) => void }) {
   const size = Math.max(16, Math.round(cell * 0.58));
   return <NativeRipplePressable
     accessibilityLabel={`Emoji ${emoji}`}
@@ -63,7 +72,7 @@ const EmojiCell = memo(function EmojiCell({ cell, emoji, onPick }: { cell: numbe
     onPress={() => onPick(emoji)}
     style={[styles.cell, { height: cell, width: cell }]}
   >
-    <Text allowFontScaling={false} style={[styles.glyph, { color: theme.text, fontSize: size, lineHeight: cell }]}>{emoji}</Text>
+    <Text allowFontScaling={false} style={[styles.glyph, { color, fontSize: size, lineHeight: cell }]}>{emoji}</Text>
   </NativeRipplePressable>;
 });
 

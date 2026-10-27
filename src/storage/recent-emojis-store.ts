@@ -5,6 +5,7 @@ import { pushRecentEmoji } from '@/domain/emoji-catalog';
 const STORAGE_KEY = 'upeer.recentEmojis';
 
 let current: string[] = [];
+let loaded = false;
 let loading: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
@@ -21,14 +22,20 @@ export function getRecentEmojis(): string[] {
   return current;
 }
 
+export function areRecentEmojisLoaded(): boolean {
+  return loaded;
+}
+
 export async function loadRecentEmojis(): Promise<void> {
   if (loading) return loading;
   loading = Storage.getItemAsync(STORAGE_KEY)
     .then((raw) => {
       current = parseRecentEmojis(raw);
+      loaded = true;
       emit();
     })
     .catch((cause: unknown) => {
+      loaded = true;
       console.warn('No se pudieron cargar los emojis recientes.', cause);
     });
   return loading;
