@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { StyleSheet } from 'react-native';
-import { Mic, Plus, Send } from '@tamagui/lucide-icons-2';
+import { Mic, Plus, Send, Smile } from '@tamagui/lucide-icons-2';
 import { Input, XStack } from 'tamagui';
 
+import { EmojiGrid } from '@/components/chat/emoji-grid';
+import { EmojiSheet } from '@/components/chat/emoji-sheet';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -23,10 +26,12 @@ function ComposerAction({ label, onPress, children }: { label: string; onPress: 
 
 export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable }: ChatComposerProps) {
   const theme = useTheme();
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const hasText = value.trim().length > 0;
-  return (
+  return <>
     <XStack alignItems="flex-end" backgroundColor={theme.backgroundSelected} borderRadius={24} gap={2} marginHorizontal={8} marginVertical={8} paddingHorizontal={4} paddingVertical={4}>
       <ComposerAction label="Adjuntar archivo" onPress={onAttach}><Plus color={theme.textSecondary} size={22} /></ComposerAction>
+      <ComposerAction label="Abrir emojis" onPress={() => setEmojiOpen(true)}><Smile color={theme.textSecondary} size={22} /></ComposerAction>
       <Input
         accessibilityLabel="Mensaje"
         backgroundColor="transparent"
@@ -52,7 +57,10 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
         {hasText ? <Send color={theme.accent} size={22} /> : <Mic color={theme.accent} size={22} />}
       </NativeRipplePressable>
     </XStack>
-  );
+    <EmojiSheet icon={<Smile color={theme.accent} size={18} />} onClose={() => setEmojiOpen(false)} title="Emojis" visible={emojiOpen}>
+      <EmojiGrid onPick={(emoji) => onChange(`${value}${emoji}`)} />
+    </EmojiSheet>
+  </>;
 }
 
 const styles = StyleSheet.create({

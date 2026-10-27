@@ -1,10 +1,11 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Copy, Forward, Pencil, Reply, RotateCcw, Trash2, X } from '@tamagui/lucide-icons-2';
+import { Copy, Forward, Pencil, Reply, RotateCcw, Smile, Trash2, X } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack } from 'tamagui';
 
 import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeerTransport.types';
+import { EmojiGrid } from '@/components/chat/emoji-grid';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { QUICK_REACTIONS, type ReactionSummary } from '@/domain/chat-reactions';
 import { useTextScale } from '@/hooks/use-text-scale';
@@ -47,46 +48,55 @@ export function ChatMessageActions({ message, reactions, canEdit, canForward, ca
   const theme = useTheme();
   const scale = useTextScale();
   const insets = useSafeAreaInsets();
+  const [gridMessageId, setGridMessageId] = useState<string | null>(null);
   if (!message) return null;
+  const gridOpen = gridMessageId === message.id;
 
   return (
-    <Modal animationType="fade" onRequestClose={onClose} presentationStyle="overFullScreen" statusBarTranslucent transparent visible>
-      <View style={styles.overlay}>
-        <Pressable accessibilityLabel="Cerrar acciones del mensaje" onPress={onClose} style={[StyleSheet.absoluteFill, { backgroundColor: theme.backdrop }]} />
-        <View accessibilityViewIsModal style={[styles.menu, { backgroundColor: theme.backgroundElement, borderColor: theme.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <XStack alignItems="center" gap={12} paddingHorizontal={16} paddingVertical={14}>
-            <SizableText color={theme.text} flex={1} fontSize={scale(16)} fontWeight="700" numberOfLines={1}>Mensaje</SizableText>
-            <NativeRipplePressable accessibilityLabel="Cerrar menú" onPress={onClose} style={styles.closeButton}><X color={theme.placeholder} size={18} /></NativeRipplePressable>
-          </XStack>
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <XStack gap={8} justifyContent="space-between" paddingHorizontal={16} paddingVertical={12}>
-            {QUICK_REACTIONS.map((emoji) => {
-              const active = reactions.some((reaction) => reaction.emoji === emoji && reaction.mine);
-              return (
-                <NativeRipplePressable
-                  accessibilityLabel={`Reaccionar con ${emoji}`}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  key={emoji}
-                  onPress={() => onToggleReaction(message, emoji)}
-                  style={[styles.emoji, { backgroundColor: active ? theme.accent : theme.background, borderColor: active ? theme.accent : theme.border }]}
-                >
-                  <Text fontSize={20}>{emoji}</Text>
-                </NativeRipplePressable>
-              );
-            })}
-          </XStack>
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          {canRetry ? <ActionRow color={theme.danger} icon={<RotateCcw color={theme.danger} size={19} />} label="Reintentar envío" onPress={() => onRetry(message)} /> : null}
-          {canEdit ? <ActionRow color={theme.text} icon={<Pencil color={theme.text} size={19} />} label="Editar mensaje" onPress={() => onEdit(message)} /> : null}
-          <ActionRow color={theme.text} icon={<Reply color={theme.text} size={19} />} label="Responder" onPress={() => onReply(message)} />
-          {canForward ? <ActionRow color={theme.text} icon={<Forward color={theme.text} size={19} />} label="Reenviar" onPress={() => onForward(message)} /> : null}
-          <ActionRow color={theme.text} icon={<Copy color={theme.text} size={19} />} label="Copiar texto" onPress={() => onCopy(message)} />
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <ActionRow color={theme.danger} icon={<Trash2 color={theme.danger} size={19} />} label="Eliminar para todos" onPress={() => onDelete(message)} />
+    <>
+      <Modal animationType="fade" onRequestClose={onClose} presentationStyle="overFullScreen" statusBarTranslucent transparent visible>
+        <View style={styles.overlay}>
+          <Pressable accessibilityLabel="Cerrar acciones del mensaje" onPress={onClose} style={[StyleSheet.absoluteFill, { backgroundColor: theme.backdrop }]} />
+          <View accessibilityViewIsModal style={[styles.menu, { backgroundColor: theme.backgroundElement, borderColor: theme.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
+            <XStack alignItems="center" gap={12} paddingHorizontal={16} paddingVertical={14}>
+              <SizableText color={theme.text} flex={1} fontSize={scale(16)} fontWeight="700" numberOfLines={1}>Mensaje</SizableText>
+              <NativeRipplePressable accessibilityLabel="Cerrar menú" onPress={onClose} style={styles.closeButton}><X color={theme.placeholder} size={18} /></NativeRipplePressable>
+            </XStack>
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            {gridOpen ? <View style={styles.gridWrap}>
+              <EmojiGrid onPick={(emoji) => onToggleReaction(message, emoji)} />
+            </View> : <XStack gap={8} justifyContent="space-between" paddingHorizontal={16} paddingVertical={12}>
+              {QUICK_REACTIONS.map((emoji) => {
+                const active = reactions.some((reaction) => reaction.emoji === emoji && reaction.mine);
+                return (
+                  <NativeRipplePressable
+                    accessibilityLabel={`Reaccionar con ${emoji}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    key={emoji}
+                    onPress={() => onToggleReaction(message, emoji)}
+                    style={[styles.emoji, { backgroundColor: active ? theme.accent : theme.background, borderColor: active ? theme.accent : theme.border }]}
+                  >
+                    <Text fontSize={20}>{emoji}</Text>
+                  </NativeRipplePressable>
+                );
+              })}
+              <NativeRipplePressable accessibilityLabel="Buscar otro emoji" accessibilityRole="button" onPress={() => setGridMessageId(message.id)} style={[styles.emoji, { backgroundColor: theme.background, borderColor: theme.border }]}>
+                <Smile color={theme.textSecondary} size={20} />
+              </NativeRipplePressable>
+            </XStack>}
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            {canRetry ? <ActionRow color={theme.danger} icon={<RotateCcw color={theme.danger} size={19} />} label="Reintentar envío" onPress={() => onRetry(message)} /> : null}
+            {canEdit ? <ActionRow color={theme.text} icon={<Pencil color={theme.text} size={19} />} label="Editar mensaje" onPress={() => onEdit(message)} /> : null}
+            <ActionRow color={theme.text} icon={<Reply color={theme.text} size={19} />} label="Responder" onPress={() => onReply(message)} />
+            {canForward ? <ActionRow color={theme.text} icon={<Forward color={theme.text} size={19} />} label="Reenviar" onPress={() => onForward(message)} /> : null}
+            <ActionRow color={theme.text} icon={<Copy color={theme.text} size={19} />} label="Copiar texto" onPress={() => onCopy(message)} />
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <ActionRow color={theme.danger} icon={<Trash2 color={theme.danger} size={19} />} label="Eliminar para todos" onPress={() => onDelete(message)} />
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+    </>
   );
 }
 
@@ -95,6 +105,7 @@ const styles = StyleSheet.create({
   menu: { borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, elevation: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { height: 8, width: 0 }, shadowOpacity: 0.32, shadowRadius: 18 },
   action: { alignItems: 'center', flexDirection: 'row', gap: 14, minHeight: 52, paddingHorizontal: 18 },
   emoji: { alignItems: 'center', borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, flex: 1, height: 44, justifyContent: 'center' },
+  gridWrap: { gap: 10, paddingHorizontal: 16, paddingVertical: 12 },
   closeButton: { alignItems: 'center', borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
   divider: { height: StyleSheet.hairlineWidth, marginHorizontal: 16 },
 });
