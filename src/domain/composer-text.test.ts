@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { deleteBeforeSelection, insertAtSelection } from '@/domain/composer-text';
+import { deleteBeforeSelection, insertAtSelection, trackedSelection } from '@/domain/composer-text';
 
 describe('insertAtSelection', () => {
   it('inserta en el cursor y deja el cursor tras el texto insertado', () => {
@@ -87,5 +87,29 @@ describe('deleteBeforeSelection', () => {
       selection: { end: 0, start: 0 },
       value: '',
     });
+  });
+});
+
+describe('trackedSelection', () => {
+  it('conserva el cursor guardado mientras el panel de emojis manda', () => {
+    expect(trackedSelection(true, { end: 4, start: 4 }, { end: 0, start: 0 }, true)).toEqual({ end: 4, start: 4 });
+    expect(trackedSelection(true, { end: 4, start: 4 }, { end: 9, start: 9 }, true)).toEqual({ end: 4, start: 4 });
+  });
+
+  it('sigue al campo cuando ya no hay panel abierto', () => {
+    expect(trackedSelection(false, { end: 4, start: 4 }, { end: 9, start: 9 }, true)).toEqual({ end: 9, start: 9 });
+  });
+
+  it('no pierde el cursor si el campo no informa de ninguna selección', () => {
+    expect(trackedSelection(false, { end: 4, start: 4 }, null, true)).toEqual({ end: 4, start: 4 });
+    expect(trackedSelection(false, { end: 4, start: 4 }, undefined, true)).toEqual({ end: 4, start: 4 });
+  });
+
+  it('ignora el cero que manda el campo al perder el foco', () => {
+    expect(trackedSelection(false, { end: 4, start: 4 }, { end: 0, start: 0 }, false)).toEqual({ end: 4, start: 4 });
+  });
+
+  it('acepta el cero del campo cuando el usuario toca el principio', () => {
+    expect(trackedSelection(false, { end: 4, start: 4 }, { end: 0, start: 0 }, true)).toEqual({ end: 0, start: 0 });
   });
 });

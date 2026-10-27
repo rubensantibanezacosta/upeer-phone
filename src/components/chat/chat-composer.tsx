@@ -5,7 +5,7 @@ import { Input, XStack } from 'tamagui';
 
 import { EmojiPanel } from '@/components/chat/emoji-panel';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
-import { deleteBeforeSelection, insertAtSelection } from '@/domain/composer-text';
+import { deleteBeforeSelection, insertAtSelection, trackedSelection } from '@/domain/composer-text';
 import { useTheme } from '@/hooks/use-theme';
 
 const INPUT_MIN_HEIGHT = 44;
@@ -41,6 +41,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onCamera, onUn
   const text = useRef(value);
   const input = useRef<TextInputInstance | null>(null);
   const caretKept = useRef(false);
+  const focused = useRef(false);
   const hasText = value.trim().length > 0;
 
   useEffect(() => {
@@ -58,13 +59,20 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onCamera, onUn
   }, [emojiOpen]);
 
   const handleSelection = useCallback((event: { nativeEvent: { selection: { end: number; start: number } } }) => {
-    selection.current = event.nativeEvent.selection;
-    setForcedSelection((current) => (current === null ? current : null));
-  }, []);
+    const next = trackedSelection(emojiOpen, selection.current, event.nativeEvent.selection, focused.current);
+    if (next === selection.current) return;
+    selection.current = next;
+    setForcedSelection(null);
+  }, [emojiOpen]);
 
   const handleFocus = useCallback(() => {
+    focused.current = true;
     if (caretKept.current) return;
     setEmojiOpen(false);
+  }, []);
+
+  const handleBlur = useCallback(() => {
+    focused.current = false;
   }, []);
 
   const handleChangeText = useCallback((next: string) => {
@@ -101,12 +109,13 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onCamera, onUn
 
   const returnToTyping = useCallback(() => {
     if (!emojiOpen) return;
+    setForcedSelection(selection.current);
     setEmojiOpen(false);
-    input.current?.blur();
     setTimeout(() => input.current?.focus(), 0);
   }, [emojiOpen]);
 
   const restoreCaret = useCallback(() => {
+    setForcedSelection(selection.current);
     input.current?.focus();
   }, []);
 
@@ -126,6 +135,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onCamera, onUn
             minHeight={INPUT_MIN_HEIGHT}
             multiline
             onChangeText={handleChangeText}
+            onBlur={handleBlur}
             onFocus={handleFocus}
             onSelectionChange={handleSelection}
             placeholder="Escribe un mensaje..."

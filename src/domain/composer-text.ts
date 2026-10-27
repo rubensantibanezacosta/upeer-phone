@@ -26,3 +26,16 @@ export function deleteBeforeSelection(value: string, selection: TextSelection): 
   const kept = head.join('');
   return { selection: { end: kept.length, start: kept.length }, value: `${kept}${value.slice(start)}` };
 }
+
+export function trackedSelection(
+  caretPinned: boolean,
+  current: TextSelection,
+  incoming: TextSelection | null | undefined,
+  focused: boolean,
+): TextSelection {
+  if (caretPinned) return current;
+  if (!incoming) return current;
+  const wipedByBlur = !focused && incoming.start === 0 && incoming.end === 0 && (current.start > 0 || current.end > 0);
+  if (wipedByBlur) return current;
+  return incoming;
+}
