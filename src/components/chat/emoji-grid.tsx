@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Animated, FlatList, PanResponder, StyleSheet, type LayoutChangeEvent } from 'react-native';
+import { Animated, FlatList, PanResponder, StyleSheet, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { Car, Clock, Flag, Heart, Lightbulb, PawPrint, Search, Smile, Utensils, Volleyball } from '@tamagui/lucide-icons-2';
 import { Input, SizableText, XStack, YStack } from 'tamagui';
 
 import { EMOJI_GROUPS, emojisForGroup, searchEmojis } from '@/domain/emoji-catalog';
 import { nextPageIndex } from '@/domain/emoji-pager';
-import { EMOJI_EMPTY_HEIGHT, EMOJI_ROWS, EmojiPage, emojiMetrics } from '@/components/chat/emoji-page';
+import { EMOJI_EMPTY_HEIGHT, EMOJI_MAX_ROWS, EMOJI_MIN_ROWS, EMOJI_ROWS_RATIO, EmojiPage, emojiMetrics } from '@/components/chat/emoji-page';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useRecentEmojis } from '@/hooks/use-recent-emojis';
 import { useTextScale } from '@/hooks/use-text-scale';
@@ -35,12 +35,12 @@ function pageHeight(emojis: string[], gridHeight: number): number {
 
 type EmojiGridProps = {
   onPick: (emoji: string) => void;
-  rows?: number;
 };
 
-export function EmojiGrid({ onPick, rows = EMOJI_ROWS }: EmojiGridProps) {
+export function EmojiGrid({ onPick }: EmojiGridProps) {
   const theme = useTheme();
   const scale = useTextScale();
+  const window = useWindowDimensions();
   const { recent, remember } = useRecentEmojis();
   const [drag] = useState(() => new Animated.Value(0));
   const [search, setSearch] = useState('');
@@ -48,6 +48,7 @@ export function EmojiGrid({ onPick, rows = EMOJI_ROWS }: EmojiGridProps) {
   const [tabIndex, setTabIndex] = useState(1);
   const query = search.trim();
   const { cell, columns } = emojiMetrics(width);
+  const rows = width > 0 ? Math.min(EMOJI_MAX_ROWS, Math.max(EMOJI_MIN_ROWS, Math.floor((window.height * EMOJI_ROWS_RATIO) / cell))) : EMOJI_MIN_ROWS;
   const gridHeight = rows * cell;
 
   const pages = useMemo(() => {
@@ -79,7 +80,7 @@ export function EmojiGrid({ onPick, rows = EMOJI_ROWS }: EmojiGridProps) {
     onPanResponderRelease: (_, gesture) => {
       if (gesture.dx < -SWIPE_DISTANCE) goToTab(activeIndex + 1);
       else if (gesture.dx > SWIPE_DISTANCE) goToTab(activeIndex - 1);
-      Animated.spring(drag, { bounciness: 0, speed: 20, toValue: 0, useNativeDriver: true }).start();
+      Animated.spring(drag, { bounciness: 0, speed: 20, toValue: 0, useNativeDriver: false }).start();
     },
     onPanResponderTerminate: () => drag.setValue(0),
     onPanResponderTerminationRequest: () => true,

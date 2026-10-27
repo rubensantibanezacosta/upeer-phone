@@ -1,5 +1,5 @@
 import { memo, useCallback } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { SizableText } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
@@ -9,7 +9,8 @@ import { useTheme } from '@/hooks/use-theme';
 export const EMOJI_MIN_CELL = 44;
 export const EMOJI_ROWS = 6;
 export const EMOJI_MIN_ROWS = 4;
-export const EMOJI_ROWS_RATIO = 0.3;
+export const EMOJI_MAX_ROWS = 6;
+export const EMOJI_ROWS_RATIO = 0.32;
 export const EMOJI_EMPTY_HEIGHT = 132;
 
 export function emojiMetrics(width: number) {
@@ -55,14 +56,14 @@ export const EmojiPage = memo(function EmojiPage({ cell, columns, emojis, height
 
 const EmojiCell = memo(function EmojiCell({ cell, emoji, onPick }: { cell: number; emoji: string; onPick: (emoji: string) => void }) {
   const theme = useTheme();
-  const scale = useTextScale();
+  const size = Math.max(16, Math.round(cell * 0.58));
   return <NativeRipplePressable
     accessibilityLabel={`Emoji ${emoji}`}
     accessibilityRole="button"
     onPress={() => onPick(emoji)}
     style={[styles.cell, { height: cell, width: cell }]}
   >
-    <SizableText color={theme.text} fontSize={scale(24)} style={styles.glyph}>{emoji}</SizableText>
+    <Text allowFontScaling={false} style={[styles.glyph, { color: theme.text, fontSize: size, lineHeight: cell }]}>{emoji}</Text>
   </NativeRipplePressable>;
 });
 
