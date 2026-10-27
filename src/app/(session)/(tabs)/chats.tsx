@@ -24,22 +24,18 @@ import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import type { UPeerContact } from '@/storage/contact-store';
 import { getContacts, setContactFavorite } from '@/storage/contact-store';
-import type { ProtocolConversation } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
+import type { ProtocolConversation, ProtocolGroup } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
 import { SearchField } from '@/components/search-field';
-import { getConversations, markConversationRead } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
+import { SearchResultsView } from '@/components/search-results-view';
+import { getConversations, getGroups, markConversationRead } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
+import { useGlobalMessageSearch } from '@/hooks/use-global-message-search';
+import { useAndroidBack } from '@/hooks/use-android-back';
+import { buildSearchSections, type SearchContact, type SearchMessage, type SearchTarget } from '@/domain/global-search';
 import { unreadConversationIds } from '@/domain/chat-unread';
 import { useSession } from '@/components/session-shell';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { SyncProgressBanner } from '@/components/sync-progress-banner';
-
-const contactStatusLabels: Record<UPeerContact['status'], string> = {
-  pending: 'Pendiente',
-  incoming: 'Solicitud de contacto recibida',
-  connected: 'Contacto conectado',
-  offline: 'Desconectado',
-  blocked: 'Bloqueado',
-};
 
 export default function ChatsRoute() {
   const theme = useTheme();
@@ -50,6 +46,7 @@ export default function ChatsRoute() {
   const now = useNow();
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const [conversations, setConversations] = useState<ProtocolConversation[]>([]);
+  const [groups, setGroups] = useState<ProtocolGroup[]>([]);
   const [selectedEntry, setSelectedEntry] = useState<ChatListEntry | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
@@ -68,49 +65,84 @@ export default function ChatsRoute() {
         .catch((cause: unknown) => console.warn('No se pudieron cargar las conversaciones nativas.', cause));
     };
     loadConversations();
+    getGroups().then(setGroups).catch((cause: unknown) => console.warn('No se pudieron cargar los grupos para la búsqueda.', cause));
     const timer = setInterval(loadConversations, 2000);
     return () => clearInterval(timer);
   }, [markLoaded]);
-
   const partition = useMemo(() => classifyConversations(conversations, contacts), [contacts, conversations]);
   const requestIds = useMemo(() => new Set(partition.requests.map((request) => request.upeerId)), [partition.requests]);
 
-  const entries: ChatListEntry[] = useMemo(() => (conversations.length > 0
-    ? conversations
-      .filter((conversation) => !partition.hidden.some((hidden) => hidden.upeerId === conversation.upeerId))
-      .map((conversation) => ({
-        upeerId: conversation.upeerId,
-        title: conversation.alias || conversation.upeerId.slice(0, 12),
-        avatar: conversation.avatar,
-        preview: previewMessage(conversation.lastMessage) || 'Sin mensajes',
-        timestamp: conversation.lastTimestamp,
-        unread: conversation.unread,
-        isMine: conversation.lastIsMine === true,
-        lastStatus: conversation.lastStatus ?? null,
-        incoming: requestIds.has(conversation.upeerId),
-        favorite: contacts.some((contact) => contact.upeerId === conversation.upeerId && contact.isFavorite === true),
-        typing: conversation.typing === true,
-        lastSeen: conversation.lastActive || conversation.lastSeen,
-        group: conversation.group === true,
-        members: conversation.members,
-        ...flagsFor(conversationFlags, conversation.upeerId),
-      }))
-    : contacts.filter((contact) => contact.status !== 'blocked').map((contact) => ({
-      upeerId: contact.upeerId,
-      title: contact.name,
-      favorite: contact.isFavorite === true,
-      preview: contactStatusLabels[contact.status],
-      timestamp: 0,
-      unread: 0,
-      isMine: false,
-      lastStatus: null,
-      pending: contact.status === 'pending',
-      incoming: contact.status === 'incoming',
-      ...flagsFor(conversationFlags, contact.upeerId),
-    }))), [contacts, conversationFlags, conversations, partition.hidden, requestIds]);
+  const entries: ChatListEntry[] = useMemo(() => conversations
+    .filter((conversation) => !partition.hidden.some((hidden) => hidden.upeerId === conversation.upeerId))
+    .map((conversation) => ({
+      upeerId: conversation.upeerId,
+      title: conversation.alias || conversation.upeerId.slice(0, 12),
+      avatar: conversation.avatar,
+      preview: previewMessage(conversation.lastMessage) || 'Sin mensajes',
+      timestamp: conversation.lastTimestamp,
+      unread: conversation.unread,
+      isMine: conversation.lastIsMine === true,
+      lastStatus: conversation.lastStatus ?? null,
+      incoming: requestIds.has(conversation.upeerId),
+      favorite: contacts.some((contact) => contact.upeerId === conversation.upeerId && contact.isFavorite === true),
+      typing: conversation.typing === true,
+      lastSeen: conversation.lastActive || conversation.lastSeen,
+      group: conversation.group === true,
+      members: conversation.members,
+      ...flagsFor(conversationFlags, conversation.upeerId),
+    })), [contacts, conversationFlags, conversations, partition.hidden, requestIds]);
 
   const visibleEntries = useMemo(() => orderByPinned(filterChatEntries(entries, filter, query), conversationFlags), [conversationFlags, entries, filter, query]);
   const filtering = isChatFilterActive(filter, query);
+  const searchActive = query.trim().length > 0;
+
+  const chatIds = useMemo(() => conversations.map((conversation) => conversation.upeerId), [conversations]);
+  const messageHits = useGlobalMessageSearch(query, chatIds);
+
+  const searchSections = useMemo(() => {
+    const titles = new Map(entries.map((entry) => [entry.upeerId, entry.title]));
+    const searchContacts: SearchContact[] = contacts.map((contact) => ({
+      upeerId: contact.upeerId,
+      name: contact.name,
+      address: contact.address,
+      blocked: contact.status === 'blocked',
+      favorite: contact.isFavorite === true,
+    }));
+    const searchMessages: SearchMessage[] = messageHits.map((hit) => ({
+      ...hit,
+      chatTitle: titles.get(hit.chatUpeerId) ?? hit.chatUpeerId.slice(0, 12),
+    }));
+    return buildSearchSections(query, filter, {
+      chats: entries.map((entry) => ({
+        upeerId: entry.upeerId,
+        title: entry.title,
+        preview: entry.preview,
+        unread: entry.unread,
+        timestamp: entry.timestamp,
+        favorite: entry.favorite,
+        pinned: entry.pinned,
+        group: entry.group,
+      })),
+      contacts: searchContacts,
+      groups: groups.map((group) => ({ groupId: group.groupId, name: group.name, members: group.members, updatedAt: group.updatedAt ?? group.createdAt ?? 0 })),
+      messages: searchMessages,
+    });
+  }, [contacts, entries, filter, groups, messageHits, query]);
+
+  useAndroidBack(() => {
+    if (!searchActive) return false;
+    setQuery('');
+    return true;
+  });
+
+  const openSearchResult = (target: SearchTarget) => {
+    if (target.kind === 'contact') {
+      router.push({ pathname: '/contact/[upeerId]', params: { upeerId: target.upeerId } });
+      return;
+    }
+    const upeerId = target.kind === 'group' ? target.groupId : target.upeerId;
+    router.push({ pathname: '/chat/[upeerId]', params: { upeerId } });
+  };
 
   const openChat = (entry: ChatListEntry) => {
     setSelectedEntry(null);
@@ -195,7 +227,16 @@ export default function ChatsRoute() {
             return <NativeRipplePressable key={item.id} onPress={() => setFilter(item.id)} style={[styles.chatFilterChip, { backgroundColor: active ? theme.accent : theme.backgroundElement }]}><Text color={active ? theme.onAccent : theme.text} fontSize={scale(13)} fontWeight={active ? '700' : '400'}>{item.label}</Text></NativeRipplePressable>;
           })}
         </ScrollView>
-        {visibleEntries.length > 0 ? (
+        {searchActive ? (
+          <SearchResultsView
+            loading={loading}
+            onClearQuery={() => setQuery('')}
+            onOpenRow={openSearchResult}
+            onResetFilters={() => setFilter('all')}
+            query={query}
+            sections={searchSections}
+          />
+        ) : visibleEntries.length > 0 ? (
           <YStack marginTop={2}>
             {visibleEntries.map((entry) => <ChatListItem entry={entry} key={entry.upeerId} now={now} onOpen={openChat} onOpenMenu={openContextMenu} />)}
           </YStack>
@@ -216,7 +257,6 @@ export default function ChatsRoute() {
               <SizableText color={theme.text} fontSize={scale(17)} fontWeight="600">Tus conversaciones</SizableText>
               <Paragraph color={theme.placeholder} textAlign="center">Añade un contacto para empezar. Tus mensajes y conversaciones se mostrarán en esta lista.</Paragraph>
               <NativeRippleButton onPress={() => setComposerOpen(true)}>Nueva conversación</NativeRippleButton>
-              <NativeRipplePressable accessibilityRole="button" onPress={() => router.navigate('/contacts')}><Text color={theme.accent} fontSize={scale(13)} fontWeight="600">Ver contactos</Text></NativeRipplePressable>
             </>}
           </YStack>
         )}
