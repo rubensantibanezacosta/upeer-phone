@@ -51,15 +51,3 @@ export function parseContactCard(content: string): ContactCard | null {
   const text = typeof payload.text === 'string' && payload.text.trim() ? payload.text.trim().slice(0, MAX_NAME_LENGTH) : undefined;
   return { name, address, upeerId, publicKey, avatar, text };
 }
-
-export function contactCardSummary(content: string): string | null {
-  const card = parseContactCard(content);
-  if (!card) return null;
-  return card.text ?? CONTACT_CARD_SUMMARY;
-}
-
-export function messageSummary(content: string): string {
-  const card = parseContactCard(content);
-  if (!card) return content;
-  return card.name ? `${CONTACT_CARD_SUMMARY}: ${card.name}` : CONTACT_CARD_SUMMARY;
-}

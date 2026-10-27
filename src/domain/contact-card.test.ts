@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { contactCardSummary, messageSummary, parseContactCard, serializeContactCard } from './contact-card';
+import { parseContactCard, serializeContactCard } from './contact-card';
 
 const ID = 'a'.repeat(64);
 const KEY = 'b'.repeat(64);
@@ -57,27 +57,5 @@ describe('parseContactCard', () => {
   it('drops a public key with the wrong length', () => {
     const content = JSON.stringify({ type: 'contact_card', contact: { upeerId: ID, publicKey: 'abc' } });
     expect(parseContactCard(content)?.publicKey).toBeUndefined();
-  });
-});
-
-describe('summaries', () => {
-  it('uses the card text as summary when present', () => {
-    const content = JSON.stringify({ type: 'contact_card', text: 'Te presento a Ana', contact: { upeerId: ID } });
-    expect(contactCardSummary(content)).toBe('Te presento a Ana');
-  });
-
-  it('falls back to the generic label', () => {
-    const content = serializeContactCard({ name: 'Ana', address: '', upeerId: ID });
-    expect(contactCardSummary(content)).toBe('Tarjeta de contacto');
-  });
-
-  it('names the card in list previews', () => {
-    const content = serializeContactCard({ name: 'Ana', address: '', upeerId: ID });
-    expect(messageSummary(content)).toBe('Tarjeta de contacto: Ana');
-  });
-
-  it('leaves normal messages untouched', () => {
-    expect(messageSummary('hola')).toBe('hola');
-    expect(contactCardSummary('hola')).toBeNull();
   });
 });

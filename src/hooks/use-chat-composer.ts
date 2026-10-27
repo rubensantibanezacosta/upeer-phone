@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { forwardResultMessage } from '@/domain/forward';
+import { messageText } from '@/domain/message-preview';
 import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import { editChat, sendChat, sendTyping } from '../../modules/upeer-transport/src/UPeerTransportModule';
 
@@ -58,7 +59,7 @@ export function useChatComposer({ onChanged, onForwarded, upeerId }: ChatCompose
   const startEditing = useCallback((message: ProtocolMessage) => {
     setReplyingTo(null);
     setEditing(message);
-    setText(message.content);
+    setText(messageText(message.content));
     setError('');
   }, []);
 

@@ -1,4 +1,4 @@
-import { messageSummary } from './contact-card';
+import { previewMessage } from './message-preview';
 import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
 
 export const REPLY_EXCERPT_LENGTH = 80;
@@ -9,7 +9,7 @@ export type ReplyPreview = {
 };
 
 export function replyExcerpt(content: string): string {
-  const summary = messageSummary(content).replace(/\s+/g, ' ').trim();
+  const summary = previewMessage(content).replace(/\s+/g, ' ').trim();
   if (summary.length <= REPLY_EXCERPT_LENGTH) return summary;
   return `${summary.slice(0, REPLY_EXCERPT_LENGTH - 1).trimEnd()}…`;
 }

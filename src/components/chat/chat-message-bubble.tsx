@@ -5,12 +5,14 @@ import type { ChatTimelineEntry } from '@/domain/chat-timeline';
 import { formatChatTime } from '@/domain/chat-timeline';
 import { parseContactCard, type ContactCard } from '@/domain/contact-card';
 import { type AttachmentInfo, parseAttachmentMessage } from '@/domain/attachment';
+import { parseLinkPreviewMessage } from '@/domain/link-preview';
 import { parseSystemMessage } from '@/domain/system-message';
 import type { ReactionSummary } from '@/domain/chat-reactions';
 import type { ReplyPreview } from '@/domain/chat-reply';
 import { resolveBubbleShape } from '@/domain/bubble-shape';
 import { ChatContactCard } from '@/components/chat/chat-contact-card';
 import { ChatAttachment } from '@/components/chat/chat-attachment';
+import { ChatLinkPreview } from '@/components/chat/chat-link-preview';
 import { ChatSystemMessage } from '@/components/chat/chat-system-message';
 import { MessageStatus } from '@/components/chat/message-status';
 import { ChatReplyQuote } from '@/components/chat/chat-reply-quote';
@@ -40,6 +42,7 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
   const deleted = entry.message.deleted === true;
   const card = deleted ? null : parseContactCard(entry.message.content);
   const attachment = deleted || card ? null : parseAttachmentMessage(entry.message.content);
+  const link = deleted || card || attachment ? null : parseLinkPreviewMessage(entry.message.content);
   const quotedID = deleted ? undefined : entry.message.replyTo;
   const onPressReply = onOpenReply && quotedID ? () => onOpenReply(quotedID) : undefined;
   const system = deleted ? null : parseSystemMessage(entry.message.content);
@@ -62,7 +65,7 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
           ]}
         >
           {reply && !deleted ? <View style={styles.quote}><ChatReplyQuote isMine={isMine} onPress={onPressReply} reply={reply} /></View> : null}
-          <View style={[styles.body, card || attachment ? styles.bodyColumn : null]}>
+          <View style={[styles.body, card || attachment || link ? styles.bodyColumn : null]}>
             {card && onOpenCard ? (
               <ChatContactCard
                 card={card}
@@ -72,6 +75,11 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
               />
             ) : attachment ? (
               <ChatAttachment info={attachment} isMine={isMine} onOpen={onOpenAttachment} onUnavailable={onUnavailable} status={entry.message.status} timestamp={entry.message.timestamp} />
+            ) : link ? (
+              <View style={styles.linkColumn}>
+                {link.text.trim() ? <Text color={textColor} fontSize={scale(14)} style={styles.content}>{link.text}</Text> : null}
+                <ChatLinkPreview preview={link.preview} tone={isMine ? 'mine' : 'theirs'} />
+              </View>
             ) : (
               <Text color={textColor} fontSize={scale(14)} opacity={deleted ? 0.6 : 1} style={[styles.content, deleted ? styles.deletedContent : null]}>{entry.message.content}</Text>
             )}
@@ -113,5 +121,6 @@ const styles = StyleSheet.create({
   body: { alignItems: 'flex-end', columnGap: 8, flexDirection: 'row', minWidth: 80 },
   bodyColumn: { alignItems: 'stretch', flexDirection: 'column', gap: 2, minWidth: 180 },
   content: { flexShrink: 1, paddingBottom: 2 },
+  linkColumn: { gap: 4, minWidth: 200 },
   meta: { alignItems: 'center', flexDirection: 'row', gap: 4, marginLeft: 'auto' },
 });
