@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Keyboard, StyleSheet, View, type PressableProps, type StyleProp, type TextInputInstance, type ViewStyle } from 'react-native';
+import { Keyboard, StyleSheet, View, type TextInputInstance } from 'react-native';
 import { Camera, Mic, Paperclip, Send, Smile } from '@tamagui/lucide-icons-2';
 import { Input, XStack } from 'tamagui';
 
@@ -9,12 +9,12 @@ import { deleteBeforeSelection, insertAtSelection } from '@/domain/composer-text
 import { useTheme } from '@/hooks/use-theme';
 
 const INPUT_MIN_HEIGHT = 44;
-const PILL_PADDING = 4;
-const ICON_SIZE = 21;
-const INNER_ACTION_WIDTH = 34;
-const SEND_DIAMETER = INPUT_MIN_HEIGHT + PILL_PADDING * 2;
-const INNER_ACTION_EDGE_GAP = (INPUT_MIN_HEIGHT - ICON_SIZE) / 2 - (INNER_ACTION_WIDTH - ICON_SIZE) / 2;
-const INNER_ACTION_HIT_SLOP = { bottom: 0, left: (INPUT_MIN_HEIGHT - INNER_ACTION_WIDTH) / 2, right: (INPUT_MIN_HEIGHT - INNER_ACTION_WIDTH) / 2, top: 0 };
+const PILL_PADDING_X = 6;
+const PILL_PADDING_Y = 4;
+const ICON_SIZE = 24;
+const ACTION_WIDTH = 40;
+const SEND_DIAMETER = INPUT_MIN_HEIGHT + PILL_PADDING_Y * 2;
+const ACTION_HIT_SLOP = { bottom: 0, left: (INPUT_MIN_HEIGHT - ACTION_WIDTH) / 2, right: (INPUT_MIN_HEIGHT - ACTION_WIDTH) / 2, top: 0 };
 
 type ChatComposerProps = {
   value: string;
@@ -25,9 +25,9 @@ type ChatComposerProps = {
   onUnavailable: (label: string) => void;
 };
 
-function ComposerAction({ label, onPress, style, hitSlop, children }: { children: React.ReactNode; hitSlop?: PressableProps['hitSlop']; label: string; onPress: () => void; style?: StyleProp<ViewStyle> }) {
+function ComposerAction({ label, onPress, children }: { children: React.ReactNode; label: string; onPress: () => void }) {
   return (
-    <NativeRipplePressable accessibilityLabel={label} accessibilityRole="button" hitSlop={hitSlop} onPress={onPress} style={[styles.action, style]}>
+    <NativeRipplePressable accessibilityLabel={label} accessibilityRole="button" hitSlop={ACTION_HIT_SLOP} onPress={onPress} style={styles.action}>
       {children}
     </NativeRipplePressable>
   );
@@ -112,8 +112,8 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onCamera, onUn
 
   return <>
     <XStack alignItems="flex-end" gap={6} marginHorizontal={8} marginVertical={8}>
-      <XStack alignItems="flex-end" backgroundColor={theme.backgroundSelected} borderRadius={24} flex={1} gap={2} paddingHorizontal={PILL_PADDING} paddingVertical={PILL_PADDING}>
-        <ComposerAction label="Abrir emojis" onPress={toggleEmoji}><Smile color={emojiOpen ? theme.accent : theme.textSecondary} size={22} /></ComposerAction>
+      <XStack alignItems="flex-end" backgroundColor={theme.backgroundSelected} borderRadius={24} flex={1} gap={2} paddingHorizontal={PILL_PADDING_X} paddingVertical={PILL_PADDING_Y}>
+        <ComposerAction label="Abrir emojis" onPress={toggleEmoji}><Smile color={emojiOpen ? theme.accent : theme.textSecondary} size={ICON_SIZE} /></ComposerAction>
         <View onTouchStart={returnToTyping} style={styles.inputWrap}>
           <Input
             accessibilityLabel="Mensaje"
@@ -139,8 +139,8 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onCamera, onUn
           />
         </View>
         <XStack alignItems="center" gap={0}>
-          <ComposerAction hitSlop={INNER_ACTION_HIT_SLOP} label="Adjuntar archivo" onPress={onAttach} style={styles.innerAction}><Paperclip color={theme.textSecondary} size={ICON_SIZE} /></ComposerAction>
-          <ComposerAction hitSlop={INNER_ACTION_HIT_SLOP} label="Abrir cámara" onPress={onCamera} style={[styles.innerAction, styles.lastAction]}><Camera color={theme.textSecondary} size={ICON_SIZE} /></ComposerAction>
+          <ComposerAction label="Adjuntar archivo" onPress={onAttach}><Paperclip color={theme.textSecondary} size={ICON_SIZE} /></ComposerAction>
+          <ComposerAction label="Abrir cámara" onPress={onCamera}><Camera color={theme.textSecondary} size={ICON_SIZE} /></ComposerAction>
         </XStack>
       </XStack>
       <NativeRipplePressable
@@ -157,9 +157,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onCamera, onUn
 }
 
 const styles = StyleSheet.create({
-  action: { alignItems: 'center', borderRadius: 22, height: INPUT_MIN_HEIGHT, justifyContent: 'center', overflow: 'hidden', width: 44 },
-  innerAction: { borderRadius: INNER_ACTION_WIDTH / 2, height: INPUT_MIN_HEIGHT, width: INNER_ACTION_WIDTH },
-  lastAction: { marginRight: INNER_ACTION_EDGE_GAP },
+  action: { alignItems: 'center', borderRadius: ACTION_WIDTH / 2, height: INPUT_MIN_HEIGHT, justifyContent: 'center', width: ACTION_WIDTH },
   input: { paddingHorizontal: 8, paddingVertical: 8, textAlignVertical: 'center' },
   inputWrap: { flex: 1 },
   sendAction: { alignItems: 'center', borderRadius: SEND_DIAMETER / 2, height: SEND_DIAMETER, justifyContent: 'center', overflow: 'hidden', width: SEND_DIAMETER },
