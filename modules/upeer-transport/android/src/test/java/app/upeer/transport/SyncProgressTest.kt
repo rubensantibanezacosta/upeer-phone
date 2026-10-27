@@ -102,19 +102,6 @@ class SyncProgressTest {
   }
 
   @Test
-  fun `reabrir el historico borra los contadores`() {
-    val state = JSONObject()
-    val history = SyncHistoryState({ state }, Any(), {})
-    history.addCounters(DEVICE, 10, 40)
-
-    history.save(DEVICE, "17:id", true)
-    history.reopen(DEVICE)
-
-    assertEquals(0, history.progress(DEVICE).applied)
-    assertFalse(history.progress(DEVICE).known)
-  }
-
-  @Test
   fun `guardar una pagina actualiza cursor y contadores en una sola escritura`() {
     val state = JSONObject()
     var writes = 0

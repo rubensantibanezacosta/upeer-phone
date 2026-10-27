@@ -56,6 +56,9 @@ internal object SyncHistoryPayload {
     return "$timestamp:$id"
   }
 
+  fun nextCursor(pageCursor: String?, previousCursor: String?): String? =
+    pageCursor?.takeIf { it.isNotBlank() } ?: previousCursor?.takeIf { it.isNotBlank() }
+
   fun parseCursor(value: Any?): Pair<Long, String> {
     if (value !is String) return 0L to ""
     val separator = value.indexOf(':')

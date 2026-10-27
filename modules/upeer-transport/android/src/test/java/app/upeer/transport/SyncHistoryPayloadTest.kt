@@ -87,6 +87,15 @@ class SyncHistoryPayloadTest {
   }
 
   @Test
+  fun `next cursor advances with the page and survives an empty diff`() {
+    assertEquals("1700000000000:b", SyncHistoryPayload.nextCursor("1700000000000:b", "1600000000000:a"))
+    assertEquals("1600000000000:a", SyncHistoryPayload.nextCursor(null, "1600000000000:a"))
+    assertEquals("1600000000000:a", SyncHistoryPayload.nextCursor("", "1600000000000:a"))
+    assertNull(SyncHistoryPayload.nextCursor(null, null))
+    assertNull(SyncHistoryPayload.nextCursor("", ""))
+  }
+
+  @Test
   fun `attachment content is recognised by its type`() {
     assertTrue(SyncHistoryPayload.isAttachment("""{"type":"file","transferId":"abc","fileName":"a.pdf"}"""))
     assertTrue(SyncHistoryPayload.isAttachment("""  {"type":"image","fileId":"abc"}"""))

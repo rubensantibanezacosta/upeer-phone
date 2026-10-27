@@ -99,22 +99,6 @@ internal class SyncHistoryState(
     entry.put("known", true)
   }
 
-  fun reopen(deviceId: String) {
-    if (!validDeviceId(deviceId)) return
-    synchronized(lock) {
-      val history = bucket()
-      val entry = history.optJSONObject(deviceId) ?: return
-      if (!entry.optBoolean("done", false)) return
-      entry.put("done", false)
-      entry.remove("applied")
-      entry.remove("total")
-      entry.remove("known")
-      history.put(deviceId, entry)
-      state().put(KEY, history)
-      persist()
-    }
-  }
-
   fun clearAll() {
     synchronized(lock) {
       state().remove(KEY)

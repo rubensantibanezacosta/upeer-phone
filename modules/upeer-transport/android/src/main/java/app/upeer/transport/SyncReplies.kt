@@ -21,8 +21,6 @@ internal class SyncReplies(
   private val onAdmissionChanged: () -> Unit = {},
   private val nowMillis: () -> Long = System::currentTimeMillis,
 ) {
-  private val reopened = mutableSetOf<String>()
-
   fun handle(
     activeBridge: Bridge,
     payload: ByteArray,
@@ -88,11 +86,7 @@ internal class SyncReplies(
       Log.w(TAG, "No se pudo responder SYNC_HELLO a $sourceAddress")
     }
     val peer = state.syncPeers.list().firstOrNull { it.deviceId == binding.deviceId } ?: return
-    if (reopened.add(peer.deviceId)) {
-      history.restart(peer.deviceId)
-      Log.i(TAG, "Histórico de ${peer.deviceId.take(12)} reabierto tras el saludo")
-    }
-    history.requestIfInitiator(activeBridge, peer)
+    history.requestIfInitiator(activeBridge, peer, force = true)
   }
 
   private fun historyRequest(

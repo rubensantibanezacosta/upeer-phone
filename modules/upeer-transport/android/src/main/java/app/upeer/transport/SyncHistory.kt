@@ -18,9 +18,9 @@ internal class SyncHistory(
 ) {
   private val lastRequest = mutableMapOf<String, Long>()
 
-  fun request(activeBridge: Bridge, peer: SyncPeerRecord) {
+  fun request(activeBridge: Bridge, peer: SyncPeerRecord, force: Boolean = false) {
     val progress = state.history.progress(peer.deviceId)
-    if (progress.done) return
+    if (progress.done && !force) return
     val now = nowMillis()
     if (now - (lastRequest[peer.deviceId] ?: 0L) < REQUEST_COOLDOWN_MS) return
     lastRequest[peer.deviceId] = now
@@ -32,15 +32,10 @@ internal class SyncHistory(
     lastRequest.remove(peerDeviceId)
   }
 
-  fun restart(peerDeviceId: String) {
-    state.history.reopen(peerDeviceId)
-    lastRequest.remove(peerDeviceId)
-  }
-
-  fun requestIfInitiator(activeBridge: Bridge, peer: SyncPeerRecord) {
+  fun requestIfInitiator(activeBridge: Bridge, peer: SyncPeerRecord, force: Boolean = false) {
     val myDeviceId = identity.currentDevice()?.deviceId ?: return
     if (myDeviceId > peer.deviceId && state.sessionFor(SyncPackets.contextId(peer.deviceId)) == null) return
-    request(activeBridge, peer)
+    request(activeBridge, peer, force)
   }
 
   fun respond(activeBridge: Bridge, peer: SyncPeerRecord, payload: JSONObject) {
@@ -70,7 +65,10 @@ internal class SyncHistory(
     val metadata = SyncPackets.historyMeta(sender(device), peer.deviceId, SyncPackets.HISTORY_RES, requestId) ?: return
     metadata.put("entries", entries)
     val last = page.lastOrNull()
-    val nextCursor = last?.let(SyncHistoryPayload::cursor)
+    val nextCursor = SyncHistoryPayload.nextCursor(
+      last?.let(SyncHistoryPayload::cursor),
+      payload.optString("cursor"),
+    )
     if (nextCursor == null) metadata.put("nextCursor", JSONObject.NULL) else metadata.put("nextCursor", nextCursor)
     val historyDone = done || nextCursor == null
     metadata.put("done", historyDone)
@@ -97,7 +95,10 @@ internal class SyncHistory(
       val projected = applyEvents()
       if (projected > 0) Log.i(TAG, "Histórico de ${peer.deviceId.take(12)}: $projected eventos proyectados")
     }
-    val nextCursor = payload.optString("nextCursor").ifBlank { null }
+    val nextCursor = SyncHistoryPayload.nextCursor(
+      payload.optString("nextCursor"),
+      state.history.progress(peer.deviceId).cursor,
+    )
     if (failed > 0) {
       lastRequest.remove(peer.deviceId)
       Log.w(TAG, "Histórico de ${peer.deviceId.take(12)}: $failed eventos rechazados, no avanzo el cursor")
