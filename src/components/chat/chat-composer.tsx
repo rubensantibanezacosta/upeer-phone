@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Keyboard, StyleSheet } from 'react-native';
+import { Keyboard, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Mic, Plus, Send, Smile } from '@tamagui/lucide-icons-2';
 import { Input, XStack } from 'tamagui';
 
@@ -16,9 +16,9 @@ type ChatComposerProps = {
   onUnavailable: (label: string) => void;
 };
 
-function ComposerAction({ label, onPress, children }: { label: string; onPress: () => void; children: React.ReactNode }) {
+function ComposerAction({ label, onPress, style, children }: { children: React.ReactNode; label: string; onPress: () => void; style?: StyleProp<ViewStyle> }) {
   return (
-    <NativeRipplePressable accessibilityLabel={label} accessibilityRole="button" onPress={onPress} style={styles.action}>
+    <NativeRipplePressable accessibilityLabel={label} accessibilityRole="button" onPress={onPress} style={[styles.action, style]}>
       {children}
     </NativeRipplePressable>
   );
@@ -54,7 +54,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
   return <>
     <XStack alignItems="flex-end" backgroundColor={theme.backgroundSelected} borderRadius={24} gap={2} marginHorizontal={8} marginVertical={8} paddingHorizontal={4} paddingVertical={4}>
       <ComposerAction label="Adjuntar archivo" onPress={onAttach}><Plus color={theme.textSecondary} size={22} /></ComposerAction>
-      <ComposerAction label="Abrir emojis" onPress={toggleEmoji}><Smile color={emojiOpen ? theme.accent : theme.textSecondary} size={22} /></ComposerAction>
+      <ComposerAction label="Abrir emojis" onPress={toggleEmoji} style={styles.emojiAction}><Smile color={emojiOpen ? theme.accent : theme.textSecondary} size={22} /></ComposerAction>
       <Input
         accessibilityLabel="Mensaje"
         backgroundColor="transparent"
@@ -89,5 +89,6 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
 
 const styles = StyleSheet.create({
   action: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', overflow: 'hidden', width: 44 },
+  emojiAction: { marginLeft: -14 },
   input: { paddingHorizontal: 8, paddingVertical: 8, textAlignVertical: 'center' },
 });
