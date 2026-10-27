@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { Keyboard, StyleSheet } from 'react-native';
 import { Mic, Plus, Send, Smile } from '@tamagui/lucide-icons-2';
 import { Input, XStack } from 'tamagui';
 
-import { EmojiGrid } from '@/components/chat/emoji-grid';
-import { EmojiSheet } from '@/components/chat/emoji-sheet';
+import { EmojiPanel } from '@/components/chat/emoji-panel';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -28,10 +27,18 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
   const theme = useTheme();
   const [emojiOpen, setEmojiOpen] = useState(false);
   const hasText = value.trim().length > 0;
+  const toggleEmoji = () => {
+    setEmojiOpen((open) => {
+      if (open) return false;
+      Keyboard.dismiss();
+      return true;
+    });
+  };
+
   return <>
     <XStack alignItems="flex-end" backgroundColor={theme.backgroundSelected} borderRadius={24} gap={2} marginHorizontal={8} marginVertical={8} paddingHorizontal={4} paddingVertical={4}>
       <ComposerAction label="Adjuntar archivo" onPress={onAttach}><Plus color={theme.textSecondary} size={22} /></ComposerAction>
-      <ComposerAction label="Abrir emojis" onPress={() => setEmojiOpen(true)}><Smile color={theme.textSecondary} size={22} /></ComposerAction>
+      <ComposerAction label="Abrir emojis" onPress={toggleEmoji}><Smile color={emojiOpen ? theme.accent : theme.textSecondary} size={22} /></ComposerAction>
       <Input
         accessibilityLabel="Mensaje"
         backgroundColor="transparent"
@@ -43,6 +50,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
         minHeight={44}
         multiline
         onChangeText={onChange}
+        onFocus={() => setEmojiOpen(false)}
         placeholder="Escribe un mensaje..."
         placeholderTextColor={theme.placeholder}
         style={styles.input}
@@ -57,9 +65,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
         {hasText ? <Send color={theme.accent} size={22} /> : <Mic color={theme.accent} size={22} />}
       </NativeRipplePressable>
     </XStack>
-    <EmojiSheet icon={<Smile color={theme.accent} size={18} />} onClose={() => setEmojiOpen(false)} title="Emojis" visible={emojiOpen}>
-      <EmojiGrid onPick={(emoji) => onChange(`${value}${emoji}`)} />
-    </EmojiSheet>
+    {emojiOpen ? <EmojiPanel onPick={(emoji) => onChange(`${value}${emoji}`)} /> : null}
   </>;
 }
 

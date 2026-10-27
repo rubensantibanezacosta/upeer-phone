@@ -1,19 +1,17 @@
-import { memo, useCallback, useMemo, useState } from 'react';
-import { FlatList, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Animated, FlatList, PanResponder, StyleSheet, type LayoutChangeEvent } from 'react-native';
 import { Car, Clock, Flag, Heart, Lightbulb, PawPrint, Search, Smile, Utensils, Volleyball } from '@tamagui/lucide-icons-2';
 import { Input, SizableText, XStack, YStack } from 'tamagui';
 
 import { EMOJI_GROUPS, emojisForGroup, searchEmojis } from '@/domain/emoji-catalog';
+import { nextPageIndex } from '@/domain/emoji-pager';
+import { EMOJI_EMPTY_HEIGHT, EMOJI_ROWS, EmojiPage, emojiMetrics } from '@/components/chat/emoji-page';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useRecentEmojis } from '@/hooks/use-recent-emojis';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 const RECENT_TAB = 'recent';
-const CELL = 38;
-const VISIBLE_ROWS = 6;
-const EMPTY_HEIGHT = 132;
-const MIN_COLUMNS = 7;
 
 const GROUP_ICONS: Record<string, typeof Smile> = {
   activities: Volleyball,
@@ -29,28 +27,36 @@ const GROUP_ICONS: Record<string, typeof Smile> = {
 };
 
 const TABS = [{ id: RECENT_TAB, label: 'Recientes' }, ...EMOJI_GROUPS];
+const SWIPE_DISTANCE = 56;
+
+function pageHeight(emojis: string[], gridHeight: number): number {
+  return emojis.length === 0 ? EMOJI_EMPTY_HEIGHT : gridHeight;
+}
 
 type EmojiGridProps = {
   onPick: (emoji: string) => void;
+  rows?: number;
 };
 
-export function EmojiGrid({ onPick }: EmojiGridProps) {
+export function EmojiGrid({ onPick, rows = EMOJI_ROWS }: EmojiGridProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const { recent, remember } = useRecentEmojis();
-  const [groupId, setGroupId] = useState(RECENT_TAB);
+  const [drag] = useState(() => new Animated.Value(0));
   const [search, setSearch] = useState('');
   const [width, setWidth] = useState(0);
+  const [tabIndex, setTabIndex] = useState(1);
   const query = search.trim();
-  const columns = width > 0 ? Math.max(MIN_COLUMNS, Math.floor(width / CELL)) : 9;
-  const cell = width > 0 ? Math.floor(width / columns) : CELL;
+  const { cell, columns } = emojiMetrics(width);
+  const gridHeight = rows * cell;
 
-  const emojis = useMemo(() => {
-    if (query) return searchEmojis(query);
-    return groupId === RECENT_TAB ? recent : emojisForGroup(groupId);
-  }, [groupId, query, recent]);
+  const pages = useMemo(() => {
+    if (query) return [{ id: 'search', label: 'Resultados de búsqueda', emojis: searchEmojis(query) }];
+    return TABS.map((tab) => ({ id: tab.id, label: tab.id === RECENT_TAB ? 'Usados recientemente' : tab.label, emojis: tab.id === RECENT_TAB ? recent : emojisForGroup(tab.id) }));
+  }, [query, recent]);
 
-  const heading = query ? 'Resultados de búsqueda' : groupId === RECENT_TAB ? 'Usados recientemente' : EMOJI_GROUPS.find((item) => item.id === groupId)?.label ?? '';
+  const activeIndex = query ? 0 : Math.min(tabIndex, pages.length - 1);
+  const active = pages[activeIndex];
 
   const pick = useCallback((emoji: string) => {
     remember(emoji);
@@ -62,21 +68,35 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
     setWidth((current) => current === next ? current : next);
   }, []);
 
-  const renderItem = useCallback(({ item }: { item: string }) => <EmojiCell emoji={item} onPick={pick} size={cell} />, [cell, pick]);
-  const renderTab = useCallback(({ item }: { item: { id: string; label: string } }) => {
-    const active = item.id === groupId;
+  const goToTab = useCallback((index: number) => {
+    setTabIndex(nextPageIndex(index, 0, TABS.length));
+  }, []);
+
+  const swipe = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gesture) => !query && Math.abs(gesture.dx) > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.4,
+    onMoveShouldSetPanResponderCapture: (_, gesture) => !query && Math.abs(gesture.dx) > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.4,
+    onPanResponderMove: (_, gesture) => drag.setValue(gesture.dx),
+    onPanResponderRelease: (_, gesture) => {
+      if (gesture.dx < -SWIPE_DISTANCE) goToTab(activeIndex + 1);
+      else if (gesture.dx > SWIPE_DISTANCE) goToTab(activeIndex - 1);
+      Animated.spring(drag, { bounciness: 0, speed: 20, toValue: 0, useNativeDriver: true }).start();
+    },
+    onPanResponderTerminate: () => drag.setValue(0),
+    onPanResponderTerminationRequest: () => true,
+  }), [activeIndex, drag, goToTab, query]);
+
+  const renderTab = useCallback(({ item, index }: { item: { id: string; label: string }; index: number }) => {
+    const selected = index === activeIndex;
     return <NativeRipplePressable
       accessibilityLabel={item.label}
       accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      onPress={() => setGroupId(item.id)}
-      style={[styles.tab, { backgroundColor: active ? theme.backgroundSelected : 'transparent' }]}
+      accessibilityState={{ selected }}
+      onPress={() => goToTab(index)}
+      style={[styles.tab, { backgroundColor: selected ? theme.backgroundSelected : 'transparent' }]}
     >
-      <GroupIcon color={active ? theme.accent : theme.placeholder} groupId={item.id} size={19} />
+      <GroupIcon color={selected ? theme.accent : theme.placeholder} groupId={item.id} size={19} />
     </NativeRipplePressable>;
-  }, [groupId, theme.accent, theme.backgroundSelected, theme.placeholder]);
-
-  const gridHeight = emojis.length === 0 ? EMPTY_HEIGHT : VISIBLE_ROWS * cell;
+  }, [activeIndex, goToTab, theme.accent, theme.backgroundSelected, theme.placeholder]);
 
   return <YStack gap={8} onLayout={handleLayout}>
     <XStack alignItems="center" backgroundColor={theme.background} borderColor={theme.border} borderRadius={10} borderWidth={StyleSheet.hairlineWidth} gap={8} paddingHorizontal={10} paddingVertical={8}>
@@ -105,46 +125,15 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
       showsHorizontalScrollIndicator={false}
       style={[styles.tabBar, { backgroundColor: theme.background }]}
     />}
-    <View style={styles.heading}>
-      <GroupIcon color={theme.placeholder} groupId={query ? 'search' : groupId} size={13} />
-      <SizableText color={theme.placeholder} fontSize={scale(11)} fontWeight="600" numberOfLines={1}>{heading}</SizableText>
-    </View>
-    {emojis.length === 0
-      ? <YStack alignItems="center" height={gridHeight} justifyContent="center" paddingHorizontal={12}>
-        <SizableText color={theme.placeholder} fontSize={scale(13)} textAlign="center">
-          {query ? 'No se encontraron emojis' : 'Todavía no has usado ningún emoji'}
-        </SizableText>
-      </YStack>
-      : <FlatList
-        data={emojis}
-        getItemLayout={(_, index) => ({ index, length: cell, offset: Math.floor(index / columns) * cell })}
-        initialNumToRender={columns * VISIBLE_ROWS}
-        key={`${groupId}-${query}-${columns}`}
-        keyExtractor={(emoji, index) => `${index}-${emoji}`}
-        keyboardShouldPersistTaps="handled"
-        maxToRenderPerBatch={columns * VISIBLE_ROWS}
-        numColumns={columns}
-        removeClippedSubviews
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-        style={{ height: gridHeight }}
-        windowSize={3}
-      />}
+    <XStack alignItems="center" gap={5} paddingHorizontal={4}>
+      <GroupIcon color={theme.placeholder} groupId={active.id} size={13} />
+      <SizableText color={theme.placeholder} flexShrink={1} fontSize={scale(11)} fontWeight="600" numberOfLines={1}>{active.label}</SizableText>
+    </XStack>
+    <Animated.View style={{ transform: [{ translateX: drag }] }} {...swipe.panHandlers}>
+      <EmojiPage cell={cell} columns={columns} emojis={active.emojis} height={pageHeight(active.emojis, gridHeight)} onPick={pick} />
+    </Animated.View>
   </YStack>;
 }
-
-const EmojiCell = memo(function EmojiCell({ emoji, onPick, size }: { emoji: string; onPick: (emoji: string) => void; size: number }) {
-  const theme = useTheme();
-  const scale = useTextScale();
-  return <NativeRipplePressable
-    accessibilityLabel={`Emoji ${emoji}`}
-    accessibilityRole="button"
-    onPress={() => onPick(emoji)}
-    style={[styles.cell, { height: size, width: size }]}
-  >
-    <SizableText color={theme.text} fontSize={scale(22)}>{emoji}</SizableText>
-  </NativeRipplePressable>;
-});
 
 function GroupIcon({ color, groupId, size }: { color: string; groupId: string; size: number }) {
   const Icon = GROUP_ICONS[groupId] ?? Smile;
@@ -152,8 +141,6 @@ function GroupIcon({ color, groupId, size }: { color: string; groupId: string; s
 }
 
 const styles = StyleSheet.create({
-  cell: { alignItems: 'center', justifyContent: 'center' },
-  heading: { alignItems: 'center', flexDirection: 'row', gap: 5, paddingHorizontal: 4 },
   input: { paddingHorizontal: 0, paddingVertical: 0 },
   tab: { alignItems: 'center', borderRadius: 8, justifyContent: 'center', minWidth: 40, paddingVertical: 7 },
   tabBar: { borderRadius: 10, flexGrow: 0 },
