@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { linkPreviewText, parseLinkPreviewMessage, sanitizeLinkPreview, serializeLinkPreviewMessage, urlHostname } from './link-preview';
+import { buildLinkPreviewPayload, firstHttpUrl, linkPreviewText, parseLinkPreviewMessage, sanitizeLinkPreview, serializeLinkPreviewMessage, urlHostname } from './link-preview';
 
 const URL_PAGE = 'https://upeer.chat/docs?x=1';
 
@@ -55,5 +55,29 @@ describe('link preview', () => {
   it('usa la url como texto cuando el mensaje va vacio', () => {
     expect(linkPreviewText(serializeLinkPreviewMessage('   ', { url: URL_PAGE }))).toBe(URL_PAGE);
     expect(linkPreviewText('hola')).toBeNull();
+  });
+
+  it('saca la primera url http del texto', () => {
+    expect(firstHttpUrl('mira https://upeer.chat/a y https://upeer.chat/b')).toBe('https://upeer.chat/a');
+    expect(firstHttpUrl('sin enlaces')).toBeNull();
+    expect(firstHttpUrl('no vale ftp://upeer.chat')).toBeNull();
+  });
+
+  it('manda el texto pelado cuando no hay vista previa', () => {
+    expect(buildLinkPreviewPayload('hola', null)).toBe('hola');
+  });
+
+  it('manda el sobre cuando hay vista previa', () => {
+    const payload = buildLinkPreviewPayload('mira', { domain: 'upeer.chat', title: 'Docs', url: URL_PAGE });
+    expect(parseLinkPreviewMessage(payload)?.preview.title).toBe('Docs');
+    expect(parseLinkPreviewMessage(payload)?.text).toBe('mira');
+  });
+
+  it('suelta la imagen y luego la vista previa si el sobre no cabe', () => {
+    const image = `data:image/webp;base64,${'A'.repeat(200 * 1024)}`;
+    const withImage = buildLinkPreviewPayload('mira', { imageBase64: image, title: 'Docs', url: URL_PAGE });
+    expect(withImage.includes('imageBase64')).toBe(false);
+    const huge = { description: 'd'.repeat(400), title: 't'.repeat(200), url: `https://upeer.chat/${'p'.repeat(50_000)}` };
+    expect(buildLinkPreviewPayload('mira', huge)).toBe('mira');
   });
 });

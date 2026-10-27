@@ -1,7 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { forwardResultMessage } from '@/domain/forward';
+import { buildLinkPreviewPayload } from '@/domain/link-preview';
 import { messageText } from '@/domain/message-preview';
+import { useLinkPreview } from '@/hooks/use-link-preview';
 import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import { editChat, sendChat, sendTyping } from '../../modules/upeer-transport/src/UPeerTransportModule';
 
@@ -20,6 +22,7 @@ export function useChatComposer({ onChanged, onForwarded, upeerId }: ChatCompose
   const [forwarding, setForwarding] = useState<ProtocolMessage | null>(null);
   const [error, setError] = useState('');
   const typingSentAtRef = useRef(0);
+  const link = useLinkPreview(editing ? '' : text);
 
   const handleChange = useCallback((value: string) => {
     setText(value);
@@ -41,11 +44,12 @@ export function useChatComposer({ onChanged, onForwarded, upeerId }: ChatCompose
     setEditing(null);
     setReplyingTo(null);
     setError('');
+    link.clear();
     try {
       if (currentEdit) {
         await editChat(upeerId, currentEdit.id, content);
       } else {
-        await sendChat(upeerId, content, currentReply?.id ?? '');
+        await sendChat(upeerId, buildLinkPreviewPayload(content, link.preview), currentReply?.id ?? '');
       }
       await onChanged();
     } catch (cause) {
@@ -92,11 +96,14 @@ export function useChatComposer({ onChanged, onForwarded, upeerId }: ChatCompose
   return {
     cancelContext,
     cancelForwarding,
+    dismissPreview: link.dismiss,
     editing,
     error,
     forwarding,
     handleChange,
     handleForwarded,
+    linkPreview: link.preview,
+    loadingPreview: link.loading,
     replyingTo,
     setError,
     startEditing,
