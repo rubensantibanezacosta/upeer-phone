@@ -8,6 +8,10 @@ import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { deleteBeforeSelection, insertAtSelection } from '@/domain/composer-text';
 import { useTheme } from '@/hooks/use-theme';
 
+const INPUT_MIN_HEIGHT = 44;
+const PILL_PADDING = 4;
+const SEND_DIAMETER = INPUT_MIN_HEIGHT + PILL_PADDING * 2;
+
 type ChatComposerProps = {
   value: string;
   onChange: (value: string) => void;
@@ -104,7 +108,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onCamera, onUn
 
   return <>
     <XStack alignItems="flex-end" gap={6} marginHorizontal={8} marginVertical={8}>
-      <XStack alignItems="flex-end" backgroundColor={theme.backgroundSelected} borderRadius={24} flex={1} gap={2} paddingHorizontal={4} paddingVertical={4}>
+      <XStack alignItems="flex-end" backgroundColor={theme.backgroundSelected} borderRadius={24} flex={1} gap={2} paddingHorizontal={PILL_PADDING} paddingVertical={PILL_PADDING}>
         <ComposerAction label="Abrir emojis" onPress={toggleEmoji}><Smile color={emojiOpen ? theme.accent : theme.textSecondary} size={22} /></ComposerAction>
         <View onTouchStart={returnToTyping} style={styles.inputWrap}>
           <Input
@@ -115,7 +119,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onCamera, onUn
             flex={1}
             maxHeight={128}
             maxLength={4000}
-            minHeight={44}
+            minHeight={INPUT_MIN_HEIGHT}
             multiline
             onChangeText={handleChangeText}
             onFocus={handleFocus}
@@ -130,8 +134,10 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onCamera, onUn
             value={value}
           />
         </View>
-        <ComposerAction label="Adjuntar archivo" onPress={onAttach} style={styles.innerAction}><Paperclip color={theme.textSecondary} size={21} /></ComposerAction>
-        <ComposerAction label="Abrir cámara" onPress={onCamera} style={styles.innerAction}><Camera color={theme.textSecondary} size={21} /></ComposerAction>
+        <XStack alignItems="center" gap={0}>
+          <ComposerAction label="Adjuntar archivo" onPress={onAttach} style={styles.innerAction}><Paperclip color={theme.textSecondary} size={21} /></ComposerAction>
+          <ComposerAction label="Abrir cámara" onPress={onCamera} style={styles.innerAction}><Camera color={theme.textSecondary} size={21} /></ComposerAction>
+        </XStack>
       </XStack>
       <NativeRipplePressable
         accessibilityLabel={hasText ? 'Enviar mensaje' : 'Grabar nota de voz'}
@@ -139,7 +145,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onCamera, onUn
         onPress={hasText ? onSend : () => onUnavailable('Grabar nota de voz')}
         style={[styles.sendAction, { backgroundColor: theme.backgroundSelected }]}
       >
-        {hasText ? <Send color={theme.accent} size={22} /> : <Mic color={theme.accent} size={22} />}
+        {hasText ? <Send color={theme.accent} size={24} /> : <Mic color={theme.accent} size={24} />}
       </NativeRipplePressable>
     </XStack>
     {emojiOpen ? <EmojiPanel onDelete={deleteBackward} onPick={insertEmoji} onSearchClosed={restoreCaret} /> : null}
@@ -148,8 +154,8 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onCamera, onUn
 
 const styles = StyleSheet.create({
   action: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', overflow: 'hidden', width: 44 },
-  innerAction: { borderRadius: 20, height: 40, width: 40 },
+  innerAction: { borderRadius: 20, height: 40, width: 34 },
   input: { paddingHorizontal: 8, paddingVertical: 8, textAlignVertical: 'center' },
   inputWrap: { flex: 1 },
-  sendAction: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', overflow: 'hidden', width: 44 },
+  sendAction: { alignItems: 'center', borderRadius: SEND_DIAMETER / 2, height: SEND_DIAMETER, justifyContent: 'center', overflow: 'hidden', width: SEND_DIAMETER },
 });
