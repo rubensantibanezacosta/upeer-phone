@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View, type FlatList, type ListRenderItemInfo, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, View, type FlatList, type ListRenderItemInfo } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraCaptureSheet } from '@/components/chat/camera-capture-sheet';
@@ -16,6 +16,8 @@ import { useSnackbar } from '@/components/snackbar';
 import { buildChatTimeline, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
 import { resolveChatBack } from '@/domain/chat-back';
 import { useAndroidBack } from '@/hooks/use-android-back';
+import { useChatAnchor } from '@/hooks/use-chat-anchor';
+import { useChatTimelineScroll } from '@/hooks/use-chat-timeline-scroll';
 import { useFirstLoad } from '@/hooks/use-first-load';
 import { buildReplyPreview, type ReplyPreview } from '@/domain/chat-reply';
 import { decideRequestState } from '@/domain/message-request';
@@ -35,24 +37,19 @@ import type { ProtocolMessage } from '../../../../modules/upeer-transport/src/UP
 import { getMessages, getConversations, markConversationRead } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
 
 const MESSAGE_LIMIT = 200;
-const LATEST_OFFSET = 24;
-const SCROLL_BUTTON_OFFSET = 180;
 
 export default function ChatRoute() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { showSnackbar } = useSnackbar();
-  const { upeerId } = useLocalSearchParams<{ upeerId: string }>();
+  const { messageId, upeerId } = useLocalSearchParams<{ messageId?: string; upeerId: string }>();
   const listRef = useRef<FlatList<ChatTimelineEntry>>(null);
-  const atLatestRef = useRef(true);
-  const previousCountRef = useRef(0);
   const [messages, setMessages] = useState<ProtocolMessage[]>([]);
   const [alias, setAlias] = useState('');
   const [peerAvatar, setPeerAvatar] = useState<string | undefined>(undefined);
   const [contactStatus, setContactStatus] = useState<UPeerContact['status']>('offline');
   const [isRequest, setIsRequest] = useState(false);
   const [requestReceivedAt, setRequestReceivedAt] = useState(0);
-  const [showScrollButton, setShowScrollButton] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
   const [peerPresence, setPeerPresence] = useState<{ lastActive?: number; lastSeen?: number }>({});
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
@@ -135,15 +132,21 @@ export default function ChatRoute() {
 
   const timeline = useMemo(() => toInvertedChatTimeline(buildChatTimeline(messages)), [messages]);
 
-  useEffect(() => {
-    const nextCount = messages.length;
-    const previousCount = previousCountRef.current;
-    previousCountRef.current = nextCount;
-    if (nextCount === 0 || nextCount <= previousCount) return;
-    if (!atLatestRef.current && !timeline[0]?.message.isMine) return;
-    listRef.current?.scrollToOffset({ animated: false, offset: 0 });
-    setShowScrollButton(false);
-  }, [messages.length, timeline]);
+  const missingQuoted = useCallback(() => showSnackbar('El mensaje citado ya no está en el hilo'), [showSnackbar]);
+  const { handleScroll, scrollToLatest, scrollToMessage, showScrollButton } = useChatTimelineScroll({
+    listRef,
+    messageCount: messages.length,
+    onMissingQuoted: missingQuoted,
+    timeline,
+  });
+  const clearMessageId = useCallback(() => router.setParams({ messageId: undefined }), []);
+  const { handleScrollToIndexFailed, highlightedMessageId } = useChatAnchor({
+    loaded: !loadingMessages,
+    listRef,
+    messageId,
+    onConsumed: clearMessageId,
+    timeline,
+  });
 
   const sheet = useChatMessageSheet({ onChanged: refresh, onEdit: startEditing, onError: setError, onForward: startForwarding, onReply: startReplying, upeerId });
   const { open: openActions, selfUpeerId, toggleReaction } = sheet;
@@ -187,29 +190,7 @@ export default function ChatRoute() {
   const openAttachment = useAttachmentOpener();
   const { attach, attachFromCamera, cameraOpen, closeCamera, openLibrary, sendPicked, sendVoiceNote } = useAttachmentSender(upeerId, refresh);
 
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offset = Math.max(0, event.nativeEvent.contentOffset.y);
-    atLatestRef.current = offset < LATEST_OFFSET;
-    setShowScrollButton(offset > SCROLL_BUTTON_OFFSET);
-  }, []);
-
-  const scrollToLatest = useCallback(() => {
-    atLatestRef.current = true;
-    setShowScrollButton(false);
-    listRef.current?.scrollToOffset({ animated: true, offset: 0 });
-  }, []);
-
-  const openQuoted = useCallback((messageID: string) => {
-    const index = timeline.findIndex((entry) => entry.message.id === messageID);
-    if (index < 0) {
-      showSnackbar('El mensaje citado ya no está en el hilo');
-      return;
-    }
-    atLatestRef.current = index === 0;
-    listRef.current?.scrollToIndex({ animated: true, index, viewPosition: 0.5 });
-  }, [showSnackbar, timeline]);
-
-  const search = useChatSearch({ messages, onJump: openQuoted });
+  const search = useChatSearch({ messages, onJump: scrollToMessage });
 
   useAndroidBack(() => {
     const action = resolveChatBack({
@@ -235,18 +216,18 @@ export default function ChatRoute() {
   const renderItem = useCallback(({ item }: ListRenderItemInfo<ChatTimelineEntry>) => (
     <ChatTimelineRow
       entry={item}
-      highlighted={item.message.id === highlightedID}
+      highlighted={item.message.id === highlightedID || item.message.id === highlightedMessageId}
       onLongPress={openActions}
       onOpenAttachment={openAttachment}
       onOpenCard={openCard}
-      onOpenReply={openQuoted}
+      onOpenReply={scrollToMessage}
       onToggleReaction={toggleReaction}
       onUnavailable={showUnavailable}
       reply={replyPreviews(item.message)}
       savedContacts={savedContactIds}
       selfUpeerId={selfUpeerId}
     />
-  ), [highlightedID, openActions, openAttachment, openCard, openQuoted, replyPreviews, savedContactIds, selfUpeerId, showUnavailable, toggleReaction]);
+  ), [highlightedID, highlightedMessageId, openActions, openAttachment, openCard, replyPreviews, savedContactIds, scrollToMessage, selfUpeerId, showUnavailable, toggleReaction]);
 
   return (
     <View style={styles.root}>
@@ -259,6 +240,7 @@ export default function ChatRoute() {
               listRef={listRef}
               loading={loadingMessages}
               onScroll={handleScroll}
+              onScrollToIndexFailed={handleScrollToIndexFailed}
               onScrollToLatest={scrollToLatest}
               renderItem={renderItem}
               showScrollButton={showScrollButton}

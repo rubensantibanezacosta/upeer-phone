@@ -5,6 +5,7 @@ import { FlatList, StyleSheet, View, type ListRenderItemInfo, type NativeScrollE
 import { ChatEmptyState } from '@/components/chat/chat-empty-state';
 import { ChatScrollButton } from '@/components/chat/chat-scroll-button';
 import type { ChatTimelineEntry } from '@/domain/chat-timeline';
+import type { ChatScrollToIndexFailure } from '@/hooks/use-chat-anchor';
 import { LoadingState } from '@/components/loading-state';
 
 type ChatTimelineListProps = {
@@ -12,6 +13,7 @@ type ChatTimelineListProps = {
   listRef: React.RefObject<FlatList<ChatTimelineEntry> | null>;
   loading?: boolean;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  onScrollToIndexFailed?: (info: ChatScrollToIndexFailure) => void;
   onScrollToLatest: () => void;
   renderItem: (info: ListRenderItemInfo<ChatTimelineEntry>) => ReactElement;
   showScrollButton: boolean;
@@ -19,8 +21,8 @@ type ChatTimelineListProps = {
 
 const keyExtractor = (entry: ChatTimelineEntry) => entry.message.id;
 
-export const ChatTimelineList = memo(function ChatTimelineList({ data, listRef, loading = false, onScroll, onScrollToLatest, renderItem, showScrollButton }: ChatTimelineListProps) {
-  const handleScrollToIndexFailed = useCallback((info: { averageItemLength: number; index: number }) => {
+export const ChatTimelineList = memo(function ChatTimelineList({ data, listRef, loading = false, onScroll, onScrollToIndexFailed, onScrollToLatest, renderItem, showScrollButton }: ChatTimelineListProps) {
+  const fallbackScrollToIndexFailed = useCallback((info: ChatScrollToIndexFailure) => {
     listRef.current?.scrollToOffset({ animated: false, offset: info.averageItemLength * info.index });
     setTimeout(() => {
       listRef.current?.scrollToIndex({ animated: true, index: info.index, viewPosition: 0.5 });
@@ -41,7 +43,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({ data, listRef, 
           keyExtractor={keyExtractor}
           maxToRenderPerBatch={16}
           onScroll={onScroll}
-          onScrollToIndexFailed={handleScrollToIndexFailed}
+          onScrollToIndexFailed={onScrollToIndexFailed ?? fallbackScrollToIndexFailed}
           renderItem={renderItem}
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}

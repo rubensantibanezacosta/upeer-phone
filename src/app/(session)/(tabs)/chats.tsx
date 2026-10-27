@@ -157,8 +157,11 @@ export default function ChatsRoute() {
       router.push({ pathname: '/contact/[upeerId]', params: { upeerId: target.upeerId } });
       return;
     }
-    const upeerId = target.kind === 'group' ? target.groupId : target.upeerId;
-    router.push({ pathname: '/chat/[upeerId]', params: { upeerId } });
+    if (target.kind === 'group') {
+      router.push({ pathname: '/chat/[upeerId]', params: { upeerId: target.groupId } });
+      return;
+    }
+    router.push({ pathname: '/chat/[upeerId]', params: target.messageId ? { upeerId: target.upeerId, messageId: target.messageId } : { upeerId: target.upeerId } });
   };
 
   const openChat = (entry: ChatListEntry) => {

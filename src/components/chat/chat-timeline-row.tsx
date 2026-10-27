@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ChatDateSeparator } from '@/components/chat/chat-date-separator';
 import { ChatMessageBubble } from '@/components/chat/chat-message-bubble';
@@ -7,6 +7,7 @@ import { summarizeReactions } from '@/domain/chat-reactions';
 import type { ReplyPreview } from '@/domain/chat-reply';
 import type { ChatTimelineEntry } from '@/domain/chat-timeline';
 import type { ContactCard } from '@/domain/contact-card';
+import { useTheme } from '@/hooks/use-theme';
 import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeerTransport.types';
 
 type ChatTimelineRowProps = {
@@ -24,8 +25,9 @@ type ChatTimelineRowProps = {
 };
 
 export function ChatTimelineRow({ entry, highlighted, onLongPress, onOpenAttachment, onOpenCard, onOpenReply, onToggleReaction, onUnavailable, reply, savedContacts, selfUpeerId }: ChatTimelineRowProps) {
+  const theme = useTheme();
   return (
-    <View>
+    <View style={highlighted ? [styles.highlight, { backgroundColor: theme.accentSoft }] : undefined}>
       {entry.showDateSeparator ? <ChatDateSeparator timestamp={entry.message.timestamp} /> : null}
       <ChatMessageBubble
         entry={entry}
@@ -43,3 +45,7 @@ export function ChatTimelineRow({ entry, highlighted, onLongPress, onOpenAttachm
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  highlight: { borderRadius: 12 },
+});
