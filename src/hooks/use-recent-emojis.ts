@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 
 import { areRecentEmojisLoaded, getRecentEmojis, loadRecentEmojis, rememberEmoji, subscribeRecentEmojis } from '@/storage/recent-emojis-store';
 
@@ -8,5 +8,8 @@ export function useRecentEmojis(): { recent: string[]; ready: boolean; remember:
   useEffect(() => {
     void loadRecentEmojis();
   }, []);
-  return { recent, ready, remember: (emoji: string) => void rememberEmoji(emoji) };
+  const remember = useCallback((emoji: string) => {
+    void rememberEmoji(emoji);
+  }, []);
+  return { recent, ready, remember };
 }

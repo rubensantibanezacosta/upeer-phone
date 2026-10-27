@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from 'react-native';import { Car, Clock, Flag, Heart, Lightbulb, PawPrint, Search, Smile, Utensils, Volleyball } from '@tamagui/lucide-icons-2';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from 'react-native';
+import { Car, Clock, Flag, Heart, Lightbulb, PawPrint, Search, Smile, Utensils, Volleyball } from '@tamagui/lucide-icons-2';
 import { Input, SizableText, XStack, YStack } from 'tamagui';
 
 import { EMOJI_GROUPS, searchEmojis } from '@/domain/emoji-catalog';
@@ -88,15 +89,16 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
 
   useEffect(() => {
     if (query) return;
-    const timers = pages.map((_, index) => setTimeout(() => warmUp(index), PRELOAD_STEP_MS * (index + 1)));
+    const count = pages.length;
+    const timers = Array.from({ length: count }, (_, index) => setTimeout(() => warmUp(index), PRELOAD_STEP_MS * (index + 1)));
     return () => {
       for (const timer of timers) clearTimeout(timer);
     };
-  }, [pages, query, warmUp]);
+  }, [pages.length, query, warmUp]);
 
   const pick = useCallback((emoji: string) => {
-    remember(emoji);
     onPick(emoji);
+    setTimeout(() => remember(emoji), 0);
   }, [onPick, remember]);
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
@@ -167,7 +169,7 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
   </YStack>;
 }
 
-function TabButton({ active, index, onPress, tab }: { active: boolean; index: number; onPress: (index: number) => void; tab: { id: string; label: string } }) {
+function TabButtonBase({ active, index, onPress, tab }: { active: boolean; index: number; onPress: (index: number) => void; tab: { id: string; label: string } }) {
   const theme = useTheme();
   return <NativeRipplePressable
     accessibilityLabel={tab.label}
@@ -179,6 +181,8 @@ function TabButton({ active, index, onPress, tab }: { active: boolean; index: nu
     <GroupIcon color={active ? theme.accent : theme.placeholder} groupId={tab.id} size={19} />
   </NativeRipplePressable>;
 }
+
+const TabButton = memo(TabButtonBase);
 
 function GroupIcon({ color, groupId, size }: { color: string; groupId: string; size: number }) {
   const Icon = GROUP_ICONS[groupId] ?? Smile;

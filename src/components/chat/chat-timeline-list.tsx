@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 import { FlatList, StyleSheet, View, type ListRenderItemInfo, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 
 import { ChatEmptyState } from '@/components/chat/chat-empty-state';
@@ -19,7 +19,7 @@ type ChatTimelineListProps = {
 
 const keyExtractor = (entry: ChatTimelineEntry) => entry.message.id;
 
-export function ChatTimelineList({ data, listRef, loading = false, onScroll, onScrollToLatest, renderItem, showScrollButton }: ChatTimelineListProps) {
+export const ChatTimelineList = memo(function ChatTimelineList({ data, listRef, loading = false, onScroll, onScrollToLatest, renderItem, showScrollButton }: ChatTimelineListProps) {
   const handleScrollToIndexFailed = useCallback((info: { averageItemLength: number; index: number }) => {
     listRef.current?.scrollToOffset({ animated: false, offset: info.averageItemLength * info.index });
     setTimeout(() => {
@@ -53,7 +53,7 @@ export function ChatTimelineList({ data, listRef, loading = false, onScroll, onS
       {showScrollButton && data.length > 0 ? <ChatScrollButton onPress={onScrollToLatest} /> : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   timeline: { flex: 1, position: 'relative' },

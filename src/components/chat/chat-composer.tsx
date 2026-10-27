@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Keyboard, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Mic, Plus, Send, Smile } from '@tamagui/lucide-icons-2';
 import { Input, XStack } from 'tamagui';
@@ -29,19 +29,30 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [forcedSelection, setForcedSelection] = useState<{ end: number; start: number } | null>(null);
   const selection = useRef({ end: value.length, start: value.length });
+  const text = useRef(value);
   const hasText = value.trim().length > 0;
+
+  useEffect(() => {
+    text.current = value;
+  }, [value]);
 
   const handleSelection = useCallback((event: { nativeEvent: { selection: { end: number; start: number } } }) => {
     selection.current = event.nativeEvent.selection;
-    setForcedSelection(null);
+    setForcedSelection((current) => (current === null ? current : null));
   }, []);
 
+  const handleChangeText = useCallback((next: string) => {
+    text.current = next;
+    onChange(next);
+  }, [onChange]);
+
   const insertEmoji = useCallback((emoji: string) => {
-    const next = insertAtSelection(value, selection.current, emoji);
+    const next = insertAtSelection(text.current, selection.current, emoji);
+    text.current = next.value;
     selection.current = next.selection;
     setForcedSelection(next.selection);
     onChange(next.value);
-  }, [onChange, value]);
+  }, [onChange]);
 
   const toggleEmoji = () => {
     setEmojiOpen((open) => {
@@ -65,7 +76,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, onUnavailable 
         maxLength={4000}
         minHeight={44}
         multiline
-        onChangeText={onChange}
+        onChangeText={handleChangeText}
         onFocus={() => setEmojiOpen(false)}
         onSelectionChange={handleSelection}
         placeholder="Escribe un mensaje..."
