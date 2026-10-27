@@ -5,6 +5,7 @@ import { Text } from 'tamagui';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { attachmentDetail, attachmentLabel, attachmentUri, fileExtension, type AttachmentInfo } from '@/domain/attachment';
 import { useTextScale } from '@/hooks/use-text-scale';
+import { useVideoThumbnail } from '@/hooks/use-video-thumbnail';
 import { useTheme } from '@/hooks/use-theme';
 
 export function ChatMediaAttachment({ info, isMine, onOpen, onUnavailable }: {
@@ -18,7 +19,9 @@ export function ChatMediaAttachment({ info, isMine, onOpen, onUnavailable }: {
   const isVideo = info.kind === 'video';
   const Icon = isVideo ? FileVideo : FileImage;
   const extension = fileExtension(info.fileName);
-  const preview = info.thumbnail ?? (isVideo ? null : attachmentUri(info));
+  const localUri = attachmentUri(info);
+  const generated = useVideoThumbnail(isVideo && !info.thumbnail ? localUri : null);
+  const preview = info.thumbnail ?? (isVideo ? generated : localUri);
 
   return (
     <NativeRipplePressable
@@ -35,7 +38,7 @@ export function ChatMediaAttachment({ info, isMine, onOpen, onUnavailable }: {
           {extension ? <Text color={theme.placeholder} fontSize={scale(11)}>{extension}</Text> : null}
         </View>
       )}
-      {isVideo && info.thumbnail ? (
+      {isVideo && preview ? (
         <View style={styles.playOverlay}>
           <View style={styles.playBadge}>
             <FileVideo color="#FFFFFF" size={26} strokeWidth={2} />

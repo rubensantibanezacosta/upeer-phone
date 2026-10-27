@@ -6,6 +6,7 @@ import { SizableText } from 'tamagui';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { formatDuration, type RecentMediaItem } from '@/services/recent-media';
 import { useTextScale } from '@/hooks/use-text-scale';
+import { useVideoThumbnail } from '@/hooks/use-video-thumbnail';
 import { useTheme } from '@/hooks/use-theme';
 
 const TILE = 62;
@@ -27,21 +28,27 @@ export function RecentMediaTray({ items, loading, onDark = false, onPick }: Rece
       {loading ? 'Buscando fotos recientes…' : items.length > 0 ? 'Recientes' : 'Sin fotos recientes'}
     </SizableText>
     <ScrollView contentContainerStyle={styles.row} horizontal showsHorizontalScrollIndicator={false}>
-      {items.map((item) => <NativeRipplePressable
-        accessibilityLabel={`Enviar ${item.title}`}
-        accessibilityRole="button"
-        key={item.id}
-        onPress={() => onPick(item)}
-        style={[styles.tile, { backgroundColor: onDark ? 'rgba(255,255,255,0.12)' : theme.background }]}
-      >
-        <Image contentFit="cover" source={{ uri: item.uri }} style={styles.image} />
-        {item.duration ? <View style={styles.badge}>
-          <Play color="#fff" fill="#fff" size={9} />
-          <SizableText color="#fff" fontSize={9} fontWeight="700">{formatDuration(item.duration)}</SizableText>
-        </View> : null}
-      </NativeRipplePressable>)}
+      {items.map((item) => <RecentTile item={item} key={item.id} onDark={onDark} onPick={onPick} />)}
     </ScrollView>
   </View>;
+}
+
+function RecentTile({ item, onDark, onPick }: { item: RecentMediaItem; onDark: boolean; onPick: (item: RecentMediaItem) => void }) {
+  const theme = useTheme();
+  const generated = useVideoThumbnail(item.kind === 'video' ? item.uri : null);
+
+  return <NativeRipplePressable
+    accessibilityLabel={`Enviar ${item.title}`}
+    accessibilityRole="button"
+    onPress={() => onPick(item)}
+    style={[styles.tile, { backgroundColor: onDark ? 'rgba(255,255,255,0.12)' : theme.background }]}
+  >
+    <Image contentFit="cover" source={{ uri: generated ?? item.uri }} style={styles.image} />
+    {item.duration ? <View style={styles.badge}>
+      <Play color="#fff" fill="#fff" size={9} />
+      <SizableText color="#fff" fontSize={9} fontWeight="700">{formatDuration(item.duration)}</SizableText>
+    </View> : null}
+  </NativeRipplePressable>;
 }
 
 const styles = StyleSheet.create({
