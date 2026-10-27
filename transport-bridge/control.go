@@ -64,13 +64,7 @@ func validateControlFrameFromPayload(payload []byte) (string, error) {
 	if !strings.EqualFold(hex.EncodeToString(upeerIDFromPublicKey(publicKey)), senderUpeerID) {
 		return "", errors.New("senderUpeerId does not match publicKey")
 	}
-	signedPayload := make(map[string]any, len(packet))
-	for key, value := range packet {
-		if key == "signature" || key == "senderUpeerId" || key == "senderYggAddress" {
-			continue
-		}
-		signedPayload[key] = value
-	}
+	signedPayload := signedControlPayload(packet)
 	if packetType == handshakeRequest {
 		delete(signedPayload, "contactCache")
 		delete(signedPayload, "renewalToken")
@@ -78,16 +72,7 @@ func validateControlFrameFromPayload(payload []byte) (string, error) {
 	if !verifyControlSignature(publicKey, signature, signedPayload, senderUpeerID, senderYggAddress, packetType) {
 		return "", errors.New("invalid control packet signature")
 	}
-	metadata, err := json.Marshal(controlMetadata{
-		Type:             packetType,
-		SenderUpeerID:    strings.ToLower(senderUpeerID),
-		SenderYggAddress: senderYggAddress,
-		PublicKey:        hex.EncodeToString(publicKey),
-	})
-	if err != nil {
-		return "", fmt.Errorf("encode validated control packet: %w", err)
-	}
-	return string(metadata), nil
+	return controlMetadataJSON(packetType, strings.ToLower(senderUpeerID), senderYggAddress, publicKey)
 }
 
 func decodeControlPacket(payload []byte) (map[string]any, error) {

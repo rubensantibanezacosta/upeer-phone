@@ -172,6 +172,10 @@ func (identity *CryptoIdentity) buildHandshakeAccept(senderYggAddress, signedPre
 }
 
 func (identity *CryptoIdentity) parseDeviceHandshakeFields(deviceJSON string) (*deviceHandshakeFields, error) {
+	return parseDeviceHandshakeFieldsFor(identity.UpeerID(), deviceJSON)
+}
+
+func parseDeviceHandshakeFieldsFor(accountUpeerID, deviceJSON string) (*deviceHandshakeFields, error) {
 	if strings.TrimSpace(deviceJSON) == "" {
 		return nil, errors.New("device handshake fields are required")
 	}
@@ -191,7 +195,7 @@ func (identity *CryptoIdentity) parseDeviceHandshakeFields(deviceJSON string) (*
 	if len(payload.DeviceCertificate) == 0 {
 		return nil, errors.New("device handshake certificate is required")
 	}
-	certificate, err := dht.VerifyDeviceCertificate(string(payload.DeviceCertificate), identity.UpeerID(), time.Now().UnixMilli())
+	certificate, err := dht.VerifyDeviceCertificate(string(payload.DeviceCertificate), accountUpeerID, time.Now().UnixMilli())
 	if err != nil {
 		return nil, fmt.Errorf("verify device handshake certificate: %w", err)
 	}

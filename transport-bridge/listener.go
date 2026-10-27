@@ -171,5 +171,5 @@ func nextListenerID(listeners map[int32]*listenerState) (int32, error) {
 }
 
 func (b *Bridge) ValidateControlFrame(payload []byte) (string, error) {
-	return validateControlFrameFromPayload(payload)
+	return validateControlFrameWithDeviceSignature(payload)
 }
