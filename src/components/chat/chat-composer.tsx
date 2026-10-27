@@ -6,7 +6,7 @@ import { Input, Text, XStack } from 'tamagui';
 import { EmojiPanel } from '@/components/chat/emoji-panel';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { deleteBeforeSelection, insertAtSelection, trackedSelection } from '@/domain/composer-text';
-import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
+import { useVoiceRecorder, type VoiceActivity } from '@/hooks/use-voice-recorder';
 import { formatVoiceDuration, voiceNoteTooShortMessage, voiceNoteUsable } from '@/domain/voice-note';
 import type { PickedAttachment } from '@/services/attachment-picker';
 import { useTheme } from '@/hooks/use-theme';
@@ -27,6 +27,7 @@ type ChatComposerProps = {
   onCamera: () => void;
   onVoiceError: (message: string) => void;
   onVoiceNote: (attachment: PickedAttachment) => void;
+  onActivity?: (activity: VoiceActivity) => void;
 };
 
 function ComposerAction({ label, onPress, children }: { children: React.ReactNode; label: string; onPress: () => void }) {
@@ -37,9 +38,9 @@ function ComposerAction({ label, onPress, children }: { children: React.ReactNod
   );
 }
 
-export function ChatComposer({ value, onChange, onSend, onAttach, onCamera, onVoiceError, onVoiceNote }: ChatComposerProps) {
+export function ChatComposer({ value, onChange, onSend, onAttach, onCamera, onVoiceError, onVoiceNote, onActivity }: ChatComposerProps) {
   const theme = useTheme();
-  const voice = useVoiceRecorder(onVoiceError);
+  const voice = useVoiceRecorder(onVoiceError, onActivity);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [forcedSelection, setForcedSelection] = useState<{ end: number; start: number } | null>(null);
   const selection = useRef({ end: value.length, start: value.length });

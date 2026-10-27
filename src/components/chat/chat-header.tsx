@@ -4,6 +4,7 @@ import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import type { ConversationActivity } from '@/domain/chat-preview';
 import { CONTACT_STATUS_LABELS } from '@/domain/contact-labels';
 import { getTrustLabel } from '@/domain/trust';
 import { useTextScale } from '@/hooks/use-text-scale';
@@ -17,7 +18,7 @@ type ChatHeaderProps = {
   status: UPeerContact['status'];
   vouchScore?: number;
   isRequest?: boolean;
-  typing?: boolean;
+  activity?: ConversationActivity | '';
   presence?: string | null;
   onBack: () => void;
   onOpenInfo: () => void;
@@ -33,10 +34,10 @@ function HeaderAction({ label, onPress, children }: { label: string; onPress: ()
   );
 }
 
-export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isRequest = false, typing = false, presence = null, onBack, onOpenInfo, onOpenMenu, onUnavailable }: ChatHeaderProps) {
+export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isRequest = false, activity = '', presence = null, onBack, onOpenInfo, onOpenMenu, onUnavailable }: ChatHeaderProps) {
   const theme = useTheme();
   const scale = useTextScale();
-  const subtitle = typing ? 'Escribiendo…' : presence ?? CONTACT_STATUS_LABELS[status];
+  const subtitle = activity === 'recording' ? 'Grabando audio…' : activity === 'typing' ? 'Escribiendo…' : presence ?? CONTACT_STATUS_LABELS[status];
 
   return (
     <XStack alignItems="center" backgroundColor={theme.background} borderBottomColor={theme.border} borderBottomWidth={StyleSheet.hairlineWidth} gap={4} minHeight={72} paddingHorizontal={8} paddingVertical={8}>
@@ -51,7 +52,7 @@ export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isReque
         <ContactTrustAvatar avatar={avatar} name={alias} size={40} vouchScore={vouchScore} />
         <YStack flex={1} gap={2} minWidth={0}>
           <SizableText color={theme.text} fontSize={scale(16)} fontWeight="500" numberOfLines={1}>{alias}</SizableText>
-          <Text color={typing ? theme.accent : theme.placeholder} fontSize={scale(12)} numberOfLines={1}>{subtitle}</Text>
+          <Text color={activity ? theme.accent : theme.placeholder} fontSize={scale(12)} numberOfLines={1}>{subtitle}</Text>
         </YStack>
       </NativeRipplePressable>
       {isRequest ? null : <HeaderAction label="Videollamada" onPress={() => onUnavailable('Videollamada')}><Video color={theme.text} size={24} /></HeaderAction>}

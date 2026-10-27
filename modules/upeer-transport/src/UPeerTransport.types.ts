@@ -56,6 +56,10 @@ export type ProtocolGroup = {
   updatedAt?: number;
 };
 
+export type ConversationActivityState = 'typing' | 'recording' | 'stop';
+
+export type ConversationActivity = Exclude<ConversationActivityState, 'stop'>;
+
 export type ProtocolConversation = {
   upeerId: string;
   alias: string;
@@ -68,6 +72,7 @@ export type ProtocolConversation = {
   lastIsMine: boolean;
   unread: number;
   typing?: boolean;
+  activity?: ConversationActivity | '';
   lastSeen?: number;
   lastActive?: number;
 };

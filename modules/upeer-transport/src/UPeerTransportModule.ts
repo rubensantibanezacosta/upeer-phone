@@ -6,7 +6,7 @@ import { sha512 } from '@noble/hashes/sha2.js';
 import { NativeModule, requireNativeModule } from 'expo';
 import { validateMnemonic } from '../../../src/domain/mnemonic';
 import { decodeEnrollmentTransfer, encodeEnrollmentTransfer } from '../../../src/domain/enrollment-transfer';
-import type { AccountRegistryDocument, AccountRegistryStatus, DeviceEnrollmentBeginResult, DeviceEnrollmentStatus, DeviceIdentityStatus, DhtLocationStatus, EnrollmentAuthorizerInvite, EnrollmentAuthorizerIssued, EnrollmentAuthorizerRequest, EnrollmentAuthorizerStatus, EnrollmentCertificateSummary, IdentityTransportStatus, InboundTransportStatus, LocationBlock, OutboundFileTransfer, PeerInfo, PeerPoolEntry, PeerSecurity, ProtocolConversation, ProtocolGroup, ProtocolMessage, ProtocolTransportStatus, SyncTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
+import type { AccountRegistryDocument, AccountRegistryStatus, ConversationActivityState, DeviceEnrollmentBeginResult, DeviceEnrollmentStatus, DeviceIdentityStatus, DhtLocationStatus, EnrollmentAuthorizerInvite, EnrollmentAuthorizerIssued, EnrollmentAuthorizerRequest, EnrollmentAuthorizerStatus, EnrollmentCertificateSummary, IdentityTransportStatus, InboundTransportStatus, LocationBlock, OutboundFileTransfer, PeerInfo, PeerPoolEntry, PeerSecurity, ProtocolConversation, ProtocolGroup, ProtocolMessage, ProtocolTransportStatus, SyncTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
 
 declare class UPeerTransportModule extends NativeModule<{}> {
   start(configJSON: number[]): Promise<YggdrasilNodeInfo>;
@@ -42,7 +42,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   groupsJSON(): Promise<string>;
   peerSecurityJSON(upeerId: string): Promise<string>;
   markConversationRead(upeerId: string): Promise<void>;
-  sendTyping(upeerId: string): Promise<void>;
+  sendTyping(upeerId: string, state: ConversationActivityState): Promise<void>;
   markUserActive(): Promise<void>;
   sendReaction(upeerId: string, messageId: string, emoji: string, remove: boolean): Promise<void>;
   deleteMessage(upeerId: string, messageId: string): Promise<void>;
@@ -308,8 +308,8 @@ export async function markUserActive(): Promise<void> {
   return nativeModule.markUserActive();
 }
 
-export async function sendTyping(upeerId: string): Promise<void> {
-  return nativeModule.sendTyping(upeerId);
+export async function sendTyping(upeerId: string, state: ConversationActivityState = 'typing'): Promise<void> {
+  return nativeModule.sendTyping(upeerId, state);
 }
 
 export async function sendReaction(

@@ -7,7 +7,7 @@ internal object ProtocolConversations {
   fun build(
     messages: JSONArray,
     peers: JSONObject,
-    typingPeers: Set<String> = emptySet(),
+    typingPeers: Map<String, String> = emptyMap(),
     groups: Map<String, JSONObject> = emptyMap(),
   ): String {
     val latest = LinkedHashMap<String, JSONObject>()
@@ -40,7 +40,8 @@ internal object ProtocolConversations {
         .put("lastTimestamp", message.optLong("timestamp"))
         .put("lastIsMine", message.optBoolean("isMine"))
         .put("unread", unread)
-        .put("typing", typingPeers.contains(upeerId))
+        .put("typing", typingPeers.containsKey(upeerId))
+        .put("activity", typingPeers[upeerId] ?: "")
         .put("lastSeen", peers.optJSONObject(upeerId)?.optLong("lastSeen", 0L) ?: 0L)
         .put("lastActive", peers.optJSONObject(upeerId)?.optLong("lastActive", 0L) ?: 0L)
     }.toMutableList()
@@ -59,6 +60,7 @@ internal object ProtocolConversations {
           .put("lastIsMine", false)
           .put("unread", 0)
           .put("typing", false)
+          .put("activity", "")
           .put("lastSeen", 0L)
           .put("lastActive", 0L),
       )

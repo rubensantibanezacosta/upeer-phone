@@ -26,7 +26,24 @@ class TypingIndicatorsTest {
   fun dataIsAPlainTypingPacket() {
     val data = TypingIndicators.data()
     assertEquals("TYPING", data.optString("type"))
-    assertEquals(1, data.length())
+    assertEquals(TypingIndicators.STATE_TYPING, data.optString("state"))
+    assertEquals(2, data.length())
+  }
+
+  @Test
+  fun dataCarriesTheRequestedState() {
+    assertEquals(TypingIndicators.STATE_RECORDING, TypingIndicators.data(TypingIndicators.STATE_RECORDING).optString("state"))
+    assertEquals(TypingIndicators.STATE_STOP, TypingIndicators.data(TypingIndicators.STATE_STOP).optString("state"))
+  }
+
+  @Test
+  fun unknownStateFallsBackToTyping() {
+    assertEquals(TypingIndicators.STATE_TYPING, TypingIndicators.stateOf(null))
+    assertEquals(TypingIndicators.STATE_TYPING, TypingIndicators.stateOf(""))
+    assertEquals(TypingIndicators.STATE_TYPING, TypingIndicators.stateOf("grabando"))
+    assertEquals(TypingIndicators.STATE_RECORDING, TypingIndicators.stateOf("recording"))
+    assertEquals(TypingIndicators.STATE_STOP, TypingIndicators.stateOf("stop"))
+    assertEquals(TypingIndicators.STATE_TYPING, TypingIndicators.data("grabando").optString("state"))
   }
 
   @Test
@@ -39,9 +56,11 @@ class TypingIndicatorsTest {
       .put("isMine", false)
       .put("status", "delivered")
     val messages = JSONArray().put(message)
-    val typing = JSONArray(ProtocolConversations.build(messages, JSONObject(), setOf(peerID))).getJSONObject(0)
-    val idle = JSONArray(ProtocolConversations.build(messages, JSONObject(), emptySet())).getJSONObject(0)
+    val typing = JSONArray(ProtocolConversations.build(messages, JSONObject(), mapOf(peerID to TypingIndicators.STATE_TYPING))).getJSONObject(0)
+    val idle = JSONArray(ProtocolConversations.build(messages, JSONObject(), emptyMap())).getJSONObject(0)
     assertTrue(typing.optBoolean("typing"))
+    assertEquals(TypingIndicators.STATE_TYPING, typing.optString("activity"))
     assertFalse(idle.optBoolean("typing"))
+    assertEquals("", idle.optString("activity"))
   }
 }

@@ -183,8 +183,8 @@ class YggdrasilTransportService : Service() {
       protocol.markConversationRead(upeerId)
       notifications.clearConversation(upeerId)
     }
-    override fun sendTyping(upeerId: String) {
-      admitted { protocol.sendTyping(upeerId) }
+    override fun sendTyping(upeerId: String, state: String) {
+      admitted { protocol.sendTyping(upeerId, state) }
     }
     override fun markUserActive() {
       admitted { protocol.markUserActive() }

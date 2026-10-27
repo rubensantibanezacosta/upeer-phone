@@ -6,6 +6,8 @@ import { pickedAttachment, type PickedAttachment } from '@/services/attachment-p
 
 const STATUS_INTERVAL_MS = 250;
 
+export type VoiceActivity = 'recording' | 'stop';
+
 export type VoiceRecorder = {
   cancel: () => void;
   recording: boolean;
@@ -14,7 +16,10 @@ export type VoiceRecorder = {
   stop: () => Promise<PickedAttachment | null>;
 };
 
-export function useVoiceRecorder(onError: (message: string) => void): VoiceRecorder {
+export function useVoiceRecorder(
+  onError: (message: string) => void,
+  onActivity: (activity: VoiceActivity) => void = () => undefined,
+): VoiceRecorder {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const status = useAudioRecorderState(recorder, STATUS_INTERVAL_MS);
   const [recording, setRecording] = useState(false);
@@ -30,11 +35,12 @@ export function useVoiceRecorder(onError: (message: string) => void): VoiceRecor
       await recorder.prepareToRecordAsync();
       recorder.record();
       setRecording(true);
+      onActivity('recording');
     } catch (cause) {
       console.warn('No se pudo empezar a grabar la nota de voz.', cause);
       onError('No se pudo empezar a grabar');
     }
-  }, [onError, recorder]);
+  }, [onActivity, onError, recorder]);
 
   const release = useCallback(async () => {
     await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
@@ -42,6 +48,7 @@ export function useVoiceRecorder(onError: (message: string) => void): VoiceRecor
 
   const stop = useCallback(async (): Promise<PickedAttachment | null> => {
     setRecording(false);
+    onActivity('stop');
     try {
       await recorder.stop();
     } catch (cause) {
@@ -51,16 +58,17 @@ export function useVoiceRecorder(onError: (message: string) => void): VoiceRecor
     const uri = recorder.uri;
     if (!uri) return null;
     return pickedAttachment(uri, voiceNoteFileName(), VOICE_NOTE_MIME_TYPE);
-  }, [recorder, release]);
+  }, [onActivity, recorder, release]);
 
   const cancel = useCallback(() => {
     setRecording(false);
+    onActivity('stop');
     recorder.stop().catch((cause: unknown) => {
       console.warn('No se pudo descartar la grabación.', cause);
     }).finally(() => {
       void release();
     });
-  }, [recorder, release]);
+  }, [onActivity, recorder, release]);
 
   return { cancel, recording, seconds: status.durationMillis / 1000, start, stop };
 }

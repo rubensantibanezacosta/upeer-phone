@@ -242,7 +242,7 @@ internal class ProtocolStateStore(context: Context) {
     ProtocolConversations.build(
       state.optJSONArray("messages") ?: JSONArray(),
       state.optJSONObject("peers") ?: JSONObject(),
-      typingPeers(System.currentTimeMillis()),
+      typingActivities(System.currentTimeMillis()),
       groups.index(),
     )
   }
@@ -273,9 +273,11 @@ internal class ProtocolStateStore(context: Context) {
 
   fun setMutedPeers(upeerIds: List<String>) = preferences.setMuted(upeerIds)
 
-  fun markTyping(upeerId: String, untilMillis: Long) = typing.mark(upeerId, untilMillis)
+  fun markTyping(upeerId: String, activity: String, untilMillis: Long) = typing.mark(upeerId, activity, untilMillis)
 
   fun clearTyping(upeerId: String) = typing.clear(upeerId)
+
+  fun typingActivities(nowMillis: Long): Map<String, String> = typing.activities(nowMillis)
 
   fun typingPeers(nowMillis: Long): Set<String> = typing.peers(nowMillis)
 

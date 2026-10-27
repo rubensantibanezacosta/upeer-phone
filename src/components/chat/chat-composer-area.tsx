@@ -8,6 +8,7 @@ import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import type { ReplyPreview } from '@/domain/chat-reply';
 import type { LinkPreview } from '@/domain/link-preview';
 import type { PickedAttachment } from '@/services/attachment-picker';
+import type { VoiceActivity } from '@/hooks/use-voice-recorder';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -24,12 +25,13 @@ type ChatComposerAreaProps = {
   onCamera: () => void;
   onVoiceError: (message: string) => void;
   onVoiceNote: (attachment: PickedAttachment) => void;
+  onActivity?: (activity: VoiceActivity) => void;
   preview: LinkPreview | null;
   reply: ReplyPreview | null;
   value: string;
 };
 
-export function ChatComposerArea({ editing, error, hidden, loadingPreview, onChange, onAttach, onCamera, onCancelContext, onDismissPreview, onSend, onVoiceError, onVoiceNote, preview, reply, value }: ChatComposerAreaProps) {
+export function ChatComposerArea({ editing, error, hidden, loadingPreview, onChange, onAttach, onCamera, onCancelContext, onDismissPreview, onSend, onVoiceError, onVoiceNote, onActivity, preview, reply, value }: ChatComposerAreaProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const context = editing ? { icon: <Pencil color={theme.accent} size={15} />, label: 'Editando mensaje', detail: '' }
@@ -58,7 +60,7 @@ export function ChatComposerArea({ editing, error, hidden, loadingPreview, onCha
       </XStack>
     ) : null}
     {hidden ? null : <ChatLinkPreviewBar loading={loadingPreview} onDismiss={onDismissPreview} preview={preview} />}
-    {hidden ? null : <ChatComposer onAttach={onAttach} onCamera={onCamera} onChange={onChange} onSend={onSend} onVoiceError={onVoiceError} onVoiceNote={onVoiceNote} value={value} />}
+    {hidden ? null : <ChatComposer onActivity={onActivity} onAttach={onAttach} onCamera={onCamera} onChange={onChange} onSend={onSend} onVoiceError={onVoiceError} onVoiceNote={onVoiceNote} value={value} />}
   </>;
 }
 

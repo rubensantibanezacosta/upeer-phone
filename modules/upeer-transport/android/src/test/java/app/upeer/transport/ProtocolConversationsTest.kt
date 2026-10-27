@@ -31,12 +31,27 @@ class ProtocolConversationsTest {
 
   @Test
   fun `typing flag stays independent from presence`() {
-    val result = conversations(peers = peers(42L), typing = setOf(peerId))
+    val result = conversations(peers = peers(42L), typing = mapOf(peerId to TypingIndicators.STATE_TYPING))
     assertEquals(true, result.optBoolean("typing"))
+    assertEquals(TypingIndicators.STATE_TYPING, result.optString("activity"))
     assertEquals(42L, result.optLong("lastSeen"))
   }
 
-  private fun conversations(peers: JSONObject, typing: Set<String> = emptySet()): JSONObject {
+  @Test
+  fun `recording activity reaches the conversation`() {
+    val result = conversations(peers = peers(42L), typing = mapOf(peerId to TypingIndicators.STATE_RECORDING))
+    assertEquals(true, result.optBoolean("typing"))
+    assertEquals(TypingIndicators.STATE_RECORDING, result.optString("activity"))
+  }
+
+  @Test
+  fun `idle conversation carries an empty activity`() {
+    val result = conversations(peers = peers(42L))
+    assertEquals(false, result.optBoolean("typing"))
+    assertEquals("", result.optString("activity"))
+  }
+
+  private fun conversations(peers: JSONObject, typing: Map<String, String> = emptyMap()): JSONObject {
     val messages = JSONArray().put(
       JSONObject()
         .put("id", "3f2504e0-4f89-41d3-9a0c-0305e82c3301")

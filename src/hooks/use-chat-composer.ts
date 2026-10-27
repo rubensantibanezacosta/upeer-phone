@@ -3,11 +3,10 @@ import { useCallback, useRef, useState } from 'react';
 import { forwardResultMessage } from '@/domain/forward';
 import { buildLinkPreviewPayload } from '@/domain/link-preview';
 import { messageText } from '@/domain/message-preview';
+import { decideTypingSignal } from '@/domain/typing-activity';
 import { useLinkPreview } from '@/hooks/use-link-preview';
-import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
+import type { ConversationActivityState, ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import { editChat, sendChat, sendTyping } from '../../modules/upeer-transport/src/UPeerTransportModule';
-
-const TYPING_INTERVAL_MS = 3000;
 
 type ChatComposerOptions = {
   onChanged: () => Promise<void>;
@@ -24,16 +23,23 @@ export function useChatComposer({ onChanged, onForwarded, upeerId }: ChatCompose
   const typingSentAtRef = useRef(0);
   const link = useLinkPreview(editing ? '' : text);
 
-  const handleChange = useCallback((value: string) => {
-    setText(value);
-    if (!upeerId || !value.trim()) return;
-    const now = Date.now();
-    if (now - typingSentAtRef.current < TYPING_INTERVAL_MS) return;
-    typingSentAtRef.current = now;
-    sendTyping(upeerId).catch((cause: unknown) => {
-      console.warn('No se pudo enviar el indicador de escritura.', cause);
+  const notifyActivity = useCallback((state: ConversationActivityState) => {
+    if (!upeerId) return;
+    if (state === 'stop') typingSentAtRef.current = 0;
+    sendTyping(upeerId, state).catch((cause: unknown) => {
+      console.warn('No se pudo enviar el indicador de actividad.', cause);
     });
   }, [upeerId]);
+
+  const handleChange = useCallback((value: string) => {
+    setText(value);
+    if (!upeerId) return;
+    const now = Date.now();
+    const signal = decideTypingSignal({ hasText: value.trim().length > 0, lastSentAt: typingSentAtRef.current, now });
+    if (!signal) return;
+    if (signal === 'typing') typingSentAtRef.current = now;
+    notifyActivity(signal);
+  }, [notifyActivity, upeerId]);
 
   const submit = async () => {
     const content = text.trim();
@@ -45,6 +51,7 @@ export function useChatComposer({ onChanged, onForwarded, upeerId }: ChatCompose
     setReplyingTo(null);
     setError('');
     link.clear();
+    if (typingSentAtRef.current > 0) notifyActivity('stop');
     try {
       if (currentEdit) {
         await editChat(upeerId, currentEdit.id, content);
@@ -104,6 +111,7 @@ export function useChatComposer({ onChanged, onForwarded, upeerId }: ChatCompose
     handleForwarded,
     linkPreview: link.preview,
     loadingPreview: link.loading,
+    notifyActivity,
     replyingTo,
     setError,
     startEditing,

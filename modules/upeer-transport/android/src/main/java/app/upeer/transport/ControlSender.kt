@@ -10,8 +10,8 @@ internal class ControlSender(
   private val state: ProtocolStateStore,
   private val bridgeProvider: () -> Bridge?,
 ) {
-  fun sendTyping(upeerId: String) {
-    send(upeerId, "upeer-typing", TypingIndicators.data(), "TYPING")
+  fun sendTyping(upeerId: String, state: String) {
+    send(upeerId, "upeer-typing", TypingIndicators.data(state), "TYPING")
   }
 
   fun markActive(nowMillis: Long) {

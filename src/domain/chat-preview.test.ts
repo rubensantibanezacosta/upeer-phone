@@ -11,11 +11,23 @@ describe('describeChatPreview', () => {
   });
 
   it('antepone la escritura a la vista previa', () => {
-    expect(describeChatPreview({ ...BASE, preview: 'Hola', typing: true })).toEqual({ text: 'Escribiendo…', accent: true, italic: false });
+    expect(describeChatPreview({ ...BASE, preview: 'Hola', activity: 'typing' })).toEqual({ text: 'Escribiendo…', accent: true, italic: false });
+  });
+
+  it('distingue la grabación de la escritura', () => {
+    expect(describeChatPreview({ ...BASE, preview: 'Hola', activity: 'recording' })).toEqual({
+      text: 'Grabando audio…',
+      accent: true,
+      italic: false,
+    });
+  });
+
+  it('vuelve a la vista previa cuando el aviso se para', () => {
+    expect(describeChatPreview({ ...BASE, preview: 'Hola', activity: '' })).toEqual({ text: 'Hola', accent: false, italic: false });
   });
 
   it('mantiene la etiqueta pendiente en cursiva aunque haya escritura', () => {
-    expect(describeChatPreview({ ...BASE, preview: 'Pendiente', pending: true, typing: true })).toEqual({
+    expect(describeChatPreview({ ...BASE, preview: 'Pendiente', pending: true, activity: 'recording' })).toEqual({
       text: 'Pendiente',
       accent: false,
       italic: true,

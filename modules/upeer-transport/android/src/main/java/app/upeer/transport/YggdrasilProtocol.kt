@@ -152,7 +152,7 @@ internal class YggdrasilProtocol(
 
   fun flushOutbox() = outbox.flush()
   fun peerPublicKey(upeerId: String): String? = state.publicKeyFor(upeerId)
-  fun sendTyping(upeerId: String) = controlSender.sendTyping(upeerId)
+  fun sendTyping(upeerId: String, state: String) = controlSender.sendTyping(upeerId, state)
 
   fun sendReaction(upeerId: String, messageID: String, emoji: String, remove: Boolean) =
     controlSender.sendReaction(upeerId, messageID, emoji, remove)

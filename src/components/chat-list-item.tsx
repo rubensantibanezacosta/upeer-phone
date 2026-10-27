@@ -6,7 +6,7 @@ import { SizableText, Text, XStack, YStack } from 'tamagui';
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { UnreadCountBadge } from '@/components/unread-count-badge';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
-import { describeChatPreview } from '@/domain/chat-preview';
+import { describeChatPreview, type ConversationActivity } from '@/domain/chat-preview';
 import { getTrustLabel } from '@/domain/trust';
 import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import { usePreferences } from '@/hooks/use-preferences';
@@ -29,7 +29,7 @@ export type ChatListEntry = {
   muted?: boolean;
   pinned?: boolean;
   favorite?: boolean;
-  typing?: boolean;
+  activity?: ConversationActivity | '';
   lastSeen?: number;
   group?: boolean;
   members?: number;
@@ -69,7 +69,7 @@ export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemPro
   const preview = describeChatPreview({
     preview: entry.preview,
     pending: entry.pending,
-    typing: entry.typing,
+    activity: entry.activity,
     lastSeen: entry.lastSeen,
     now,
     onlineStatus: preferences.onlineStatus,
@@ -91,7 +91,7 @@ export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemPro
   return (
     <NativeRipplePressable
       accessibilityHint="Mantén pulsado para abrir las opciones de la conversación"
-      accessibilityLabel={`${entry.title}${entry.pinned ? ', fijada' : ''}${entry.muted ? ', silenciada' : ''}${entry.favorite ? ', favorita' : ''}${entry.typing ? ', escribiendo' : ''}${isUnread ? `, ${entry.unread} mensajes sin leer` : ''}, ${getTrustLabel(entry.vouchScore)}`}
+      accessibilityLabel={`${entry.title}${entry.pinned ? ', fijada' : ''}${entry.muted ? ', silenciada' : ''}${entry.favorite ? ', favorita' : ''}${entry.activity === 'recording' ? ', grabando audio' : entry.activity ? ', escribiendo' : ''}${isUnread ? `, ${entry.unread} mensajes sin leer` : ''}, ${getTrustLabel(entry.vouchScore)}`}
       accessibilityRole="button"
       delayLongPress={350}
       onLongPress={handleLongPress}
@@ -106,7 +106,7 @@ export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemPro
             {entry.pinned ? <Pin color={theme.placeholder} size={13} strokeWidth={2.2} /> : null}
             <SizableText color={theme.text} flex={1} fontSize={scale(15)} fontWeight={isEmphasized ? '700' : '600'} numberOfLines={1}>{entry.title}</SizableText>
             {entry.muted ? <BellOff accessibilityLabel="Silenciada" color={theme.placeholder} size={13} strokeWidth={2.2} /> : null}
-            {!!time && <Text color={entry.typing || isEmphasized ? theme.accent : theme.placeholder} fontSize={scale(11)} fontWeight={entry.typing || isEmphasized ? '700' : '500'}>{time}</Text>}
+            {!!time && <Text color={entry.activity || isEmphasized ? theme.accent : theme.placeholder} fontSize={scale(11)} fontWeight={entry.activity || isEmphasized ? '700' : '500'}>{time}</Text>}
           </XStack>
           <XStack alignItems="center" gap={5}>
             <LastMessageStatus color={theme.placeholder} entry={entry} />

@@ -55,7 +55,12 @@ internal class ControlReplies(
       return metadataJSON
     }
     if (type == "TYPING") {
-      state.markTyping(senderUpeerId, TypingIndicators.expiresAt(System.currentTimeMillis()))
+      val activity = TypingIndicators.stateOf(packet.optString("state"))
+      if (activity == TypingIndicators.STATE_STOP) {
+        state.clearTyping(senderUpeerId)
+      } else {
+        state.markTyping(senderUpeerId, activity, TypingIndicators.expiresAt(System.currentTimeMillis()))
+      }
       return metadataJSON
     }
     if (type == "CHAT_REACTION") {

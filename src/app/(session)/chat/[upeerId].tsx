@@ -14,6 +14,7 @@ import { ChatTimelineList } from '@/components/chat/chat-timeline-list';
 import { ChatTimelineRow } from '@/components/chat/chat-timeline-row';
 import { useSnackbar } from '@/components/snackbar';
 import { buildChatTimeline, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
+import type { ConversationActivity } from '@/domain/chat-preview';
 import { resolveChatBack } from '@/domain/chat-back';
 import { useAndroidBack } from '@/hooks/use-android-back';
 import { useChatAnchor } from '@/hooks/use-chat-anchor';
@@ -50,7 +51,7 @@ export default function ChatRoute() {
   const [contactStatus, setContactStatus] = useState<UPeerContact['status']>('offline');
   const [isRequest, setIsRequest] = useState(false);
   const [requestReceivedAt, setRequestReceivedAt] = useState(0);
-  const [peerTyping, setPeerTyping] = useState(false);
+  const [peerActivity, setPeerActivity] = useState<ConversationActivity | ''>('');
   const [peerPresence, setPeerPresence] = useState<{ lastActive?: number; lastSeen?: number }>({});
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -68,7 +69,7 @@ export default function ChatRoute() {
     const contact = contacts.find((item) => item.upeerId === upeerId);
     const ownConversation = conversations.find((conversation) => conversation.upeerId === upeerId);
     const conversationAlias = ownConversation?.alias;
-    setPeerTyping(ownConversation?.typing === true);
+    setPeerActivity(ownConversation?.activity ?? '');
     setPeerPresence({ lastActive: ownConversation?.lastActive, lastSeen: ownConversation?.lastSeen });
     setPeerAvatar(ownConversation?.avatar);
     setGroupMembers(ownConversation?.members ?? 0);
@@ -105,6 +106,7 @@ export default function ChatRoute() {
     handleForwarded,
     linkPreview,
     loadingPreview,
+    notifyActivity,
     replyingTo,
     setError,
     startEditing,
@@ -232,7 +234,7 @@ export default function ChatRoute() {
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
-        <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={openInfo} onOpenMenu={() => setMenuOpen(true)} onUnavailable={showUnavailable} presence={isGroup ? (groupMembers > 0 ? `${groupMembers} miembros` : 'Grupo') : presence} status={contactStatus} typing={peerTyping} upeerId={upeerId ?? ''} />
+        <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={openInfo} onOpenMenu={() => setMenuOpen(true)} onUnavailable={showUnavailable} presence={isGroup ? (groupMembers > 0 ? `${groupMembers} miembros` : 'Grupo') : presence} status={contactStatus} activity={peerActivity} upeerId={upeerId ?? ''} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.root, androidKeyboard > 0 ? { paddingBottom: androidKeyboard } : null]}>
           {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} /> : (
             <ChatTimelineList
@@ -260,6 +262,7 @@ export default function ChatRoute() {
               onSend: () => { void submit(); },
               onVoiceError: showSnackbar,
               onVoiceNote: (attachment) => { void sendVoiceNote(attachment); },
+              onActivity: notifyActivity,
               preview: linkPreview,
               reply: buildReplyPreview(replyingTo ?? undefined, { mine: 'Tú', peer: alias || 'Contacto' }),
               value: text,

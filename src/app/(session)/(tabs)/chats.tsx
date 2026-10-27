@@ -102,7 +102,7 @@ export default function ChatsRoute() {
       lastStatus: conversation.lastStatus ?? null,
       incoming: requestIds.has(conversation.upeerId),
       favorite: contacts.some((contact) => contact.upeerId === conversation.upeerId && contact.isFavorite === true),
-      typing: conversation.typing === true,
+      activity: conversation.activity ?? '',
       lastSeen: conversation.lastActive || conversation.lastSeen,
       group: conversation.group === true,
       members: conversation.members,
