@@ -9,13 +9,26 @@ export type StorageUsageSnapshot = {
 };
 
 const DATABASE_DIRECTORY = new Directory(Paths.document, 'SQLite');
-const ATTACHMENTS_DIRECTORY = new Directory(Paths.document, 'attachments');
-const AVATAR_DIRECTORY = new Directory(Paths.document, 'profile');
-const MANAGED_CACHE_NAMES = ['image_cache', 'ImagePicker', 'http-cache'];
+const DATA_DIRECTORIES = [new Directory(Paths.document, 'attachments'), new Directory(Paths.document, 'profile')];
 
 const INITIAL_SNAPSHOT: StorageUsageSnapshot = { error: '', loaded: false, usage: EMPTY_STORAGE_USAGE };
 const listeners = new Set<() => void>();
 let snapshot = INITIAL_SNAPSHOT;
+
+type DirectoryMeasure = { bytes: number; files: number };
+
+function walk(directory: Directory): DirectoryMeasure {
+  if (!directory.exists) return { bytes: 0, files: 0 };
+  return directory.list().reduce<DirectoryMeasure>((total, entry) => {
+    if (entry instanceof Directory) {
+      const nested = walk(entry);
+      return { bytes: total.bytes + nested.bytes, files: total.files + nested.files };
+    }
+    const size = entry.size;
+    const bytes = typeof size === 'number' && Number.isFinite(size) && size > 0 ? size : 0;
+    return { bytes: total.bytes + bytes, files: total.files + 1 };
+  }, { bytes: 0, files: 0 });
+}
 
 function sizeOf(directory: Directory): number {
   if (!directory.exists) return 0;
@@ -23,29 +36,9 @@ function sizeOf(directory: Directory): number {
   return typeof size === 'number' && Number.isFinite(size) && size > 0 ? size : 0;
 }
 
-function countFiles(directory: Directory): number {
-  if (!directory.exists) return 0;
-  return directory.list().reduce((total, entry) => total + (entry instanceof Directory ? countFiles(entry) : 1), 0);
-}
-
-function managedCacheDirectory(name: string): Directory {
-  return new Directory(Paths.cache, name);
-}
-
-function cacheBytes(): number {
-  const rootFiles = Paths.cache.list().reduce((total, entry) => {
-    if (entry instanceof Directory) return total;
-    const size = entry.size;
-    return typeof size === 'number' && Number.isFinite(size) ? total + size : total;
-  }, 0);
-  return MANAGED_CACHE_NAMES.reduce((total, name) => total + sizeOf(managedCacheDirectory(name)), rootFiles);
-}
-
 function sameUsage(a: StorageUsage, b: StorageUsage): boolean {
   return a.attachmentCount === b.attachmentCount
     && a.attachmentsBytes === b.attachmentsBytes
-    && a.avatarsBytes === b.avatarsBytes
-    && a.cacheBytes === b.cacheBytes
     && a.databaseBytes === b.databaseBytes
     && a.ownBytes === b.ownBytes;
 }
@@ -69,27 +62,17 @@ export function subscribeStorageUsage(listener: () => void): () => void {
 
 export function refreshStorageUsage(): void {
   try {
+    const data = DATA_DIRECTORIES.reduce<DirectoryMeasure>((total, directory) => {
+      const measured = walk(directory);
+      return { bytes: total.bytes + measured.bytes, files: total.files + measured.files };
+    }, { bytes: 0, files: 0 });
     const usage = summarizeStorage({
-      attachmentCount: countFiles(ATTACHMENTS_DIRECTORY),
-      attachmentsBytes: sizeOf(ATTACHMENTS_DIRECTORY),
-      avatarsBytes: sizeOf(AVATAR_DIRECTORY),
-      cacheBytes: cacheBytes(),
+      attachmentCount: data.files,
+      attachmentsBytes: data.bytes,
       databaseBytes: sizeOf(DATABASE_DIRECTORY),
     });
     publish({ error: '', loaded: true, usage });
   } catch {
     publish({ error: 'No se pudo leer el uso de disco de este dispositivo', loaded: true, usage: snapshot.usage });
-  }
-}
-
-export function clearManagedCache(): void {
-  for (const name of MANAGED_CACHE_NAMES) {
-    const directory = managedCacheDirectory(name);
-    if (directory.exists) directory.delete();
-  }
-  if (!Paths.cache.exists) return;
-  for (const entry of Paths.cache.list()) {
-    if (entry instanceof Directory) continue;
-    entry.delete();
   }
 }

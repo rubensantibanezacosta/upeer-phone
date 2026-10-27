@@ -6,12 +6,13 @@ import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type SettingsSectionHeaderProps = {
+  action?: ReactNode;
   children: ReactNode;
   icon?: ReactNode;
   title: string;
 };
 
-export function SettingsSectionHeader({ children, icon, title }: SettingsSectionHeaderProps) {
+export function SettingsSectionHeader({ action, children, icon, title }: SettingsSectionHeaderProps) {
   const theme = useTheme();
   const scale = useTextScale();
   return (
@@ -21,6 +22,7 @@ export function SettingsSectionHeader({ children, icon, title }: SettingsSection
         <SizableText color={theme.text} fontSize={scale(20)} fontWeight="700">{title}</SizableText>
         <Paragraph color={theme.placeholder} fontSize={scale(13)}>{children}</Paragraph>
       </YStack>
+      {action}
     </YStack>
   );
 }
