@@ -12,13 +12,13 @@ type ChatListMenuProps = {
   onClose: () => void;
   onMarkAllRead: () => void;
   onNewConversation: () => void;
-  onOpenContacts: () => void;
+  onAddContact: () => void;
   onOpenSettings: () => void;
   onSignOut: () => void;
   onUnavailable: (label: string) => void;
 };
 
-export function ChatListMenu({ onClose, onMarkAllRead, onNewConversation, onOpenContacts, onOpenSettings, onSignOut, onUnavailable }: ChatListMenuProps) {
+export function ChatListMenu({ onClose, onMarkAllRead, onNewConversation, onAddContact, onOpenSettings, onSignOut, onUnavailable }: ChatListMenuProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const run = (action: () => void) => () => {
@@ -38,10 +38,10 @@ export function ChatListMenu({ onClose, onMarkAllRead, onNewConversation, onOpen
       <Pressable accessibilityLabel="Cerrar menú" onPress={onClose} style={styles.dismiss} />
       <View style={[styles.menu, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
         {item(<UserPlus color={theme.text} size={18} />, 'Nueva conversación', run(onNewConversation))}
+        {item(<Users color={theme.text} size={18} />, 'Añadir contacto', run(onAddContact))}
         {item(<UsersRound color={theme.text} size={18} />, 'Nuevo grupo', run(() => onUnavailable('Nuevo grupo')))}
         {item(<CheckCheck color={theme.text} size={18} />, 'Marcar todo como leído', run(onMarkAllRead))}
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
-        {item(<Users color={theme.text} size={18} />, 'Contactos', run(onOpenContacts))}
         {item(<Settings color={theme.text} size={18} />, 'Configuración', run(onOpenSettings))}
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
         {item(<LogOut color={theme.danger} size={18} />, 'Cerrar sesión', run(() => confirmSignOut(onSignOut)), theme.danger)}

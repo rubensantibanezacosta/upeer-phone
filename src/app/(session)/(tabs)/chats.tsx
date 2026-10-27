@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ellipsis, MessageCircle, MessageSquarePlus } from '@tamagui/lucide-icons-2';
-import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
+import { Ellipsis, MessageSquarePlus, UserPlus } from '@tamagui/lucide-icons-2';
+import { H1, Text, XStack, YStack } from 'tamagui';
 
 import { ChatContextMenu } from '@/components/chat-context-menu';
+import { ChatListEmptyState } from '@/components/chat-list-empty-state';
 import { ChatListMenu } from '@/components/chat-list-menu';
 import { BottomSheet } from '@/components/bottom-sheet';
+import { ContactFormSheet, type ContactDraft } from '@/components/contact-form-sheet';
+import { saveContactDraft } from '@/services/contact-actions';
 import { LoadingState } from '@/components/loading-state';
 import { useFirstLoad } from '@/hooks/use-first-load';
 import { NewConversationList } from '@/components/new-conversation-list';
@@ -34,7 +37,6 @@ import { buildSearchSections, type SearchContact, type SearchMessage, type Searc
 import { unreadConversationIds } from '@/domain/chat-unread';
 import { useSession } from '@/components/session-shell';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
-import { NativeRippleButton } from '@/components/native-ripple-button';
 import { SyncProgressBanner } from '@/components/sync-progress-banner';
 
 export default function ChatsRoute() {
@@ -42,7 +44,7 @@ export default function ChatsRoute() {
   const scale = useTextScale();
   const { showSnackbar } = useSnackbar();
   const conversationFlags = useConversationFlags();
-  const { signOut } = useSession();
+  const { identity, signOut } = useSession();
   const now = useNow();
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const [conversations, setConversations] = useState<ProtocolConversation[]>([]);
@@ -50,12 +52,17 @@ export default function ChatsRoute() {
   const [selectedEntry, setSelectedEntry] = useState<ChatListEntry | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [addingContact, setAddingContact] = useState(false);
   const [filter, setFilter] = useState<ChatListFilter>('all');
   const [query, setQuery] = useState('');
   const { loading, markLoaded } = useFirstLoad();
 
   useEffect(() => {
-    getContacts().then(setContacts).catch((cause: unknown) => console.warn('No se pudieron cargar los contactos para Chats.', cause));
+    const loadContacts = () => {
+      getContacts()
+        .then(setContacts)
+        .catch((cause: unknown) => console.warn('No se pudieron cargar los contactos para Chats.', cause));
+    };
     const loadConversations = () => {
       getConversations()
         .then((next) => {
@@ -64,11 +71,21 @@ export default function ChatsRoute() {
         })
         .catch((cause: unknown) => console.warn('No se pudieron cargar las conversaciones nativas.', cause));
     };
+    loadContacts();
     loadConversations();
     getGroups().then(setGroups).catch((cause: unknown) => console.warn('No se pudieron cargar los grupos para la búsqueda.', cause));
-    const timer = setInterval(loadConversations, 2000);
+    const timer = setInterval(() => {
+      loadContacts();
+      loadConversations();
+    }, 2000);
     return () => clearInterval(timer);
   }, [markLoaded]);
+
+  const addContact = async (draft: ContactDraft) => {
+    await saveContactDraft(identity.upeerId, draft);
+    setContacts(await getContacts());
+    showSnackbar('Contacto añadido');
+  };
   const partition = useMemo(() => classifyConversations(conversations, contacts), [contacts, conversations]);
   const requestIds = useMemo(() => new Set(partition.requests.map((request) => request.upeerId)), [partition.requests]);
 
@@ -243,22 +260,7 @@ export default function ChatsRoute() {
         ) : loading ? (
           <LoadingState compact label="Cargando conversaciones…" />
         ) : (
-          <YStack alignItems="center" flex={1} gap={12} justifyContent="center" padding={24}>
-            <View style={[styles.emptyAvatar, { backgroundColor: theme.backgroundElement }]}>
-              <MessageCircle color={theme.placeholder} size={28} />
-            </View>
-            {filter === 'groups' ? <>
-              <SizableText color={theme.text} fontSize={scale(17)} fontWeight="600">Sin grupos</SizableText>
-              <Paragraph color={theme.placeholder} textAlign="center">Los grupos que crees aparecerán aquí.</Paragraph>
-            </> : filtering ? <>
-              <SizableText color={theme.text} fontSize={scale(17)} fontWeight="600">Sin coincidencias</SizableText>
-              <Paragraph color={theme.placeholder} textAlign="center">Ninguna conversación coincide con la búsqueda o el filtro activo.</Paragraph>
-            </> : <>
-              <SizableText color={theme.text} fontSize={scale(17)} fontWeight="600">Tus conversaciones</SizableText>
-              <Paragraph color={theme.placeholder} textAlign="center">Añade un contacto para empezar. Tus mensajes y conversaciones se mostrarán en esta lista.</Paragraph>
-              <NativeRippleButton onPress={() => setComposerOpen(true)}>Nueva conversación</NativeRippleButton>
-            </>}
-          </YStack>
+          <ChatListEmptyState filter={filter} filtering={filtering} onNewConversation={() => setComposerOpen(true)} />
         )}
       </ScrollView>
       <ChatContextMenu entry={selectedEntry} onClose={() => setSelectedEntry(null)} onMarkRead={markEntryRead} onToggleFavorite={toggleEntryFavorite} onToggleFlag={toggleEntryFlag} onUnavailable={showUnavailableAction} />
@@ -267,14 +269,17 @@ export default function ChatsRoute() {
           onClose={() => setMenuOpen(false)}
           onMarkAllRead={markAllRead}
           onNewConversation={() => setComposerOpen(true)}
-          onOpenContacts={() => router.navigate('/contacts')}
+          onAddContact={() => setAddingContact(true)}
           onOpenSettings={() => router.navigate('/settings')}
           onSignOut={() => void signOut()}
           onUnavailable={(label) => showSnackbar(`${label} estará disponible próximamente`)}
         />
       ) : null}
       <BottomSheet icon={<MessageSquarePlus color={theme.accent} size={20} />} onClose={() => setComposerOpen(false)} title="Nueva conversación" visible={composerOpen}>
-        <NewConversationList contacts={contacts} onPick={(contact) => { setComposerOpen(false); router.push({ pathname: '/chat/[upeerId]', params: { upeerId: contact.upeerId } }); }} onUnavailable={(label) => { setComposerOpen(false); showSnackbar(`${label} estará disponible próximamente`); }} />
+        <NewConversationList contacts={contacts} onAddContact={() => { setComposerOpen(false); setAddingContact(true); }} onPick={(contact) => { setComposerOpen(false); router.push({ pathname: '/chat/[upeerId]', params: { upeerId: contact.upeerId } }); }} onUnavailable={(label) => { setComposerOpen(false); showSnackbar(`${label} estará disponible próximamente`); }} />
+      </BottomSheet>
+      <BottomSheet icon={<UserPlus color={theme.accent} size={20} />} onClose={() => setAddingContact(false)} title="Añadir contacto" visible={addingContact}>
+        <ContactFormSheet onAdd={addContact} onDone={() => setAddingContact(false)} />
       </BottomSheet>
     </SafeAreaView>
   );

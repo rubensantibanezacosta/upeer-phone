@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { MessageSquarePlus, Users } from '@tamagui/lucide-icons-2';
+import { MessageSquarePlus, UserPlus, Users } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { useTextScale } from '@/hooks/use-text-scale';
@@ -10,15 +10,25 @@ import type { UPeerContact } from '@/storage/contact-store';
 
 type NewConversationListProps = {
   contacts: UPeerContact[];
+  onAddContact: () => void;
   onPick: (contact: UPeerContact) => void;
   onUnavailable: (label: string) => void;
 };
 
-export function NewConversationList({ contacts, onPick, onUnavailable }: NewConversationListProps) {
+export function NewConversationList({ contacts, onAddContact, onPick, onUnavailable }: NewConversationListProps) {
   const theme = useTheme();
   const scale = useTextScale();
 
   return <YStack gap={12}>
+    <NativeRipplePressable accessibilityLabel="Añadir contacto" onPress={onAddContact} style={[styles.actionCard, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+      <XStack alignItems="center" gap={12}>
+        <View style={[styles.actionIcon, { backgroundColor: theme.accentSoft }]}><UserPlus color={theme.accent} size={20} /></View>
+        <YStack flex={1}>
+          <SizableText color={theme.text} fontSize={scale(14)} fontWeight="600">Añadir contacto</SizableText>
+          <Text color={theme.placeholder} fontSize={scale(12)}>Pega su identidad o escanea su código QR</Text>
+        </YStack>
+      </XStack>
+    </NativeRipplePressable>
     <NativeRipplePressable accessibilityLabel="Nueva conversación" onPress={() => onUnavailable('La búsqueda de identidades')} style={[styles.actionCard, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
       <XStack alignItems="center" gap={12}>
         <View style={[styles.actionIcon, { backgroundColor: theme.accentSoft }]}><MessageSquarePlus color={theme.accent} size={20} /></View>
