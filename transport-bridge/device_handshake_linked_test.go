@@ -1,6 +1,7 @@
 package transportbridge
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"testing"
 )
@@ -60,6 +61,31 @@ func TestLinkedHandshakeRequestValidatesWithDeviceSignature(t *testing.T) {
 	}
 	if verifyControlSignature(mustHex(t, alice.account.PublicKeyHex()), mustHex(t, packet["signature"].(string)), signedControlPayload(packet), alice.account.UpeerID(), "200::7", handshakeRequest) {
 		t.Fatal("linked handshake verified with the account key")
+	}
+}
+
+func TestLinkedHandshakeRequestCarriesPowProof(t *testing.T) {
+	alice := newDeviceTestIdentity(t, 21, 22)
+	request := linkedHandshakeRequest(t, alice, "200::b")
+
+	var packet map[string]any
+	if err := json.Unmarshal([]byte(request), &packet); err != nil {
+		t.Fatal(err)
+	}
+	proof, _ := packet["powProof"].(string)
+	if proof == "" {
+		t.Fatal("linked handshake request without powProof")
+	}
+	var decoded contactPowProof
+	if err := json.Unmarshal([]byte(proof), &decoded); err != nil {
+		t.Fatal(err)
+	}
+	salt, err := hex.DecodeString(decoded.Salt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contactPowHash(alice.account.UpeerID(), decoded.Timestamp, salt)[0]&powDifficulty != 0 {
+		t.Fatal("el powProof no cumple la dificultad")
 	}
 }
 

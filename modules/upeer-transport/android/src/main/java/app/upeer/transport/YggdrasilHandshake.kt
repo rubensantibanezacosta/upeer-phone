@@ -27,17 +27,14 @@ internal class YggdrasilHandshake(
       return
     }
     val packet = try {
-      val device = identity.currentDevice()
-      val deviceFields = device?.let {
-        deviceBindings.handshakeFields(it, deviceSignedPreKeys)
-      }
-      val profile = state.profile()
-      currentIdentity.buildHandshakeAcceptWithProfile(
+      OutboxPacketFactory.handshakeAccept(
+        currentIdentity,
         target,
-        signedPreKeys.currentJSON(currentIdentity),
-        profile.optString("alias"),
-        profile.optString("avatar"),
-        deviceFields?.toString().orEmpty(),
+        { signedPreKeys.currentJSON(currentIdentity) },
+        identity.currentDevice(),
+        deviceSignedPreKeys,
+        deviceBindings,
+        state.profile(),
       )
     } catch (cause: Exception) {
       Log.w(TAG, "No se pudo construir HANDSHAKE_ACCEPT: ${message(cause)}")

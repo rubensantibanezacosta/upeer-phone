@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/upeer/upeer/transport-bridge/dht"
 )
@@ -36,7 +37,7 @@ func (identity *CryptoIdentity) buildLinkedHandshakePacket(packetType, accountPu
 	if !isYggdrasilAddress(net.ParseIP(senderYggAddress)) {
 		return "", errors.New("senderYggAddress must be a Yggdrasil IPv6 address")
 	}
-	device, err := parseDeviceHandshakeFieldsFor(accountUpeerID, deviceJSON)
+	device, err := parseDeviceHandshakeFieldsFor(accountUpeerID, deviceJSON, time.Now().UnixMilli())
 	if err != nil {
 		return "", err
 	}
@@ -62,6 +63,11 @@ func (identity *CryptoIdentity) buildLinkedHandshakePacket(packetType, accountPu
 	if avatarValue != "" {
 		data["avatar"] = avatarValue
 	}
+	if packetType == handshakeRequest {
+		if proof := generateContactPowProof(accountUpeerID, time.Now()); proof != "" {
+			data["powProof"] = proof
+		}
+	}
 	addDeviceHandshakeFields(data, device)
 	encoded, err := json.Marshal(data)
 	if err != nil {
@@ -75,6 +81,10 @@ func (identity *CryptoIdentity) buildLinkedHandshakePacket(packetType, accountPu
 }
 
 func validateControlFrameWithDeviceSignature(payload []byte) (string, error) {
+	return validateControlFrameWithDeviceSignatureAt(payload, time.Now().UnixMilli())
+}
+
+func validateControlFrameWithDeviceSignatureAt(payload []byte, nowMillis int64) (string, error) {
 	metadata, rootErr := validateControlFrameFromPayload(payload)
 	if rootErr == nil {
 		return metadata, nil
@@ -116,7 +126,7 @@ func validateControlFrameWithDeviceSignature(payload []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%v; %w", rootErr, err)
 	}
-	device, err := parseDeviceHandshakeFieldsFor(senderUpeerID, string(payload))
+	device, err := parseDeviceHandshakeFieldsFor(senderUpeerID, string(payload), nowMillis)
 	if err != nil {
 		return "", fmt.Errorf("%v; %w", rootErr, err)
 	}

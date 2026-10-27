@@ -38,7 +38,7 @@ internal class OutboxLink(
       val packet = OutboxPacketFactory.handshakeRequest(
         currentIdentity,
         selfAddress(),
-        signedPreKeys.currentJSON(currentIdentity),
+        { signedPreKeys.currentJSON(currentIdentity) },
         identity.currentDevice(),
         deviceSignedPreKeys,
         deviceBindings,

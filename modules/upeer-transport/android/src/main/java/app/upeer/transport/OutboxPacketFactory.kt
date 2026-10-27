@@ -7,7 +7,7 @@ internal object OutboxPacketFactory {
   fun handshakeRequest(
     identity: CryptoIdentity,
     selfAddress: String,
-    signedPreKeyJSON: String,
+    signedPreKeyJSON: () -> String,
     device: DeviceIdentity?,
     deviceSignedPreKeys: DeviceSignedPreKeyStore,
     deviceBindings: DeviceMessagingBindings,
@@ -16,13 +16,73 @@ internal object OutboxPacketFactory {
     val deviceFields = device?.let {
       deviceBindings.handshakeFields(it, deviceSignedPreKeys)
     }
+    if (identity.isDeviceOnly()) {
+      val linked = handshakeDevice(identity, device, deviceFields)
+      return linked.crypto.buildLinkedHandshakeRequest(
+        identity.publicKeyHex(),
+        identity.upeerID(),
+        selfAddress,
+        profile.optString("alias"),
+        profile.optString("avatar"),
+        deviceFields?.toString().orEmpty(),
+      )
+    }
     return identity.buildHandshakeRequestWithProfile(
       selfAddress,
-      signedPreKeyJSON,
+      signedPreKeyJSON(),
       profile.optString("alias"),
       profile.optString("avatar"),
       deviceFields?.toString().orEmpty(),
     )
+  }
+
+  fun handshakeAccept(
+    identity: CryptoIdentity,
+    selfAddress: String,
+    signedPreKeyJSON: () -> String,
+    device: DeviceIdentity?,
+    deviceSignedPreKeys: DeviceSignedPreKeyStore,
+    deviceBindings: DeviceMessagingBindings,
+    profile: JSONObject,
+  ): String {
+    val deviceFields = device?.let {
+      deviceBindings.handshakeFields(it, deviceSignedPreKeys)
+    }
+    if (identity.isDeviceOnly()) {
+      val linked = handshakeDevice(identity, device, deviceFields)
+      return linked.crypto.buildLinkedHandshakeAccept(
+        identity.publicKeyHex(),
+        identity.upeerID(),
+        selfAddress,
+        profile.optString("alias"),
+        profile.optString("avatar"),
+        deviceFields?.toString().orEmpty(),
+      )
+    }
+    return identity.buildHandshakeAcceptWithProfile(
+      selfAddress,
+      signedPreKeyJSON(),
+      profile.optString("alias"),
+      profile.optString("avatar"),
+      deviceFields?.toString().orEmpty(),
+    )
+  }
+
+  private fun handshakeDevice(
+    identity: CryptoIdentity,
+    device: DeviceIdentity?,
+    deviceFields: JSONObject?,
+  ): DeviceIdentity {
+    if (device == null || deviceFields == null) {
+      throw IllegalStateException("El modo dispositivo necesita certificado y SPK de dispositivo para el handshake")
+    }
+    if (device.accountUpeerId != identity.upeerID()) {
+      throw IllegalStateException("El certificado de dispositivo pertenece a otra cuenta")
+    }
+    if (!device.deviceId.equals(deviceFields.optString("deviceId"), ignoreCase = true)) {
+      throw IllegalStateException("El certificado de dispositivo no coincide con la SPK preparada")
+    }
+    return device
   }
 
   fun packet(
