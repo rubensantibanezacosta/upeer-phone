@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { insertAtSelection } from '@/domain/composer-text';
+import { deleteBeforeSelection, insertAtSelection } from '@/domain/composer-text';
 
 describe('insertAtSelection', () => {
   it('inserta en el cursor y deja el cursor tras el texto insertado', () => {
@@ -42,6 +42,50 @@ describe('insertAtSelection', () => {
     expect(insertAtSelection('abc', { end: 1, start: 3 }, 'x')).toEqual({
       selection: { end: 4, start: 4 },
       value: 'abcx',
+    });
+  });
+});
+
+describe('deleteBeforeSelection', () => {
+  it('borra el carácter anterior al cursor', () => {
+    expect(deleteBeforeSelection('hola', { end: 4, start: 4 })).toEqual({
+      selection: { end: 3, start: 3 },
+      value: 'hol',
+    });
+  });
+
+  it('borra el emoji entero y no medio par suplente', () => {
+    expect(deleteBeforeSelection('hola🙂', { end: 6, start: 6 })).toEqual({
+      selection: { end: 4, start: 4 },
+      value: 'hola',
+    });
+  });
+
+  it('borra en medio del texto sin tocar lo que va detrás', () => {
+    expect(deleteBeforeSelection('abcde', { end: 3, start: 3 })).toEqual({
+      selection: { end: 2, start: 2 },
+      value: 'abde',
+    });
+  });
+
+  it('vacía la selección cuando hay un rango marcado', () => {
+    expect(deleteBeforeSelection('hola mundo', { end: 10, start: 5 })).toEqual({
+      selection: { end: 5, start: 5 },
+      value: 'hola ',
+    });
+  });
+
+  it('no hace nada si el cursor está al principio', () => {
+    expect(deleteBeforeSelection('hola', { end: 0, start: 0 })).toEqual({
+      selection: { end: 0, start: 0 },
+      value: 'hola',
+    });
+  });
+
+  it('no hace nada si el texto está vacío', () => {
+    expect(deleteBeforeSelection('', { end: 0, start: 0 })).toEqual({
+      selection: { end: 0, start: 0 },
+      value: '',
     });
   });
 });

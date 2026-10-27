@@ -5,14 +5,16 @@ import { EmojiGrid } from '@/components/chat/emoji-grid';
 import { useTheme } from '@/hooks/use-theme';
 
 type EmojiPanelProps = {
+  onDelete: () => void;
   onPick: (emoji: string) => void;
+  onSearchClosed: () => void;
 };
 
-export const EmojiPanel = memo(function EmojiPanel({ onPick }: EmojiPanelProps) {
+export const EmojiPanel = memo(function EmojiPanel({ onDelete, onPick, onSearchClosed }: EmojiPanelProps) {
   const theme = useTheme();
   return (
     <View style={[styles.panel, { backgroundColor: theme.backgroundElement, borderTopColor: theme.border }]}>
-      <EmojiGrid onPick={onPick} />
+      <EmojiGrid onDelete={onDelete} onPick={onPick} onSearchClosed={onSearchClosed} />
     </View>
   );
 });

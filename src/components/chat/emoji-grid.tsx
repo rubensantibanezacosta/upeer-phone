@@ -1,11 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from 'react-native';
+import { ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance, type TextInputInstance } from 'react-native';
 import { Car, Clock, Flag, Heart, Lightbulb, PawPrint, Search, Smile, Utensils, Volleyball } from '@tamagui/lucide-icons-2';
-import { Input, SizableText, XStack, YStack } from 'tamagui';
+import { Input, XStack, YStack } from 'tamagui';
 
 import { EMOJI_GROUPS, searchEmojis } from '@/domain/emoji-catalog';
 import { pageIndexFromOffset, pageOffset } from '@/domain/emoji-pager';
 import { EMOJI_ROWS, EmojiPage, emojiMetrics } from '@/components/chat/emoji-page';
+import { EmojiToolbar } from '@/components/chat/emoji-toolbar';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { getRecentEmojis } from '@/storage/recent-emojis-store';
 import { useRecentEmojis } from '@/hooks/use-recent-emojis';
@@ -42,15 +43,19 @@ type EmojiPageModel = {
 };
 
 type EmojiGridProps = {
+  onDelete?: () => void;
   onPick: (emoji: string) => void;
+  onSearchClosed?: () => void;
 };
 
-export function EmojiGrid({ onPick }: EmojiGridProps) {
+export function EmojiGrid({ onDelete, onPick, onSearchClosed }: EmojiGridProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const { recent, remember } = useRecentEmojis();
   const pager = useRef<ScrollViewInstance>(null);
+  const searchInput = useRef<TextInputInstance | null>(null);
   const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [width, setWidth] = useState(0);
   const [tabIndex, setTabIndex] = useState(initialTabIndex);
   const [warm, setWarm] = useState<readonly number[]>(() => [initialTabIndex()]);
@@ -106,11 +111,32 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
     setWidth((current) => (current === next ? current : next));
   }, []);
 
+  const closeSearch = useCallback(() => {
+    setSearch('');
+    setSearchOpen(false);
+    if (onSearchClosed) requestAnimationFrame(onSearchClosed);
+  }, [onSearchClosed]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const timer = setTimeout(() => searchInput.current?.focus(), 0);
+    return () => clearTimeout(timer);
+  }, [searchOpen]);
+
   const goToTab = useCallback((index: number) => {
+    if (searchOpen) closeSearch();
     setTabIndex(index);
     warmUp(index);
     pager.current?.scrollTo({ animated: true, x: pageOffset(index, width, pages.length), y: 0 });
-  }, [pages.length, warmUp, width]);
+  }, [closeSearch, pages.length, searchOpen, warmUp, width]);
+
+  const toggleSearch = useCallback(() => {
+    if (searchOpen) {
+      closeSearch();
+      return;
+    }
+    setSearchOpen(true);
+  }, [closeSearch, searchOpen]);
 
   const handleSettled = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (query) return;
@@ -120,7 +146,7 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
   }, [pages.length, query, warmUp, width]);
 
   return <YStack gap={8} onLayout={handleLayout}>
-    <XStack alignItems="center" backgroundColor={theme.background} borderColor={theme.border} borderRadius={10} borderWidth={StyleSheet.hairlineWidth} gap={8} paddingHorizontal={10} paddingVertical={8}>
+    {searchOpen ? <XStack alignItems="center" backgroundColor={theme.background} borderColor={theme.border} borderRadius={10} borderWidth={StyleSheet.hairlineWidth} gap={8} paddingHorizontal={10} paddingVertical={8}>
       <Search color={theme.placeholder} size={16} />
       <Input
         accessibilityLabel="Buscar emoji"
@@ -132,17 +158,11 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
         onChangeText={setSearch}
         placeholder="Buscar emoji..."
         placeholderTextColor={theme.placeholder}
+        ref={searchInput}
         style={styles.input}
         value={search}
       />
-    </XStack>
-    {query ? null : <ScrollView contentContainerStyle={styles.tabs} horizontal showsHorizontalScrollIndicator={false} style={[styles.tabBar, { backgroundColor: theme.background }]}>
-      {TABS.map((tab, index) => <TabButton active={index === activeIndex} index={index} key={tab.id} onPress={goToTab} tab={tab} />)}
-    </ScrollView>}
-    <XStack alignItems="center" gap={5} paddingHorizontal={4}>
-      <GroupIcon color={theme.placeholder} groupId={active.id} size={13} />
-      <SizableText color={theme.placeholder} flexShrink={1} fontSize={scale(11)} fontWeight="600" numberOfLines={1}>{active.label}</SizableText>
-    </XStack>
+    </XStack> : null}
     <ScrollView
       contentContainerStyle={{ width: (width || 1) * pages.length }}
       horizontal
@@ -165,6 +185,10 @@ export function EmojiGrid({ onPick }: EmojiGridProps) {
           pageId={page.id}
         /> : null}
       </View>)}
+    </ScrollView>
+    <EmojiToolbar label={active.label} onDelete={onDelete} onSearch={toggleSearch} searchOpen={searchOpen} />
+    <ScrollView contentContainerStyle={styles.tabs} horizontal showsHorizontalScrollIndicator={false} style={[styles.tabBar, { backgroundColor: theme.background }]}>
+      {TABS.map((tab, index) => <TabButton active={index === activeIndex} index={index} key={tab.id} onPress={goToTab} tab={tab} />)}
     </ScrollView>
   </YStack>;
 }
