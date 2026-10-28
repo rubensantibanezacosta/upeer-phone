@@ -230,7 +230,7 @@ export function SessionScreen({ identity, onAddressChange, onSnapshotChange, onS
           ))}
         </YStack>
         {!!error && <Paragraph accessibilityRole="alert" color={theme.placeholder}>{error} · Se reintentará automáticamente.</Paragraph>}
-        <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color="danger" disabled={busy} height={46} onPress={() => void signOut()}>Cerrar sesión y borrar datos locales</NativeRippleButton>
+        <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.danger} disabled={busy} height={46} onPress={() => void signOut()}>Cerrar sesión y borrar datos locales</NativeRippleButton>
       </ScrollView>
     </View>
   );

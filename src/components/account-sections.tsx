@@ -87,7 +87,7 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
         <H1 color={theme.text} fontSize={scale(24)} paddingHorizontal={16}>Perfil</H1>
         <ProfileHeroSection identity={identity} alias={alias} avatar={avatar} busy={busy} onAliasChange={(value) => { setAlias(value); setError(''); }} onAliasSave={() => void saveAlias()} onAvatarPress={() => void chooseAvatar()} />
         {error ?
-          <Paragraph accessibilityRole="alert" color="danger">{error}</Paragraph> : null}
+          <Paragraph accessibilityRole="alert" color={theme.danger}>{error}</Paragraph> : null}
         <ProfileStatsSection reputation={null} vaultStats={null} reputationUnavailable vaultUnavailable onInfo={setInfo} />
         <ProfileAddressSection fullId={fullId} onCopy={copyProfileAddress} onShowQr={() => setQrOpen(true)} onInfo={() => setInfo('direccion')} />
         <DeviceAuthorizerPanel onInfo={() => setInfo('dispositivos')} />
