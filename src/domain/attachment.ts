@@ -13,6 +13,7 @@ export type AttachmentInfo = {
 
 const MAX_TEXT_LENGTH = 400;
 const MAX_PATH_LENGTH = 1024;
+const MAX_THUMBNAIL_LENGTH = 96 * 1024;
 const LEGACY_PREFIX = 'FILE_TRANSFER|';
 
 function kindOf(mimeType: string, fileName: string, isVoiceNote: boolean, declaredImage: boolean): AttachmentKind {
@@ -46,10 +47,16 @@ function localPathOf(value: unknown): string | undefined {
   return path;
 }
 
+function thumbnailOf(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const thumbnail = value.trim();
+  if (thumbnail.length === 0 || thumbnail.length > MAX_THUMBNAIL_LENGTH) return undefined;
+  return thumbnail.startsWith('data:image/') ? thumbnail : undefined;
+}
+
 function buildAttachment(payload: Record<string, unknown>, declaredImage: boolean): AttachmentInfo {
   const fileName = text(payload.fileName);
   const mimeType = text(payload.mimeType);
-  const thumbnail = text(payload.thumbnail);
   const caption = text(payload.caption).trim();
   return {
     kind: kindOf(mimeType, fileName, payload.isVoiceNote === true, declaredImage),
@@ -58,7 +65,7 @@ function buildAttachment(payload: Record<string, unknown>, declaredImage: boolea
     mimeType,
     transferId: text(payload.transferId) || text(payload.fileId),
     caption: caption || undefined,
-    thumbnail: thumbnail.startsWith('data:image/') ? thumbnail : undefined,
+    thumbnail: thumbnailOf(payload.thumbnail),
     localPath: localPathOf(payload.savedPath),
   };
 }

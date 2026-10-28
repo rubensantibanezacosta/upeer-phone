@@ -73,6 +73,13 @@ describe('parseAttachment', () => {
     expect(parseAttachment(JSON.stringify({ type: 'file', thumbnail: '/tmp/foto.png' }))?.thumbnail).toBeUndefined();
   });
 
+  it('conserva la miniatura completa aunque sea grande', () => {
+    const dataUri = `data:image/jpeg;base64,${'A'.repeat(9_000)}`;
+    expect(parseAttachment(JSON.stringify({ type: 'file', thumbnail: dataUri }))?.thumbnail).toBe(dataUri);
+    const oversized = `data:image/jpeg;base64,${'A'.repeat(200_000)}`;
+    expect(parseAttachment(JSON.stringify({ type: 'file', thumbnail: oversized }))?.thumbnail).toBeUndefined();
+  });
+
   it('lee la ruta local que deja el descifrado', () => {
     const info = parseAttachment(JSON.stringify({ type: 'file', fileName: 'a.png', savedPath: '/data/user/0/app/files/attachments/direct/peer/a.png' }));
     expect(info?.localPath).toBe('/data/user/0/app/files/attachments/direct/peer/a.png');
