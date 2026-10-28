@@ -21,6 +21,7 @@ internal class UPeerNotifications(
 ) {
   private val activeMessageIds = mutableSetOf<Int>()
   private val idLock = Any()
+  private val inbox = NotificationInbox()
 
   fun createChannels() {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -97,6 +98,7 @@ internal class UPeerNotifications(
       .setContentText(preview)
       .setStyle(Notification.BigTextStyle().bigText(preview))
       .setCategory(Notification.CATEGORY_MESSAGE)
+      .setGroup(MESSAGE_GROUP_KEY)
       .setAutoCancel(true)
       .setContentIntent(contentIntent)
       .setVisibility(Notification.VISIBILITY_PRIVATE)
@@ -106,12 +108,43 @@ internal class UPeerNotifications(
       .build()
     synchronized(idLock) { activeMessageIds.add(notificationId) }
     manager().notify(notificationId, notification)
+    inbox.record(upeerId, title, preview)
+    postSummary(channelId, current)
+  }
+
+  private fun postSummary(channelId: String, current: NotificationPrefs) {
+    if (inbox.isEmpty()) {
+      manager().cancel(SUMMARY_NOTIFICATION_ID)
+      return
+    }
+    val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+    val style = Notification.InboxStyle().setBigContentTitle("uPeer").setSummaryText(inbox.summaryText())
+    for (line in inbox.lines()) style.addLine(line)
+    val builder = builder(channelId)
+      .setSmallIcon(android.R.drawable.stat_notify_chat)
+      .setContentTitle("uPeer")
+      .setContentText(inbox.summaryText())
+      .setStyle(style)
+      .setGroup(MESSAGE_GROUP_KEY)
+      .setGroupSummary(true)
+      .setCategory(Notification.CATEGORY_MESSAGE)
+      .setAutoCancel(true)
+      .apply { if (!current.sound) applySilence() }
+    launchIntent?.let { builder.setContentIntent(PendingIntent.getActivity(context, SUMMARY_REQUEST_CODE, it, pendingIntentFlags())) }
+    manager().notify(SUMMARY_NOTIFICATION_ID, builder.build())
   }
 
   fun clearConversation(upeerId: String) {
     val notificationId = messageNotificationId(upeerId)
     manager().cancel(notificationId)
     synchronized(idLock) { activeMessageIds.remove(notificationId) }
+    inbox.forget(upeerId)
+    if (inbox.isEmpty()) {
+      manager().cancel(SUMMARY_NOTIFICATION_ID)
+    } else {
+      val current = prefs()
+      postSummary(messageChannelId(current.sound), current)
+    }
   }
 
   fun clearMessages() {
@@ -122,6 +155,8 @@ internal class UPeerNotifications(
     }
     val manager = manager()
     for (id in ids) manager.cancel(id)
+    manager.cancel(SUMMARY_NOTIFICATION_ID)
+    inbox.clear()
   }
 
   private fun chatPendingIntent(upeerId: String, requestCode: Int): PendingIntent {
@@ -168,6 +203,9 @@ internal class UPeerNotifications(
     private const val MESSAGES_CHANNEL_ID = "upeer_messages"
     private const val MESSAGES_SILENT_CHANNEL_ID = "upeer_messages_silent"
     private const val MESSAGE_NOTIFICATION_BASE = 10_000
+    private const val SUMMARY_NOTIFICATION_ID = 9_001
+    private const val SUMMARY_REQUEST_CODE = 9_002
+    private const val MESSAGE_GROUP_KEY = "app.upeer.transport.MESSAGES"
     private const val STOP_REQUEST_CODE = 7302
     private const val MAX_PREVIEW_LENGTH = 240
     private val WHITESPACE = Regex("\\s+")
