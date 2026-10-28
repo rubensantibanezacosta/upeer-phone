@@ -18,13 +18,12 @@ type ChatTimelineRowProps = {
   onOpenCard?: (card: ContactCard) => void;
   onOpenReply?: (messageID: string) => void;
   onToggleReaction?: (message: ProtocolMessage, emoji: string) => void;
-  onUnavailable?: (label: string) => void;
   reply: ReplyPreview | null;
   savedContacts?: ReadonlySet<string>;
   selfUpeerId: string;
 };
 
-export function ChatTimelineRow({ entry, highlighted, onLongPress, onOpenAttachment, onOpenCard, onOpenReply, onToggleReaction, onUnavailable, reply, savedContacts, selfUpeerId }: ChatTimelineRowProps) {
+export function ChatTimelineRow({ entry, highlighted, onLongPress, onOpenAttachment, onOpenCard, onOpenReply, onToggleReaction, reply, savedContacts, selfUpeerId }: ChatTimelineRowProps) {
   const theme = useTheme();
   return (
     <View style={highlighted ? [styles.highlight, { backgroundColor: theme.accentSoft }] : undefined}>
@@ -37,7 +36,6 @@ export function ChatTimelineRow({ entry, highlighted, onLongPress, onOpenAttachm
         onOpenCard={onOpenCard}
         onOpenReply={onOpenReply}
         onToggleReaction={onToggleReaction}
-        onUnavailable={onUnavailable}
         reactions={summarizeReactions(entry.message.reactions, selfUpeerId)}
         reply={reply}
         savedContacts={savedContacts}

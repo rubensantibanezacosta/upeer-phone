@@ -7,7 +7,7 @@ import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTra
 import { shareChatTranscript } from '@/services/chat-export-file';
 import { deleteContactAndConversation, getContacts, saveContact, setContactFavorite } from '@/storage/contact-store';
 import { setConversationFlag } from '@/storage/conversation-flags-store';
-import { deleteConversation } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import { deleteConversation, leaveGroup as leaveGroupNative } from '../../modules/upeer-transport/src/UPeerTransportModule';
 
 type ChatOptionsParams = {
   isFavorite: boolean;
@@ -107,10 +107,17 @@ export function useChatOptions({ isFavorite, isGroup, messages, muted, name, onC
       {
         text: 'Salir',
         style: 'destructive',
-        onPress: () => showSnackbar('Salir del grupo: pendiente en el roadmap'),
+        onPress: () => {
+          leaveGroupNative(upeerId)
+            .then(() => {
+              showSnackbar('Has salido del grupo');
+              onClose();
+            })
+            .catch((cause: unknown) => report(cause, 'No se pudo salir del grupo'));
+        },
       },
     ]);
-  }, [showSnackbar]);
+  }, [onClose, report, showSnackbar, upeerId]);
 
   return { blockContact, clearChat, deleteChat, exportChat, isGroup, leaveGroup, toggleFavorite, toggleMute };
 }

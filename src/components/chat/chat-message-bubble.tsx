@@ -21,7 +21,7 @@ import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeerTransport.types';
 
-export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onOpenAttachment, onOpenCard, onOpenReply, onToggleReaction, onUnavailable, reactions, reply, savedContacts }: {
+export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onOpenAttachment, onOpenCard, onOpenReply, onToggleReaction, reactions, reply, savedContacts }: {
   entry: ChatTimelineEntry;
   highlighted?: boolean;
   onLongPress?: (message: ProtocolMessage) => void;
@@ -29,7 +29,6 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
   onOpenCard?: (card: ContactCard) => void;
   onOpenReply?: (messageID: string) => void;
   onToggleReaction?: (message: ProtocolMessage, emoji: string) => void;
-  onUnavailable?: (label: string) => void;
   reactions?: ReactionSummary[];
   reply?: ReplyPreview | null;
   savedContacts?: ReadonlySet<string>;
@@ -74,7 +73,7 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
                 tone={isMine ? 'mine' : 'theirs'}
               />
             ) : attachment ? (
-              <ChatAttachment info={attachment} isMine={isMine} onOpen={onOpenAttachment} onUnavailable={onUnavailable} status={entry.message.status} timestamp={entry.message.timestamp} />
+              <ChatAttachment info={attachment} isMine={isMine} onOpen={onOpenAttachment} status={entry.message.status} timestamp={entry.message.timestamp} />
             ) : link ? (
               <View style={styles.linkColumn}>
                 {link.text.trim() ? <Text color={textColor} fontSize={scale(14)} style={styles.content}>{link.text}</Text> : null}

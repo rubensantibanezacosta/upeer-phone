@@ -13,29 +13,28 @@ import { ContactFormSheet, type ContactDraft } from '@/components/contact-form-s
 import { saveContactDraft } from '@/services/contact-actions';
 import { LoadingState } from '@/components/loading-state';
 import { useFirstLoad } from '@/hooks/use-first-load';
+import { useChatListActions } from '@/hooks/use-chat-list-actions';
 import { NewConversationList } from '@/components/new-conversation-list';
 import { GroupComposerSheet } from '@/components/group-composer-sheet';
 import { ChatListItem, type ChatListEntry } from '@/components/chat-list-item';
 import { CHAT_LIST_FILTERS, filterChatEntries, isChatFilterActive, type ChatListFilter } from '@/domain/chat-list-filters';
 import { previewMessage } from '@/domain/message-preview';
-import { flagMessage, flagsFor, orderByPinned, type ConversationFlag } from '@/domain/conversation-flags';
+import { flagsFor, orderByPinned } from '@/domain/conversation-flags';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
 import { useNow } from '@/hooks/use-now';
-import { setConversationFlag } from '@/storage/conversation-flags-store';
 import { classifyConversations } from '@/domain/incoming-requests';
 import { useSnackbar } from '@/components/snackbar';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import type { UPeerContact } from '@/storage/contact-store';
-import { getContacts, setContactFavorite } from '@/storage/contact-store';
+import { getContacts } from '@/storage/contact-store';
 import type { ProtocolConversation, ProtocolGroup } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
 import { SearchField } from '@/components/search-field';
 import { SearchResultsView } from '@/components/search-results-view';
-import { getConversations, getGroups, markConversationRead } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
+import { getConversations, getGroups } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
 import { useGlobalMessageSearch } from '@/hooks/use-global-message-search';
 import { useAndroidBack } from '@/hooks/use-android-back';
 import { buildSearchSections, type SearchContact, type SearchMessage, type SearchTarget } from '@/domain/global-search';
-import { unreadConversationIds } from '@/domain/chat-unread';
 import { useSession } from '@/components/session-shell';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { SyncProgressBanner } from '@/components/sync-progress-banner';
@@ -172,63 +171,13 @@ export default function ChatsRoute() {
 
   const openContextMenu = (entry: ChatListEntry) => setSelectedEntry(entry);
 
-  const showUnavailableAction = (label: string) => {
-    setSelectedEntry(null);
-    showSnackbar(`${label} estará disponible próximamente`);
-  };
-
-  const toggleEntryFlag = (entry: ChatListEntry, flag: ConversationFlag) => {
-    setSelectedEntry(null);
-    setConversationFlag(entry.upeerId, flag)
-      .then(() => showSnackbar(flagMessage(flag, !entry[flag])))
-      .catch((cause: unknown) => {
-        console.warn('No se pudo cambiar el ajuste de la conversación.', cause);
-        showSnackbar('No se pudo cambiar el ajuste de la conversación');
-      });
-  };
-
-  const toggleEntryFavorite = (entry: ChatListEntry) => {
-    setSelectedEntry(null);
-    setContactFavorite(entry.upeerId, entry.favorite !== true)
-      .then(() => getContacts())
-      .then((list) => {
-        setContacts(list);
-        showSnackbar(entry.favorite ? 'Quitado de Favoritos' : 'Añadido a Favoritos');
-      })
-      .catch((cause: unknown) => {
-        console.warn('No se pudo cambiar el favorito de la conversación.', cause);
-        showSnackbar('No se pudo cambiar el favorito');
-      });
-  };
-
-  const markEntryRead = (entry: ChatListEntry) => {
-    setSelectedEntry(null);
-    markConversationRead(entry.upeerId)
-      .then(getConversations)
-      .then(setConversations)
-      .catch((cause: unknown) => {
-        console.warn('No se pudo marcar la conversación como leída.', cause);
-        showSnackbar('No se pudo marcar la conversación como leída');
-      });
-  };
-
-  const markAllRead = () => {
-    const targets = unreadConversationIds(conversations);
-    if (targets.length === 0) {
-      showSnackbar('No hay conversaciones sin leer');
-      return;
-    }
-    Promise.all(targets.map((upeerId) => markConversationRead(upeerId)))
-      .then(getConversations)
-      .then((next) => {
-        setConversations(next);
-        showSnackbar('Todo marcado como leído');
-      })
-      .catch((cause: unknown) => {
-        console.warn('No se pudieron marcar las conversaciones como leídas.', cause);
-        showSnackbar('No se pudieron marcar como leídas');
-      });
-  };
+  const { clearEntry, markAllRead, markEntryRead, toggleEntryFavorite, toggleEntryFlag } = useChatListActions({
+    conversations,
+    onContacts: setContacts,
+    onConversations: setConversations,
+    onSelect: setSelectedEntry,
+    showSnackbar,
+  });
 
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: theme.background }]}>
@@ -267,7 +216,7 @@ export default function ChatsRoute() {
           <ChatListEmptyState filter={filter} filtering={filtering} onNewConversation={() => setComposerOpen(true)} />
         )}
       </ScrollView>
-      <ChatContextMenu entry={selectedEntry} onClose={() => setSelectedEntry(null)} onMarkRead={markEntryRead} onToggleFavorite={toggleEntryFavorite} onToggleFlag={toggleEntryFlag} onUnavailable={showUnavailableAction} />
+      <ChatContextMenu entry={selectedEntry} onClear={clearEntry} onClose={() => setSelectedEntry(null)} onMarkRead={markEntryRead} onToggleFavorite={toggleEntryFavorite} onToggleFlag={toggleEntryFlag} />
       {menuOpen ? (
         <ChatListMenu
           onClose={() => setMenuOpen(false)}

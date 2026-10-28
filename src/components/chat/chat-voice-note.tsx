@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import { Pause, Play } from '@tamagui/lucide-icons-2';
+import { Download, Pause, Play } from '@tamagui/lucide-icons-2';
 import { SizableText } from 'tamagui';
 
 import { MessageStatus } from '@/components/chat/message-status';
@@ -13,10 +13,10 @@ import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeer
 
 const WAVE_HEIGHTS = [6, 9, 12, 8, 13, 10, 7, 12, 9, 6, 11, 14, 8, 12, 7, 10, 13, 9, 6, 12, 10, 7, 12, 8, 11, 14, 9, 6, 12, 10, 8, 12];
 
-export function ChatVoiceNote({ info, isMine, onUnavailable, status, timestamp }: {
+export function ChatVoiceNote({ info, isMine, onOpen, status, timestamp }: {
   info: AttachmentInfo;
   isMine: boolean;
-  onUnavailable?: (label: string) => void;
+  onOpen?: () => void;
   status?: ProtocolMessage['status'];
   timestamp: number;
 }) {
@@ -24,22 +24,28 @@ export function ChatVoiceNote({ info, isMine, onUnavailable, status, timestamp }
   const scale = useTextScale();
   const tint = isMine ? theme.bubbleMineText : theme.accent;
   const metaColor = isMine ? theme.bubbleMineText : theme.placeholder;
-  const uri = canOpenAttachment(info) ? attachmentUri(info) : null;
+  const downloaded = canOpenAttachment(info);
+  const uri = downloaded ? attachmentUri(info) : null;
   const player = useAudioPlayer(uri);
   const playback = useAudioPlayerStatus(player);
   const playing = playback.playing;
   const position = playback.currentTime ?? 0;
   const length = playback.duration ?? 0;
-  const Icon = playing ? Pause : Play;
+  const finished = length > 0 && position >= length - 0.15;
+  const playedRatio = length > 0 ? Math.min(1, position / length) : 0;
+  const Icon = playing ? Pause : downloaded ? Play : Download;
 
   const toggle = () => {
-    if (!uri) {
-      onUnavailable?.('Reproducir nota de voz');
+    if (!uri || !downloaded) {
+      onOpen?.();
       return;
     }
     if (playing) {
       player.pause();
       return;
+    }
+    if (finished) {
+      void player.seekTo(0);
     }
     player.play();
   };
@@ -47,21 +53,24 @@ export function ChatVoiceNote({ info, isMine, onUnavailable, status, timestamp }
   return (
     <View accessibilityLabel={length > 0 ? `Nota de voz de ${formatVoiceDuration(length)}` : 'Nota de voz'} style={styles.row}>
       <Pressable
-        accessibilityLabel={playing ? 'Pausar nota de voz' : 'Reproducir nota de voz'}
+        accessibilityLabel={downloaded ? (playing ? 'Pausar nota de voz' : 'Reproducir nota de voz') : 'Nota de voz sin descargar'}
         accessibilityRole="button"
         onPress={toggle}
         style={({ pressed }) => [styles.play, pressed ? styles.playPressed : null]}
       >
-        <Icon color={tint} fill={playing ? undefined : tint} size={20} strokeWidth={1.5} style={styles.playIcon} />
+        <Icon color={tint} fill={downloaded && !playing ? tint : undefined} size={20} strokeWidth={1.5} style={styles.playIcon} />
       </Pressable>
       <View style={styles.track}>
         <View style={styles.wave}>
-          {WAVE_HEIGHTS.map((height, index) => (
-            <View key={index} style={[styles.bar, { backgroundColor: `${tint}80`, height }]} />
-          ))}
+          {WAVE_HEIGHTS.map((height, index) => {
+            const played = downloaded && index / WAVE_HEIGHTS.length <= playedRatio;
+            return <View key={index} style={[styles.bar, { backgroundColor: played ? tint : `${tint}66`, height }]} />;
+          })}
         </View>
         <View style={styles.meta}>
-          <SizableText color={metaColor} fontSize={scale(10)} opacity={0.8}>{formatVoiceDuration(position)} / {formatVoiceDuration(length)}</SizableText>
+          <SizableText color={metaColor} fontSize={scale(10)} opacity={0.8}>
+            {downloaded ? `${formatVoiceDuration(position)} / ${formatVoiceDuration(length)}` : 'Sin descargar'}
+          </SizableText>
           <View style={styles.metaRight}>
             <SizableText color={metaColor} fontSize={scale(10)} opacity={0.8}>{formatChatTime(timestamp)}</SizableText>
             {isMine && status ? <MessageStatus color={metaColor} status={status} /> : null}

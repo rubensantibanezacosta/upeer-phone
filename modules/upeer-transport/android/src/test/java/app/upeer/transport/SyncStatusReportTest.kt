@@ -82,4 +82,33 @@ class SyncStatusReportTest {
     assertEquals(7, report.optInt("unsupported"))
     assertTrue(report.optString("state") == SyncStatusReport.STATE_LIVE)
   }
+
+  @Test
+  fun `unsupported events carry their kind so the banner is not generic`() {
+    val report = SyncStatusReport.json(
+      listOf(SyncHistoryProgress(cursor = "1:a", done = true)),
+      listOf(peer),
+      0,
+      3,
+      now,
+      unsupportedKinds = org.json.JSONObject().put("attachment", 3),
+    )
+
+    val kinds = report.optJSONObject("unsupportedKinds")
+    assertEquals(3, kinds?.optInt("attachment"))
+    assertEquals(0, kinds?.optInt("group") ?: 0)
+  }
+
+  @Test
+  fun `the unsupported summary is never null`() {
+    val report = SyncStatusReport.json(
+      listOf(SyncHistoryProgress(cursor = "1:a", done = true)),
+      listOf(peer),
+      0,
+      0,
+      now,
+    )
+
+    assertEquals(0, report.optJSONObject("unsupportedKinds")?.length())
+  }
 }

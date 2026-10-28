@@ -14,6 +14,7 @@ internal object SyncStatusReport {
     unsupported: Int,
     nowMillis: Long,
     activeFiles: Int = 0,
+    unsupportedKinds: JSONObject = JSONObject(),
   ): JSONObject {
     val done = progress.isNotEmpty() && progress.all { it.done }
     val lastSeen = peers.maxOfOrNull { it.lastSeen } ?: 0L
@@ -29,6 +30,7 @@ internal object SyncStatusReport {
       .put("devicesDone", progress.count { it.done })
       .put("pendingEvents", pendingEvents)
       .put("unsupported", unsupported)
+      .put("unsupportedKinds", JSONObject(unsupportedKinds.toString()))
       .put("lastPeerAt", lastSeen)
       .put("ageMillis", if (peers.isEmpty()) 0L else nowMillis - lastSeen)
       .put("progress", SyncProgress.json(progress, pendingEvents, activeFiles, state))

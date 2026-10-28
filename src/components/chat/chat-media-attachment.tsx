@@ -3,16 +3,15 @@ import { FileImage, FileVideo } from '@tamagui/lucide-icons-2';
 import { Text } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
-import { attachmentDetail, attachmentLabel, attachmentUri, fileExtension, type AttachmentInfo } from '@/domain/attachment';
+import { attachmentDetail, attachmentLabel, attachmentUri, canOpenAttachment, fileExtension, type AttachmentInfo } from '@/domain/attachment';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useVideoThumbnail } from '@/hooks/use-video-thumbnail';
 import { useTheme } from '@/hooks/use-theme';
 
-export function ChatMediaAttachment({ info, isMine, onOpen, onUnavailable }: {
+export function ChatMediaAttachment({ info, isMine, onOpen }: {
   info: AttachmentInfo;
   isMine: boolean;
   onOpen?: () => void;
-  onUnavailable?: (label: string) => void;
 }) {
   const theme = useTheme();
   const scale = useTextScale();
@@ -20,14 +19,15 @@ export function ChatMediaAttachment({ info, isMine, onOpen, onUnavailable }: {
   const Icon = isVideo ? FileVideo : FileImage;
   const extension = fileExtension(info.fileName);
   const localUri = attachmentUri(info);
+  const downloaded = canOpenAttachment(info);
   const generated = useVideoThumbnail(isVideo && !info.thumbnail ? localUri : null);
   const preview = info.thumbnail ?? (isVideo ? generated : localUri);
 
   return (
     <NativeRipplePressable
-      accessibilityLabel={`${attachmentLabel(info)}${attachmentDetail(info) ? `, ${attachmentDetail(info)}` : ''}`}
+      accessibilityLabel={`${attachmentLabel(info)}${attachmentDetail(info) ? `, ${attachmentDetail(info)}` : ''}${downloaded ? '' : ', sin descargar'}`}
       accessibilityRole="imagebutton"
-      onPress={() => (onOpen ? onOpen() : onUnavailable?.(isVideo ? 'Reproducir vídeo' : 'Abrir imagen'))}
+      onPress={() => onOpen?.()}
       style={[styles.frame, { backgroundColor: theme.backgroundSelected }]}
     >
       {preview ? (
@@ -38,6 +38,11 @@ export function ChatMediaAttachment({ info, isMine, onOpen, onUnavailable }: {
           {extension ? <Text color={theme.placeholder} fontSize={scale(11)}>{extension}</Text> : null}
         </View>
       )}
+      {!downloaded ? (
+        <View style={styles.pendingBadge}>
+          <Text color="#FFFFFF" fontSize={scale(10)} fontWeight="700">Sin descargar</Text>
+        </View>
+      ) : null}
       {isVideo && preview ? (
         <View style={styles.playOverlay}>
           <View style={styles.playBadge}>
@@ -52,6 +57,7 @@ export function ChatMediaAttachment({ info, isMine, onOpen, onUnavailable }: {
 const styles = StyleSheet.create({
   frame: { borderRadius: 12, overflow: 'hidden', width: 260 },
   image: { maxHeight: 300, width: '100%' },
+  pendingBadge: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 8, left: 8, paddingHorizontal: 8, paddingVertical: 3, position: 'absolute', top: 8 },
   placeholder: { alignItems: 'center', gap: 8, justifyContent: 'center', padding: 24 },
   playBadge: { alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 10, height: 50, justifyContent: 'center', width: 50 },
   playOverlay: { alignItems: 'center', bottom: 0, justifyContent: 'center', left: 0, position: 'absolute', right: 0, top: 0 },

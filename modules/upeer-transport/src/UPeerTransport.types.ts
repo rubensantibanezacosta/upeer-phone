@@ -115,6 +115,7 @@ export type SyncTransportStatus = {
   devicesDone: number;
   pendingEvents: number;
   unsupported: number;
+  unsupportedKinds?: Record<string, number>;
   lastPeerAt: number;
   ageMillis: number;
   progress?: SyncProgressStatus;

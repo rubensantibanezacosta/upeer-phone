@@ -19,6 +19,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
 import { resolveContactName } from '@/domain/contact-name';
 import { flagMessage, flagsFor, type ConversationFlag } from '@/domain/conversation-flags';
+import { requestChatSearch } from '@/storage/chat-search-request';
 import { setConversationFlag } from '@/storage/conversation-flags-store';
 import { deleteContactAndConversation, getContacts, saveContact, setContactFavorite, type UPeerContact } from '@/storage/contact-store';
 import { deleteConversation as clearNativeConversation, getConversations } from '../../../modules/upeer-transport/src/UPeerTransportModule';
@@ -154,6 +155,10 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
   };
 
   const pending = (label: string) => () => showSnackbar(`${label}: pendiente en el roadmap`);
+  const openSearch = () => {
+    requestChatSearch(upeerId);
+    onBack();
+  };
   const alias = resolveContactName(contact?.name, peerAlias, upeerId);
   const blocked = contact?.status === 'blocked';
 
@@ -166,7 +171,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
         <SizableText color={theme.text} flex={1} fontSize={scale(17)} fontWeight="700" numberOfLines={1}>Info. del contacto</SizableText>
       </XStack>
       <ScrollView contentContainerStyle={styles.content}>
-        <ContactInfoHero alias={alias} avatar={peerAvatar} onCall={pending('Llamada de voz')} onSearch={pending('Buscar en la conversación')} onVideo={pending('Videollamada')} presence={presence} status={contact?.status ?? 'offline'} upeerId={upeerId} vouchScore={undefined} />
+        <ContactInfoHero alias={alias} avatar={peerAvatar} onCall={pending('Llamada de voz')} onSearch={openSearch} onVideo={pending('Videollamada')} presence={presence} status={contact?.status ?? 'offline'} upeerId={upeerId} vouchScore={undefined} />
         <YStack gap={6}>
           <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Identidad uPeer</Text>
           <CopyField accessibilityLabel="Copiar identidad uPeer" onCopy={() => { void copyToClipboard(upeerId, 'Identidad copiada'); }} truncate value={upeerId} />

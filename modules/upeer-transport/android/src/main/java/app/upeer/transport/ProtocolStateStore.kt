@@ -343,6 +343,7 @@ internal class ProtocolStateStore(context: Context) {
       syncEvents.pendingCount(),
       syncEvents.unsupportedCount(),
       nowMillis,
+      unsupportedKinds = syncEvents.unsupportedSummary(),
     )
     val current = report.optString("state")
     if (current != lastSyncState) {

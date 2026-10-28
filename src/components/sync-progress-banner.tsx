@@ -1,5 +1,6 @@
 import { Paragraph, SizableText, YStack } from 'tamagui';
 
+import { describeUnsupported } from '@/domain/sync-unsupported';
 import { useSyncStatus } from '@/hooks/use-sync-status';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
@@ -22,7 +23,7 @@ export function SyncProgressBanner() {
     >
       <SizableText color={theme.text} fontSize={scale(14)} fontWeight="600">Sincronización parcial</SizableText>
       <Paragraph color={theme.placeholder} fontSize={scale(12)}>
-        {`${status.unsupported} elementos sin contenido completo: los grupos y el contenido de los adjuntos aún no se replican.`}
+        {describeUnsupported(status.unsupported, status.unsupportedKinds)}
       </Paragraph>
     </YStack>
   );

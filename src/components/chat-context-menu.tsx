@@ -14,10 +14,10 @@ import { useTheme } from '@/hooks/use-theme';
 type ChatContextMenuProps = {
   entry: ChatListEntry | null;
   onClose: () => void;
+  onClear: (entry: ChatListEntry) => void;
   onMarkRead: (entry: ChatListEntry) => void;
   onToggleFavorite: (entry: ChatListEntry) => void;
   onToggleFlag: (entry: ChatListEntry, flag: ConversationFlag) => void;
-  onUnavailable: (label: string) => void;
 };
 
 type MenuActionProps = {
@@ -38,7 +38,7 @@ function MenuAction({ color, disabled = false, icon, label, onPress }: MenuActio
   );
 }
 
-export function ChatContextMenu({ entry, onClose, onMarkRead, onToggleFavorite, onToggleFlag, onUnavailable }: ChatContextMenuProps) {
+export function ChatContextMenu({ entry, onClear, onClose, onMarkRead, onToggleFavorite, onToggleFlag }: ChatContextMenuProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const insets = useSafeAreaInsets();
@@ -72,7 +72,7 @@ export function ChatContextMenu({ entry, onClose, onMarkRead, onToggleFavorite, 
           />
           <MenuAction color={theme.text} icon={<Star color={theme.text} size={19} />} label={entry.favorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={() => onToggleFavorite(entry)} />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <MenuAction color={theme.danger} icon={<Trash2 color={theme.danger} size={19} />} label="Vaciar chat" onPress={() => onUnavailable('Vaciar chat')} />
+          <MenuAction color={theme.danger} icon={<Trash2 color={theme.danger} size={19} />} label="Vaciar chat" onPress={() => onClear(entry)} />
         </View>
       </View>
     </Modal>

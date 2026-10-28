@@ -3,15 +3,14 @@ import { Download, ExternalLink, FileText } from '@tamagui/lucide-icons-2';
 import { Text } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
-import { attachmentDetail, attachmentLabel, type AttachmentInfo } from '@/domain/attachment';
+import { attachmentDetail, attachmentLabel, canOpenAttachment, type AttachmentInfo } from '@/domain/attachment';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
-export function ChatDocumentAttachment({ info, isMine, onOpen, onUnavailable }: {
+export function ChatDocumentAttachment({ info, isMine, onOpen }: {
   info: AttachmentInfo;
   isMine: boolean;
   onOpen?: () => void;
-  onUnavailable?: (label: string) => void;
 }) {
   const theme = useTheme();
   const scale = useTextScale();
@@ -19,13 +18,14 @@ export function ChatDocumentAttachment({ info, isMine, onOpen, onUnavailable }: 
   const detailColor = isMine ? theme.bubbleMineText : theme.placeholder;
   const circleColor = isMine ? `${theme.bubbleMineText}2E` : theme.accentSoft;
   const iconColor = isMine ? theme.bubbleMineText : theme.onAccentSoft;
+  const downloaded = canOpenAttachment(info);
 
   return (
     <NativeRipplePressable
-      accessibilityHint={onOpen ? 'Abre el archivo' : 'Descarga el archivo'}
-      accessibilityLabel={attachmentLabel(info)}
+      accessibilityHint={downloaded ? 'Abre el archivo' : 'El archivo no está en este dispositivo'}
+      accessibilityLabel={`${attachmentLabel(info)}${downloaded ? '' : ', sin descargar'}`}
       accessibilityRole="button"
-      onPress={() => (onOpen ? onOpen() : onUnavailable?.('Descargar archivo'))}
+      onPress={() => onOpen?.()}
       style={[styles.card, { backgroundColor: isMine ? `${theme.bubbleMineText}14` : theme.backgroundSelected }]}
     >
       <View style={[styles.circle, { backgroundColor: circleColor }]}>
@@ -33,9 +33,11 @@ export function ChatDocumentAttachment({ info, isMine, onOpen, onUnavailable }: 
       </View>
       <View style={styles.texts}>
         <Text color={titleColor} fontSize={scale(14)} fontWeight="600" numberOfLines={1}>{info.fileName}</Text>
-        <Text color={detailColor} fontSize={scale(11)} numberOfLines={1}>{attachmentDetail(info)}</Text>
+        <Text color={detailColor} fontSize={scale(11)} numberOfLines={1}>
+          {downloaded ? attachmentDetail(info) : [attachmentDetail(info), 'Sin descargar'].filter(Boolean).join(' · ')}
+        </Text>
       </View>
-      {isMine ? null : onOpen
+      {isMine ? null : downloaded
         ? <ExternalLink color={iconColor} size={20} strokeWidth={2} />
         : <Download color={iconColor} size={20} strokeWidth={2} />}
     </NativeRipplePressable>

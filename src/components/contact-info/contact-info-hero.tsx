@@ -46,7 +46,7 @@ export function ContactInfoHero({ alias, avatar, upeerId, status, presence = nul
       <XStack gap={18} paddingTop={12}>
         <InteractiveRow accessibilityLabel="Llamar" disabled icon={Phone} label="Llamar" onPress={onCall} variant="action" />
         <InteractiveRow accessibilityLabel="Videollamada" disabled icon={Video} label="Vídeo" onPress={onVideo} variant="action" />
-        <InteractiveRow accessibilityLabel="Buscar en la conversación" disabled icon={Search} label="Buscar" onPress={onSearch} variant="action" />
+        <InteractiveRow accessibilityLabel="Buscar en la conversación" icon={Search} label="Buscar" onPress={onSearch} variant="action" />
       </XStack>
     </YStack>
   );

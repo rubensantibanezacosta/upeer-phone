@@ -28,8 +28,7 @@ import { useAttachmentSender } from '@/hooks/use-attachment-send';
 import { useChatMessageSheet } from '@/hooks/use-chat-message-sheet';
 import { useRequestResolution } from '@/hooks/use-request-resolution';
 import { placeholderName, resolveContactName } from '@/domain/contact-name';
-import { useChatSearch } from '@/hooks/use-chat-search';
-import { useChatSearchJump } from '@/hooks/use-chat-search-jump';
+import { useChatSearchController } from '@/hooks/use-chat-search-controller';
 import { useContactCard } from '@/hooks/use-contact-card';
 import { usePresenceLabel } from '@/hooks/use-presence-label';
 import { useAndroidKeyboardHeight } from '@/hooks/use-android-keyboard-height';
@@ -193,7 +192,7 @@ export default function ChatRoute() {
   const openAttachment = useAttachmentOpener();
   const { attach, attachFromCamera, cameraOpen, closeCamera, openLibrary, sendPicked, sendVoiceNote } = useAttachmentSender(upeerId, refresh);
 
-  const jumpToSearchResult = useChatSearchJump({
+  const search = useChatSearchController({
     chatId: upeerId ?? '',
     loaded: !loadingMessages,
     messages,
@@ -201,7 +200,6 @@ export default function ChatRoute() {
     onMerge: useCallback((page: readonly ProtocolMessage[]) => setMessages((current) => mergeChatHistory(current, page)), []),
     onMissing: useCallback(() => showSnackbar('Ese mensaje ya no está en la conversación'), [showSnackbar]),
   });
-  const search = useChatSearch({ chatId: upeerId ?? '', onJump: jumpToSearchResult });
 
   useAndroidBack(() => {
     const action = resolveChatBack({
@@ -233,12 +231,11 @@ export default function ChatRoute() {
       onOpenCard={openCard}
       onOpenReply={scrollToMessage}
       onToggleReaction={toggleReaction}
-      onUnavailable={showUnavailable}
       reply={replyPreviews(item.message)}
       savedContacts={savedContactIds}
       selfUpeerId={selfUpeerId}
     />
-  ), [highlightedID, highlightedMessageId, openActions, openAttachment, openCard, replyPreviews, savedContactIds, scrollToMessage, selfUpeerId, showUnavailable, toggleReaction]);
+  ), [highlightedID, highlightedMessageId, openActions, openAttachment, openCard, replyPreviews, savedContactIds, scrollToMessage, selfUpeerId, toggleReaction]);
 
   return (
     <View style={styles.root}>
