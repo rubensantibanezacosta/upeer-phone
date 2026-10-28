@@ -63,7 +63,8 @@ class FileInboundTest {
   private fun inbound(
     account: FileReceiveCrypto? = FakeCrypto(),
     device: FileReceiveCrypto? = FakeCrypto(),
-  ) = FileInbound({ account }, { device }, transfers, messages, ::record)
+    groups: (String) -> List<String>? = { null },
+  ) = FileInbound({ account }, { device }, transfers, messages, ::record, groups)
 
   @Test
   fun `acepta la propuesta y guarda la etiqueta del mensaje`() {
@@ -207,6 +208,45 @@ class FileInboundTest {
     assertEquals(PEER, report.getString("upeerId"))
   }
 
+  @Test
+  fun `un adjunto de grupo se guarda en el chat del grupo`() {
+    inbound(groups = { if (it == GROUP_ID) listOf(PEER) else null })
+      .handle(proposal().put("chatUpeerId", GROUP_ID), PEER, "FILE_PROPOSAL")
+
+    assertEquals(GROUP_ID, stored[MESSAGE_ID]!!.getString("upeerId"))
+    assertEquals(listOf("FILE_ACCEPT"), labels)
+  }
+
+  @Test
+  fun `un adjunto de grupo con el emisor fuera del grupo se rechaza`() {
+    inbound(groups = { if (it == GROUP_ID) listOf("otro-miembro") else null })
+      .handle(proposal().put("chatUpeerId", GROUP_ID), PEER, "FILE_PROPOSAL")
+
+    assertTrue(labels.isEmpty())
+    assertTrue(stored.isEmpty())
+  }
+
+  @Test
+  fun `un adjunto para un grupo desconocido se rechaza`() {
+    inbound().handle(proposal().put("chatUpeerId", GROUP_ID), PEER, "FILE_PROPOSAL")
+
+    assertTrue(labels.isEmpty())
+    assertTrue(stored.isEmpty())
+  }
+
+  @Test
+  fun `el adjunto del grupo se completa en el chat del grupo`() {
+    val handler = inbound(groups = { if (it == GROUP_ID) listOf(PEER) else null })
+    handler.handle(proposal().put("chatUpeerId", GROUP_ID), PEER, "FILE_PROPOSAL")
+    for (index in 0 until 3) handler.handle(chunk(index), PEER, "FILE_CHUNK")
+    handler.handle(done(), PEER, "FILE_DONE")
+
+    val message = stored[MESSAGE_ID]!!
+    assertEquals(GROUP_ID, message.getString("upeerId"))
+    val savedPath = JSONObject(message.getString("content")).getString("savedPath")
+    assertTrue(File(savedPath).exists())
+  }
+
   private fun receiveAll() {
     val handler = inbound()
     handler.handle(proposal(), PEER, "FILE_PROPOSAL")
@@ -268,6 +308,7 @@ class FileInboundTest {
 
   private companion object {
     private const val PEER = "upeer-abc123"
+    private const val GROUP_ID = "grp-0123456789abcdef"
     private const val FILE_ID = "6f1c2f5e-6b7a-4c2d-9d1e-2a3b4c5d6e7f"
     private const val MESSAGE_ID = "mensaje-1"
     private const val CHUNK_SIZE = 100

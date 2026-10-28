@@ -10,12 +10,11 @@ export type SendAttachmentInput = {
 };
 
 export function canSendAttachment(upeerId: string | undefined): boolean {
-  if (!upeerId) return false;
-  return !upeerId.startsWith('grp-');
+  return Boolean(upeerId);
 }
 
 export async function sendAttachment(input: SendAttachmentInput): Promise<string> {
-  if (!canSendAttachment(input.upeerId)) throw new Error('Todavía no se pueden enviar adjuntos a un grupo');
+  if (!canSendAttachment(input.upeerId)) throw new Error('No hay una conversación a la que enviar el archivo');
   return sendFile({
     upeerId: input.upeerId,
     path: input.attachment.path,
@@ -31,6 +30,7 @@ export function attachmentSendMessage(error: unknown): string {
   const detail = error instanceof Error ? error.message : String(error);
   if (detail.includes('no es conocido')) return 'Solo puedes enviar archivos a un contacto de confianza';
   if (detail.includes('no está iniciado')) return 'El transporte no está listo; espera unos segundos';
-  if (detail.includes('adjuntos a un grupo')) return detail;
+  if (detail.includes('grupo no está disponible')) return 'El grupo ya no está disponible en este dispositivo';
+  if (detail.includes('no tiene miembros')) return 'No hay miembros del grupo a los que enviar el archivo';
   return 'No se pudo enviar el archivo';
 }

@@ -12,6 +12,8 @@ internal class FileOutbound(
   private val messages: TransportMessages,
   private val send: (String, JSONObject, String) -> Boolean,
   private val windowFactory: (Int) -> FileSendWindow = { FileSendWindow(it) },
+  private val groupMembers: (String) -> List<String>? = { null },
+  private val selfUpeerId: () -> String = { "" },
 ) {
   internal class Request(
     val upeerId: String,
@@ -30,6 +32,7 @@ internal class FileOutbound(
     val fileId: String,
     val upeerId: String,
     val messageId: String,
+    val chatUpeerId: String,
     val plan: FileSendPlan.Plan,
     val key: ByteArray,
     val proposal: JSONObject,
@@ -47,44 +50,71 @@ internal class FileOutbound(
     require(plan.fileSize > 0L) { "El archivo está vacío" }
     val account = accountCrypto() ?: throw IllegalStateException("No hay identidad para enviar el archivo")
     val crypto = deviceCrypto() ?: account
-    val peerPublicKey = directory.publicKeyFor(request.upeerId)
-      ?: throw IllegalStateException("El contacto ${request.upeerId} no es conocido")
-    val peerDeviceKey = directory.devicePublicKeyFor(request.upeerId)
-      ?.lowercase()
-      ?.takeIf { DhtLocation.isHex(it, 32) }
-    val key = crypto.newFileKey()
-    require(key.size == FileTransferState.FILE_KEY_SIZE) { "Clave de archivo no válida" }
-
-    val fileId = UUID.randomUUID().toString()
-    val messageId = request.messageId?.takeIf { it.isNotBlank() } ?: fileId
-    val proposal = JSONObject()
-      .put("type", "FILE_PROPOSAL")
-      .put("fileId", fileId)
-      .put("fileName", plan.fileName)
-      .put("fileSize", plan.fileSize)
-      .put("mimeType", plan.mimeType)
-      .put("totalChunks", plan.totalChunks)
-      .put("chunkSize", plan.chunkSize)
-      .put("fileHash", plan.fileHash)
-      .put("messageId", messageId)
-      .put("encryptedKey", crypto.sealFileKeyFor(key, peerPublicKey))
-    if (peerDeviceKey != null) {
-      proposal.put("deviceEncryptedKey", crypto.sealFileKeyFor(key, peerDeviceKey))
+    val group = request.upeerId.lowercase().takeIf { it.startsWith(ProtocolGroups.PREFIX) }
+    val targets = if (group == null) listOf(request.upeerId) else groupRecipients(group)
+    if (group == null && directory.publicKeyFor(request.upeerId) == null) {
+      throw IllegalStateException("El contacto ${request.upeerId} no es conocido")
     }
-    request.caption?.trim()?.takeIf { it.isNotEmpty() }
-      ?.let { proposal.put("caption", it.take(FileReceivePolicy.MAX_CAPTION_LENGTH)) }
-    if (request.isVoiceNote) proposal.put("isVoiceNote", true)
-    request.chatUpeerId?.takeIf { it.startsWith("grp-") }?.let { proposal.put("chatUpeerId", it) }
+    require(targets.isNotEmpty()) { "El grupo no tiene miembros a los que enviar el archivo" }
+    val chatUpeerId = group ?: request.upeerId
+    val fileIds = targets.map { UUID.randomUUID().toString() }
+    val messageId = request.messageId?.takeIf { it.isNotBlank() }
+      ?: if (group == null) fileIds.first() else UUID.randomUUID().toString()
+    val sendings = ArrayList<Sending>()
+    for ((position, target) in targets.withIndex()) {
+      val peerPublicKey = directory.publicKeyFor(target)
+      if (peerPublicKey == null) {
+        Log.w(TAG, "Miembro $target sin clave conocida; no se le envía el archivo de $chatUpeerId")
+        continue
+      }
+      val peerDeviceKey = directory.devicePublicKeyFor(target)
+        ?.lowercase()
+        ?.takeIf { DhtLocation.isHex(it, 32) }
+      val key = crypto.newFileKey()
+      require(key.size == FileTransferState.FILE_KEY_SIZE) { "Clave de archivo no válida" }
+      val fileId = fileIds[position]
+      val proposal = JSONObject()
+        .put("type", "FILE_PROPOSAL")
+        .put("fileId", fileId)
+        .put("fileName", plan.fileName)
+        .put("fileSize", plan.fileSize)
+        .put("mimeType", plan.mimeType)
+        .put("totalChunks", plan.totalChunks)
+        .put("chunkSize", plan.chunkSize)
+        .put("fileHash", plan.fileHash)
+        .put("messageId", messageId)
+        .put("encryptedKey", crypto.sealFileKeyFor(key, peerPublicKey))
+      if (peerDeviceKey != null) {
+        proposal.put("deviceEncryptedKey", crypto.sealFileKeyFor(key, peerDeviceKey))
+      }
+      request.caption?.trim()?.takeIf { it.isNotEmpty() }
+        ?.let { proposal.put("caption", it.take(FileReceivePolicy.MAX_CAPTION_LENGTH)) }
+      if (request.isVoiceNote) proposal.put("isVoiceNote", true)
+      if (group != null) proposal.put("chatUpeerId", group)
 
-    val sending = Sending(fileId, request.upeerId, messageId, plan, key, proposal, windowFactory(plan.totalChunks))
-    entries[fileId] = sending
-    saveMessage(sending, "pending", null)
-    Log.i(TAG, "FILE_PROPOSAL $fileId (${plan.fileName}, ${plan.fileSize} bytes, ${plan.totalChunks} trozos)")
-    if (!deliver(sending, proposal, "FILE_PROPOSAL")) {
-      abort(sending, "no se pudo entregar la propuesta")
+      val sending = Sending(
+        fileId = fileId,
+        upeerId = target,
+        messageId = messageId,
+        chatUpeerId = chatUpeerId,
+        plan = plan,
+        key = key,
+        proposal = proposal,
+        window = windowFactory(plan.totalChunks),
+      )
+      entries[fileId] = sending
+      sendings += sending
+      saveMessage(sending, "pending", null)
+      Log.i(TAG, "FILE_PROPOSAL $fileId (${plan.fileName}, ${plan.fileSize} bytes, ${plan.totalChunks} trozos) para $target")
+      if (!deliver(sending, proposal, "FILE_PROPOSAL")) abort(sending, "no se pudo entregar la propuesta")
+    }
+    if (sendings.none { it.phase == Phase.PROPOSED }) {
       throw IllegalStateException("No se pudo enviar la propuesta del archivo")
     }
-    launch("upeer-file-proposal-$fileId") { awaitAccept(sending) }
+    for (sending in sendings) {
+      if (sending.phase != Phase.PROPOSED) continue
+      launch("upeer-file-proposal-${sending.fileId}") { awaitAccept(sending) }
+    }
     return messageId
   }
 
@@ -106,7 +136,9 @@ internal class FileOutbound(
 
   fun cancel(fileId: String): Boolean {
     val sending = entries[fileId] ?: return false
-    abort(sending, "cancelada localmente")
+    for (sibling in entries.values.filter { it.messageId == sending.messageId }) {
+      abort(sibling, "cancelada localmente")
+    }
     return true
   }
 
@@ -266,16 +298,38 @@ internal class FileOutbound(
     true
   }
 
+  private fun groupRecipients(groupId: String): List<String> {
+    val members = groupMembers(groupId)
+    if (members == null) {
+      Log.w(TAG, "No se puede enviar el archivo: el grupo $groupId no está disponible")
+      return emptyList()
+    }
+    val self = selfUpeerId().lowercase()
+    return members.map { it.lowercase() }.filter { it.isNotEmpty() && it != self }.distinct()
+  }
+
   private fun saveMessage(sending: Sending, status: String, savedPath: String?) {
+    val current = messages.find(sending.messageId)?.optString("status").orEmpty()
     FileOutboundMessage.save(
       messages = messages,
       messageId = sending.messageId,
-      upeerId = sending.upeerId,
+      upeerId = sending.chatUpeerId,
       plan = sending.plan,
       proposal = sending.proposal,
-      status = status,
+      status = latestStatus(status, current),
       savedPath = savedPath,
     )
+  }
+
+  private fun latestStatus(candidate: String, current: String): String =
+    if (rankOf(candidate) >= rankOf(current)) candidate else current
+
+  private fun rankOf(status: String): Int = when (status) {
+    "pending" -> 0
+    "sent" -> 1
+    "failed" -> 2
+    "delivered" -> 3
+    else -> -1
   }
 
   private fun launch(name: String, body: () -> Unit) {

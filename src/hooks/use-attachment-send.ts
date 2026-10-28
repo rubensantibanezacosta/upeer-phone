@@ -16,7 +16,7 @@ export function useAttachmentSender(upeerId: string | undefined, onSent?: () => 
 
   const sendPicked = useCallback(async (attachment: PickedAttachment, isVoiceNote = false) => {
     if (!canSendAttachment(upeerId)) {
-      showSnackbar('Todavía no se pueden enviar adjuntos a un grupo');
+      showSnackbar('No hay una conversación abierta');
       return;
     }
     try {
@@ -31,7 +31,7 @@ export function useAttachmentSender(upeerId: string | undefined, onSent?: () => 
 
   const send = useCallback(async (source: PickSource) => {
     if (!canSendAttachment(upeerId)) {
-      showSnackbar('Todavía no se pueden enviar adjuntos a un grupo');
+      showSnackbar('No hay una conversación abierta');
       return;
     }
     const result = await pickAttachment(source);
@@ -46,7 +46,7 @@ export function useAttachmentSender(upeerId: string | undefined, onSent?: () => 
 
   const attach = useCallback(() => {
     if (!canSendAttachment(upeerId)) {
-      showSnackbar('Todavía no se pueden enviar adjuntos a un grupo');
+      showSnackbar('No hay una conversación abierta');
       return;
     }
     Alert.alert('Adjuntar archivo', 'Elige de dónde tomar el archivo', [
@@ -63,7 +63,7 @@ export function useAttachmentSender(upeerId: string | undefined, onSent?: () => 
 
   const attachFromCamera = useCallback(() => {
     if (!canSendAttachment(upeerId)) {
-      showSnackbar('Todavía no se pueden enviar adjuntos a un grupo');
+      showSnackbar('No hay una conversación abierta');
       return;
     }
     setCameraOpen(true);

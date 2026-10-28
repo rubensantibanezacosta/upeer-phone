@@ -9,6 +9,7 @@ internal class FileInbound(
   private val transfers: FileTransferState,
   private val messages: TransportMessages,
   private val send: (String, JSONObject, String) -> Boolean,
+  private val groupMembers: (String) -> List<String>? = { null },
 ) {
   fun handle(packet: JSONObject, senderUpeerId: String, type: String): String {
     when (type) {
@@ -28,6 +29,7 @@ internal class FileInbound(
       Log.w(TAG, "FILE_PROPOSAL rechazado de $senderUpeerId: ${message(cause)}")
       return
     }
+    if (!authorizedGroup(proposal, senderUpeerId)) return
     val key = unsealKey(packet, proposal.fileId)
     if (key == null) {
       Log.w(TAG, "FILE_PROPOSAL sin clave utilizable (${proposal.fileId}); no se acepta")
@@ -137,12 +139,24 @@ internal class FileInbound(
     return crypto.decryptFileChunk(key, iv, tag, data)
   }
 
+  private fun authorizedGroup(proposal: FileReceivePolicy.Proposal, senderUpeerId: String): Boolean {
+    val chatUpeerId = proposal.chatUpeerId ?: return true
+    val members = groupMembers(chatUpeerId)
+    if (members == null || senderUpeerId !in members) {
+      Log.w(TAG, "FILE_PROPOSAL para el grupo $chatUpeerId rechazada: $senderUpeerId no es miembro")
+      return false
+    }
+    return true
+  }
+
+  private fun chatOf(entry: FileTransferState.Entry): String = entry.proposal.chatUpeerId ?: entry.senderUpeerId
+
   private fun saveProposalMessage(entry: FileTransferState.Entry) {
     val messageId = entry.proposal.messageId ?: entry.proposal.fileId
     messages.save(
       JSONObject()
         .put("id", messageId)
-        .put("upeerId", entry.senderUpeerId)
+        .put("upeerId", chatOf(entry))
         .put("isMine", false)
         .put("content", envelope(entry, null))
         .put("status", "delivered")

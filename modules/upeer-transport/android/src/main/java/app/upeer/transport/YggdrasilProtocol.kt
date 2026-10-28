@@ -79,6 +79,7 @@ internal class YggdrasilProtocol(
       val frame = SealedControl.frame(current, identity.currentDevice(), active.address(), peerPublicKey, data)
       egress.send(active, address, frame, label)
     },
+    groupMembers = ::activeGroupMembers,
   )
   private val fileOutbound = FileOutbound(
     accountCrypto = { identity.current()?.let { BridgeFileSendCrypto(it) } },
@@ -93,6 +94,8 @@ internal class YggdrasilProtocol(
       val frame = SealedControl.frame(current, identity.currentDevice(), active.address(), peerPublicKey, data)
       egress.send(active, address, frame, label)
     },
+    groupMembers = ::activeGroupMembers,
+    selfUpeerId = { identity.current()?.upeerID().orEmpty() },
   )
   private val vaultReplies = VaultReplies(
     identity,
@@ -481,13 +484,24 @@ internal class YggdrasilProtocol(
     messageId: String?,
   ): String {
     if (bridge == null) throw IllegalStateException("El transporte no está iniciado")
-    if (state.publicKeyFor(upeerId) == null) throw IllegalStateException("El contacto $upeerId no es conocido")
+    if (!upeerId.startsWith(ProtocolGroups.PREFIX) && state.publicKeyFor(upeerId) == null) {
+      throw IllegalStateException("El contacto $upeerId no es conocido")
+    }
     return fileOutbound.start(
       FileOutbound.Request(upeerId, path, fileName, mimeType, caption, isVoiceNote, chatUpeerId, messageId),
     )
   }
 
   fun cancelFile(fileId: String): Boolean = fileOutbound.cancel(fileId)
+
+  private fun activeGroupMembers(groupId: String): List<String>? {
+    val group = state.groups.get(groupId) ?: return null
+    if (group.optString("status") == "removed") return null
+    val raw = group.optJSONArray("members") ?: return null
+    return (0 until raw.length()).mapNotNull { index ->
+      raw.optString(index).lowercase().takeIf(String::isNotEmpty)
+    }
+  }
 
   fun outboundFiles(): String = fileOutbound.sendingJSON()
 

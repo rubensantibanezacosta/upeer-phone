@@ -23,10 +23,11 @@ beforeEach(() => {
 });
 
 describe('canSendAttachment', () => {
-  it('solo admite chats directos', () => {
+  it('admite chats directos y grupos', () => {
     expect(canSendAttachment('a'.repeat(64))).toBe(true);
-    expect(canSendAttachment('grp-123')).toBe(false);
+    expect(canSendAttachment('grp-123')).toBe(true);
     expect(canSendAttachment(undefined)).toBe(false);
+    expect(canSendAttachment('')).toBe(false);
   });
 });
 
@@ -51,9 +52,9 @@ describe('sendAttachment', () => {
     expect(native.calls[0][0]).toMatchObject({ isVoiceNote: true, mimeType: 'audio/mp4' });
   });
 
-  it('rechaza los grupos antes de llamar al transporte', async () => {
-    await expect(sendAttachment({ attachment, upeerId: 'grp-123' })).rejects.toThrow('adjuntos a un grupo');
-    expect(native.calls).toHaveLength(0);
+  it('envía a un grupo con su identificador de chat', async () => {
+    await sendAttachment({ attachment, upeerId: 'grp-123', chatUpeerId: 'grp-123' });
+    expect(native.calls[0][0]).toMatchObject({ chatUpeerId: 'grp-123', upeerId: 'grp-123' });
   });
 
   it('propaga el error del transporte', async () => {
@@ -66,6 +67,8 @@ describe('attachmentSendMessage', () => {
   it('traduce los errores conocidos', () => {
     expect(attachmentSendMessage(new Error('El contacto x no es conocido'))).toBe('Solo puedes enviar archivos a un contacto de confianza');
     expect(attachmentSendMessage(new Error('El transporte no está iniciado'))).toBe('El transporte no está listo; espera unos segundos');
+    expect(attachmentSendMessage(new Error('el grupo no está disponible'))).toBe('El grupo ya no está disponible en este dispositivo');
+    expect(attachmentSendMessage(new Error('no tiene miembros a los que enviar'))).toBe('No hay miembros del grupo a los que enviar el archivo');
     expect(attachmentSendMessage(new Error('otra cosa'))).toBe('No se pudo enviar el archivo');
   });
 });
