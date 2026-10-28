@@ -6,6 +6,7 @@ import { Card, Paragraph, SizableText, XStack, YStack } from 'tamagui';
 import { CopyField } from '@/components/copy-field';
 import { SettingsGroup, SettingsSectionHeader } from '@/components/settings-section-parts';
 import { NetworkMap } from '@/components/network-map';
+import { LocationStatusCard } from '@/components/location-status-card';
 import type { PeerInfo, PeerPoolEntry } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import type { PeerManagementSnapshot } from '@/domain/yggdrasil-peers';
 import { useTextScale } from '@/hooks/use-text-scale';
@@ -64,6 +65,8 @@ export function ConnectionSettingsSection({ address, phase, peers, error, manage
           {error ? <Paragraph accessibilityRole="alert" color={theme.placeholder} fontSize={scale(12)}>{error}</Paragraph> : null}
         </YStack>
       </SettingsGroup>
+
+      <LocationStatusCard />
 
       {activeCount > 0 ? <>
         <View style={[styles.divider, { backgroundColor: theme.border }]} />

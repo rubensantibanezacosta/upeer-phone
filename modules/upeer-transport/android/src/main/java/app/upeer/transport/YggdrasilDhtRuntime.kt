@@ -47,6 +47,7 @@ internal class YggdrasilDhtRuntime(
   private val dhtRateLimiter = InboundRateLimiter()
   @Volatile private var state: YggdrasilDhtState? = null
   @Volatile private var lastPublished = ""
+  private val locationStatus = DhtLocationStatus(nowMillis)
 
   fun start() {
     synchronized(lock) {
@@ -80,6 +81,8 @@ internal class YggdrasilDhtRuntime(
         nowMillis,
         sequenceReady = { account -> locationStore?.hasState(account) ?: true },
         adoptSequence = { account, seq -> locationStore?.adoptSequence(account, seq) },
+        onPublished = { seq, nodes -> locationStatus.notePublished(seq, nodes) },
+        onFailure = { kind, detail -> locationStatus.noteFailure(kind, detail) },
       )
       val updateService = DhtUpdateService(
         acceptance,
@@ -301,8 +304,22 @@ internal class YggdrasilDhtRuntime(
   private fun publishLocation(current: YggdrasilDhtState, force: Boolean) {
     current.locations.publish(force)
     val block = current.locations.lastVerifiedBlock() ?: return
-    val sent = current.updates.dispatch(block)
+    val sent = try {
+      current.updates.dispatch(block)
+    } catch (cause: Exception) {
+      locationStatus.noteFailure(DhtLocationStatus.KIND_NETWORK, "No se pudo enviar la ubicación a los contactos: ${message(cause)}")
+      return
+    }
+    locationStatus.noteFanout(sent)
     if (sent > 0) Log.i(TAG, "DHT_UPDATE enviado a $sent direcciones de contactos íntimos")
+  }
+
+  fun locationStatusJSON(): String {
+    val ready = state != null
+    return JSONObject()
+      .put("ready", ready)
+      .put("fanout", locationStatus.toJson())
+      .toString()
   }
 
   private fun lookupRegistry(node: KademliaNode, key: String): String? {

@@ -272,7 +272,10 @@ class YggdrasilTransportService : Service() {
       nowMillis: Long,
     ): Boolean = dhtBindings.validateDeviceAdmission(certificateJSON, registryJSON, expectedAccountUpeerId, nowMillis)
     override fun deviceIdentityStatusJSON(): String = dhtBindings.deviceIdentityStatusJSON()
-    override fun dhtLocationStatusJSON(): String = dhtBindings.dhtLocationStatusJSON()
+    override fun dhtLocationStatusJSON(): String {
+      val base = JSONObject(dhtBindings.dhtLocationStatusJSON())
+      return base.put("publication", JSONObject(dhtRuntime.locationStatusJSON())).toString()
+    }
     override fun lookupContactLocation(upeerId: String): String = dhtRuntime.lookupContactLocation(upeerId).orEmpty()
     override fun verifyLocationBlock(blockJSON: String, publicKeyHex: String, nowMillis: Long): Boolean =
       dhtBindings.verifyLocationBlock(blockJSON, publicKeyHex, nowMillis)

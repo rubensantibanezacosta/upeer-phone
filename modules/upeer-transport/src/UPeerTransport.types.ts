@@ -135,12 +135,22 @@ export type DhtRuntimeStatus = {
   remoteRegistries?: number;
 };
 
+export type DhtLocationPublication = {
+  publishedAt: number;
+  dhtSeq: number;
+  nodes: number;
+  fanoutAt: number;
+  fanout: number;
+  error: { kind: string; message: string; at: number } | null;
+};
+
 export type DhtLocationStatus = {
   ready: boolean;
   upeerId?: string;
   dhtSeq: number;
   lastAddress?: string;
   deviceId?: string;
+  publication?: { ready: boolean; fanout: DhtLocationPublication };
 };
 
 export type LocationBlock = {

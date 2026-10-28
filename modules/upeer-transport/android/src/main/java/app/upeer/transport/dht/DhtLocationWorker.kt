@@ -20,6 +20,8 @@ internal class DhtLocationWorker(
   private val adoptSequence: (String, Long) -> Unit = { _, _ -> },
   private val warn: (String) -> Unit = { message -> Log.w(TAG, message) },
   private val info: (String) -> Unit = { message -> Log.i(TAG, message) },
+  private val onPublished: (Long, Int) -> Unit = { _, _ -> },
+  private val onFailure: (String, String) -> Unit = { _, _ -> },
 ) {
   @Volatile private var lastPublished = ""
   private var lastSeq = -1L
@@ -38,14 +40,16 @@ internal class DhtLocationWorker(
   }
 
   fun publish(force: Boolean = false): Boolean {
-    val account = upeerId() ?: return false
-    val publicKey = publicKeyHex() ?: return false
+    val account = upeerId() ?: return fail(KIND_IDENTITY, "Sin identidad de cuenta no hay ubicación que publicar")
+    val publicKey = publicKeyHex() ?: return fail(KIND_IDENTITY, "Sin clave de cuenta no hay ubicación que publicar")
     if (!ensureSequence(account, publicKey)) return false
-    val block = runCatching { buildBlock() }.getOrNull()?.takeIf(String::isNotEmpty) ?: return false
+    val block = runCatching { buildBlock() }.getOrNull()?.takeIf(String::isNotEmpty)
+      ?: return fail(KIND_CERTIFICATE, "No se pudo construir el bloque de ubicación")
     val now = nowMillis()
     val verified = DhtContactLocation.verifyOne(block, account, publicKey, "", now, verify)
     if (verified == null) {
       warn("El bloque de ubicación no incluye un certificado de dispositivo válido; no se publica")
+      onFailure(KIND_CERTIFICATE, "El certificado de dispositivo no es válido")
       return false
     }
     val unchanged = verified.dhtSeq == lastSeq && verified.addresses == lastAddresses
@@ -54,12 +58,14 @@ internal class DhtLocationWorker(
       store(account, JSONObject(block), account)
     }.getOrElse { cause ->
       warn("No se pudo publicar la ubicación en DHT: ${message(cause)}")
+      onFailure(KIND_NETWORK, message(cause))
       return false
     }
     lastPublished = block
     lastSeq = verified.dhtSeq
     lastAddresses = verified.addresses
     info("Ubicación de dispositivo publicada en $deliveries nodos DHT")
+    onPublished(verified.dhtSeq, deliveries)
     return true
   }
 
@@ -117,10 +123,18 @@ internal class DhtLocationWorker(
     return true
   }
 
+  private fun fail(kind: String, detail: String): Boolean {
+    onFailure(kind, detail)
+    return false
+  }
+
   private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
 
   private companion object {
     private const val TAG = "UPeerTransport"
     private const val REPUBLISH_BEFORE_MS = 24L * 60L * 60L * 1000L
+    private const val KIND_NETWORK = "red"
+    private const val KIND_CERTIFICATE = "certificado"
+    private const val KIND_IDENTITY = "identidad"
   }
 }
