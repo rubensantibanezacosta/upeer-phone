@@ -114,6 +114,9 @@ class UPeerTransportModule : Module() {
     AsyncFunction("peerSecurityJSON") { upeerId: String -> service().peerSecurityJSON(upeerId) }
     AsyncFunction("markConversationRead") { upeerId: String -> service().markConversationRead(upeerId) }
     AsyncFunction("sendTyping") { upeerId: String, state: String -> service().sendTyping(upeerId, state) }
+    AsyncFunction("sendRetention") { upeerId: String, retention: String ->
+      service().sendRetention(upeerId, retention)
+    }
     AsyncFunction("markUserActive") { service().markUserActive() }
     AsyncFunction("sendReaction") { upeerId: String, messageId: String, emoji: String, remove: Boolean ->
       service().sendReaction(upeerId, messageId, emoji, remove)

@@ -201,6 +201,9 @@ class YggdrasilTransportService : Service() {
       protocol.markConversationRead(upeerId)
       notifications.clearConversation(upeerId)
     }
+    override fun sendRetention(upeerId: String, retention: String) {
+      admitted { protocol.sendRetention(upeerId, retention) }
+    }
     override fun sendTyping(upeerId: String, state: String) {
       admitted { protocol.sendTyping(upeerId, state) }
     }

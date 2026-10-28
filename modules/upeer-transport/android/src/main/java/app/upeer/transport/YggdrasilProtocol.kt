@@ -210,6 +210,8 @@ internal class YggdrasilProtocol(
   fun peerPublicKey(upeerId: String): String? = state.publicKeyFor(upeerId)
   fun sendTyping(upeerId: String, state: String) = controlSender.sendTyping(upeerId, state)
 
+  fun sendRetention(upeerId: String, retention: String) = controlSender.sendRetention(upeerId, retention)
+
   fun sendReaction(upeerId: String, messageID: String, emoji: String, remove: Boolean) =
     controlSender.sendReaction(upeerId, messageID, emoji, remove)
 
@@ -337,7 +339,7 @@ internal class YggdrasilProtocol(
       return metadataJSON
     }
     if (type == "ACK" || type == "DR_RESET" || type == "READ" || type == "TYPING" || type == "PING" ||
-      type == "CHAT_REACTION" || type == "CHAT_DELETE"
+      type == "CHAT_REACTION" || type == "CHAT_DELETE" || type == RetentionAnnouncement.TYPE
     ) {
       return controlReplies.handle(activeBridge, payload, packet, type, sourceAddress)
     }

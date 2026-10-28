@@ -53,6 +53,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   peerSecurityJSON(upeerId: string): Promise<string>;
   markConversationRead(upeerId: string): Promise<void>;
   sendTyping(upeerId: string, state: ConversationActivityState): Promise<void>;
+  sendRetention(upeerId: string, retention: string): Promise<void>;
   markUserActive(): Promise<void>;
   sendReaction(upeerId: string, messageId: string, emoji: string, remove: boolean): Promise<void>;
   deleteMessage(upeerId: string, messageId: string): Promise<void>;
@@ -417,6 +418,10 @@ export async function setMutedPeers(mutedJSON: string): Promise<void> {
 
 export async function setRetentionMap(mapJSON: string): Promise<void> {
   return nativeModule.setRetentionMap(mapJSON);
+}
+
+export async function sendRetention(upeerId: string, retention: string): Promise<void> {
+  return nativeModule.sendRetention(upeerId, retention);
 }
 
 export async function getRetentionStatus(): Promise<string> {

@@ -26,6 +26,11 @@ internal class ControlSender(
     send(upeerId, "upeer-pong", ControlPings.pong(), "PONG")
   }
 
+  fun sendRetention(upeerId: String, retention: String) {
+    val data = RetentionAnnouncement.data(retention) ?: return
+    send(upeerId, "upeer-retention", data, RetentionAnnouncement.TYPE)
+  }
+
   fun sendReaction(upeerId: String, messageID: String, emoji: String, remove: Boolean) {
     if (!ReplayPolicy.validMessageID(messageID) || !ChatReactions.validEmoji(emoji)) return
     val selfUpeerId = identity.current()?.upeerID() ?: return

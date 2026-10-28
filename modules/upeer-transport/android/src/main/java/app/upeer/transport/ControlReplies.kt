@@ -71,6 +71,10 @@ internal class ControlReplies(
       handleDelete(senderUpeerId, packet)
       return metadataJSON
     }
+    if (type == RetentionAnnouncement.TYPE) {
+      handleRetention(senderUpeerId, packet)
+      return metadataJSON
+    }
     handleReset(packet, senderUpeerId, publicKey, deviceBinding)
     return metadataJSON
   }
@@ -105,6 +109,16 @@ internal class ControlReplies(
       throw IllegalArgumentException("DR_RESET announced an unknown sender device")
     }
     return binding
+  }
+
+  private fun handleRetention(senderUpeerId: String, packet: JSONObject) {
+    val retention = RetentionAnnouncement.parse(packet)
+    if (retention == null) {
+      Log.w(TAG, "RETENTION_SET ignorado de $senderUpeerId")
+      return
+    }
+    state.retention.set(RetentionAnnouncement.apply(state.retention.map(), senderUpeerId, retention))
+    Log.i(TAG, "Plazo de conservación de $senderUpeerId actualizado a $retention")
   }
 
   private fun handleAck(senderUpeerId: String, packet: JSONObject) {

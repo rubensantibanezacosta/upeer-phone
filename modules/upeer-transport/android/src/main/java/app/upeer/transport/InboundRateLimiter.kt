@@ -59,6 +59,7 @@ internal class InboundRateLimiter(
       "PING" to Rule(windowMs = 10_000, maxTokens = 60),
       "CHAT_REACTION" to Rule(windowMs = 60_000, maxTokens = 60),
       "CHAT_DELETE" to Rule(windowMs = 60_000, maxTokens = 20),
+      "RETENTION_SET" to Rule(windowMs = 60_000, maxTokens = 10),
       "DR_RESET" to Rule(windowMs = 60_000, maxTokens = 20),
       "DHT_QUERY" to Rule(windowMs = 30_000, maxTokens = 20),
       "DHT_RESPONSE" to Rule(windowMs = 30_000, maxTokens = 40),
