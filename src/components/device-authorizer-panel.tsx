@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { Ban, Info, ShieldAlert, Smartphone, Trash2, UserPlus } from '@tamagui/lucide-icons-2';
 import { Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
@@ -8,6 +8,7 @@ import { DevicePairingPanel } from '@/components/device-pairing-panel';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { SettingsGroup, SettingsGroupLabel } from '@/components/settings-section-parts';
 import { useAccountDevices } from '@/hooks/use-account-devices';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
@@ -51,14 +52,12 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
     );
   }, [refresh]);
 
-  return <YStack gap={14} paddingHorizontal={16} paddingVertical={16}>
-    <XStack alignItems="flex-start" gap={4}>
-      <YStack flex={1} gap={4}>
-        <SizableText color={theme.text} fontSize={scale(15)} fontWeight="700">Dispositivos autorizados</SizableText>
-        <Text color={theme.placeholder} fontSize={scale(12)}>Pueden usar tu cuenta sin tu frase de recuperación. Revocar uno le quita el acceso sin tocar el resto.</Text>
-      </YStack>
-      {onInfo ? <NativeRipplePressable accessibilityLabel="¿Qué son los dispositivos de la cuenta?" onPress={onInfo} style={{ padding: 6 }}><Info color={theme.placeholder} size={16} /></NativeRipplePressable> : null}
-    </XStack>
+  return <YStack gap={10}>
+    <SettingsGroupLabel
+      action={onInfo ? <NativeRipplePressable accessibilityLabel="¿Qué son los dispositivos de la cuenta?" accessibilityRole="button" onPress={onInfo} style={styles.info}><Info color={theme.placeholder} size={16} /></NativeRipplePressable> : undefined}
+      icon={<Smartphone color={theme.placeholder} size={15} />}
+      title="Dispositivos autorizados"
+    >Pueden usar tu cuenta sin tu frase de recuperación. Revocar uno le quita el acceso sin tocar el resto.</SettingsGroupLabel>
 
     {state.localAdmitted ? null : <YStack gap={8}>
       <XStack alignItems="center" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={10} borderWidth={1} gap={8} padding={10}>
@@ -68,11 +67,10 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
       <NativeRippleButton backgroundColor={theme.accentSoft} color={theme.onAccentSoft} height={44} icon={<UserPlus color={theme.onAccentSoft} size={16} />} onPress={() => setPairingVisible(true)}>Volver a vincular a mi cuenta</NativeRippleButton>
     </YStack>}
 
-    <YStack>
+    <SettingsGroup>
       {state.loading && state.devices.length === 0
-        ? <Paragraph color={theme.placeholder} fontSize={scale(13)}>Leyendo dispositivos autorizados…</Paragraph>
-        : state.devices.map((device, index) => <DeviceRow
-          first={index === 0}
+        ? <YStack padding={16}><Paragraph color={theme.placeholder} fontSize={scale(12)}>Leyendo dispositivos autorizados…</Paragraph></YStack>
+        : state.devices.map((device) => <DeviceRow
           authorizedAt={device.authorizedAt}
           busy={busyId === device.deviceId}
           current={device.deviceId === state.localDeviceId}
@@ -83,9 +81,9 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
           value={device.deviceId}
         />)}
       {!state.loading && state.devices.length === 0
-        ? <Paragraph color={theme.placeholder} fontSize={scale(13)}>{state.ready ? 'Todavía no hay dispositivos autorizados en esta cuenta.' : 'El registro de la cuenta aún no está listo en este dispositivo.'}</Paragraph>
+        ? <YStack padding={16}><Paragraph color={theme.placeholder} fontSize={scale(12)}>{state.ready ? 'Todavía no hay dispositivos autorizados en esta cuenta.' : 'El registro de la cuenta aún no está listo en este dispositivo.'}</Paragraph></YStack>
         : null}
-    </YStack>
+    </SettingsGroup>
 
     {state.error ? <Paragraph accessibilityRole="alert" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={10} borderWidth={1} color={theme.onDangerSoft} fontSize={scale(12)} padding={10}>{state.error}</Paragraph> : null}
     {notice ? <Text accessibilityLiveRegion="polite" color={notice.startsWith('No se pudo') ? theme.danger : theme.textSecondary} fontSize={scale(12)}>{notice}</Text> : null}
@@ -95,15 +93,17 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
     {state.revoked.length > 0 ? <YStack gap={6}>
       <XStack alignItems="center" gap={6}>
         <Ban color={theme.placeholder} size={13} />
-        <Text color={theme.placeholder} fontSize={scale(11)} fontWeight="600">Revocados</Text>
+        <Text color={theme.placeholder} fontSize={scale(10)} fontWeight="600" letterSpacing={0.6}>REVOCADOS</Text>
       </XStack>
-      {state.revoked.slice(0, 3).map((revocation) => <YStack gap={1} key={revocation.deviceId} opacity={0.6}>
-        <XStack alignItems="center" gap={8}>
-          <Text color={theme.placeholder} flex={1} fontFamily="monospace" fontSize={scale(11)} numberOfLines={1}>{revocation.deviceId}</Text>
-          <Text color={theme.placeholder} fontSize={scale(11)}>{authorizedLabel(revocation.revokedAt)}</Text>
-        </XStack>
-        {revocation.reason ? <Text color={theme.placeholder} fontSize={scale(10)} numberOfLines={1}>{revocation.reason}</Text> : null}
-      </YStack>)}
+      <SettingsGroup>
+        {state.revoked.slice(0, 3).map((revocation) => <YStack gap={2} key={revocation.deviceId} opacity={0.7} padding={16}>
+          <XStack alignItems="center" gap={8}>
+            <Text color={theme.placeholder} flex={1} fontFamily="monospace" fontSize={scale(11)} numberOfLines={1}>{revocation.deviceId}</Text>
+            <Text color={theme.placeholder} fontSize={scale(11)}>{authorizedLabel(revocation.revokedAt)}</Text>
+          </XStack>
+          {revocation.reason ? <Text color={theme.placeholder} fontSize={scale(10)} numberOfLines={1}>{revocation.reason}</Text> : null}
+        </YStack>)}
+      </SettingsGroup>
     </YStack> : null}
 
     <DeviceInviteSheet onAuthorized={() => void refresh()} onClose={() => setSheetVisible(false)} visible={sheetVisible} />
@@ -114,30 +114,30 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
   </YStack>;
 }
 
-function DeviceRow({ authorizedAt, busy, current, first, onRevoke, platform, theme, value }: { authorizedAt: number; busy: boolean; current: boolean; first: boolean; onRevoke: () => void; platform?: string; theme: ReturnType<typeof useTheme>; value: string }) {
+function DeviceRow({ authorizedAt, busy, current, onRevoke, platform, theme, value }: { authorizedAt: number; busy: boolean; current: boolean; onRevoke: () => void; platform?: string; theme: ReturnType<typeof useTheme>; value: string }) {
   const scale = useTextScale();
-  return <View style={first ? undefined : [styles.separator, { borderTopColor: theme.border }]}>
-    <XStack alignItems="center" gap={10} paddingVertical={12}>
+  return <YStack>
+    <XStack alignItems="center" gap={10} padding={16}>
       <YStack flex={1} gap={2}>
         <XStack alignItems="center" gap={6}>
-          <SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{platformLabel(platform)}</SizableText>
+          <SizableText color={theme.text} fontSize={scale(14)} fontWeight="500">{platformLabel(platform)}</SizableText>
           {current ? <YStack backgroundColor={theme.accentSoft} borderRadius={6} paddingHorizontal={6} paddingVertical={1}><Text color={theme.onAccentSoft} fontSize={scale(10)} fontWeight="700">ESTE DISPOSITIVO</Text></YStack> : null}
         </XStack>
         <Text color={theme.placeholder} fontFamily="monospace" fontSize={scale(11)} numberOfLines={1}>{value}</Text>
       </YStack>
       <YStack alignItems="flex-end" gap={1}>
-        <Text color={theme.placeholder} fontSize={scale(9)} fontWeight="600" letterSpacing={0.6}>VINCULADO</Text>
+        <Text color={theme.placeholder} fontSize={scale(10)} fontWeight="600" letterSpacing={0.6}>VINCULADO</Text>
         <Text color={theme.textSecondary} fontSize={scale(11)}>{authorizedLabel(authorizedAt)}</Text>
       </YStack>
       {current ? null : <NativeRipplePressable accessibilityLabel={`Revocar ${platformLabel(platform)}`} onPress={onRevoke} style={{ opacity: busy ? 0.4 : 1 }}>
         <Trash2 color={theme.danger} size={17} />
       </NativeRipplePressable>}
     </XStack>
-  </View>;
+  </YStack>;
 }
 
 const styles = StyleSheet.create({
-  separator: { borderTopWidth: StyleSheet.hairlineWidth },
+  info: { alignItems: 'center', borderRadius: 14, height: 28, justifyContent: 'center', overflow: 'hidden', width: 28 },
 });
 
 function authorizedLabel(authorizedAt: number): string {

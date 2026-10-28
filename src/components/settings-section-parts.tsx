@@ -27,14 +27,15 @@ export function SettingsSectionHeader({ action, children, icon, title }: Setting
   );
 }
 
-export function SettingsGroupLabel({ children, icon, title }: { children?: ReactNode; icon?: ReactNode; title: string }) {
+export function SettingsGroupLabel({ action, children, icon, title }: { action?: ReactNode; children?: ReactNode; icon?: ReactNode; title: string }) {
   const theme = useTheme();
   const scale = useTextScale();
   return (
     <YStack gap={2}>
       <YStack alignItems="center" flexDirection="row" gap={8}>
         {icon}
-        <SizableText color={theme.text} fontSize={scale(15)} fontWeight="700">{title}</SizableText>
+        <SizableText color={theme.text} flexShrink={1} fontSize={scale(15)} fontWeight="700" numberOfLines={1}>{title}</SizableText>
+        {action ? <YStack flex={1} alignItems="flex-end">{action}</YStack> : null}
       </YStack>
       {children ? <Paragraph color={theme.placeholder} fontSize={scale(12)}>{children}</Paragraph> : null}
     </YStack>

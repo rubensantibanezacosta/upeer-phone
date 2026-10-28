@@ -88,7 +88,7 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
     }
   };
 
-  const { usage: vaultUsage } = useVaultUsage();
+  const { ready: vaultReady, usage: vaultUsage } = useVaultUsage();
   const copyProfileAddress = () => { void copyToClipboard(fullId, 'Copiado al portapapeles'); };
   const copyQrAddress = () => { copyProfileAddress(); setQrOpen(false); };
   const copyProfileValue = (value: string) => { void copyToClipboard(value, 'Copiado al portapapeles'); };
@@ -96,15 +96,15 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
   return (
     <YStack flex={1} backgroundColor={theme.background}>
       <ScrollView contentContainerStyle={styles.content}>
-        <H1 color={theme.text} fontSize={scale(24)} paddingHorizontal={16}>Perfil</H1>
+        <H1 color={theme.text} fontSize={scale(24)} fontWeight="700">Perfil</H1>
         <ProfileHeroSection identity={identity} alias={alias} avatar={avatar} busy={busy} onAliasChange={(value) => { setAlias(value); setError(''); }} onAliasSave={() => void saveAlias()} onAvatarPress={() => void chooseAvatar()} />
         {error ?
           <Paragraph accessibilityRole="alert" color={theme.danger}>{error}</Paragraph> : null}
-        <ProfileStatsSection reputation={reputation} vaultStats={{ count: vaultUsage.entries, sizeBytes: vaultUsage.bytes }} reputationUnavailable={false} onInfo={setInfo} />
+        <ProfileStatsSection onInfo={setInfo} reputation={reputation} vaultReady={vaultReady} vaultUsage={vaultUsage} />
         <ProfileAddressSection fullId={fullId} onCopy={copyProfileAddress} onShowQr={() => setQrOpen(true)} onInfo={() => setInfo('direccion')} />
         <DeviceAuthorizerPanel onInfo={() => setInfo('dispositivos')} />
         <ProfileTechnicalSection identity={identity} address={address} onInfo={setInfo} onCopy={copyProfileValue} />
-        <YStack paddingHorizontal={16}><NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.danger} height={48} icon={<LogOut color={theme.danger} size={18} />} onPress={() => confirmSignOut(onSignOut)}>Cerrar sesión y borrar datos locales</NativeRippleButton></YStack>
+        <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.danger} height={48} icon={<LogOut color={theme.danger} size={18} />} onPress={() => confirmSignOut(onSignOut)}>Cerrar sesión y borrar datos locales</NativeRippleButton>
       </ScrollView>
       <ProfileQrModal visible={qrOpen} fullId={fullId} onClose={() => setQrOpen(false)} onCopy={copyQrAddress} />
       <ProfileInfoModal info={info} onClose={() => setInfo(null)} />
@@ -134,4 +134,4 @@ function ProfileInfoModal({ info, onClose }: { info: ProfileInfoKey | null; onCl
   return <InfoDialog content={info ? profileHelpContent[info] : null} onClose={onClose} />;
 }
 
-const styles = StyleSheet.create({ content: { flexGrow: 1, paddingBottom: 24 }, callsContent: { flexGrow: 1, gap: 12, paddingBottom: 24, paddingHorizontal: 20, paddingTop: 20 }, modalBackdrop: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 20 }, qrDialog: { alignItems: 'center', borderRadius: 16, borderWidth: 1, gap: 14, maxWidth: 380, padding: 22, width: '100%' }, qrCanvas: { alignItems: 'center', borderRadius: 12, justifyContent: 'center', minHeight: 250, padding: 15, width: 250 } });
+const styles = StyleSheet.create({ content: { flexGrow: 1, gap: 12, paddingBottom: 24, paddingHorizontal: 16, paddingTop: 18 }, callsContent: { flexGrow: 1, gap: 12, paddingBottom: 24, paddingHorizontal: 20, paddingTop: 20 }, modalBackdrop: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 20 }, qrDialog: { alignItems: 'center', borderRadius: 16, borderWidth: 1, gap: 14, maxWidth: 380, padding: 22, width: '100%' }, qrCanvas: { alignItems: 'center', borderRadius: 12, justifyContent: 'center', minHeight: 250, padding: 15, width: 250 } });
