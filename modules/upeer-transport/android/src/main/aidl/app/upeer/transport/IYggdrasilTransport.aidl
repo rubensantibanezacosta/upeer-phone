@@ -32,6 +32,7 @@ interface IYggdrasilTransport {
   int editChat(String upeerId, String messageId, String content);
   boolean retryChat(String upeerId, String messageId);
   String messagesJSON(String upeerId, int limit);
+  String searchMessagesJSON(String query, int limit, int offset);
   String conversationsJSON();
   String peerSecurityJSON(String upeerId);
   void markConversationRead(String upeerId);

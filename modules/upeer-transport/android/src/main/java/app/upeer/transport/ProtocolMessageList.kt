@@ -156,6 +156,10 @@ internal class ProtocolMessageList(
     ProtocolMessageState.snapshot(messages(), upeerId, limit)
   }
 
+  fun searchJSON(query: String, limit: Int, offset: Int): String = synchronized(lock) {
+    JSONArray(MessageSearch.matches(query, limit, offset, messages())).toString()
+  }
+
   private fun messages(): JSONArray = stateProvider().optJSONArray("messages") ?: JSONArray()
 
   private fun put(next: JSONArray) {

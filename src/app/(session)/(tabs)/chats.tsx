@@ -113,8 +113,7 @@ export default function ChatsRoute() {
   const filtering = isChatFilterActive(filter, query);
   const searchActive = query.trim().length > 0;
 
-  const chatIds = useMemo(() => conversations.map((conversation) => conversation.upeerId), [conversations]);
-  const messageHits = useGlobalMessageSearch(query, chatIds);
+  const messageHits = useGlobalMessageSearch(query);
 
   const searchSections = useMemo(() => {
     const titles = new Map(entries.map((entry) => [entry.upeerId, entry.title]));

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { normalizeSearchText, searchMessageText } from '@/domain/global-search';
-import { getMessages } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import { searchMessages } from '../../modules/upeer-transport/src/UPeerTransportModule';
 
 export type MessageSearchHit = {
   id: string;
@@ -13,12 +13,10 @@ export type MessageSearchHit = {
 
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
-const PER_CHAT_LIMIT = 200;
-const TOTAL_LIMIT = 200;
+const RESULT_LIMIT = 200;
 
-export function useGlobalMessageSearch(query: string, chatIds: readonly string[]): MessageSearchHit[] {
+export function useGlobalMessageSearch(query: string): MessageSearchHit[] {
   const [hits, setHits] = useState<MessageSearchHit[]>([]);
-  const key = chatIds.join('|');
 
   useEffect(() => {
     const needle = normalizeSearchText(query.trim());
@@ -29,23 +27,14 @@ export function useGlobalMessageSearch(query: string, chatIds: readonly string[]
         return;
       }
       const run = async () => {
-        const found: MessageSearchHit[] = [];
-        for (const chatUpeerId of key.split('|')) {
-          if (cancelled || found.length >= TOTAL_LIMIT) break;
-          if (!chatUpeerId) continue;
-          try {
-            const messages = await getMessages(chatUpeerId, PER_CHAT_LIMIT);
-            for (const message of messages) {
-              if (cancelled || found.length >= TOTAL_LIMIT) break;
-              const text = searchMessageText(message.content);
-              if (!text || !normalizeSearchText(text).includes(needle)) continue;
-              found.push({ id: message.id, chatUpeerId, content: message.content, timestamp: message.timestamp, isMine: message.isMine });
-            }
-          } catch (cause) {
-            console.warn('No se pudieron leer los mensajes para la búsqueda global.', cause);
-          }
+        try {
+          const found = await searchMessages(query.trim(), RESULT_LIMIT);
+          if (cancelled) return;
+          setHits(found.filter((hit) => normalizeSearchText(searchMessageText(hit.content) ?? '').includes(needle)));
+        } catch (cause) {
+          console.warn('No se pudieron buscar los mensajes de la cuenta.', cause);
+          if (!cancelled) setHits([]);
         }
-        if (!cancelled) setHits(found);
       };
       void run();
     }, DEBOUNCE_MS);
@@ -53,7 +42,7 @@ export function useGlobalMessageSearch(query: string, chatIds: readonly string[]
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [key, query]);
+  }, [query]);
 
   return hits;
 }

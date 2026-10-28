@@ -179,6 +179,8 @@ internal class YggdrasilProtocol(
 
   fun messagesJSON(upeerId: String, limit: Int): String = state.messagesJSON(upeerId, limit)
 
+  fun searchMessagesJSON(query: String, limit: Int, offset: Int): String = state.searchMessagesJSON(query, limit, offset)
+
   fun conversationsJSON(): String = state.conversationsJSON()
   fun groupsJSON(): String = state.groupsJSON()
 
