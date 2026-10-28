@@ -18,6 +18,7 @@ internal class ProtocolStateStore(context: Context) {
   private var lastSyncState = ""
 
   val retention = ProtocolRetention({ state }, lock, ::persist)
+  val reputation = ReputationStore({ state }, lock, ::persist)
   val messages = ProtocolMessageList({ state }, lock, ::persist, ::retentionId)
   val groups = ProtocolGroups({ state }, lock, ::persist)
   val groupKeys = ProtocolGroupKeys({ state }, lock, ::persist)

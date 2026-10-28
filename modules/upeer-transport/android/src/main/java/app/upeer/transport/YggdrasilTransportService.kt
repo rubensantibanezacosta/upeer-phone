@@ -241,6 +241,12 @@ class YggdrasilTransportService : Service() {
       Log.i(TAG, "Mensajes temporales sincronizados: ${map.size}")
     }
     override fun retentionStatusJSON(): String = protocolState.retentionStatusJSON()
+    override fun reputationScoresJSON(subjectsJSON: String, directJSON: String): String =
+      protocolState.reputation.scoresJSON(
+        parseIdArray(subjectsJSON),
+        parseIdArray(directJSON),
+        System.currentTimeMillis(),
+      )
     override fun setProfile(alias: String, avatar: String) {
       protocol.setProfile(alias, avatar)
       Log.i(TAG, "Perfil actualizado: alias=${alias.isNotEmpty()} avatar=${avatar.isNotEmpty()}")
@@ -491,6 +497,16 @@ class YggdrasilTransportService : Service() {
 
   private fun <T> admitted(block: () -> T): T =
     admissionGuard.ensure(identity::requireDeviceAdmission).let { block() }
+
+  private fun parseIdArray(raw: String): List<String> {
+    val array = runCatching { org.json.JSONArray(raw.ifBlank { "[]" }) }.getOrNull() ?: return emptyList()
+    val ids = ArrayList<String>(array.length())
+    for (index in 0 until array.length()) {
+      val value = array.optString(index).trim().lowercase()
+      if (value.isNotEmpty()) ids.add(value)
+    }
+    return ids
+  }
 
   private fun revokedDevicesOf(accountUpeerId: String): Set<String> {
     val own = identity.current()?.upeerID()

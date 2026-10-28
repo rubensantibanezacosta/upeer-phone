@@ -57,6 +57,7 @@ interface IYggdrasilTransport {
   void setMutedPeers(String mutedJSON);
   void setRetentionMap(String mapJSON);
   String retentionStatusJSON();
+  String reputationScoresJSON(String subjectsJSON, String directJSON);
   void setProfile(String alias, String avatar);
   boolean registerPeer(String upeerId, String address, String publicKey, String signedPreKeyJSON);
   void flushOutbox();

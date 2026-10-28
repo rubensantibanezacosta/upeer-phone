@@ -10,6 +10,7 @@ import { describeChatPreview, type ConversationActivity } from '@/domain/chat-pr
 import { getTrustAnnouncement } from '@/domain/trust';
 import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import { usePreferences } from '@/hooks/use-preferences';
+import { useVouchScore } from '@/hooks/use-vouch-score';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -64,6 +65,7 @@ export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemPro
   const preferences = usePreferences();
   const scale = useTextScale();
   const longPressAtRef = useRef(0);
+  const vouchScore = useVouchScore(entry.upeerId) ?? entry.vouchScore;
   const isUnread = entry.unread > 0;
   const isEmphasized = isUnread || entry.incoming;
   const preview = describeChatPreview({
@@ -91,7 +93,7 @@ export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemPro
   return (
     <NativeRipplePressable
       accessibilityHint="Mantén pulsado para abrir las opciones de la conversación"
-      accessibilityLabel={`${entry.title}${entry.pinned ? ', fijada' : ''}${entry.muted ? ', silenciada' : ''}${entry.favorite ? ', favorita' : ''}${entry.activity === 'recording' ? ', grabando audio' : entry.activity ? ', escribiendo' : ''}${isUnread ? `, ${entry.unread} mensajes sin leer` : ''}${getTrustAnnouncement(entry.vouchScore) ? `, ${getTrustAnnouncement(entry.vouchScore)}` : ''}`}
+      accessibilityLabel={`${entry.title}${entry.pinned ? ', fijada' : ''}${entry.muted ? ', silenciada' : ''}${entry.favorite ? ', favorita' : ''}${entry.activity === 'recording' ? ', grabando audio' : entry.activity ? ', escribiendo' : ''}${isUnread ? `, ${entry.unread} mensajes sin leer` : ''}${getTrustAnnouncement(vouchScore) ? `, ${getTrustAnnouncement(vouchScore)}` : ''}`}
       accessibilityRole="button"
       delayLongPress={350}
       onLongPress={handleLongPress}
@@ -99,7 +101,7 @@ export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemPro
       style={[styles.item, { borderBottomColor: theme.border }]}
     >
       <XStack alignItems="center" gap={12} minHeight={80} paddingVertical={0}>
-        {entry.group ? <View style={[styles.groupAvatar, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}><Users color={theme.placeholder} size={24} /></View> : <ContactTrustAvatar avatar={entry.avatar} name={entry.title} size={55} vouchScore={entry.vouchScore} />}
+        {entry.group ? <View style={[styles.groupAvatar, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}><Users color={theme.placeholder} size={24} /></View> : <ContactTrustAvatar avatar={entry.avatar} name={entry.title} size={55} vouchScore={vouchScore} />}
         <YStack flex={1} gap={4}>
           <XStack alignItems="center" gap={8}>
             {entry.favorite ? <Star color={theme.placeholder} size={13} strokeWidth={2.2} /> : null}

@@ -86,6 +86,9 @@ internal class InboundRateLimiter(
       "FILE_DONE" to Rule(windowMs = 60_000, maxTokens = 60),
       "FILE_DONE_ACK" to Rule(windowMs = 60_000, maxTokens = 60),
       "FILE_CANCEL" to Rule(windowMs = 60_000, maxTokens = 30),
+      "REPUTATION_GOSSIP" to Rule(windowMs = 60_000, maxTokens = 5),
+      "REPUTATION_REQUEST" to Rule(windowMs = 60_000, maxTokens = 10),
+      "REPUTATION_DELIVER" to Rule(windowMs = 60_000, maxTokens = 10),
     )
   }
 }

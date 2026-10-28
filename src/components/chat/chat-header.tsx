@@ -8,6 +8,7 @@ import type { ConversationActivity } from '@/domain/chat-preview';
 import { presenceText } from '@/domain/contact-labels';
 import { getTrustAnnouncement } from '@/domain/trust';
 import { useTextScale } from '@/hooks/use-text-scale';
+import { useVouchScore } from '@/hooks/use-vouch-score';
 import { useTheme } from '@/hooks/use-theme';
 import type { UPeerContact } from '@/storage/contact-store';
 
@@ -37,6 +38,7 @@ function HeaderAction({ label, onPress, children }: { label: string; onPress: ()
 export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isRequest = false, activity = '', presence = null, onBack, onOpenInfo, onOpenMenu, onUnavailable }: ChatHeaderProps) {
   const theme = useTheme();
   const scale = useTextScale();
+  const score = useVouchScore(upeerId) ?? vouchScore;
   const subtitle = activity === 'recording' ? 'Grabando audio…' : activity === 'typing' ? 'Escribiendo…' : presenceText(presence, status);
 
   return (
@@ -44,12 +46,12 @@ export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isReque
       <HeaderAction label="Volver" onPress={onBack}><ArrowLeft color={theme.text} size={24} /></HeaderAction>
       <NativeRipplePressable
         accessibilityHint={`Identidad ${upeerId}`}
-        accessibilityLabel={`Información de ${alias}. ${getTrustAnnouncement(vouchScore)}`}
+        accessibilityLabel={`Información de ${alias}. ${getTrustAnnouncement(score)}`}
         accessibilityRole="button"
         onPress={onOpenInfo}
         style={styles.identity}
       >
-        <ContactTrustAvatar avatar={avatar} name={alias} size={40} vouchScore={vouchScore} />
+        <ContactTrustAvatar avatar={avatar} name={alias} size={40} vouchScore={score} />
         <YStack flex={1} gap={2} minWidth={0}>
           <SizableText color={theme.text} fontSize={scale(16)} fontWeight="500" numberOfLines={1}>{alias}</SizableText>
           <Text color={activity ? theme.accent : theme.placeholder} fontSize={scale(12)} numberOfLines={1}>{subtitle}</Text>

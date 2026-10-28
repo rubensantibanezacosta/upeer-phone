@@ -106,6 +106,21 @@ internal class YggdrasilProtocol(
     { active, address, json -> egress.send(active, address, json, "de vault") },
     ::replayVaultEntry,
   )
+  private val reputationReplies = ReputationReplies(state.reputation) { upeerId, data, label ->
+    val active = bridge ?: return@ReputationReplies false
+    val address = state.addressFor(upeerId) ?: return@ReputationReplies false
+    val peerPublicKey = state.publicKeyFor(upeerId) ?: return@ReputationReplies false
+    val current = identity.current() ?: return@ReputationReplies false
+    val frame = SealedControl.tryFrame(
+      current,
+      identity.currentDevice(),
+      active.address(),
+      peerPublicKey,
+      data,
+      label,
+    ) ?: return@ReputationReplies false
+    egress.send(active, address, frame, label)
+  }
   private val sync = ProtocolSync(
     identity,
     deviceSignedPreKeys,
@@ -367,6 +382,8 @@ internal class YggdrasilProtocol(
       "GROUP_MSG" -> groupInbound.receiveMessage(packet, senderUpeerId, metadataJSON)
       "GROUP_LEAVE" -> groupInbound.receiveLeave(packet, senderUpeerId, metadataJSON)
       "GROUP_ACK" -> receiveGroupAck(packet, metadataJSON)
+      ReputationReplies.GOSSIP, ReputationReplies.REQUEST, ReputationReplies.DELIVER ->
+        receiveReputation(packet, senderUpeerId, type, metadataJSON)
       else -> chatInbound.receive(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
     }
   }
@@ -379,6 +396,18 @@ internal class YggdrasilProtocol(
     }
     if (state.messages.groupAck(messageID, groupId, "delivered")) {
       Log.i(TAG, "GROUP_ACK aplicado a $messageID en $groupId")
+    }
+    return metadataJSON
+  }
+
+  private fun receiveReputation(
+    packet: JSONObject,
+    senderUpeerId: String,
+    type: String,
+    metadataJSON: String,
+  ): String {
+    if (!reputationReplies.handle(packet, senderUpeerId, type, System.currentTimeMillis())) {
+      return InboundPolicy.rejected(packet)
     }
     return metadataJSON
   }
@@ -524,7 +553,7 @@ internal class YggdrasilProtocol(
       "GROUP_MSG",
       "GROUP_ACK",
       "GROUP_LEAVE",
-    )
+    ) + ReputationReplies.TYPES
     private val FILE_TYPES = setOf(
       "FILE_PROPOSAL",
       "FILE_ACCEPT",

@@ -255,7 +255,7 @@ export default function ChatRoute() {
         {selection.active ? <ChatSelectionBar count={selection.chosen.length} onClose={selection.clear} /> : null}
         <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={openInfo} onOpenMenu={() => setMenuOpen(true)} onUnavailable={showUnavailable} presence={isGroup ? (groupMembers > 0 ? `${groupMembers} miembros` : 'Grupo') : presence} status={contactStatus} activity={peerActivity} upeerId={upeerId ?? ''} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.root, androidKeyboard > 0 ? { paddingBottom: androidKeyboard } : null]}>
-          {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} /> : (
+          {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} upeerId={upeerId ?? ''} /> : (
             <ChatTimelineList
               activity={peerActivity}
               data={timeline}

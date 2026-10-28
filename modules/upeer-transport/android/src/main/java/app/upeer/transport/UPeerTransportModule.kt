@@ -128,6 +128,9 @@ class UPeerTransportModule : Module() {
     AsyncFunction("setMutedPeers") { mutedJSON: String -> service().setMutedPeers(mutedJSON) }
     AsyncFunction("setRetentionMap") { mapJSON: String -> service().setRetentionMap(mapJSON) }
     AsyncFunction("retentionStatusJSON") { service().retentionStatusJSON() }
+    AsyncFunction("reputationScoresJSON") { subjectsJSON: String, directJSON: String ->
+      service().reputationScoresJSON(subjectsJSON, directJSON)
+    }
     AsyncFunction("registerPeer") { upeerId: String, address: String, publicKey: String, signedPreKeyJSON: String ->
       service().registerPeer(upeerId, address, publicKey, signedPreKeyJSON)
     }

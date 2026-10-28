@@ -4,12 +4,14 @@ import { Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { NativeRippleButton } from '@/components/native-ripple-button';
-import { NEUTRAL_VOUCH_NOTE } from '@/domain/trust';
+import { getTrustWarning, NEUTRAL_VOUCH_NOTE } from '@/domain/trust';
 import { useTextScale } from '@/hooks/use-text-scale';
+import { useVouchScore } from '@/hooks/use-vouch-score';
 import { useTheme } from '@/hooks/use-theme';
 
 type ChatRequestScreenProps = {
   alias: string;
+  upeerId?: string;
   receivedAt: number;
   onAccept: () => void;
   onBlock: () => void;
@@ -24,10 +26,15 @@ function formatReceivedAt(timestamp: number): string {
   return `${date.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })} a las ${time}`;
 }
 
-export function ChatRequestScreen({ alias, receivedAt, onAccept, onBlock }: ChatRequestScreenProps) {
+export function ChatRequestScreen({ alias, upeerId, receivedAt, onAccept, onBlock }: ChatRequestScreenProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const received = formatReceivedAt(receivedAt);
+  const score = useVouchScore(upeerId);
+  const trustTitle = score === undefined ? NEUTRAL_VOUCH_NOTE : `Reputación ${score}/100 entre tus contactos`;
+  const trustBody = score === undefined
+    ? 'Ninguno de tus contactos ha avalado a esta identidad todavía. Puede ser normal en usuarios nuevos; confirma por otro lado que es quien dice ser.'
+    : getTrustWarning(score) ?? 'Tus contactos han avalado a esta identidad. Aun así, confirma por otro lado que es quien dice ser.';
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -47,8 +54,8 @@ export function ChatRequestScreen({ alias, receivedAt, onAccept, onBlock }: Chat
       <XStack alignItems="flex-start" backgroundColor={theme.backgroundElement} borderRadius={12} gap={10} padding={12} width="100%">
         <UserPlus color={theme.placeholder} size={18} />
         <YStack flex={1} gap={2}>
-          <Text color={theme.text} fontSize={scale(13)} fontWeight="700">{NEUTRAL_VOUCH_NOTE}</Text>
-          <Text color={theme.placeholder} fontSize={scale(11)}>Ninguno de tus contactos ha avalado a esta identidad todavía. Puede ser normal en usuarios nuevos; confirma por otro canal que es quien dice ser.</Text>
+          <Text color={theme.text} fontSize={scale(13)} fontWeight="700">{trustTitle}</Text>
+          <Text color={theme.placeholder} fontSize={scale(11)}>{trustBody}</Text>
         </YStack>
       </XStack>
       <XStack gap={10} width="100%">

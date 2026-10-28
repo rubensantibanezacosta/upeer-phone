@@ -7,6 +7,7 @@ import { InteractiveRow } from '@/components/contact-info/interactive-row';
 import { presenceText } from '@/domain/contact-labels';
 import { getTrustWarning } from '@/domain/trust';
 import { useTextScale } from '@/hooks/use-text-scale';
+import { useVouchScore } from '@/hooks/use-vouch-score';
 import { useTheme } from '@/hooks/use-theme';
 import type { UPeerContact } from '@/storage/contact-store';
 
@@ -26,11 +27,12 @@ export function ContactInfoHero({ alias, avatar, upeerId, status, presence = nul
   const theme = useTheme();
   const scale = useTextScale();
   const statusColor = presence === 'En línea' ? theme.success : status === 'blocked' ? theme.danger : theme.placeholder;
-  const warning = getTrustWarning(vouchScore);
+  const score = useVouchScore(upeerId) ?? vouchScore;
+  const warning = getTrustWarning(score);
 
   return (
     <YStack alignItems="center" gap={5} paddingHorizontal={20} paddingTop={4}>
-      <ContactTrustAvatar avatar={avatar} name={alias} size={96} vouchScore={vouchScore} />
+      <ContactTrustAvatar avatar={avatar} name={alias} size={96} vouchScore={score} />
       <SizableText color={theme.text} fontSize={scale(20)} fontWeight="700" numberOfLines={2} textAlign="center">{alias}</SizableText>
       <Text color={theme.placeholder} ellipsizeMode="middle" fontFamily="monospace" fontSize={scale(12)} numberOfLines={1}>{upeerId}</Text>
       <XStack alignItems="center" gap={5}>
