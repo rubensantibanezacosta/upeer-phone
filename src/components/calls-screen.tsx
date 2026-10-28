@@ -1,8 +1,10 @@
+import { useCallback } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { Clock3, Phone, PhoneMissed, Video } from '@tamagui/lucide-icons-2';
 import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
+import { startCall as startChatCall } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { recentCallKindLabel, recentCallMissed, recentCallResultLabel } from '@/domain/call-history';
 import type { CallHistoryItem } from '@/hooks/use-recent-calls';
 import { useRecentCalls } from '@/hooks/use-recent-calls';
@@ -11,6 +13,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { LoadingState } from '@/components/loading-state';
 import { ProfileAvatar } from '@/components/profile-avatar';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { useSnackbar } from '@/components/snackbar';
 import { SettingsGroup, SettingsGroupLabel } from '@/components/settings-section-parts';
 
 export function CallsScreen() {
@@ -55,9 +58,19 @@ function EmptyCalls() {
 function CallRow({ call }: { call: CallHistoryItem }) {
   const theme = useTheme();
   const scale = useTextScale();
+  const { showSnackbar } = useSnackbar();
   const missed = recentCallMissed(call);
   const KindIcon = call.kind === 'video' ? Video : missed ? PhoneMissed : Phone;
   const KindColor = missed ? theme.danger : theme.accent;
+  const CallBackIcon = call.kind === 'video' ? Video : Phone;
+  const callBack = useCallback(() => {
+    void startChatCall(call.chatId, call.kind).then((callId) => {
+      if (!callId) showSnackbar('No se pudo iniciar la llamada');
+    }).catch((cause: unknown) => {
+      console.warn('No se pudo devolver la llamada.', cause);
+      showSnackbar('No se pudo iniciar la llamada');
+    });
+  }, [call.chatId, call.kind, showSnackbar]);
   return (
     <NativeRipplePressable accessibilityLabel={`Abrir la conversación de ${call.title}`} onPress={() => router.push({ pathname: '/chat/[upeerId]', params: { upeerId: call.chatId } })}>
       <XStack alignItems="center" gap={12} paddingHorizontal={14} paddingVertical={10}>
@@ -76,6 +89,11 @@ function CallRow({ call }: { call: CallHistoryItem }) {
           </XStack>
         </YStack>
         <Text color={theme.placeholder} fontSize={scale(11)}>{describeCallTime(call.timestamp)}</Text>
+        {call.group ? null : (
+          <NativeRipplePressable accessibilityLabel={`Devolver la llamada a ${call.title}`} hitSlop={6} onPress={callBack} style={[styles.callBack, { backgroundColor: theme.accentSoft }]}>
+            <CallBackIcon color={theme.onAccentSoft} size={16} />
+          </NativeRipplePressable>
+        )}
       </XStack>
     </NativeRipplePressable>
   );
@@ -91,6 +109,7 @@ function describeCallTime(timestamp: number): string {
 
 const styles = StyleSheet.create({
   avatar: { height: 44, position: 'relative', width: 44 },
+  callBack: { alignItems: 'center', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   content: { gap: 18, paddingBottom: 24, paddingTop: 12 },
   kindBadge: { alignItems: 'center', borderRadius: 9, borderWidth: 2, bottom: -3, height: 20, justifyContent: 'center', position: 'absolute', right: -3, width: 20 },
 });
