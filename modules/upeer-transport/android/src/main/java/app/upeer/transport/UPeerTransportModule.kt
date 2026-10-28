@@ -181,6 +181,9 @@ class UPeerTransportModule : Module() {
       service().sendFile(upeerId, path, fileName, mimeType, caption, isVoiceNote, chatUpeerId, messageId)
     }
     AsyncFunction("cancelFile") { fileId: String -> service().cancelFile(fileId) }
+    AsyncFunction("requestFile") { upeerId: String, fileId: String, messageId: String, chatUpeerId: String ->
+      service().requestFile(upeerId, fileId, messageId, chatUpeerId)
+    }
     AsyncFunction("outboundFilesJSON") { service().outboundFilesJSON() }
   }
 

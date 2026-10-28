@@ -1,9 +1,33 @@
 import { File } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
-import { attachmentUri, type AttachmentInfo } from '@/domain/attachment';
+import { attachmentUri, canOpenAttachment, type AttachmentInfo } from '@/domain/attachment';
 
 export type AttachmentOpenResult = 'opened' | 'missing' | 'unsupported' | 'not-downloaded';
+
+export type AttachmentOpenPlan =
+  | { kind: 'media' }
+  | { kind: 'share' }
+  | { kind: 'request' }
+  | { kind: 'notice'; message: string };
+
+export const OWN_DEVICE_NOTICE = 'El archivo está en otro de tus dispositivos';
+
+export function planAttachmentOpen(
+  info: AttachmentInfo,
+  options: { exists: boolean; requestable: boolean; isMine?: boolean }
+): AttachmentOpenPlan {
+  const request = (message: string): AttachmentOpenPlan => {
+    if (options.isMine) return { kind: 'notice', message: OWN_DEVICE_NOTICE };
+    return options.requestable ? { kind: 'request' } : { kind: 'notice', message };
+  };
+  if (!canOpenAttachment(info)) return request('El archivo todavía no se ha descargado');
+  if (options.exists) {
+    if (info.kind === 'image' || info.kind === 'video') return { kind: 'media' };
+    return { kind: 'share' };
+  }
+  return request('El archivo ya no está en este dispositivo');
+}
 
 export async function openAttachment(info: AttachmentInfo): Promise<AttachmentOpenResult> {
   const uri = attachmentUri(info);

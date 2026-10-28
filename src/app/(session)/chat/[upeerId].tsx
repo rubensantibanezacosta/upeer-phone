@@ -26,6 +26,7 @@ import { buildReplyPreview, type ReplyPreview } from '@/domain/chat-reply';
 import { decideRequestState } from '@/domain/message-request';
 import { useChatComposer } from '@/hooks/use-chat-composer';
 import { useAttachmentOpener } from '@/hooks/use-attachment-opener';
+import { useAttachmentRequester } from '@/hooks/use-attachment-request';
 import { useAttachmentSender } from '@/hooks/use-attachment-send';
 import { useChatMessageSheet } from '@/hooks/use-chat-message-sheet';
 import { useRequestResolution } from '@/hooks/use-request-resolution';
@@ -195,7 +196,8 @@ export default function ChatRoute() {
   }, [showSnackbar]);
 
   const [media, setMedia] = useState<AttachmentInfo | null>(null);
-  const openAttachment = useAttachmentOpener(setMedia);
+  const requestAttachment = useAttachmentRequester(upeerId ?? '');
+  const openAttachment = useAttachmentOpener(setMedia, requestAttachment);
   const { attach, attachFromCamera, cameraOpen, closeCamera, openLibrary, sendPicked, sendVoiceNote } = useAttachmentSender(upeerId, refresh);
   const onVoiceNote = useCallback((attachment: PickedAttachment) => { void sendVoiceNote(attachment); }, [sendVoiceNote]);
   const composerArea = useChatComposerArea({ alias, attach, attachFromCamera, composer, hidden: isRequest, onVoiceError: showSnackbar, onVoiceNote });

@@ -71,14 +71,7 @@ internal class YggdrasilProtocol(
     deviceCrypto = { identity.currentDevice()?.crypto?.let { BridgeFileReceiveCrypto(it) } },
     transfers = transfers,
     messages = StateTransportMessages(state),
-    send = { upeerId, data, label ->
-      val active = bridge ?: return@FileInbound false
-      val address = state.addressFor(upeerId) ?: return@FileInbound false
-      val peerPublicKey = state.publicKeyFor(upeerId) ?: return@FileInbound false
-      val current = identity.current() ?: return@FileInbound false
-      val frame = SealedControl.frame(current, identity.currentDevice(), active.address(), peerPublicKey, data)
-      egress.send(active, address, frame, label)
-    },
+    send = ::sendSealed,
     groupMembers = ::activeGroupMembers,
   )
   private val fileOutbound = FileOutbound(
@@ -86,17 +79,11 @@ internal class YggdrasilProtocol(
     deviceCrypto = { identity.currentDevice()?.crypto?.let { BridgeFileSendCrypto(it) } },
     directory = StateFileSendDirectory(state),
     messages = StateTransportMessages(state),
-    send = { upeerId, data, label ->
-      val active = bridge ?: return@FileOutbound false
-      val address = state.addressFor(upeerId) ?: return@FileOutbound false
-      val peerPublicKey = state.publicKeyFor(upeerId) ?: return@FileOutbound false
-      val current = identity.current() ?: return@FileOutbound false
-      val frame = SealedControl.frame(current, identity.currentDevice(), active.address(), peerPublicKey, data)
-      egress.send(active, address, frame, label)
-    },
+    send = ::sendSealed,
     groupMembers = ::activeGroupMembers,
     selfUpeerId = { identity.current()?.upeerID().orEmpty() },
   )
+  private val fileRequests = FileRequestOutbound(::sendSealed)
   private val vaultReplies = VaultReplies(
     identity,
     deviceBindings,
@@ -530,6 +517,18 @@ internal class YggdrasilProtocol(
   }
 
   fun cancelFile(fileId: String): Boolean = fileOutbound.cancel(fileId)
+
+  fun requestFile(upeerId: String, fileId: String, messageId: String?, chatUpeerId: String?): Boolean =
+    fileRequests.request(upeerId, fileId, messageId, chatUpeerId)
+
+  private fun sendSealed(upeerId: String, data: JSONObject, label: String): Boolean {
+    val active = bridge ?: return false
+    val address = state.addressFor(upeerId) ?: return false
+    val peerPublicKey = state.publicKeyFor(upeerId) ?: return false
+    val current = identity.current() ?: return false
+    val frame = SealedControl.frame(current, identity.currentDevice(), active.address(), peerPublicKey, data)
+    return egress.send(active, address, frame, label)
+  }
 
   private fun activeGroupMembers(groupId: String): List<String>? {
     val group = state.groups.get(groupId) ?: return null

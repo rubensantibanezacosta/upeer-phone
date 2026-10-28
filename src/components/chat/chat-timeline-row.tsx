@@ -14,7 +14,7 @@ type ChatTimelineRowProps = {
   entry: ChatTimelineEntry;
   highlighted: boolean;
   onLongPress?: (message: ProtocolMessage) => void;
-  onOpenAttachment?: (info: AttachmentInfo) => void;
+  onOpenAttachment?: (info: AttachmentInfo, messageId: string, isMine: boolean) => void;
   onOpenCard?: (card: ContactCard) => void;
   onOpenReply?: (messageID: string) => void;
   onToggleReaction?: (message: ProtocolMessage, emoji: string) => void;

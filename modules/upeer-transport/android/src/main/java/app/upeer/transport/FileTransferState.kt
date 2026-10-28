@@ -48,6 +48,9 @@ internal class FileTransferState(
 
   fun find(fileId: String): Entry? = entries[fileId]
 
+  fun messageInFlight(messageId: String, fileId: String): Boolean =
+    entries.values.any { it.proposal.messageId == messageId && it.proposal.fileId != fileId }
+
   fun complete(fileId: String): Entry? {
     val entry = entries.remove(fileId) ?: return null
     dropKey(fileId)

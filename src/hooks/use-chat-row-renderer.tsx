@@ -12,7 +12,7 @@ type ChatRowRendererOptions = {
   highlightedID: string | null;
   highlightedMessageId: string | null;
   onLongPress: (message: ProtocolMessage) => void;
-  onOpenAttachment: (info: AttachmentInfo) => void;
+  onOpenAttachment: (info: AttachmentInfo, messageId: string, isMine: boolean) => void;
   onOpenCard: (card: ContactCard) => void;
   onScrollToMessage: (messageID: string) => void;
   onToggleReaction: (message: ProtocolMessage, emoji: string) => void;

@@ -82,6 +82,7 @@ class UPeerTransportModule extends NativeModule<{}> {
   async deviceEnrollmentLastIssued(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async sendFile(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async cancelFile(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async requestFile(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async outboundFilesJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
 }
 

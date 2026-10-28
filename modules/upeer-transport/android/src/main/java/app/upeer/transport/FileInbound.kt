@@ -30,6 +30,11 @@ internal class FileInbound(
       return
     }
     if (!authorizedGroup(proposal, senderUpeerId)) return
+    val messageId = proposal.messageId
+    if (messageId != null && transfers.find(proposal.fileId) == null && transfers.messageInFlight(messageId, proposal.fileId)) {
+      Log.i(TAG, "FILE_PROPOSAL ${proposal.fileId} ignorado: ya hay una transferencia de $messageId en curso")
+      return
+    }
     val key = unsealKey(packet, proposal.fileId)
     if (key == null) {
       Log.w(TAG, "FILE_PROPOSAL sin clave utilizable (${proposal.fileId}); no se acepta")
@@ -153,16 +158,19 @@ internal class FileInbound(
 
   private fun saveProposalMessage(entry: FileTransferState.Entry) {
     val messageId = entry.proposal.messageId ?: entry.proposal.fileId
+    val existing = messages.find(messageId)
+    val timestamp = existing?.optLong("timestamp", 0L)?.takeIf { it > 0L } ?: System.currentTimeMillis()
+    val chat = existing?.optString("upeerId")?.takeIf { it.isNotEmpty() } ?: chatOf(entry)
     messages.save(
       JSONObject()
         .put("id", messageId)
-        .put("upeerId", chatOf(entry))
-        .put("isMine", false)
+        .put("upeerId", chat)
+        .put("isMine", existing?.optBoolean("isMine", false) ?: false)
         .put("content", envelope(entry, null))
         .put("status", "delivered")
-        .put("version", 1)
-        .put("isEdited", false)
-        .put("timestamp", System.currentTimeMillis())
+        .put("version", existing?.optInt("version", 1) ?: 1)
+        .put("isEdited", existing?.optBoolean("isEdited", false) ?: false)
+        .put("timestamp", timestamp)
         .put("receivedAt", System.currentTimeMillis()),
     )
   }

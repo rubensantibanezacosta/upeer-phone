@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { attachmentOpenMessage, openAttachment } from './attachment-open';
+import { attachmentOpenMessage, openAttachment, OWN_DEVICE_NOTICE, planAttachmentOpen } from './attachment-open';
 
 const native = vi.hoisted(() => ({
   exists: true,
@@ -92,5 +92,45 @@ describe('attachmentOpenMessage', () => {
     expect(attachmentOpenMessage('missing')).toBe('El archivo ya no está en este dispositivo');
     expect(attachmentOpenMessage('unsupported')).toBe('No hay ninguna app para abrir este archivo');
     expect(attachmentOpenMessage('not-downloaded')).toBe('El archivo todavía no se ha descargado');
+  });
+});
+
+describe('planAttachmentOpen', () => {
+  it('pide el archivo cuando el mensaje no trae ruta y se puede reclamar', () => {
+    expect(planAttachmentOpen(info({ localPath: undefined }) as never, { exists: false, requestable: true }))
+      .toEqual({ kind: 'request' });
+  });
+
+  it('avisa cuando falta el archivo y no hay a quién pedirlo', () => {
+    expect(planAttachmentOpen(info({ localPath: undefined }) as never, { exists: false, requestable: false }))
+      .toEqual({ kind: 'notice', message: 'El archivo todavía no se ha descargado' });
+  });
+
+  it('pide el archivo cuando la imagen ya no está en el dispositivo', () => {
+    const image = info({ kind: 'image', mimeType: 'image/jpeg', fileName: 'foto.jpg' });
+    expect(planAttachmentOpen(image as never, { exists: false, requestable: true })).toEqual({ kind: 'request' });
+    expect(planAttachmentOpen(image as never, { exists: false, requestable: false }))
+      .toEqual({ kind: 'notice', message: 'El archivo ya no está en este dispositivo' });
+  });
+
+  it('abre la imagen cuando sí está', () => {
+    const image = info({ kind: 'image', mimeType: 'image/jpeg', fileName: 'foto.jpg' });
+    expect(planAttachmentOpen(image as never, { exists: true, requestable: true })).toEqual({ kind: 'media' });
+  });
+
+  it('comparte el documento cuando está disponible', () => {
+    expect(planAttachmentOpen(info() as never, { exists: true, requestable: true })).toEqual({ kind: 'share' });
+  });
+
+  it('no intenta compartir un documento que ya no está', () => {
+    expect(planAttachmentOpen(info() as never, { exists: false, requestable: true })).toEqual({ kind: 'request' });
+  });
+
+  it('avisa en vez de pedir cuando el archivo es mío', () => {
+    expect(planAttachmentOpen(info({ localPath: undefined }) as never, { exists: false, requestable: true, isMine: true }))
+      .toEqual({ kind: 'notice', message: OWN_DEVICE_NOTICE });
+    const image = info({ kind: 'image', mimeType: 'image/jpeg', fileName: 'foto.jpg' });
+    expect(planAttachmentOpen(image as never, { exists: false, requestable: true, isMine: true }))
+      .toEqual({ kind: 'notice', message: OWN_DEVICE_NOTICE });
   });
 });

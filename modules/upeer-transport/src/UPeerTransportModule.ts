@@ -104,6 +104,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
     messageId: string,
   ): Promise<string>;
   cancelFile(fileId: string): Promise<boolean>;
+  requestFile(upeerId: string, fileId: string, messageId: string, chatUpeerId: string): Promise<boolean>;
   outboundFilesJSON(): Promise<string>;
   generateNodeSeed(): Promise<number[]>;
 }
@@ -594,6 +595,15 @@ export async function sendFile(input: SendFileInput): Promise<string> {
 
 export async function cancelFile(fileId: string): Promise<boolean> {
   return nativeModule.cancelFile(fileId);
+}
+
+export async function requestFile(
+  upeerId: string,
+  fileId: string,
+  messageId = '',
+  chatUpeerId = '',
+): Promise<boolean> {
+  return nativeModule.requestFile(upeerId, fileId, messageId, chatUpeerId);
 }
 
 export async function getOutboundFiles(): Promise<OutboundFileTransfer[]> {

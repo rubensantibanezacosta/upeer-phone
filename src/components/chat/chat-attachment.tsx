@@ -9,16 +9,17 @@ import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeerTransport.types';
 
-export function ChatAttachment({ info, isMine, onOpen, status, timestamp }: {
+export function ChatAttachment({ info, isMine, messageId, onOpen, status, timestamp }: {
   info: AttachmentInfo;
   isMine: boolean;
-  onOpen?: (info: AttachmentInfo) => void;
+  messageId: string;
+  onOpen?: (info: AttachmentInfo, messageId: string, isMine: boolean) => void;
   status: ProtocolMessage['status'];
   timestamp: number;
 }) {
   const theme = useTheme();
   const scale = useTextScale();
-  const open = onOpen ? () => onOpen(info) : undefined;
+  const open = onOpen ? () => onOpen(info, messageId, isMine) : undefined;
 
   return (
     <View style={styles.wrapper}>

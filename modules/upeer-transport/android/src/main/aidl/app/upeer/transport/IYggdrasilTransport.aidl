@@ -90,5 +90,6 @@ interface IYggdrasilTransport {
   String groupsJSON();
   String sendFile(String upeerId, String path, String fileName, String mimeType, String caption, boolean isVoiceNote, String chatUpeerId, String messageId);
   boolean cancelFile(String fileId);
+  boolean requestFile(String upeerId, String fileId, String messageId, String chatUpeerId);
   String outboundFilesJSON();
 }

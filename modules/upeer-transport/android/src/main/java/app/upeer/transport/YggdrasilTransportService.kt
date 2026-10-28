@@ -313,6 +313,8 @@ class YggdrasilTransportService : Service() {
       messageId: String,
     ): String = protocol.sendFile(upeerId, path, fileName, mimeType, caption, isVoiceNote, chatUpeerId, messageId)
     override fun cancelFile(fileId: String): Boolean = protocol.cancelFile(fileId)
+    override fun requestFile(upeerId: String, fileId: String, messageId: String, chatUpeerId: String): Boolean =
+      protocol.requestFile(upeerId, fileId, messageId.ifBlank { null }, chatUpeerId.ifBlank { null })
     override fun outboundFilesJSON(): String = protocol.outboundFiles()
     override fun deviceEnrollmentLastIssued(): String = lastIssued
     override fun deviceEnrollmentSubmit(): String =

@@ -26,7 +26,7 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
   entry: ChatTimelineEntry;
   highlighted?: boolean;
   onLongPress?: (message: ProtocolMessage) => void;
-  onOpenAttachment?: (info: AttachmentInfo) => void;
+  onOpenAttachment?: (info: AttachmentInfo, messageId: string, isMine: boolean) => void;
   onOpenCard?: (card: ContactCard) => void;
   onOpenReply?: (messageID: string) => void;
   onToggleReaction?: (message: ProtocolMessage, emoji: string) => void;
@@ -92,7 +92,7 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
                 tone={isMine ? 'mine' : 'theirs'}
               />
             ) : attachment ? (
-              <ChatAttachment info={attachment} isMine={isMine} onOpen={onOpenAttachment} status={entry.message.status} timestamp={entry.message.timestamp} />
+              <ChatAttachment info={attachment} isMine={isMine} messageId={entry.message.id} onOpen={onOpenAttachment} status={entry.message.status} timestamp={entry.message.timestamp} />
             ) : link ? (
               <View style={styles.linkColumn}>
                 {link.text.trim() ? <Text color={textColor} fontSize={scale(14)} style={styles.content}>{link.text}</Text> : null}
