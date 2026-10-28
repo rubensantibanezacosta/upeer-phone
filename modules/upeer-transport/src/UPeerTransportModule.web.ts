@@ -91,6 +91,8 @@ class UPeerTransportModule extends NativeModule<{}> {
   async setCallMute(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async setCallCamera(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async callStateJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async vaultUsageJSON(): Promise<string> { return '{"bytes":0,"entries":0,"expiringSoon":0,"maxEntries":0}'; }
+  async clearVault(): Promise<number> { return 0; }
 }
 
 export default registerWebModule(UPeerTransportModule, 'UPeerTransport');

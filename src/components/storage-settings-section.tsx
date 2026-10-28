@@ -7,6 +7,7 @@ import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { SettingsGroup, SettingsGroupLabel, SettingsSectionHeader } from '@/components/settings-section-parts';
 import { describeSharedFiles, formatStorageSize } from '@/domain/storage-usage';
 import { useStorageUsage } from '@/hooks/use-storage-usage';
+import { VaultSettingsGroup } from '@/components/vault-settings-group';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -38,6 +39,8 @@ export function StorageSettingsSection() {
         </YStack>
       </YStack>
     </SettingsGroup>
+
+    <VaultSettingsGroup />
   </YStack>;
 }
 

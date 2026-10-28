@@ -113,6 +113,8 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   setCallMute(callId: string, muted: boolean): Promise<boolean>;
   setCallCamera(callId: string, enabled: boolean): Promise<boolean>;
   callStateJSON(): Promise<string>;
+  vaultUsageJSON(): Promise<string>;
+  clearVault(): Promise<number>;
   generateNodeSeed(): Promise<number[]>;
 }
 
@@ -670,3 +672,30 @@ export async function getCallState(): Promise<CallState | null> {
   }
 }
 
+export type VaultUsage = {
+  entries: number;
+  bytes: number;
+  maxEntries: number;
+  expiringSoon: number;
+};
+
+export async function getVaultUsage(): Promise<VaultUsage> {
+  const raw = await nativeModule.vaultUsageJSON();
+  if (!raw) return { bytes: 0, entries: 0, expiringSoon: 0, maxEntries: 0 };
+  try {
+    const parsed = JSON.parse(raw) as Partial<VaultUsage>;
+    return {
+      bytes: Number(parsed.bytes ?? 0),
+      entries: Number(parsed.entries ?? 0),
+      expiringSoon: Number(parsed.expiringSoon ?? 0),
+      maxEntries: Number(parsed.maxEntries ?? 0),
+    };
+  } catch (cause) {
+    console.warn('No se pudo leer el uso del vault.', cause);
+    return { bytes: 0, entries: 0, expiringSoon: 0, maxEntries: 0 };
+  }
+}
+
+export async function clearVault(): Promise<number> {
+  return nativeModule.clearVault();
+}

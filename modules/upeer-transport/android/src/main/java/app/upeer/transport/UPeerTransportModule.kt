@@ -192,6 +192,8 @@ class UPeerTransportModule : Module() {
     AsyncFunction("setCallMute") { callId: String, muted: Boolean -> service().setCallMute(callId, muted) }
     AsyncFunction("setCallCamera") { callId: String, enabled: Boolean -> service().setCallCamera(callId, enabled) }
     AsyncFunction("callStateJSON") { service().callStateJSON() }
+    AsyncFunction("vaultUsageJSON") { service().vaultUsageJSON() }
+    AsyncFunction("clearVault") { service().clearVault() }
   }
 
   private fun bind() {

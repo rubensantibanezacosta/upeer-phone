@@ -4,6 +4,7 @@ import android.util.Log
 import app.upeer.transport.dht.ContactEncryptionAdmission
 import app.upeer.transport.dht.DhtLocation
 import app.upeer.transport.vault.VaultDirectory
+import app.upeer.transport.vault.VaultMailbox
 import app.upeer.transport.vault.VaultMailboxStore
 import app.upeer.transportbridge.transportbridge.Bridge
 import app.upeer.transportbridge.transportbridge.Transportbridge
@@ -382,6 +383,24 @@ internal class YggdrasilProtocol(
 
   fun syncStatusJSON(): String = state.syncStatusJSON()
 
+  fun vaultUsageJSON(): String {
+    val now = System.currentTimeMillis()
+    val mailbox = vaultMailbox.snapshot(now)
+    return JSONObject()
+      .put("entries", mailbox.entries.size)
+      .put("bytes", mailbox.entries.sumOf { it.data.length.toLong() / 2 })
+      .put("maxEntries", VaultMailbox.MAX_ENTRIES)
+      .put("expiringSoon", vaultMailbox.expiringSoon(VAULT_EXPIRING_WINDOW_MS, now).size)
+      .toString()
+  }
+
+  fun clearVault(): Int {
+    val removed = vaultMailbox.snapshot(System.currentTimeMillis()).entries.size
+    vaultMailbox.clear()
+    Log.i(TAG, "Vault vaciado: $removed entradas eliminadas")
+    return removed
+  }
+
   private fun handleSignedPacket(activeBridge: Bridge, payload: ByteArray, sourceAddress: String): String {
     val packet = JSONObject(String(payload, Charsets.UTF_8))
     val type = packet.optString("type")
@@ -645,6 +664,7 @@ internal class YggdrasilProtocol(
 
   private companion object {
     private const val TAG = "UPeerTransport"
+    private const val VAULT_EXPIRING_WINDOW_MS = 24L * 60 * 60 * 1000
     private val VAULT_TYPES = setOf("VAULT_STORE", "VAULT_QUERY", "VAULT_ACK", "VAULT_DELIVERY", "VAULT_RENEW")
     private val SIGNED_MESSAGE_TYPES = setOf(
       "CHAT",

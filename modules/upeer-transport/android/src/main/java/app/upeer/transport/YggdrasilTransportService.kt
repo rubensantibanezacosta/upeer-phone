@@ -323,6 +323,8 @@ class YggdrasilTransportService : Service() {
     override fun setCallMute(callId: String, muted: Boolean): Boolean = protocol.setCallMute(callId, muted)
     override fun setCallCamera(callId: String, enabled: Boolean): Boolean = protocol.setCallCamera(callId, enabled)
     override fun callStateJSON(): String = protocol.callStateJSON()
+    override fun vaultUsageJSON(): String = protocol.vaultUsageJSON()
+    override fun clearVault(): Int = protocol.clearVault()
     override fun deviceEnrollmentLastIssued(): String = lastIssued
     override fun deviceEnrollmentSubmit(): String =
       this@YggdrasilTransportService.submitEnrollment()

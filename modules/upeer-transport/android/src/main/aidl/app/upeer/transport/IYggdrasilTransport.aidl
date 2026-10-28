@@ -99,4 +99,6 @@ interface IYggdrasilTransport {
   boolean setCallMute(String callId, boolean muted);
   boolean setCallCamera(String callId, boolean enabled);
   String callStateJSON();
+  String vaultUsageJSON();
+  int clearVault();
 }
