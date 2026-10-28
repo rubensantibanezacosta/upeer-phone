@@ -10,6 +10,7 @@ internal class GroupInbound(
   private val controlSender: ControlSender,
   private val onInboundMessage: (String, String, String) -> Unit,
   private val onGroupChanged: (String) -> Unit = {},
+  private val onMemberLeft: (String, String, List<String>) -> Unit = { _, _, _ -> },
   private val myUpeerId: () -> String,
 ) {
   fun receiveInvite(
@@ -82,6 +83,36 @@ internal class GroupInbound(
         )
       }
     }
+    return metadataJSON
+  }
+
+  fun receiveLeave(packet: JSONObject, senderUpeerId: String, metadataJSON: String): String {
+    val groupId = packet.optString("groupId")
+    if (!ProtocolGroups.validId(groupId)) throw IllegalArgumentException("GROUP_LEAVE groupId is invalid")
+    val group = state.groups.get(groupId) ?: return metadataJSON
+    val self = myUpeerId()
+    val members = members(group)
+    if (senderUpeerId !in members) return metadataJSON
+    if (senderUpeerId == self) {
+      state.messages.deleteConversation(groupId)
+      state.groups.delete(groupId)
+      state.groupKeys.forget(groupId)
+      onGroupChanged(groupId)
+      Log.i(TAG, "El grupo $groupId se borró tras confirmarse la salida desde otro dispositivo")
+      return metadataJSON
+    }
+    val remaining = members - senderUpeerId
+    val admin = group.optString("adminUpeerId").lowercase()
+    if (senderUpeerId == admin || remaining.isEmpty()) {
+      applyStatus(groupId, group, remaining, "removed")
+      return metadataJSON
+    }
+    if (admin == self) {
+      onMemberLeft(groupId, senderUpeerId, remaining)
+      return metadataJSON
+    }
+    applyStatus(groupId, group, remaining, group.optString("status").ifEmpty { "active" })
+    Log.i(TAG, "El miembro $senderUpeerId dejó el grupo $groupId; quedan ${remaining.size}")
     return metadataJSON
   }
 
@@ -181,6 +212,22 @@ internal class GroupInbound(
       return
     }
     state.groupKeys.put(groupId, group.epoch, group.senderKey)
+    onGroupChanged(groupId)
+  }
+
+  private fun applyStatus(groupId: String, group: JSONObject, members: List<String>, status: String) {
+    val list = JSONArray()
+    for (member in members) list.put(member)
+    val payload = JSONObject()
+      .put("groupId", groupId)
+      .put("name", group.optString("name"))
+      .put("adminUpeerId", group.optString("adminUpeerId"))
+      .put("members", list)
+      .put("status", status)
+    if (!state.groups.upsert(payload, clearAvatar = false)) {
+      Log.w(TAG, "No se pudo actualizar la lista de miembros de $groupId")
+      return
+    }
     onGroupChanged(groupId)
   }
 

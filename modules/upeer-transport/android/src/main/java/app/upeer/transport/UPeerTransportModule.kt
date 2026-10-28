@@ -88,6 +88,14 @@ class UPeerTransportModule : Module() {
     AsyncFunction("clearIdentity") { service().clearIdentity() }
     AsyncFunction("identityStatus") { service().identityStatusJSON() }
     AsyncFunction("sendChat") { upeerId: String, content: String, replyTo: String -> service().sendChat(upeerId, content, replyTo) }
+    AsyncFunction("createGroup") { name: String, memberIdsJSON: String, avatar: String ->
+      service().createGroup(name, memberIdsJSON, avatar)
+    }
+    AsyncFunction("inviteToGroup") { groupId: String, upeerId: String -> service().inviteToGroup(groupId, upeerId) }
+    AsyncFunction("removeGroupMember") { groupId: String, upeerId: String -> service().removeGroupMember(groupId, upeerId) }
+    AsyncFunction("transferGroupAdmin") { groupId: String, upeerId: String -> service().transferGroupAdmin(groupId, upeerId) }
+    AsyncFunction("leaveGroup") { groupId: String -> service().leaveGroup(groupId) }
+    AsyncFunction("renameGroup") { groupId: String, name: String -> service().renameGroup(groupId, name) }
     AsyncFunction("editChat") { upeerId: String, messageId: String, content: String -> service().editChat(upeerId, messageId, content) }
     AsyncFunction("retryChat") { upeerId: String, messageId: String -> service().retryChat(upeerId, messageId) }
     AsyncFunction("messagesJSON") { upeerId: String, limit: Int -> service().messagesJSON(upeerId, limit) }

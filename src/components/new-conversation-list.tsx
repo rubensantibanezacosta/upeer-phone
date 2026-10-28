@@ -11,11 +11,12 @@ import type { UPeerContact } from '@/storage/contact-store';
 type NewConversationListProps = {
   contacts: UPeerContact[];
   onAddContact: () => void;
+  onCreateGroup: () => void;
   onPick: (contact: UPeerContact) => void;
   onUnavailable: (label: string) => void;
 };
 
-export function NewConversationList({ contacts, onAddContact, onPick, onUnavailable }: NewConversationListProps) {
+export function NewConversationList({ contacts, onAddContact, onCreateGroup, onPick, onUnavailable }: NewConversationListProps) {
   const theme = useTheme();
   const scale = useTextScale();
 
@@ -38,9 +39,9 @@ export function NewConversationList({ contacts, onAddContact, onPick, onUnavaila
         </YStack>
       </XStack>
     </NativeRipplePressable>
-    <NativeRipplePressable accessibilityLabel="Nuevo grupo" onPress={() => onUnavailable('Crear grupos')} style={[styles.actionCard, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+    <NativeRipplePressable accessibilityLabel="Nuevo grupo" onPress={onCreateGroup} style={[styles.actionCard, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
       <XStack alignItems="center" gap={12}>
-        <View style={[styles.actionIcon, { backgroundColor: theme.backgroundSelected }]}><Users color={theme.placeholder} size={20} /></View>
+        <View style={[styles.actionIcon, { backgroundColor: theme.accentSoft }]}><Users color={theme.accent} size={20} /></View>
         <YStack flex={1}>
           <SizableText color={theme.text} fontSize={scale(14)} fontWeight="600">Nuevo grupo</SizableText>
           <Text color={theme.placeholder} fontSize={scale(12)}>Conversación cifrada con varios contactos</Text>

@@ -35,6 +35,12 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   clearIdentity(): Promise<void>;
   identityStatus(): Promise<string>;
   sendChat(upeerId: string, content: string, replyTo: string): Promise<string>;
+  createGroup(name: string, memberIdsJSON: string, avatar: string): Promise<string>;
+  inviteToGroup(groupId: string, upeerId: string): Promise<void>;
+  removeGroupMember(groupId: string, upeerId: string): Promise<void>;
+  transferGroupAdmin(groupId: string, upeerId: string): Promise<void>;
+  leaveGroup(groupId: string): Promise<void>;
+  renameGroup(groupId: string, name: string): Promise<void>;
   editChat(upeerId: string, messageId: string, content: string): Promise<number>;
   retryChat(upeerId: string, messageId: string): Promise<boolean>;
   messagesJSON(upeerId: string, limit: number): Promise<string>;
@@ -275,6 +281,30 @@ export async function waitForIdentity(upeerId: string, timeoutMillis = 10_000): 
 
 export async function sendChat(upeerId: string, content: string, replyTo = ''): Promise<string> {
   return nativeModule.sendChat(upeerId, content, replyTo);
+}
+
+export async function createGroup(name: string, memberUpeerIds: string[], avatar = ''): Promise<string> {
+  return nativeModule.createGroup(name, JSON.stringify(memberUpeerIds), avatar);
+}
+
+export async function inviteToGroup(groupId: string, upeerId: string): Promise<void> {
+  return nativeModule.inviteToGroup(groupId, upeerId);
+}
+
+export async function removeGroupMember(groupId: string, upeerId: string): Promise<void> {
+  return nativeModule.removeGroupMember(groupId, upeerId);
+}
+
+export async function transferGroupAdmin(groupId: string, upeerId: string): Promise<void> {
+  return nativeModule.transferGroupAdmin(groupId, upeerId);
+}
+
+export async function leaveGroup(groupId: string): Promise<void> {
+  return nativeModule.leaveGroup(groupId);
+}
+
+export async function renameGroup(groupId: string, name: string): Promise<void> {
+  return nativeModule.renameGroup(groupId, name);
 }
 
 export async function editChat(upeerId: string, messageId: string, content: string): Promise<number> {

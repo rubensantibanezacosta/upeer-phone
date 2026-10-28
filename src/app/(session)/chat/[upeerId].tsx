@@ -277,7 +277,7 @@ export default function ChatRoute() {
       ) : null}
       <CameraCaptureSheet onClose={closeCamera} onOpenLibrary={openLibrary} onPick={(attachment) => { void sendPicked(attachment); }} visible={cameraOpen} />
       <ContactCardSheet action={contactCard.action} card={contactCard.selected} error={contactCard.error} onClose={contactCard.close} visible={contactCard.selected !== null} />
-      <GroupInfoSheet groupId={isGroup && groupInfoOpen ? upeerId ?? null : null} onClose={() => setGroupInfoOpen(false)} />
+      <GroupInfoSheet groupId={isGroup && groupInfoOpen ? upeerId ?? null : null} onChanged={refresh} onClose={() => setGroupInfoOpen(false)} />
       <ChatOptionsMenu isGroup={isGroup} messages={messages} name={alias} onChanged={refresh} onCloseChat={() => router.back()} onCloseMenu={() => setMenuOpen(false)} onOpenInfo={openInfo} onSearch={search.open} upeerId={upeerId ?? ''} visible={menuOpen} />
       <ChatMessageOverlays contacts={contacts} forwarding={forwarding} onForwardClose={cancelForwarding} onForwarded={handleForwarded} selfUpeerId={selfUpeerId} sheet={sheet} />
     </View>

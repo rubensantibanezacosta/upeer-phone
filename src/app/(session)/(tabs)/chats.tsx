@@ -14,6 +14,7 @@ import { saveContactDraft } from '@/services/contact-actions';
 import { LoadingState } from '@/components/loading-state';
 import { useFirstLoad } from '@/hooks/use-first-load';
 import { NewConversationList } from '@/components/new-conversation-list';
+import { GroupComposerSheet } from '@/components/group-composer-sheet';
 import { ChatListItem, type ChatListEntry } from '@/components/chat-list-item';
 import { CHAT_LIST_FILTERS, filterChatEntries, isChatFilterActive, type ChatListFilter } from '@/domain/chat-list-filters';
 import { previewMessage } from '@/domain/message-preview';
@@ -53,6 +54,7 @@ export default function ChatsRoute() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
   const [addingContact, setAddingContact] = useState(false);
+  const [creatingGroup, setCreatingGroup] = useState(false);
   const [filter, setFilter] = useState<ChatListFilter>('all');
   const [query, setQuery] = useState('');
   const { loading, markLoaded } = useFirstLoad();
@@ -278,8 +280,25 @@ export default function ChatsRoute() {
         />
       ) : null}
       <BottomSheet icon={<MessageSquarePlus color={theme.accent} size={20} />} onClose={() => setComposerOpen(false)} title="Nueva conversación" visible={composerOpen}>
-        <NewConversationList contacts={contacts} onAddContact={() => { setComposerOpen(false); setAddingContact(true); }} onPick={(contact) => { setComposerOpen(false); router.push({ pathname: '/chat/[upeerId]', params: { upeerId: contact.upeerId } }); }} onUnavailable={(label) => { setComposerOpen(false); showSnackbar(`${label} estará disponible próximamente`); }} />
+        <NewConversationList
+          contacts={contacts}
+          onAddContact={() => { setComposerOpen(false); setAddingContact(true); }}
+          onCreateGroup={() => { setComposerOpen(false); setCreatingGroup(true); }}
+          onPick={(contact) => { setComposerOpen(false); router.push({ pathname: '/chat/[upeerId]', params: { upeerId: contact.upeerId } }); }}
+          onUnavailable={(label) => { setComposerOpen(false); showSnackbar(`${label} estará disponible próximamente`); }}
+        />
       </BottomSheet>
+      <GroupComposerSheet
+        contacts={contacts}
+        onClose={() => setCreatingGroup(false)}
+        onCreated={(groupId) => {
+          setCreatingGroup(false);
+          showSnackbar('Grupo creado');
+          router.push({ pathname: '/chat/[upeerId]', params: { upeerId: groupId } });
+        }}
+        onError={showSnackbar}
+        visible={creatingGroup}
+      />
       <BottomSheet icon={<UserPlus color={theme.accent} size={20} />} onClose={() => setAddingContact(false)} title="Añadir contacto" visible={addingContact}>
         <ContactFormSheet onAdd={addContact} onDone={() => setAddingContact(false)} />
       </BottomSheet>

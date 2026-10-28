@@ -171,6 +171,17 @@ class YggdrasilTransportService : Service() {
     override fun identityStatusJSON(): String = identity.statusJSON()
     override fun sendChat(upeerId: String, content: String, replyTo: String): String =
       admitted { protocol.sendChat(upeerId, content, replyTo) }
+    override fun createGroup(name: String, memberIdsJSON: String, avatar: String): String =
+      admitted { protocol.createGroup(name, memberIdsJSON, avatar) }
+    override fun inviteToGroup(groupId: String, upeerId: String) =
+      admitted { protocol.inviteToGroup(groupId, upeerId) }
+    override fun removeGroupMember(groupId: String, upeerId: String) =
+      admitted { protocol.removeGroupMember(groupId, upeerId) }
+    override fun transferGroupAdmin(groupId: String, upeerId: String) =
+      admitted { protocol.transferGroupAdmin(groupId, upeerId) }
+    override fun leaveGroup(groupId: String) = admitted { protocol.leaveGroup(groupId) }
+    override fun renameGroup(groupId: String, name: String) =
+      admitted { protocol.renameGroup(groupId, name) }
     override fun editChat(upeerId: String, messageId: String, content: String): Int =
       admitted { protocol.editChat(upeerId, messageId, content) }
     override fun retryChat(upeerId: String, messageId: String): Boolean =

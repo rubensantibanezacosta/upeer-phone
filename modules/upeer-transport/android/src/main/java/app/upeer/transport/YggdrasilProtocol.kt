@@ -24,6 +24,7 @@ internal class YggdrasilProtocol(
   private val enrollmentResponse: (String) -> Boolean = { false },
   private val enrollmentRequest: (String, String) -> String = { _, _ -> "" },
   private val transferStorage: () -> java.io.File = { java.io.File(System.getProperty("java.io.tmpdir") ?: ".") },
+  private val onGroupChanged: (String) -> Unit = {},
   ) {
   private val policy = InboundPolicy(rateLimiter)
   private val egress = ProtocolEgress(::selfAddress)
@@ -53,11 +54,15 @@ internal class YggdrasilProtocol(
   private val controlSender = ControlSender(identity, state) { bridge }
   private val controlReplies = ControlReplies(identity, deviceBindings, state, outbox, rateLimiter, controlSender::sendPong)
   private val chatInbound = ChatInbound(state, chatDecryptor, controlSender, onInboundMessage)
+  private val groupSealer = GroupControlSealer(identity, state)
+  private val groupAdmin = GroupAdmin(identity, state, egress, groupSealer, { bridge }, onGroupChanged)
   private val groupInbound = GroupInbound(
     state = state,
     decryptor = chatDecryptor,
     controlSender = controlSender,
     onInboundMessage = onInboundMessage,
+    onGroupChanged = onGroupChanged,
+    onMemberLeft = groupAdmin::rotateAfterMemberLeft,
     myUpeerId = { identity.current()?.upeerID().orEmpty() },
   )
   private val groupOutbound = GroupOutbound(identity, state, egress) { bridge }
@@ -139,6 +144,26 @@ internal class YggdrasilProtocol(
     controlReplies.clear()
     contactAdmission.clear()
     state.clear()
+  }
+
+  fun createGroup(name: String, memberIdsJSON: String, avatar: String): String =
+    groupAdmin.create(name, parseMembers(memberIdsJSON), avatar.ifEmpty { null })
+
+  fun inviteToGroup(groupId: String, upeerId: String) = groupAdmin.invite(groupId, upeerId)
+
+  fun removeGroupMember(groupId: String, upeerId: String) = groupAdmin.removeMember(groupId, upeerId)
+
+  fun transferGroupAdmin(groupId: String, upeerId: String) = groupAdmin.transferAdmin(groupId, upeerId)
+
+  fun leaveGroup(groupId: String) = groupAdmin.leave(groupId)
+
+  fun renameGroup(groupId: String, name: String) = groupAdmin.rename(groupId, name)
+
+  private fun parseMembers(memberIdsJSON: String): List<String> {
+    val array = runCatching { org.json.JSONArray(memberIdsJSON) }.getOrNull() ?: return emptyList()
+    return (0 until array.length()).mapNotNull { index ->
+      array.optString(index).takeIf(String::isNotEmpty)
+    }
   }
 
   fun sendChat(upeerId: String, content: String, replyTo: String): String =
@@ -331,6 +356,7 @@ internal class YggdrasilProtocol(
       "GROUP_INVITE" -> groupInbound.receiveInvite(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
       "GROUP_UPDATE" -> groupInbound.receiveUpdate(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
       "GROUP_MSG" -> groupInbound.receiveMessage(packet, senderUpeerId, metadataJSON)
+      "GROUP_LEAVE" -> groupInbound.receiveLeave(packet, senderUpeerId, metadataJSON)
       "GROUP_ACK" -> receiveGroupAck(packet, metadataJSON)
       else -> chatInbound.receive(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
     }
@@ -477,6 +503,7 @@ internal class YggdrasilProtocol(
       "GROUP_UPDATE",
       "GROUP_MSG",
       "GROUP_ACK",
+      "GROUP_LEAVE",
     )
     private val FILE_TYPES = setOf(
       "FILE_PROPOSAL",
