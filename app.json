@@ -75,7 +75,8 @@
         {
           "faceIDPermission": "uPeer usa Face ID para desbloquear la app."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "autolinking": {
       "nativeModulesDir": "./modules"

@@ -3,7 +3,8 @@ import { FileImage, FileVideo } from '@tamagui/lucide-icons-2';
 import { Text } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
-import { attachmentDetail, attachmentLabel, attachmentUri, canOpenAttachment, fileExtension, type AttachmentInfo } from '@/domain/attachment';
+import { attachmentDetail, attachmentLabel, attachmentUri, fileExtension, type AttachmentInfo } from '@/domain/attachment';
+import { useAttachmentFile } from '@/hooks/use-attachment-file';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useVideoThumbnail } from '@/hooks/use-video-thumbnail';
 import { useTheme } from '@/hooks/use-theme';
@@ -19,13 +20,13 @@ export function ChatMediaAttachment({ info, isMine, onOpen }: {
   const Icon = isVideo ? FileVideo : FileImage;
   const extension = fileExtension(info.fileName);
   const localUri = attachmentUri(info);
-  const downloaded = canOpenAttachment(info);
-  const generated = useVideoThumbnail(isVideo && !info.thumbnail ? localUri : null);
-  const preview = info.thumbnail ?? (isVideo ? generated : localUri);
+  const downloaded = useAttachmentFile(localUri);
+  const generated = useVideoThumbnail(isVideo && !info.thumbnail && downloaded ? localUri : null);
+  const preview = info.thumbnail ?? (downloaded ? (isVideo ? generated : localUri) : null);
 
   return (
     <NativeRipplePressable
-      accessibilityLabel={`${attachmentLabel(info)}${attachmentDetail(info) ? `, ${attachmentDetail(info)}` : ''}${downloaded ? '' : ', sin descargar'}`}
+      accessibilityLabel={`${attachmentLabel(info)}${attachmentDetail(info) ? `, ${attachmentDetail(info)}` : ''}${downloaded ? '' : ', no está en este dispositivo'}`}
       accessibilityRole="imagebutton"
       onPress={() => onOpen?.()}
       style={[styles.frame, { backgroundColor: theme.backgroundSelected }]}
@@ -40,7 +41,7 @@ export function ChatMediaAttachment({ info, isMine, onOpen }: {
       )}
       {!downloaded ? (
         <View style={styles.pendingBadge}>
-          <Text color="#FFFFFF" fontSize={scale(10)} fontWeight="700">Sin descargar</Text>
+          <Text color="#FFFFFF" fontSize={scale(10)} fontWeight="700">No está aquí</Text>
         </View>
       ) : null}
       {isVideo && preview ? (

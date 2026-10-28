@@ -5,8 +5,9 @@ import { SizableText } from 'tamagui';
 
 import { MessageStatus } from '@/components/chat/message-status';
 import { formatChatTime } from '@/domain/chat-timeline';
-import { attachmentUri, canOpenAttachment, type AttachmentInfo } from '@/domain/attachment';
+import { attachmentUri, type AttachmentInfo } from '@/domain/attachment';
 import { formatVoiceDuration } from '@/domain/voice-note';
+import { useAttachmentFile } from '@/hooks/use-attachment-file';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeerTransport.types';
@@ -24,8 +25,9 @@ export function ChatVoiceNote({ info, isMine, onOpen, status, timestamp }: {
   const scale = useTextScale();
   const tint = isMine ? theme.bubbleMineText : theme.accent;
   const metaColor = isMine ? theme.bubbleMineText : theme.placeholder;
-  const downloaded = canOpenAttachment(info);
-  const uri = downloaded ? attachmentUri(info) : null;
+  const available = useAttachmentFile(attachmentUri(info));
+  const downloaded = available;
+  const uri = available ? attachmentUri(info) : null;
   const player = useAudioPlayer(uri);
   const playback = useAudioPlayerStatus(player);
   const playing = playback.playing;
@@ -68,8 +70,8 @@ export function ChatVoiceNote({ info, isMine, onOpen, status, timestamp }: {
           })}
         </View>
         <View style={styles.meta}>
-          <SizableText color={metaColor} fontSize={scale(10)} opacity={0.8}>
-            {downloaded ? `${formatVoiceDuration(position)} / ${formatVoiceDuration(length)}` : 'Sin descargar'}
+          <SizableText color={metaColor} fontSize={scale(10)} numberOfLines={1} opacity={0.8}>
+            {downloaded ? `${formatVoiceDuration(position)} / ${formatVoiceDuration(length)}` : 'Sin archivo'}
           </SizableText>
           <View style={styles.metaRight}>
             <SizableText color={metaColor} fontSize={scale(10)} opacity={0.8}>{formatChatTime(timestamp)}</SizableText>
@@ -83,12 +85,12 @@ export function ChatVoiceNote({ info, isMine, onOpen, status, timestamp }: {
 
 const styles = StyleSheet.create({
   bar: { borderRadius: 1, width: 2 },
-  meta: { alignItems: 'center', flexDirection: 'row', marginTop: 1 },
-  metaRight: { alignItems: 'center', flexDirection: 'row', gap: 4, marginLeft: 'auto' },
+  meta: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between', marginTop: 1 },
+  metaRight: { alignItems: 'center', flexDirection: 'row', gap: 4 },
   play: { alignItems: 'center', alignSelf: 'flex-start', borderRadius: 16, height: 32, justifyContent: 'center', transform: [{ translateY: 3 }], width: 32 },
   playIcon: { marginLeft: 2 },
   playPressed: { opacity: 0.6 },
   row: { alignItems: 'flex-start', flexDirection: 'row', gap: 8, maxWidth: 320, paddingHorizontal: 2 },
-  track: { flexShrink: 1 },
+  track: { flexShrink: 1, gap: 4 },
   wave: { alignItems: 'center', flexDirection: 'row', height: 14, justifyContent: 'space-between', marginTop: 8, overflow: 'hidden', transform: [{ translateY: 3 }], width: 170 },
 });

@@ -175,7 +175,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
         <YStack gap={6}>
           <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Identidad uPeer</Text>
           <CopyField accessibilityLabel="Copiar identidad uPeer" onCopy={() => { void copyToClipboard(upeerId, 'Identidad copiada'); }} truncate value={upeerId} />
-          {contact ? <CopyField accessibilityLabel="Copiar dirección de red" onCopy={() => { void copyToClipboard(contact.address, 'Dirección copiada'); }} truncate value={contact.address} /> : null}
+          {contact?.address ? <CopyField accessibilityLabel="Copiar dirección de red" onCopy={() => { void copyToClipboard(contact.address, 'Dirección copiada'); }} truncate value={contact.address} /> : null}
         </YStack>
         <YStack gap={6}>
           <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Conversación</Text>

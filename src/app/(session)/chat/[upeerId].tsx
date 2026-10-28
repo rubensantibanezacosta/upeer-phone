@@ -12,8 +12,10 @@ import { ChatOptionsMenu } from '@/components/chat/chat-options-menu';
 import { ChatRequestScreen } from '@/components/chat/chat-request-screen';
 import { ChatTimelineList } from '@/components/chat/chat-timeline-list';
 import { ChatTimelineRow } from '@/components/chat/chat-timeline-row';
+import { MediaViewer } from '@/components/media/media-viewer';
 import { useSnackbar } from '@/components/snackbar';
 import { buildChatTimeline, mergeChatHistory, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
+import type { AttachmentInfo } from '@/domain/attachment';
 import type { ConversationActivity } from '@/domain/chat-preview';
 import { resolveChatBack } from '@/domain/chat-back';
 import { useAndroidBack } from '@/hooks/use-android-back';
@@ -189,7 +191,8 @@ export default function ChatRoute() {
     showSnackbar(`${label}: pendiente en el roadmap`);
   }, [showSnackbar]);
 
-  const openAttachment = useAttachmentOpener();
+  const [media, setMedia] = useState<AttachmentInfo | null>(null);
+  const openAttachment = useAttachmentOpener(setMedia);
   const { attach, attachFromCamera, cameraOpen, closeCamera, openLibrary, sendPicked, sendVoiceNote } = useAttachmentSender(upeerId, refresh);
 
   const search = useChatSearchController({
@@ -286,6 +289,7 @@ export default function ChatRoute() {
       <GroupInfoSheet groupId={isGroup && groupInfoOpen ? upeerId ?? null : null} onChanged={refresh} onClose={() => setGroupInfoOpen(false)} />
       <ChatOptionsMenu isGroup={isGroup} messages={messages} name={alias} onChanged={refresh} onCloseChat={() => router.back()} onCloseMenu={() => setMenuOpen(false)} onOpenInfo={openInfo} onSearch={search.open} upeerId={upeerId ?? ''} visible={menuOpen} />
       <ChatMessageOverlays contacts={contacts} forwarding={forwarding} onForwardClose={cancelForwarding} onForwarded={handleForwarded} selfUpeerId={selfUpeerId} sheet={sheet} />
+      <MediaViewer attachment={media} onClose={() => setMedia(null)} />
     </View>
   );
 }

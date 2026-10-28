@@ -3,7 +3,8 @@ import { Download, ExternalLink, FileText } from '@tamagui/lucide-icons-2';
 import { Text } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
-import { attachmentDetail, attachmentLabel, canOpenAttachment, type AttachmentInfo } from '@/domain/attachment';
+import { attachmentDetail, attachmentLabel, attachmentUri, type AttachmentInfo } from '@/domain/attachment';
+import { useAttachmentFile } from '@/hooks/use-attachment-file';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -18,12 +19,12 @@ export function ChatDocumentAttachment({ info, isMine, onOpen }: {
   const detailColor = isMine ? theme.bubbleMineText : theme.placeholder;
   const circleColor = isMine ? `${theme.bubbleMineText}2E` : theme.accentSoft;
   const iconColor = isMine ? theme.bubbleMineText : theme.onAccentSoft;
-  const downloaded = canOpenAttachment(info);
+  const downloaded = useAttachmentFile(attachmentUri(info));
 
   return (
     <NativeRipplePressable
       accessibilityHint={downloaded ? 'Abre el archivo' : 'El archivo no está en este dispositivo'}
-      accessibilityLabel={`${attachmentLabel(info)}${downloaded ? '' : ', sin descargar'}`}
+      accessibilityLabel={`${attachmentLabel(info)}${downloaded ? '' : ', no está en este dispositivo'}`}
       accessibilityRole="button"
       onPress={() => onOpen?.()}
       style={[styles.card, { backgroundColor: isMine ? `${theme.bubbleMineText}14` : theme.backgroundSelected }]}
@@ -34,7 +35,7 @@ export function ChatDocumentAttachment({ info, isMine, onOpen }: {
       <View style={styles.texts}>
         <Text color={titleColor} fontSize={scale(14)} fontWeight="600" numberOfLines={1}>{info.fileName}</Text>
         <Text color={detailColor} fontSize={scale(11)} numberOfLines={1}>
-          {downloaded ? attachmentDetail(info) : [attachmentDetail(info), 'Sin descargar'].filter(Boolean).join(' · ')}
+          {downloaded ? attachmentDetail(info) : [attachmentDetail(info), 'No está aquí'].filter(Boolean).join(' · ')}
         </Text>
       </View>
       {isMine ? null : downloaded
