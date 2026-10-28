@@ -116,6 +116,45 @@ class MessageSearchTest {
   }
 
   @Test
+  fun `scopes the search to one chat`() {
+    val found = MessageSearch.matches(
+      "hola",
+      10,
+      0,
+      messages(
+        seed("m1", alice, "hola de alice", 1_000),
+        seed("m2", group, "hola del grupo", 3_000),
+        seed("m3", alice, "hola otra vez", 2_000),
+      ),
+      chatUpeerId = alice,
+    )
+
+    assertEquals(listOf("m3", "m1"), found.map { it.optString("id") })
+    assertTrue(found.all { it.optString("chatUpeerId") == alice })
+  }
+
+  @Test
+  fun `pages the chat scoped search with the offset over that chat only`() {
+    val all = messages(
+      seed("m1", alice, "hola 1", 1_000),
+      seed("m2", group, "hola del grupo", 9_000),
+      seed("m3", alice, "hola 2", 2_000),
+      seed("m4", alice, "hola 3", 3_000),
+    )
+
+    assertEquals(listOf("m4", "m3"), MessageSearch.matches("hola", 2, 0, all, alice).map { it.optString("id") })
+    assertEquals(listOf("m1"), MessageSearch.matches("hola", 2, 2, all, alice).map { it.optString("id") })
+  }
+
+  @Test
+  fun `an empty chat scope keeps searching every conversation`() {
+    val all = messages(seed("m1", alice, "hola", 1_000), seed("m2", group, "hola", 2_000))
+
+    assertEquals(listOf("m2", "m1"), MessageSearch.matches("hola", 10, 0, all, "  ").map { it.optString("id") })
+    assertEquals(listOf("m2", "m1"), MessageSearch.matches("hola", 10, 0, all).map { it.optString("id") })
+  }
+
+  @Test
   fun `an empty query returns nothing`() {
     val all = messages(seed("m1", alice, "hola", 1_000))
 

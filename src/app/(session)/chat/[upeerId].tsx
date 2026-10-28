@@ -13,7 +13,7 @@ import { ChatRequestScreen } from '@/components/chat/chat-request-screen';
 import { ChatTimelineList } from '@/components/chat/chat-timeline-list';
 import { ChatTimelineRow } from '@/components/chat/chat-timeline-row';
 import { useSnackbar } from '@/components/snackbar';
-import { buildChatTimeline, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
+import { buildChatTimeline, mergeChatHistory, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
 import type { ConversationActivity } from '@/domain/chat-preview';
 import { resolveChatBack } from '@/domain/chat-back';
 import { useAndroidBack } from '@/hooks/use-android-back';
@@ -29,6 +29,7 @@ import { useChatMessageSheet } from '@/hooks/use-chat-message-sheet';
 import { useRequestResolution } from '@/hooks/use-request-resolution';
 import { placeholderName, resolveContactName } from '@/domain/contact-name';
 import { useChatSearch } from '@/hooks/use-chat-search';
+import { useChatSearchJump } from '@/hooks/use-chat-search-jump';
 import { useContactCard } from '@/hooks/use-contact-card';
 import { usePresenceLabel } from '@/hooks/use-presence-label';
 import { useAndroidKeyboardHeight } from '@/hooks/use-android-keyboard-height';
@@ -63,7 +64,7 @@ export default function ChatRoute() {
   const refresh = useCallback(async () => {
     if (!upeerId) return;
     const [nextMessages, contacts, conversations] = await Promise.all([getMessages(upeerId, MESSAGE_LIMIT), getContacts(), getConversations()]);
-    setMessages(nextMessages);
+    setMessages((current) => mergeChatHistory(nextMessages, current));
     markMessagesLoaded();
     setContacts(contacts);
     const contact = contacts.find((item) => item.upeerId === upeerId);
@@ -192,7 +193,15 @@ export default function ChatRoute() {
   const openAttachment = useAttachmentOpener();
   const { attach, attachFromCamera, cameraOpen, closeCamera, openLibrary, sendPicked, sendVoiceNote } = useAttachmentSender(upeerId, refresh);
 
-  const search = useChatSearch({ messages, onJump: scrollToMessage });
+  const jumpToSearchResult = useChatSearchJump({
+    chatId: upeerId ?? '',
+    loaded: !loadingMessages,
+    messages,
+    onJump: scrollToMessage,
+    onMerge: useCallback((page: readonly ProtocolMessage[]) => setMessages((current) => mergeChatHistory(current, page)), []),
+    onMissing: useCallback(() => showSnackbar('Ese mensaje ya no está en la conversación'), [showSnackbar]),
+  });
+  const search = useChatSearch({ chatId: upeerId ?? '', onJump: jumpToSearchResult });
 
   useAndroidBack(() => {
     const action = resolveChatBack({

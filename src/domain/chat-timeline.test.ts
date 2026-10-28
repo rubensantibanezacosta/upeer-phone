@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildChatTimeline, toInvertedChatTimeline, type ChatTimelineEntry } from './chat-timeline';
+import { buildChatTimeline, mergeChatHistory, toInvertedChatTimeline, type ChatTimelineEntry } from './chat-timeline';
 import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
 
 const PEER = 'a'.repeat(64);
@@ -49,5 +49,26 @@ describe('chat timeline', () => {
 
     expect(inverted.map((entry) => entry.message.id)).toEqual(['m2', 'm1']);
     expect(timeline.map((entry) => entry.message.id)).toEqual(['m1', 'm2']);
+  });
+});
+
+describe('mergeChatHistory', () => {
+  it('añade la página antigua sin duplicar lo ya cargado', () => {
+    const merged = mergeChatHistory([message('m3', firstDay + 120_000)], [message('m1', firstDay), message('m2', firstDay + 60_000)]);
+
+    expect(merged.map((item) => item.id)).toEqual(['m3', 'm1', 'm2']);
+  });
+
+  it('descarta los mensajes repetidos al solapar páginas', () => {
+    const merged = mergeChatHistory([message('m2', firstDay + 60_000), message('m3', firstDay + 120_000)], [message('m1', firstDay), message('m2', firstDay + 60_000)]);
+
+    expect(merged.map((item) => item.id)).toEqual(['m2', 'm3', 'm1']);
+  });
+
+  it('no muta el historial recibido', () => {
+    const current = [message('m2', firstDay + 60_000)];
+    mergeChatHistory(current, [message('m1', firstDay)]);
+
+    expect(current.map((item) => item.id)).toEqual(['m2']);
   });
 });

@@ -260,6 +260,12 @@ internal class ProtocolStateStore(context: Context) {
 
   fun searchMessagesJSON(query: String, limit: Int, offset: Int): String = messages.searchJSON(query, limit, offset)
 
+  fun searchChatMessagesJSON(upeerId: String, query: String, limit: Int, offset: Int): String =
+    messages.searchJSON(query, limit, offset, upeerId)
+
+  fun historyBeforeJSON(upeerId: String, beforeTimestamp: Long, limit: Int): String =
+    messages.historyBeforeJSON(upeerId, beforeTimestamp, limit)
+
   fun conversationsJSON(): String = synchronized(lock) {
     ProtocolConversations.build(
       state.optJSONArray("messages") ?: JSONArray(),

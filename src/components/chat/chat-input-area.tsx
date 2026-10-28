@@ -13,7 +13,9 @@ export function ChatInputArea({ composer, search }: ChatInputAreaProps) {
   if (!search.active) return <ChatComposerArea {...composer} />;
   return (
     <ChatSearchBar
+      hasMore={search.hasMore}
       index={search.index}
+      loading={search.loading}
       matches={search.count}
       onChangeQuery={search.changeQuery}
       onClose={search.close}

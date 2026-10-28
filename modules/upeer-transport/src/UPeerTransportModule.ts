@@ -45,6 +45,8 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   retryChat(upeerId: string, messageId: string): Promise<boolean>;
   messagesJSON(upeerId: string, limit: number): Promise<string>;
   searchMessagesJSON(query: string, limit: number, offset: number): Promise<string>;
+  searchChatMessagesJSON(upeerId: string, query: string, limit: number, offset: number): Promise<string>;
+  historyBeforeJSON(upeerId: string, beforeTimestamp: number, limit: number): Promise<string>;
   conversationsJSON(): Promise<string>;
   groupsJSON(): Promise<string>;
   peerSecurityJSON(upeerId: string): Promise<string>;
@@ -329,6 +331,14 @@ export type MessageSearchHit = {
 
 export async function searchMessages(query: string, limit = 100, offset = 0): Promise<MessageSearchHit[]> {
   return JSON.parse(await nativeModule.searchMessagesJSON(query, limit, offset)) as MessageSearchHit[];
+}
+
+export async function searchChatMessages(upeerId: string, query: string, limit = 50, offset = 0): Promise<MessageSearchHit[]> {
+  return JSON.parse(await nativeModule.searchChatMessagesJSON(upeerId, query, limit, offset)) as MessageSearchHit[];
+}
+
+export async function getMessagesBefore(upeerId: string, beforeTimestamp: number, limit = 100): Promise<ProtocolMessage[]> {
+  return JSON.parse(await nativeModule.historyBeforeJSON(upeerId, beforeTimestamp, limit)) as ProtocolMessage[];
 }
 
 export async function getConversations(): Promise<ProtocolConversation[]> {

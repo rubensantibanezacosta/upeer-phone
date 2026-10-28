@@ -34,6 +34,8 @@ class UPeerTransportModule extends NativeModule<{}> {
   async retryChat(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async messagesJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async searchMessagesJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async searchChatMessagesJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async historyBeforeJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async conversationsJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async peerSecurityJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async markConversationRead(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }

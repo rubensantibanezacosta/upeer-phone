@@ -95,4 +95,39 @@ class ProtocolMessageStateTest {
     assertTrue(runCatching { ChatEditPolicy.plan(message(), peerID, messageID, "x") }.isFailure)
     assertFalse(ChatEditPolicy.plan(message().put("isMine", true), peerID, messageID, "x").pending)
   }
+
+  @Test
+  fun `history before returns the newest page below the bound of one chat`() {
+    val other = "bb".repeat(32)
+    val messages = JSONArray()
+      .put(entry("m1", peerID, 1_000))
+      .put(entry("m2", other, 2_000))
+      .put(entry("m3", peerID, 3_000))
+      .put(entry("m4", peerID, 4_000))
+
+    val page = JSONArray(ProtocolMessageState.historyBefore(messages, peerID, 4_000, 2))
+
+    assertEquals(listOf("m3", "m1"), ids(page))
+  }
+
+  @Test
+  fun `history before includes messages with the same timestamp below the bound`() {
+    val messages = JSONArray()
+      .put(entry("m1", peerID, 1_000))
+      .put(entry("m2", peerID, 3_000))
+      .put(entry("m3", peerID, 3_000))
+
+    assertEquals(listOf("m3", "m2"), ids(JSONArray(ProtocolMessageState.historyBefore(messages, peerID, 3_001, 2))))
+    assertEquals(emptyList<String>(), ids(JSONArray(ProtocolMessageState.historyBefore(messages, peerID, 1_000, 10))))
+  }
+
+  private fun entry(id: String, chat: String, timestamp: Long): JSONObject = JSONObject()
+    .put("id", id)
+    .put("upeerId", chat)
+    .put("isMine", false)
+    .put("content", id)
+    .put("status", "delivered")
+    .put("timestamp", timestamp)
+
+  private fun ids(page: JSONArray): List<String> = (0 until page.length()).map { page.getJSONObject(it).optString("id") }
 }

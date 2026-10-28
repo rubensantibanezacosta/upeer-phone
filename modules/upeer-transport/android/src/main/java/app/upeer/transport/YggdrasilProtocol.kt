@@ -222,6 +222,12 @@ internal class YggdrasilProtocol(
 
   fun searchMessagesJSON(query: String, limit: Int, offset: Int): String = state.searchMessagesJSON(query, limit, offset)
 
+  fun searchChatMessagesJSON(upeerId: String, query: String, limit: Int, offset: Int): String =
+    state.searchChatMessagesJSON(upeerId, query, limit, offset)
+
+  fun historyBeforeJSON(upeerId: String, beforeTimestamp: Long, limit: Int): String =
+    state.historyBeforeJSON(upeerId, beforeTimestamp, limit)
+
   fun conversationsJSON(): String = state.conversationsJSON()
   fun groupsJSON(): String = state.groupsJSON()
 

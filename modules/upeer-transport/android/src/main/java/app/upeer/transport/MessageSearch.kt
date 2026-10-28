@@ -23,23 +23,31 @@ internal object MessageSearch {
     return text.ifEmpty { null }
   }
 
-  fun matches(query: String, limit: Int, offset: Int, messages: JSONArray): List<JSONObject> {
+  fun matches(
+    query: String,
+    limit: Int,
+    offset: Int,
+    messages: JSONArray,
+    chatUpeerId: String? = null,
+  ): List<JSONObject> {
     val needle = normalize(query.trim())
     if (needle.isEmpty()) return emptyList()
+    val scope = chatUpeerId?.trim().orEmpty()
     val found = mutableListOf<JSONObject>()
     for (index in 0 until messages.length()) {
       val message = messages.optJSONObject(index) ?: continue
       if (message.optBoolean("deleted")) continue
       val id = message.optString("id")
-      val chatUpeerId = message.optString("upeerId")
+      val owner = message.optString("upeerId")
       val timestamp = message.optLong("timestamp", 0L)
-      if (id.isBlank() || chatUpeerId.isBlank() || timestamp <= 0) continue
+      if (id.isBlank() || owner.isBlank() || timestamp <= 0) continue
+      if (scope.isNotEmpty() && owner != scope) continue
       val text = searchableText(message.optString("content")) ?: continue
       if (!normalize(text).contains(needle)) continue
       found.add(
         JSONObject()
           .put("id", id)
-          .put("chatUpeerId", chatUpeerId)
+          .put("chatUpeerId", owner)
           .put("content", message.optString("content"))
           .put("timestamp", timestamp)
           .put("isMine", message.optBoolean("isMine")),

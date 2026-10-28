@@ -37,6 +37,11 @@ export function toInvertedChatTimeline(entries: ChatTimelineEntry[]): ChatTimeli
   return [...entries].reverse();
 }
 
+export function mergeChatHistory(current: readonly ProtocolMessage[], page: readonly ProtocolMessage[]): ProtocolMessage[] {
+  const seen = new Set(current.map((message) => message.id));
+  return [...current, ...page.filter((message) => !seen.has(message.id))];
+}
+
 export function formatChatDateLabel(timestamp: number): string {
   const currentDate = new Date(timestamp);
   if (!Number.isFinite(timestamp)) return '';

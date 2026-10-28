@@ -189,6 +189,10 @@ class YggdrasilTransportService : Service() {
     override fun messagesJSON(upeerId: String, limit: Int): String = protocol.messagesJSON(upeerId, limit)
     override fun searchMessagesJSON(query: String, limit: Int, offset: Int): String =
       protocol.searchMessagesJSON(query, limit, offset)
+    override fun searchChatMessagesJSON(upeerId: String, query: String, limit: Int, offset: Int): String =
+      protocol.searchChatMessagesJSON(upeerId, query, limit, offset)
+    override fun historyBeforeJSON(upeerId: String, beforeTimestamp: Long, limit: Int): String =
+      protocol.historyBeforeJSON(upeerId, beforeTimestamp, limit)
     override fun conversationsJSON(): String = protocol.conversationsJSON()
 
     override fun peerSecurityJSON(upeerId: String): String = protocol.peerSecurityJSON(upeerId)

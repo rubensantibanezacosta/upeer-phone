@@ -102,6 +102,12 @@ class UPeerTransportModule : Module() {
     AsyncFunction("searchMessagesJSON") { query: String, limit: Int, offset: Int ->
       service().searchMessagesJSON(query, limit, offset)
     }
+    AsyncFunction("searchChatMessagesJSON") { upeerId: String, query: String, limit: Int, offset: Int ->
+      service().searchChatMessagesJSON(upeerId, query, limit, offset)
+    }
+    AsyncFunction("historyBeforeJSON") { upeerId: String, beforeTimestamp: Long, limit: Int ->
+      service().historyBeforeJSON(upeerId, beforeTimestamp, limit)
+    }
     AsyncFunction("conversationsJSON") { service().conversationsJSON() }
     AsyncFunction("groupsJSON") { service().groupsJSON() }
     AsyncFunction("peerSecurityJSON") { upeerId: String -> service().peerSecurityJSON(upeerId) }

@@ -8,7 +8,9 @@ import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type ChatSearchBarProps = {
+  hasMore: boolean;
   index: number;
+  loading: boolean;
   matches: number;
   onChangeQuery: (value: string) => void;
   onClose: () => void;
@@ -25,10 +27,11 @@ function BarAction({ disabled = false, label, onPress, children }: { disabled?: 
   );
 }
 
-export function ChatSearchBar({ index, matches, onChangeQuery, onClose, onNext, onPrevious, query }: ChatSearchBarProps) {
+export function ChatSearchBar({ hasMore, index, loading, matches, onChangeQuery, onClose, onNext, onPrevious, query }: ChatSearchBarProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const empty = matches === 0;
+  const counter = loading && empty ? 'Buscando…' : describeSearchPosition(index, matches, hasMore);
   return (
     <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={2} paddingHorizontal={4} paddingVertical={8}>
       <BarAction label="Cerrar búsqueda" onPress={onClose}><X color={theme.text} size={22} /></BarAction>
@@ -51,7 +54,7 @@ export function ChatSearchBar({ index, matches, onChangeQuery, onClose, onNext, 
         />
       </XStack>
       <Text color={empty ? theme.placeholder : theme.textSecondary} fontSize={scale(12)} minWidth={52} paddingHorizontal={6} textAlign="center">
-        {describeSearchPosition(index, matches)}
+        {counter}
       </Text>
       <BarAction disabled={empty} label="Resultado anterior" onPress={onPrevious}>
         <ChevronUp color={empty ? theme.placeholder : theme.text} size={22} />

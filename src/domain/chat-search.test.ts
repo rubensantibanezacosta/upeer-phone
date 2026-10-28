@@ -1,11 +1,22 @@
 import { describe, expect, it } from 'vitest';
 
-import { describeSearchPosition, searchChatMessages, searchExcerpt } from './chat-search';
-import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
+import {
+  appendChatSearchResults,
+  CHAT_SEARCH_PAGE_SIZE,
+  describeSearchPosition,
+  resolveSearchStep,
+  searchExcerpt,
+  searchPageHasMore,
+  toChatSearchResults,
+  type ChatSearchResult,
+} from './chat-search';
+import type { MessageSearchHit } from '../../modules/upeer-transport/src/UPeerTransportModule';
 
-function message(id: string, content: string, isMine = false, timestamp = 1): ProtocolMessage {
-  return { content, id, isMine, status: 'read', timestamp, upeerId: 'peer' };
+function hit(id: string, timestamp = 1): MessageSearchHit {
+  return { chatUpeerId: 'peer', content: id, id, isMine: false, timestamp };
 }
+
+const result = (id: string, timestamp = 1): ChatSearchResult => ({ id, timestamp });
 
 describe('searchExcerpt', () => {
   it('colapsa los espacios y recorta los extremos', () => {
@@ -24,31 +35,74 @@ describe('searchExcerpt', () => {
   });
 });
 
-describe('searchChatMessages', () => {
-  it('devuelve vacío sin consulta', () => {
-    expect(searchChatMessages([message('1', 'hola')], '   ')).toEqual([]);
+describe('toChatSearchResults', () => {
+  it('se queda solo con lo que hace falta para saltar', () => {
+    expect(toChatSearchResults([hit('m1', 1_700_000_000_000)])).toEqual([{ id: 'm1', timestamp: 1_700_000_000_000 }]);
   });
 
-  it('ignora mayúsculas y acentos', () => {
-    const result = searchChatMessages([message('1', 'Mañana temprano')], 'manana');
-    expect(result.map((item) => item.id)).toEqual(['1']);
+  it('conserva el orden que devuelve el proceso nativo', () => {
+    expect(toChatSearchResults([hit('m2', 2), hit('m1', 1)]).map((item) => item.id)).toEqual(['m2', 'm1']);
   });
 
-  it('ordena de más reciente a más antiguo', () => {
-    const result = searchChatMessages([message('1', 'hola'), message('2', 'hola otra vez'), message('3', 'adiós')], 'hola');
-    expect(result.map((item) => item.id)).toEqual(['2', '1']);
+  it('no recorta la página recibida', () => {
+    const hits = Array.from({ length: CHAT_SEARCH_PAGE_SIZE }, (_, index) => hit(`m${index}`, index));
+
+    expect(toChatSearchResults(hits)).toHaveLength(CHAT_SEARCH_PAGE_SIZE);
+  });
+});
+
+describe('appendChatSearchResults', () => {
+  it('añade la página siguiente al final', () => {
+    expect(appendChatSearchResults([result('m3')], [result('m2'), result('m1')]).map((item) => item.id)).toEqual(['m3', 'm2', 'm1']);
   });
 
-  it('conserva autor, hora y extracto', () => {
-    const [result] = searchChatMessages([message('1', 'nos vemos el lunes', true, 1700000000000)], 'lunes');
-    expect(result).toEqual({ excerpt: 'nos vemos el lunes', id: '1', isMine: true, timestamp: 1700000000000 });
+  it('descarta duplicados entre páginas', () => {
+    expect(appendChatSearchResults([result('m3'), result('m2')], [result('m2'), result('m1')]).map((item) => item.id)).toEqual(['m3', 'm2', 'm1']);
   });
 
-  it('se queda con los 50 más recientes', () => {
-    const many = Array.from({ length: 80 }, (_, index) => message(`m${index}`, 'hola'));
-    const result = searchChatMessages(many, 'hola');
-    expect(result).toHaveLength(50);
-    expect(result[0].id).toBe('m79');
+  it('no muta la lista recibida', () => {
+    const current = [result('m3')];
+    appendChatSearchResults(current, [result('m2')]);
+
+    expect(current.map((item) => item.id)).toEqual(['m3']);
+  });
+});
+
+describe('searchPageHasMore', () => {
+  it('pide otra página cuando la anterior vino llena', () => {
+    expect(searchPageHasMore(CHAT_SEARCH_PAGE_SIZE)).toBe(true);
+  });
+
+  it('da la búsqueda por terminada con una página corta', () => {
+    expect(searchPageHasMore(CHAT_SEARCH_PAGE_SIZE - 1)).toBe(false);
+    expect(searchPageHasMore(0)).toBe(false);
+  });
+});
+
+describe('resolveSearchStep', () => {
+  it('avanza al siguiente resultado cargado', () => {
+    expect(resolveSearchStep(0, 3, false, 1)).toEqual({ kind: 'jump', index: 1 });
+    expect(resolveSearchStep(2, 3, false, -1)).toEqual({ kind: 'jump', index: 1 });
+  });
+
+  it('pide la página siguiente al llegar al final con más resultados', () => {
+    expect(resolveSearchStep(2, 3, true, 1)).toEqual({ kind: 'load' });
+  });
+
+  it('vuelve al principio cuando ya no quedan páginas', () => {
+    expect(resolveSearchStep(2, 3, false, 1)).toEqual({ kind: 'jump', index: 0 });
+  });
+
+  it('salta al final al retroceder desde el primero', () => {
+    expect(resolveSearchStep(0, 3, false, -1)).toEqual({ kind: 'jump', index: 2 });
+  });
+
+  it('no envuelve hacia atrás mientras queden páginas sin cargar', () => {
+    expect(resolveSearchStep(0, 3, true, -1)).toEqual({ kind: 'none' });
+  });
+
+  it('no hace nada sin resultados', () => {
+    expect(resolveSearchStep(0, 0, true, 1)).toEqual({ kind: 'none' });
   });
 });
 
@@ -56,6 +110,11 @@ describe('describeSearchPosition', () => {
   it('numera desde uno sobre el total', () => {
     expect(describeSearchPosition(0, 5)).toBe('1 de 5');
     expect(describeSearchPosition(4, 5)).toBe('5 de 5');
+  });
+
+  it('avisa de que quedan páginas sin cargar', () => {
+    expect(describeSearchPosition(0, 50, true)).toBe('1 de 50+');
+    expect(describeSearchPosition(49, 50, false)).toBe('50 de 50');
   });
 
   it('avisa cuando no hay coincidencias', () => {

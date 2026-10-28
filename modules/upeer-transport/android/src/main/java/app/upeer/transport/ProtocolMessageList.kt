@@ -165,8 +165,12 @@ internal class ProtocolMessageList(
     ProtocolMessageState.snapshot(messages(), upeerId, limit)
   }
 
-  fun searchJSON(query: String, limit: Int, offset: Int): String = synchronized(lock) {
-    JSONArray(MessageSearch.matches(query, limit, offset, messages())).toString()
+  fun searchJSON(query: String, limit: Int, offset: Int, chatUpeerId: String? = null): String = synchronized(lock) {
+    JSONArray(MessageSearch.matches(query, limit, offset, messages(), chatUpeerId)).toString()
+  }
+
+  fun historyBeforeJSON(upeerId: String, beforeTimestamp: Long, limit: Int): String = synchronized(lock) {
+    ProtocolMessageState.historyBefore(messages(), upeerId, beforeTimestamp, limit)
   }
 
   private fun messages(): JSONArray = stateProvider().optJSONArray("messages") ?: JSONArray()
