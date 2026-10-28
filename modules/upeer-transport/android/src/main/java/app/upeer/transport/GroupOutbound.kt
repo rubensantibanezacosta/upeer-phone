@@ -2,6 +2,7 @@ package app.upeer.transport
 
 import android.util.Log
 import app.upeer.transportbridge.transportbridge.Bridge
+import app.upeer.transportbridge.transportbridge.CryptoIdentity
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -9,6 +10,7 @@ import java.util.UUID
 internal class GroupOutbound(
   private val identity: YggdrasilIdentity,
   private val state: ProtocolStateStore,
+  private val deviceBindings: DeviceMessagingBindings,
   private val egress: ProtocolEgress,
   private val bridge: () -> Bridge?,
 ) {
@@ -63,13 +65,18 @@ internal class GroupOutbound(
       if (address.isBlank()) continue
       val publicKey = peer.optString("publicKey")
       if (publicKey.length != 64) continue
-      val frame = SealedControl.tryFrame(current, null, selfAddress, publicKey, packet, "GROUP_MSG $groupId")
+      val frame = SealedControl.tryFrame(current, deviceFor(peer, member, current), selfAddress, publicKey, packet, "GROUP_MSG $groupId")
       if (frame == null) continue
       if (egress.send(activeBridge, address, frame, "GROUP_MSG $groupId")) {
         delivered++
       }
     }
     return delivered
+  }
+
+  private fun deviceFor(peer: JSONObject, member: String, current: CryptoIdentity): DeviceIdentity? {
+    if (deviceBindings.bindingFor(peer, member) == null) return null
+    return identity.currentDevice()?.takeIf { it.accountUpeerId == current.upeerID() }
   }
 
   private fun members(group: JSONObject): List<String> {

@@ -65,7 +65,7 @@ internal class YggdrasilProtocol(
     onMemberLeft = groupAdmin::rotateAfterMemberLeft,
     myUpeerId = { identity.current()?.upeerID().orEmpty() },
   )
-  private val groupOutbound = GroupOutbound(identity, state, egress) { bridge }
+  private val groupOutbound = GroupOutbound(identity, state, deviceBindings, egress) { bridge }
   private val fileInbound = FileInbound(
     accountCrypto = { identity.current()?.let { BridgeFileReceiveCrypto(it) } },
     deviceCrypto = { identity.currentDevice()?.crypto?.let { BridgeFileReceiveCrypto(it) } },
