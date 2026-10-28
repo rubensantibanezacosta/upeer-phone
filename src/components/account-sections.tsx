@@ -9,11 +9,13 @@ import { H1, Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 import type { UPeerIdentity } from '@/domain/identity-record';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useTextScale } from '@/hooks/use-text-scale';
+import { useOwnVouchScore } from '@/hooks/use-vouch-score';
 import { useTheme } from '@/hooks/use-theme';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { confirmSignOut } from '@/components/confirm-sign-out';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { loadProfile, saveProfile } from '@/storage/identity-store';
+import { getContacts } from '@/storage/contact-store';
 import { DeviceAuthorizerPanel } from '@/components/device-authorizer-panel';
 import { InfoDialog } from '@/components/info-dialog';
 import { profileHelpContent, type ProfileInfoKey } from '@/components/profile-help-content';
@@ -29,12 +31,20 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
   const [qrOpen, setQrOpen] = useState(false);
   const copyToClipboard = useCopyToClipboard();
   const [info, setInfo] = useState<ProfileInfoKey | null>(null);
+  const [connections, setConnections] = useState<number | null>(null);
+  const vouchScore = useOwnVouchScore(identity.upeerId);
   const fullId = `${identity.upeerId}@${address}`;
+  const reputation = vouchScore === undefined || connections === null ? null : { vouchScore, connectionCount: connections };
 
   useEffect(() => {
     loadProfile().then((profile) => { setAlias(profile?.alias ?? ''); setAvatar(profile?.avatar); }).catch((cause: unknown) => {
       setError(cause instanceof Error ? cause.message : 'No se pudo cargar el perfil.');
     });
+    getContacts()
+      .then((contacts) => setConnections(contacts.filter((contact) => contact.status === 'connected' || contact.status === 'offline').length))
+      .catch((cause: unknown) => {
+        setError(cause instanceof Error ? cause.message : 'No se pudieron contar los contactos.');
+      });
   }, []);
 
   const saveAlias = async () => {
@@ -88,7 +98,7 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
         <ProfileHeroSection identity={identity} alias={alias} avatar={avatar} busy={busy} onAliasChange={(value) => { setAlias(value); setError(''); }} onAliasSave={() => void saveAlias()} onAvatarPress={() => void chooseAvatar()} />
         {error ?
           <Paragraph accessibilityRole="alert" color={theme.danger}>{error}</Paragraph> : null}
-        <ProfileStatsSection reputation={null} vaultStats={null} reputationUnavailable vaultUnavailable onInfo={setInfo} />
+        <ProfileStatsSection reputation={reputation} vaultStats={null} reputationUnavailable={false} vaultUnavailable onInfo={setInfo} />
         <ProfileAddressSection fullId={fullId} onCopy={copyProfileAddress} onShowQr={() => setQrOpen(true)} onInfo={() => setInfo('direccion')} />
         <DeviceAuthorizerPanel onInfo={() => setInfo('dispositivos')} />
         <ProfileTechnicalSection identity={identity} address={address} onInfo={setInfo} onCopy={copyProfileValue} />

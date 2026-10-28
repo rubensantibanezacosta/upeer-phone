@@ -6,6 +6,7 @@ const REFRESH_MS = 60_000;
 const DIRECT_STATUSES = new Set(['connected', 'offline']);
 
 let current: ReputationScores = {};
+let selfUpeerId = '';
 let timer: ReturnType<typeof setInterval> | null = null;
 let running = false;
 const listeners = new Set<() => void>();
@@ -34,6 +35,7 @@ export async function refreshReputationScores(): Promise<void> {
       return;
     }
     const subjects = contacts.map((contact) => contact.upeerId);
+    if (selfUpeerId && !subjects.includes(selfUpeerId)) subjects.push(selfUpeerId);
     const direct = contacts.filter((contact) => DIRECT_STATUSES.has(contact.status)).map((contact) => contact.upeerId);
     const raw = await getReputationScores(JSON.stringify(subjects), JSON.stringify(direct));
     const next = parseReputationScores(raw);
@@ -42,6 +44,13 @@ export async function refreshReputationScores(): Promise<void> {
   } catch (cause: unknown) {
     console.warn('No se pudo leer la reputación de los contactos.', cause);
   }
+}
+
+export function setReputationSelf(upeerId: string): void {
+  const id = upeerId.trim().toLowerCase();
+  if (id === '' || id === selfUpeerId) return;
+  selfUpeerId = id;
+  void refreshReputationScores();
 }
 
 export function startReputationPolling(): void {

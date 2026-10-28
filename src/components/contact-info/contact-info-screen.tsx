@@ -171,7 +171,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
         <SizableText color={theme.text} flex={1} fontSize={scale(17)} fontWeight="700" numberOfLines={1}>Info. del contacto</SizableText>
       </XStack>
       <ScrollView contentContainerStyle={styles.content}>
-        <ContactInfoHero alias={alias} avatar={peerAvatar} onCall={pending('Llamada de voz')} onSearch={openSearch} onVideo={pending('Videollamada')} presence={presence} status={contact?.status ?? 'offline'} upeerId={upeerId} vouchScore={undefined} />
+        <ContactInfoHero alias={alias} avatar={peerAvatar} onCall={pending('Llamada de voz')} onSearch={openSearch} onVideo={pending('Videollamada')} presence={presence} status={contact?.status ?? 'offline'} upeerId={upeerId} />
         <YStack gap={6}>
           <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Identidad uPeer</Text>
           <CopyField accessibilityLabel="Copiar identidad uPeer" onCopy={() => { void copyToClipboard(upeerId, 'Identidad copiada'); }} truncate value={upeerId} />
