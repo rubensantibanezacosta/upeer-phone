@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View, type FlatList, type ListRenderItemInfo } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, View, type FlatList } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraCaptureSheet } from '@/components/chat/camera-capture-sheet';
@@ -10,15 +10,14 @@ import { ChatInputArea } from '@/components/chat/chat-input-area';
 import { ChatMessageOverlays } from '@/components/chat/chat-message-overlays';
 import { ChatOptionsMenu } from '@/components/chat/chat-options-menu';
 import { ChatRequestScreen } from '@/components/chat/chat-request-screen';
+import { ChatSelectionBar, ChatSelectionToolbar } from '@/components/chat/chat-selection-bars';
 import { ChatTimelineList } from '@/components/chat/chat-timeline-list';
-import { ChatTimelineRow } from '@/components/chat/chat-timeline-row';
 import { MediaViewer } from '@/components/media/media-viewer';
 import { useSnackbar } from '@/components/snackbar';
 import { buildChatTimeline, mergeChatHistory, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
 import type { AttachmentInfo } from '@/domain/attachment';
 import type { ConversationActivity } from '@/domain/chat-preview';
-import { resolveChatBack } from '@/domain/chat-back';
-import { useAndroidBack } from '@/hooks/use-android-back';
+import { useChatBack } from '@/hooks/use-chat-back';
 import { useChatAnchor } from '@/hooks/use-chat-anchor';
 import { useChatTimelineScroll } from '@/hooks/use-chat-timeline-scroll';
 import { useFirstLoad } from '@/hooks/use-first-load';
@@ -30,11 +29,15 @@ import { useAttachmentSender } from '@/hooks/use-attachment-send';
 import { useChatMessageSheet } from '@/hooks/use-chat-message-sheet';
 import { useRequestResolution } from '@/hooks/use-request-resolution';
 import { placeholderName, resolveContactName } from '@/domain/contact-name';
+import { useChatRowRenderer } from '@/hooks/use-chat-row-renderer';
+import { useChatComposerArea } from '@/hooks/use-chat-composer-area';
 import { useChatSearchController } from '@/hooks/use-chat-search-controller';
+import { useChatSelection } from '@/hooks/use-chat-selection';
 import { useContactCard } from '@/hooks/use-contact-card';
 import { usePresenceLabel } from '@/hooks/use-presence-label';
 import { useAndroidKeyboardHeight } from '@/hooks/use-android-keyboard-height';
 import { useTheme } from '@/hooks/use-theme';
+import type { PickedAttachment } from '@/services/attachment-picker';
 import { getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
 import type { ProtocolMessage } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
 import { getMessages, getConversations, markConversationRead } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
@@ -97,26 +100,19 @@ export default function ChatRoute() {
     await markConversationRead(upeerId);
   }, [markMessagesLoaded, upeerId]);
 
+  const composer = useChatComposer({ onChanged: refresh, onForwarded: showSnackbar, upeerId });
   const {
     cancelContext,
     cancelForwarding,
-    dismissPreview,
     editing,
-    error,
     forwarding,
-    handleChange,
     handleForwarded,
-    linkPreview,
-    loadingPreview,
-    notifyActivity,
     replyingTo,
     setError,
     startEditing,
     startForwarding,
     startReplying,
-    submit,
-    text,
-  } = useChatComposer({ onChanged: refresh, onForwarded: showSnackbar, upeerId });
+  } = composer;
 
   useEffect(() => {
     if (!upeerId) return;
@@ -152,8 +148,10 @@ export default function ChatRoute() {
     timeline,
   });
 
-  const sheet = useChatMessageSheet({ onChanged: refresh, onEdit: startEditing, onError: setError, onForward: startForwarding, onReply: startReplying, upeerId });
+  const forwardOne = useCallback((message: ProtocolMessage) => startForwarding([message]), [startForwarding]);
+  const sheet = useChatMessageSheet({ onChanged: refresh, onEdit: startEditing, onError: setError, onForward: forwardOne, onReply: startReplying, upeerId });
   const { open: openActions, selfUpeerId, toggleReaction } = sheet;
+  const selection = useChatSelection({ messages, onChanged: refresh, onError: setError, onForward: startForwarding, upeerId });
 
   const replyPreviews = useMemo(() => {
     const byID = new Map(messages.map((message) => [message.id, message]));
@@ -194,6 +192,8 @@ export default function ChatRoute() {
   const [media, setMedia] = useState<AttachmentInfo | null>(null);
   const openAttachment = useAttachmentOpener(setMedia);
   const { attach, attachFromCamera, cameraOpen, closeCamera, openLibrary, sendPicked, sendVoiceNote } = useAttachmentSender(upeerId, refresh);
+  const onVoiceNote = useCallback((attachment: PickedAttachment) => { void sendVoiceNote(attachment); }, [sendVoiceNote]);
+  const composerArea = useChatComposerArea({ alias, attach, attachFromCamera, composer, hidden: isRequest, onVoiceError: showSnackbar, onVoiceNote });
 
   const search = useChatSearchController({
     chatId: upeerId ?? '',
@@ -204,45 +204,50 @@ export default function ChatRoute() {
     onMissing: useCallback(() => showSnackbar('Ese mensaje ya no está en la conversación'), [showSnackbar]),
   });
 
-  useAndroidBack(() => {
-    const action = resolveChatBack({
+  useChatBack(
+    {
+      cardOpen: contactCard.selected !== null,
+      composing: editing !== null || replyingTo !== null,
+      forwarding: forwarding !== null,
+      groupOpen: groupInfoOpen,
       menuOpen,
       searchActive: search.active,
+      selecting: selection.active,
       sheetOpen: sheet.selected !== null,
-      cardOpen: contactCard.selected !== null,
-      groupOpen: groupInfoOpen,
-      forwarding: forwarding !== null,
-      composing: editing !== null || replyingTo !== null,
-    });
-    if (action === 'close-menu') { setMenuOpen(false); return true; }
-    if (action === 'close-search') { search.close(); return true; }
-    if (action === 'close-sheet') { sheet.close(); return true; }
-    if (action === 'close-card') { contactCard.close(); return true; }
-    if (action === 'close-group') { setGroupInfoOpen(false); return true; }
-    if (action === 'cancel-forwarding') { cancelForwarding(); return true; }
-    if (action === 'cancel-composing') { cancelContext(); return true; }
-    return false;
-  });
+    },
+    {
+      cancelComposing: cancelContext,
+      cancelForwarding,
+      closeCard: contactCard.close,
+      closeGroup: () => setGroupInfoOpen(false),
+      closeMenu: () => setMenuOpen(false),
+      closeSearch: search.close,
+      closeSheet: sheet.close,
+      exitSelection: selection.clear,
+    },
+  );
   const { highlightedID } = search;
 
-  const renderItem = useCallback(({ item }: ListRenderItemInfo<ChatTimelineEntry>) => (
-    <ChatTimelineRow
-      entry={item}
-      highlighted={item.message.id === highlightedID || item.message.id === highlightedMessageId}
-      onLongPress={openActions}
-      onOpenAttachment={openAttachment}
-      onOpenCard={openCard}
-      onOpenReply={scrollToMessage}
-      onToggleReaction={toggleReaction}
-      reply={replyPreviews(item.message)}
-      savedContacts={savedContactIds}
-      selfUpeerId={selfUpeerId}
-    />
-  ), [highlightedID, highlightedMessageId, openActions, openAttachment, openCard, replyPreviews, savedContactIds, scrollToMessage, selfUpeerId, toggleReaction]);
+  const renderItem = useChatRowRenderer({
+    highlightedID,
+    highlightedMessageId,
+    onLongPress: openActions,
+    onOpenAttachment: openAttachment,
+    onOpenCard: openCard,
+    onScrollToMessage: scrollToMessage,
+    onToggleReaction: toggleReaction,
+    onToggleSelect: selection.toggle,
+    replyPreviews,
+    savedContactIds,
+    selectable: selection.active,
+    selected: selection.selected,
+    selfUpeerId,
+  });
 
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
+        {selection.active ? <ChatSelectionBar count={selection.chosen.length} onClose={selection.clear} /> : null}
         <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={openInfo} onOpenMenu={() => setMenuOpen(true)} onUnavailable={showUnavailable} presence={isGroup ? (groupMembers > 0 ? `${groupMembers} miembros` : 'Grupo') : presence} status={contactStatus} activity={peerActivity} upeerId={upeerId ?? ''} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.root, androidKeyboard > 0 ? { paddingBottom: androidKeyboard } : null]}>
           {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} /> : (
@@ -258,27 +263,9 @@ export default function ChatRoute() {
               showScrollButton={showScrollButton}
             />
           )}
-          <ChatInputArea
-            composer={{
-              editing: editing !== null,
-              error,
-              hidden: isRequest,
-              loadingPreview,
-              onChange: handleChange,
-              onAttach: attach,
-              onCamera: attachFromCamera,
-              onCancelContext: cancelContext,
-              onDismissPreview: dismissPreview,
-              onSend: () => { void submit(); },
-              onVoiceError: showSnackbar,
-              onVoiceNote: (attachment) => { void sendVoiceNote(attachment); },
-              onActivity: notifyActivity,
-              preview: linkPreview,
-              reply: buildReplyPreview(replyingTo ?? undefined, { mine: 'Tú', peer: alias || 'Contacto' }),
-              value: text,
-            }}
-            search={search}
-          />
+          {selection.active ? (
+            <ChatSelectionToolbar selection={selection} />
+          ) : <ChatInputArea composer={composerArea} search={search} />}
         </KeyboardAvoidingView>
       </SafeAreaView>
       {insets.bottom > 0 ? (
@@ -288,7 +275,7 @@ export default function ChatRoute() {
       <ContactCardSheet action={contactCard.action} card={contactCard.selected} error={contactCard.error} onClose={contactCard.close} visible={contactCard.selected !== null} />
       <GroupInfoSheet groupId={isGroup && groupInfoOpen ? upeerId ?? null : null} onChanged={refresh} onClose={() => setGroupInfoOpen(false)} />
       <ChatOptionsMenu isGroup={isGroup} messages={messages} name={alias} onChanged={refresh} onCloseChat={() => router.back()} onCloseMenu={() => setMenuOpen(false)} onOpenInfo={openInfo} onSearch={search.open} upeerId={upeerId ?? ''} visible={menuOpen} />
-      <ChatMessageOverlays contacts={contacts} forwarding={forwarding} onForwardClose={cancelForwarding} onForwarded={handleForwarded} selfUpeerId={selfUpeerId} sheet={sheet} />
+      <ChatMessageOverlays contacts={contacts} forwarding={forwarding} onForwardClose={cancelForwarding} onForwarded={handleForwarded} onSelect={(message) => { sheet.close(); selection.start(message); }} selfUpeerId={selfUpeerId} sheet={sheet} />
       <MediaViewer attachment={media} onClose={() => setMedia(null)} />
     </View>
   );

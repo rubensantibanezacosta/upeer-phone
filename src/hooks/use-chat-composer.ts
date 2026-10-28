@@ -18,7 +18,7 @@ export function useChatComposer({ onChanged, onForwarded, upeerId }: ChatCompose
   const [text, setText] = useState('');
   const [editing, setEditing] = useState<ProtocolMessage | null>(null);
   const [replyingTo, setReplyingTo] = useState<ProtocolMessage | null>(null);
-  const [forwarding, setForwarding] = useState<ProtocolMessage | null>(null);
+  const [forwarding, setForwarding] = useState<ProtocolMessage[] | null>(null);
   const [error, setError] = useState('');
   const typingSentAtRef = useRef(0);
   const link = useLinkPreview(editing ? '' : text);
@@ -86,8 +86,8 @@ export function useChatComposer({ onChanged, onForwarded, upeerId }: ChatCompose
     setReplyingTo(null);
   }, [editing]);
 
-  const startForwarding = useCallback((message: ProtocolMessage) => {
-    setForwarding(message);
+  const startForwarding = useCallback((messages: ProtocolMessage[]) => {
+    setForwarding(messages.length > 0 ? messages : null);
     setError('');
   }, []);
 

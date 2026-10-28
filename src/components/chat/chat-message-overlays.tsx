@@ -7,14 +7,15 @@ import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeer
 
 type ChatMessageOverlaysProps = {
   contacts: UPeerContact[];
-  forwarding: ProtocolMessage | null;
+  forwarding: ProtocolMessage[] | null;
   onForwardClose: () => void;
   onForwarded: (count: number, failed: number) => void;
+  onSelect: (message: ProtocolMessage) => void;
   selfUpeerId: string;
   sheet: ChatMessageSheetApi;
 };
 
-export function ChatMessageOverlays({ contacts, forwarding, onForwardClose, onForwarded, selfUpeerId, sheet }: ChatMessageOverlaysProps) {
+export function ChatMessageOverlays({ contacts, forwarding, onForwardClose, onForwarded, onSelect, selfUpeerId, sheet }: ChatMessageOverlaysProps) {
   return (
     <>
       <ChatMessageActions
@@ -29,14 +30,15 @@ export function ChatMessageOverlays({ contacts, forwarding, onForwardClose, onFo
         onForward={sheet.forwardMessage}
         onReply={sheet.replyMessage}
         onRetry={sheet.retryMessage}
+        onSelect={onSelect}
         onToggleReaction={sheet.toggleReaction}
         reactions={summarizeReactions(sheet.selected?.reactions, selfUpeerId)}
       />
       {forwarding ? (
         <ChatForwardSheet
           contacts={contacts}
-          key={forwarding.id}
-          message={forwarding}
+          key={forwarding.map((message) => message.id).join('-')}
+          messages={forwarding}
           onClose={onForwardClose}
           onForwarded={onForwarded}
         />

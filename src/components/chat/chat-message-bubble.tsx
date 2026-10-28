@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, View } from 'react-native';
+import { Check } from '@tamagui/lucide-icons-2';
 import { Text } from 'tamagui';
 
 import type { ChatTimelineEntry } from '@/domain/chat-timeline';
@@ -21,7 +22,7 @@ import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeerTransport.types';
 
-export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onOpenAttachment, onOpenCard, onOpenReply, onToggleReaction, reactions, reply, savedContacts }: {
+export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onOpenAttachment, onOpenCard, onOpenReply, onToggleReaction, reactions, reply, savedContacts, selectable = false, selected = false, onToggleSelect }: {
   entry: ChatTimelineEntry;
   highlighted?: boolean;
   onLongPress?: (message: ProtocolMessage) => void;
@@ -32,6 +33,9 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
   reactions?: ReactionSummary[];
   reply?: ReplyPreview | null;
   savedContacts?: ReadonlySet<string>;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (message: ProtocolMessage) => void;
 }) {
   const theme = useTheme();
   const scale = useTextScale();
@@ -52,15 +56,30 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
 
   return (
     <View style={[styles.row, { marginTop: entry.startsGroup ? 10 : 4 }, isMine ? styles.rowMine : styles.rowTheirs]}>
+      {selectable ? (
+        <Pressable
+          accessibilityLabel={selected ? 'Quitar de la selección' : 'Añadir a la selección'}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: selected }}
+          onPress={onToggleSelect ? () => onToggleSelect(entry.message) : undefined}
+          style={styles.checkboxHit}
+        >
+          <View style={[styles.checkbox, { borderColor: selected ? theme.accent : theme.placeholder, backgroundColor: selected ? theme.accent : 'transparent' }]}>
+            {selected ? <Check color={theme.onAccent} size={13} strokeWidth={3} /> : null}
+          </View>
+        </Pressable>
+      ) : null}
       <View style={styles.column}>
         <Pressable
-          accessibilityHint="Mantén pulsado para ver las acciones del mensaje"
-          onLongPress={onLongPress ? () => onLongPress(entry.message) : undefined}
+          accessibilityHint={selectable ? 'Toca para añadir o quitar de la selección' : 'Mantén pulsado para ver las acciones del mensaje'}
+          onLongPress={!selectable && onLongPress ? () => onLongPress(entry.message) : undefined}
+          onPress={selectable && onToggleSelect ? () => onToggleSelect(entry.message) : undefined}
           style={[
             styles.bubble,
             { backgroundColor: isMine ? theme.bubbleMine : theme.backgroundElement },
             resolveBubbleShape({ isMine, startsGroup: entry.startsGroup, endsGroup: entry.endsGroup }),
             highlighted ? { borderColor: theme.accent, borderWidth: 1.5 } : null,
+            selectable && selected ? { borderColor: theme.accent, borderWidth: 1.5 } : null,
           ]}
         >
           {reply && !deleted ? <View style={styles.quote}><ChatReplyQuote isMine={isMine} onPress={onPressReply} reply={reply} /></View> : null}
@@ -100,6 +119,8 @@ export function ChatMessageBubble({ entry, highlighted = false, onLongPress, onO
 }
 
 const styles = StyleSheet.create({
+  checkbox: { alignItems: 'center', borderRadius: 10, borderWidth: 1.5, height: 20, justifyContent: 'center', width: 20 },
+  checkboxHit: { alignSelf: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   row: { flexDirection: 'row', width: '100%' },
   rowMine: { justifyContent: 'flex-end' },
   rowTheirs: { justifyContent: 'flex-start' },

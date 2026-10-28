@@ -21,6 +21,10 @@ describe('resolveChatBack', () => {
     expect(resolveChatBack({ ...NONE, menuOpen: true, searchActive: true, sheetOpen: true })).toBe('close-menu');
   });
 
+  it('sale de la selección antes que de la búsqueda', () => {
+    expect(resolveChatBack({ ...NONE, selecting: true, searchActive: true })).toBe('exit-selection');
+  });
+
   it('cierra la búsqueda antes que la hoja de acciones', () => {
     expect(resolveChatBack({ ...NONE, searchActive: true, sheetOpen: true })).toBe('close-search');
   });

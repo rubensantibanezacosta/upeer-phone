@@ -20,10 +20,13 @@ type ChatTimelineRowProps = {
   onToggleReaction?: (message: ProtocolMessage, emoji: string) => void;
   reply: ReplyPreview | null;
   savedContacts?: ReadonlySet<string>;
+  selectable?: boolean;
+  selected?: boolean;
   selfUpeerId: string;
+  onToggleSelect?: (message: ProtocolMessage) => void;
 };
 
-export function ChatTimelineRow({ entry, highlighted, onLongPress, onOpenAttachment, onOpenCard, onOpenReply, onToggleReaction, reply, savedContacts, selfUpeerId }: ChatTimelineRowProps) {
+export function ChatTimelineRow({ entry, highlighted, onLongPress, onOpenAttachment, onOpenCard, onOpenReply, onToggleReaction, onToggleSelect, reply, savedContacts, selectable, selected, selfUpeerId }: ChatTimelineRowProps) {
   const theme = useTheme();
   return (
     <View style={highlighted ? [styles.highlight, { backgroundColor: theme.accentSoft }] : undefined}>
@@ -36,9 +39,12 @@ export function ChatTimelineRow({ entry, highlighted, onLongPress, onOpenAttachm
         onOpenCard={onOpenCard}
         onOpenReply={onOpenReply}
         onToggleReaction={onToggleReaction}
+        onToggleSelect={onToggleSelect}
         reactions={summarizeReactions(entry.message.reactions, selfUpeerId)}
         reply={reply}
         savedContacts={savedContacts}
+        selectable={selectable}
+        selected={selected}
       />
     </View>
   );
