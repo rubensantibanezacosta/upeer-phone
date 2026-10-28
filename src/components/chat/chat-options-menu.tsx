@@ -7,6 +7,7 @@ import { SizableText, Text, XStack, YStack } from 'tamagui';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ChatRetentionPicker } from '@/components/chat/chat-retention-picker';
 import { ChatStylePicker } from '@/components/chat/chat-style-picker';
+import { ChatStarredSheet } from '@/components/chat/chat-starred-sheet';
 import { flagsFor } from '@/domain/conversation-flags';
 import { useChatOptions } from '@/hooks/use-chat-options';
 import { useChatRetention } from '@/hooks/use-chat-retention';
@@ -25,6 +26,7 @@ type ChatOptionsMenuProps = {
   onCloseChat: () => void;
   onCloseMenu: () => void;
   onOpenInfo: () => void;
+  onOpenMessage: (messageID: string) => void;
   onSearch: () => void;
   upeerId: string;
   visible: boolean;
@@ -47,7 +49,7 @@ function MenuAction({ color, icon, label, onPress }: MenuActionProps) {
   );
 }
 
-export function ChatOptionsMenu({ isGroup, messages, name, onChanged, onCloseChat, onCloseMenu, onOpenInfo, onSearch, upeerId, visible }: ChatOptionsMenuProps) {
+export function ChatOptionsMenu({ isGroup, messages, name, onChanged, onCloseChat, onCloseMenu, onOpenInfo, onOpenMessage, onSearch, upeerId, visible }: ChatOptionsMenuProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const insets = useSafeAreaInsets();
@@ -67,12 +69,14 @@ export function ChatOptionsMenu({ isGroup, messages, name, onChanged, onCloseCha
   const { set: setStyle, styleId } = useChatStyle(upeerId);
   const [retentionOpen, setRetentionOpen] = useState(false);
   const [styleOpen, setStyleOpen] = useState(false);
+  const [starredOpen, setStarredOpen] = useState(false);
 
   const run = (action: () => void) => () => {
     onCloseMenu();
     action();
   };
   const openRetention = run(() => setRetentionOpen(true));
+  const openStarred = run(() => setStarredOpen(true));
   const openStyle = run(() => setStyleOpen(true));
   const toggleFavorite = run(() => {
     setFavorite((current) => !current);
@@ -97,6 +101,7 @@ export function ChatOptionsMenu({ isGroup, messages, name, onChanged, onCloseCha
           <MenuAction color={theme.text} icon={<Search color={theme.text} size={19} />} label="Buscar" onPress={run(onSearch)} />
           <MenuAction color={theme.text} icon={<Timer color={theme.text} size={19} />} label="Mensajes temporales" onPress={openRetention} />
           <MenuAction color={theme.text} icon={<Palette color={theme.text} size={19} />} label="Estilo del chat" onPress={openStyle} />
+          <MenuAction color={theme.text} icon={<Star color={theme.text} size={19} />} label="Mensajes destacados" onPress={openStarred} />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <MenuAction color={theme.text} icon={muted ? <Bell color={theme.text} size={19} /> : <BellOff color={theme.text} size={19} />} label={muted ? 'Reactivar notificaciones' : 'Silenciar notificaciones'} onPress={run(actions.toggleMute)} />
           <MenuAction color={theme.text} icon={<Star color={isFavorite ? theme.accent : theme.text} fill={isFavorite ? theme.accent : 'none'} size={19} />} label={isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />
@@ -131,6 +136,7 @@ export function ChatOptionsMenu({ isGroup, messages, name, onChanged, onCloseCha
         value={styleId}
         visible={styleOpen}
       />
+      <ChatStarredSheet messages={messages} onClose={() => setStarredOpen(false)} onOpenMessage={onOpenMessage} upeerId={upeerId} visible={starredOpen} />
     </>
   );
 }

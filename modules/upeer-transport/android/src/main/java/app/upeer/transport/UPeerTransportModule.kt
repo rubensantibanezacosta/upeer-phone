@@ -99,6 +99,7 @@ class UPeerTransportModule : Module() {
     AsyncFunction("editChat") { upeerId: String, messageId: String, content: String -> service().editChat(upeerId, messageId, content) }
     AsyncFunction("retryChat") { upeerId: String, messageId: String -> service().retryChat(upeerId, messageId) }
     AsyncFunction("messagesJSON") { upeerId: String, limit: Int -> service().messagesJSON(upeerId, limit) }
+    AsyncFunction("messagesByIdsJSON") { idsJSON: String -> service().messagesByIdsJSON(idsJSON) }
     AsyncFunction("searchMessagesJSON") { query: String, limit: Int, offset: Int ->
       service().searchMessagesJSON(query, limit, offset)
     }

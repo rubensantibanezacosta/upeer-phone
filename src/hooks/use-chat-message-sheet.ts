@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useMessageActions } from '@/hooks/use-message-actions';
+import { useStarredMessages } from '@/hooks/use-starred-messages';
 import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
 
 export type ChatMessageSheetApi = ReturnType<typeof useChatMessageSheet>;
@@ -18,6 +19,14 @@ type ChatMessageSheetOptions = {
 export function useChatMessageSheet({ onChanged, onEdit, onError, onForward, onReply, upeerId }: ChatMessageSheetOptions) {
   const copy = useCopyToClipboard();
   const { close, open, remove, retry, selected, selfUpeerId, toggleReaction } = useMessageActions(upeerId, { onChanged, onError });
+  const stars = useStarredMessages();
+  const toggleStarred = stars.toggle;
+  const isStarred = selected ? stars.isMarked(selected.id) : false;
+
+  const toggleStar = useCallback((message: ProtocolMessage) => {
+    close();
+    void toggleStarred(message.id);
+  }, [close, toggleStarred]);
 
   const editMessage = useCallback((message: ProtocolMessage) => {
     close();
@@ -44,6 +53,7 @@ export function useChatMessageSheet({ onChanged, onEdit, onError, onForward, onR
     copyMessage,
     editMessage,
     forwardMessage,
+    isStarred,
     open,
     remove,
     replyMessage,
@@ -51,5 +61,6 @@ export function useChatMessageSheet({ onChanged, onEdit, onError, onForward, onR
     selected,
     selfUpeerId,
     toggleReaction,
+    toggleStar,
   };
 }

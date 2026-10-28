@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Copy, Forward, ListChecks, Pencil, Reply, RotateCcw, Smile, Trash2, X } from '@tamagui/lucide-icons-2';
+import { Copy, Forward, ListChecks, Pencil, Reply, RotateCcw, Smile, Star, Trash2, X } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack } from 'tamagui';
 
 import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeerTransport.types';
@@ -26,6 +26,8 @@ type ChatMessageActionsProps = {
   onRetry: (message: ProtocolMessage) => void;
   onSelect: (message: ProtocolMessage) => void;
   onToggleReaction: (message: ProtocolMessage, emoji: string) => void;
+  onToggleStar: (message: ProtocolMessage) => void;
+  starred: boolean;
 };
 
 type ActionRowProps = {
@@ -45,7 +47,7 @@ function ActionRow({ color, icon, label, onPress }: ActionRowProps) {
   );
 }
 
-export function ChatMessageActions({ message, reactions, canEdit, canForward, canRetry, onClose, onCopy, onDelete, onEdit, onForward, onReply, onRetry, onSelect, onToggleReaction }: ChatMessageActionsProps) {
+export function ChatMessageActions({ message, reactions, canEdit, canForward, canRetry, onClose, onCopy, onDelete, onEdit, onForward, onReply, onRetry, onSelect, onToggleReaction, onToggleStar, starred }: ChatMessageActionsProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const insets = useSafeAreaInsets();
@@ -92,6 +94,7 @@ export function ChatMessageActions({ message, reactions, canEdit, canForward, ca
             <ActionRow color={theme.text} icon={<Reply color={theme.text} size={19} />} label="Responder" onPress={() => onReply(message)} />
             {canForward ? <ActionRow color={theme.text} icon={<Forward color={theme.text} size={19} />} label="Reenviar" onPress={() => onForward(message)} /> : null}
             <ActionRow color={theme.text} icon={<Copy color={theme.text} size={19} />} label="Copiar texto" onPress={() => onCopy(message)} />
+            <ActionRow color={theme.text} icon={<Star color={starred ? theme.accent : theme.text} fill={starred ? theme.accent : 'none'} size={19} />} label={starred ? 'Quitar destacado' : 'Destacar'} onPress={() => onToggleStar(message)} />
             <ActionRow color={theme.text} icon={<ListChecks color={theme.text} size={19} />} label="Seleccionar" onPress={() => onSelect(message)} />
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
             <ActionRow color={theme.danger} icon={<Trash2 color={theme.danger} size={19} />} label="Eliminar para todos" onPress={() => onDelete(message)} />

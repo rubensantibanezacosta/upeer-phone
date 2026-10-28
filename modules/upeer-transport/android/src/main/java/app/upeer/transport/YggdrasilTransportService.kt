@@ -187,6 +187,7 @@ class YggdrasilTransportService : Service() {
     override fun retryChat(upeerId: String, messageId: String): Boolean =
       admitted { protocol.retryChat(upeerId, messageId) }
     override fun messagesJSON(upeerId: String, limit: Int): String = protocol.messagesJSON(upeerId, limit)
+    override fun messagesByIdsJSON(idsJSON: String): String = protocolState.messagesByIdsJSON(idsJSON)
     override fun searchMessagesJSON(query: String, limit: Int, offset: Int): String =
       protocol.searchMessagesJSON(query, limit, offset)
     override fun searchChatMessagesJSON(upeerId: String, query: String, limit: Int, offset: Int): String =

@@ -259,6 +259,15 @@ internal class ProtocolStateStore(context: Context) {
 
   fun messagesJSON(upeerId: String, limit: Int): String = messages.snapshot(upeerId, limit)
 
+  fun messagesByIdsJSON(idsJSON: String): String {
+    val parsed = runCatching { JSONArray(idsJSON.ifBlank { "[]" }) }.getOrElse { JSONArray() }
+    val ids = buildList { for (index in 0 until parsed.length()) add(parsed.optString(index)) }
+    return synchronized(lock) {
+      messages.purgeExpired()
+      ProtocolMessageState.selectByIds(state.optJSONArray("messages") ?: JSONArray(), ids)
+    }
+  }
+
   fun searchMessagesJSON(query: String, limit: Int, offset: Int): String = messages.searchJSON(query, limit, offset)
 
   fun searchChatMessagesJSON(upeerId: String, query: String, limit: Int, offset: Int): String =

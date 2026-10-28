@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Copy, Forward, Trash2, X } from '@tamagui/lucide-icons-2';
+import { Copy, Forward, Star, Trash2, X } from '@tamagui/lucide-icons-2';
 import { SizableText } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
@@ -35,6 +35,9 @@ type ChatSelectionToolbarProps = {
     deleteSelected: () => Promise<void>;
     forwardSelected: () => void;
     forwardableCount: number;
+    allStarredSelected: boolean;
+    starrableCount: number;
+    toggleStarSelected: () => void;
   };
 };
 
@@ -44,6 +47,7 @@ export function ChatSelectionToolbar({ selection }: ChatSelectionToolbarProps) {
   const canCopy = selection.chosen.length > 0;
   const canDelete = selection.deletableCount > 0;
   const canForward = selection.forwardableCount > 0;
+  const canStar = selection.starrableCount > 0;
   const action = (label: string, icon: ReactNode, enabled: boolean, onPress: () => void, tone: string = theme.text) => (
     <NativeRipplePressable accessibilityLabel={label} accessibilityRole="button" accessibilityState={{ disabled: !enabled }} disabled={!enabled} onPress={onPress} style={[styles.action, !enabled ? styles.disabled : null]}>
       {icon}
@@ -55,6 +59,7 @@ export function ChatSelectionToolbar({ selection }: ChatSelectionToolbarProps) {
     <View style={[styles.toolbar, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
       {action('Reenviar', <Forward color={canForward ? theme.text : theme.placeholder} size={20} />, canForward, selection.forwardSelected)}
       {action('Copiar', <Copy color={canCopy ? theme.text : theme.placeholder} size={20} />, canCopy, selection.copySelected)}
+      {action(selection.allStarredSelected ? 'Quitar' : 'Destacar', <Star color={canStar ? theme.accent : theme.placeholder} fill={selection.allStarredSelected ? theme.accent : 'none'} size={20} />, canStar, selection.toggleStarSelected)}
       {action('Eliminar', <Trash2 color={canDelete ? theme.danger : theme.placeholder} size={20} />, canDelete, () => { void selection.deleteSelected(); }, theme.danger)}
     </View>
   );

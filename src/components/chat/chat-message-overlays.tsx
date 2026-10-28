@@ -32,7 +32,9 @@ export function ChatMessageOverlays({ contacts, forwarding, onForwardClose, onFo
         onRetry={sheet.retryMessage}
         onSelect={onSelect}
         onToggleReaction={sheet.toggleReaction}
+        onToggleStar={sheet.toggleStar}
         reactions={summarizeReactions(sheet.selected?.reactions, selfUpeerId)}
+        starred={sheet.isStarred}
       />
       {forwarding ? (
         <ChatForwardSheet

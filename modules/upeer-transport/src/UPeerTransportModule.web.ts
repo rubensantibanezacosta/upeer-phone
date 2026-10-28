@@ -33,6 +33,7 @@ class UPeerTransportModule extends NativeModule<{}> {
   async editChat(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async retryChat(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async messagesJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async messagesByIdsJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async searchMessagesJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async searchChatMessagesJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async historyBeforeJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }

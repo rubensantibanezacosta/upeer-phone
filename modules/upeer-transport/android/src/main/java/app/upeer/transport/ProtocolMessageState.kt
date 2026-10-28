@@ -96,6 +96,19 @@ internal object ProtocolMessageState {
     return JSONArray(found.takeLast(limit.coerceIn(1, MAX_MESSAGES)).reversed()).toString()
   }
 
+  fun selectByIds(messages: JSONArray, ids: List<String>, limit: Int = MAX_MESSAGES): String {
+    val wanted = ids.filter { it.isNotBlank() }.toSet()
+    if (wanted.isEmpty()) return "[]"
+    val found = mutableListOf<JSONObject>()
+    for (index in 0 until messages.length()) {
+      val message = messages.optJSONObject(index) ?: continue
+      if (message.optString("id") !in wanted) continue
+      found.add(JSONObject(message.toString()))
+    }
+    found.sortWith(compareByDescending<JSONObject> { it.optLong("timestamp", 0L) }.thenBy { it.optString("id") })
+    return JSONArray(found.take(limit.coerceIn(1, MAX_MESSAGES))).toString()
+  }
+
   private fun applyContent(message: JSONObject, content: String, version: Int, editedAt: Long): JSONObject? {
     if (message.optBoolean("deleted")) return null
     if (version <= 0 || version <= message.optInt("version", 0)) return null

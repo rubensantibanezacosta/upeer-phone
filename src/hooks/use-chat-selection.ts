@@ -2,7 +2,9 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { deletableIds, forwardableMessages, orderedSelection, selectionExcerpt } from '@/domain/chat-selection';
+import { allStarred } from '@/domain/starred';
 import { describeMessageContent } from '@/domain/attachment';
+import { useStarredMessages } from '@/hooks/use-starred-messages';
 import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import { deleteMessage } from '../../modules/upeer-transport/src/UPeerTransportModule';
 
@@ -41,6 +43,10 @@ export function useChatSelection({ messages, onChanged, onError, onForward, upee
   const chosen = useMemo(() => orderedSelection(messages, selected), [messages, selected]);
   const deletable = useMemo(() => deletableIds(messages, selected), [messages, selected]);
   const forwardable = useMemo(() => forwardableMessages(messages, selected), [messages, selected]);
+  const stars = useStarredMessages(messages);
+  const starrable = useMemo(() => chosen.filter((message) => message.deleted !== true).map((message) => message.id), [chosen]);
+  const everyStarred = allStarred(stars.map, starrable);
+  const toggleStarred = stars.setMany;
 
   const copySelected = useCallback(() => {
     const text = selectionExcerpt(chosen.filter((message) => message.deleted !== true).map((message) => describeMessageContent(message.content)));
@@ -72,8 +78,15 @@ export function useChatSelection({ messages, onChanged, onError, onForward, upee
     if (failed > 0) onError(failed === 1 ? 'Un mensaje no se pudo eliminar' : `${failed} mensajes no se pudieron eliminar`);
   }, [clear, deletable, onChanged, onError, upeerId]);
 
+  const toggleStarSelected = useCallback(() => {
+    if (starrable.length === 0) return;
+    void toggleStarred(starrable, !everyStarred);
+    clear();
+  }, [clear, everyStarred, starrable, toggleStarred]);
+
   return {
     active,
+    allStarredSelected: everyStarred,
     chosen,
     clear,
     copySelected,
@@ -82,7 +95,9 @@ export function useChatSelection({ messages, onChanged, onError, onForward, upee
     forwardSelected,
     forwardableCount: forwardable.length,
     selected,
+    starrableCount: starrable.length,
     start,
     toggle,
+    toggleStarSelected,
   };
 }
