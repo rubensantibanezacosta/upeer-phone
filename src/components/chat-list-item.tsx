@@ -7,7 +7,7 @@ import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { UnreadCountBadge } from '@/components/unread-count-badge';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { describeChatPreview, type ConversationActivity } from '@/domain/chat-preview';
-import { getTrustLabel } from '@/domain/trust';
+import { getTrustAnnouncement } from '@/domain/trust';
 import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import { usePreferences } from '@/hooks/use-preferences';
 import { useTextScale } from '@/hooks/use-text-scale';
@@ -91,7 +91,7 @@ export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemPro
   return (
     <NativeRipplePressable
       accessibilityHint="Mantén pulsado para abrir las opciones de la conversación"
-      accessibilityLabel={`${entry.title}${entry.pinned ? ', fijada' : ''}${entry.muted ? ', silenciada' : ''}${entry.favorite ? ', favorita' : ''}${entry.activity === 'recording' ? ', grabando audio' : entry.activity ? ', escribiendo' : ''}${isUnread ? `, ${entry.unread} mensajes sin leer` : ''}, ${getTrustLabel(entry.vouchScore)}`}
+      accessibilityLabel={`${entry.title}${entry.pinned ? ', fijada' : ''}${entry.muted ? ', silenciada' : ''}${entry.favorite ? ', favorita' : ''}${entry.activity === 'recording' ? ', grabando audio' : entry.activity ? ', escribiendo' : ''}${isUnread ? `, ${entry.unread} mensajes sin leer` : ''}${getTrustAnnouncement(entry.vouchScore) ? `, ${getTrustAnnouncement(entry.vouchScore)}` : ''}`}
       accessibilityRole="button"
       delayLongPress={350}
       onLongPress={handleLongPress}

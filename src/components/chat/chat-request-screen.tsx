@@ -4,7 +4,7 @@ import { Paragraph, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { NativeRippleButton } from '@/components/native-ripple-button';
-import { getTrustDescriptor } from '@/domain/trust';
+import { NEUTRAL_VOUCH_NOTE } from '@/domain/trust';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -27,7 +27,6 @@ function formatReceivedAt(timestamp: number): string {
 export function ChatRequestScreen({ alias, receivedAt, onAccept, onBlock }: ChatRequestScreenProps) {
   const theme = useTheme();
   const scale = useTextScale();
-  const trust = getTrustDescriptor(undefined);
   const received = formatReceivedAt(receivedAt);
 
   return (
@@ -48,7 +47,7 @@ export function ChatRequestScreen({ alias, receivedAt, onAccept, onBlock }: Chat
       <XStack alignItems="flex-start" backgroundColor={theme.backgroundElement} borderRadius={12} gap={10} padding={12} width="100%">
         <UserPlus color={theme.placeholder} size={18} />
         <YStack flex={1} gap={2}>
-          <Text color={theme.text} fontSize={scale(13)} fontWeight="700">{trust.label}</Text>
+          <Text color={theme.text} fontSize={scale(13)} fontWeight="700">{NEUTRAL_VOUCH_NOTE}</Text>
           <Text color={theme.placeholder} fontSize={scale(11)}>Ninguno de tus contactos ha avalado a esta identidad todavía. Puede ser normal en usuarios nuevos; confirma por otro canal que es quien dice ser.</Text>
         </YStack>
       </XStack>

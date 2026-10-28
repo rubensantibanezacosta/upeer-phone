@@ -3,12 +3,12 @@ export type ProfileInfoKey = 'reputacion' | 'almacenamiento' | 'direccion' | 'di
 export const profileHelpContent: Record<ProfileInfoKey, { title: string; description: string; items: { label: string; description: string }[] }> = {
   reputacion: {
     title: 'Reputación',
-    description: 'La reputación es una puntuación que refleja cuán de fiar eres para el resto de personas que usan la app. Cuanto más alta, mejor te tratan los demás: tus mensajes llegan antes y con más fiabilidad.',
+    description: 'La reputación es un criterio técnico interno que puntúa cuentas, no dispositivos ni nodos: la misma cuenta vale lo mismo desde cualquier equipo suyo. Solo se te avisa cuando es muy mala, porque una puntuación normal no es asunto de nadie.',
     items: [
-      { label: 'Confianza', description: 'Empieza en 50 para todo el mundo. Sube cuando mandas y recibes mensajes con normalidad, y cuando ayudas a guardar mensajes de otros mientras están desconectados. Baja si haces cosas raras como mandar spam.' },
-      { label: 'Actividad', description: 'Mide si has estado usando la app recientemente. Si llevas tiempo sin conectarte, este número baja. Vuelve a subir en cuanto retomes la actividad normal.' },
-      { label: 'Contactos', description: 'Cuántos de tus contactos están conectados ahora mismo. Tener más contactos activos le da más peso a tu puntuación general.' },
-      { label: 'Puntuación total', description: 'Un resumen de todo lo anterior junto. Es el número que ve la app para decidir con qué prioridad procesa tus mensajes.' },
+      { label: 'De dónde sale', description: 'De avales firmados que intercambian tus contactos directos: un mensaje entregado, un trozo de mensaje guardado mientras estabas desconectado, o una penalización por comportamiento malicioso o fallo de integridad.' },
+      { label: 'Quién cuenta', description: 'Solo los avales de tus contactos directos, durante los últimos 30 días. Un desconocido no puede subir ni hundir tu puntuación.' },
+      { label: 'Cuándo se avisa', description: 'Únicamente por debajo de 40 sobre 100. El resto del tiempo no se muestra ninguna nota, ni la tuya ni la de los demás.' },
+      { label: 'Para qué se usa', description: 'Para decidir con qué prioridad se procesan los paquetes de una cuenta y para marcar como sospechosa una solicitud de contacto antes de aceptarla.' },
     ],
   },
   almacenamiento: {

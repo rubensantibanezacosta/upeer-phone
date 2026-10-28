@@ -1,11 +1,11 @@
 import { StyleSheet, View } from 'react-native';
-import { Phone, Search, Video } from '@tamagui/lucide-icons-2';
+import { BadgeAlert, Phone, Search, Video } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { InteractiveRow } from '@/components/contact-info/interactive-row';
 import { presenceText } from '@/domain/contact-labels';
-import { getTrustLabel } from '@/domain/trust';
+import { getTrustWarning } from '@/domain/trust';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import type { UPeerContact } from '@/storage/contact-store';
@@ -26,6 +26,7 @@ export function ContactInfoHero({ alias, avatar, upeerId, status, presence = nul
   const theme = useTheme();
   const scale = useTextScale();
   const statusColor = presence === 'En línea' ? theme.success : status === 'blocked' ? theme.danger : theme.placeholder;
+  const warning = getTrustWarning(vouchScore);
 
   return (
     <YStack alignItems="center" gap={5} paddingHorizontal={20} paddingTop={4}>
@@ -36,7 +37,12 @@ export function ContactInfoHero({ alias, avatar, upeerId, status, presence = nul
         <View style={[styles.dot, { backgroundColor: statusColor }]} />
         <Text color={statusColor} fontSize={scale(12)}>{presenceText(presence, status)}</Text>
       </XStack>
-      <Text color={theme.placeholder} fontSize={scale(12)}>{getTrustLabel(vouchScore)}</Text>
+      {warning ? (
+        <XStack alignItems="center" gap={4}>
+          <BadgeAlert color={theme.danger} size={12} strokeWidth={2.3} />
+          <Text color={theme.danger} fontSize={scale(11)} fontWeight="600">{warning}</Text>
+        </XStack>
+      ) : null}
       <XStack gap={18} paddingTop={12}>
         <InteractiveRow accessibilityLabel="Llamar" disabled icon={Phone} label="Llamar" onPress={onCall} variant="action" />
         <InteractiveRow accessibilityLabel="Videollamada" disabled icon={Video} label="Vídeo" onPress={onVideo} variant="action" />

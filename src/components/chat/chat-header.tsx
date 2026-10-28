@@ -6,7 +6,7 @@ import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import type { ConversationActivity } from '@/domain/chat-preview';
 import { presenceText } from '@/domain/contact-labels';
-import { getTrustLabel } from '@/domain/trust';
+import { getTrustAnnouncement } from '@/domain/trust';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import type { UPeerContact } from '@/storage/contact-store';
@@ -44,7 +44,7 @@ export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isReque
       <HeaderAction label="Volver" onPress={onBack}><ArrowLeft color={theme.text} size={24} /></HeaderAction>
       <NativeRipplePressable
         accessibilityHint={`Identidad ${upeerId}`}
-        accessibilityLabel={`Información de ${alias}. ${getTrustLabel(vouchScore)}`}
+        accessibilityLabel={`Información de ${alias}. ${getTrustAnnouncement(vouchScore)}`}
         accessibilityRole="button"
         onPress={onOpenInfo}
         style={styles.identity}

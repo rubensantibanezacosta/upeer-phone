@@ -1,8 +1,9 @@
 import { StyleSheet, View } from 'react-native';
-import { Check, Cloud, Copy, Info, Pencil, QrCode, Shield } from '@tamagui/lucide-icons-2';
+import { BadgeAlert, Check, Cloud, Copy, Info, Pencil, QrCode, Shield } from '@tamagui/lucide-icons-2';
 import { Input, Progress, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import type { UPeerIdentity } from '@/domain/identity-record';
+import { getTrustWarning } from '@/domain/trust';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { CopyField } from '@/components/copy-field';
@@ -52,11 +53,8 @@ export function ProfileStatsSection({ reputation, vaultStats, reputationUnavaila
   const vouchScore = reputation?.vouchScore;
   const connectionCount = reputation?.connectionCount;
   const hasReputation = vouchScore !== undefined && connectionCount !== undefined;
-  const score = vouchScore ?? 0;
   const connections = connectionCount ?? 0;
-  const isNew = score === 50 && connections === 0;
-  const reputationLabel = reputationUnavailable ? 'No disponible' : !hasReputation ? 'Cargando…' : isNew ? 'Sin historial' : score >= 80 ? 'Alta' : score >= 65 ? 'Buena' : score < 40 ? 'Baja' : 'Estándar';
-  const scoreColor = score >= 80 ? theme.accent : score < 40 ? theme.placeholder : theme.textSecondary;
+  const warning = getTrustWarning(vouchScore);
   const usageGb = (vaultStats?.sizeBytes ?? 0) / 1_073_741_824;
   return (
     <YStack paddingHorizontal={16}>
@@ -66,16 +64,15 @@ export function ProfileStatsSection({ reputation, vaultStats, reputationUnavaila
             <Shield color={theme.placeholder} size={15} />
             <SizableText color={theme.text} flexShrink={1} fontSize={scale(14)} fontWeight="600" numberOfLines={1}>Reputación</SizableText>
             <YStack flex={1} />
-            {hasReputation || reputationUnavailable ? <Text color={theme.textSecondary} fontSize={scale(11)} fontWeight="600">{reputationLabel}</Text> : null}
             <NativeRipplePressable accessibilityLabel="¿Qué es la reputación?" onPress={() => onInfo('reputacion')}><Info color={theme.placeholder} size={16} /></NativeRipplePressable>
           </XStack>
-          {hasReputation ? <>
-            <Progress backgroundColor={theme.border} value={score}><Progress.Indicator backgroundColor={scoreColor} /></Progress>
-            <XStack>
-              <YStack flex={1}><Text color={theme.placeholder} fontSize={scale(10)} textTransform="uppercase">Vouches</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{score}/100</SizableText></YStack>
-              <YStack flex={1}><Text color={theme.placeholder} fontSize={scale(10)} textTransform="uppercase">Contactos</Text><SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{connections}</SizableText></YStack>
+          {warning ? (
+            <XStack alignItems="flex-start" gap={8}>
+              <BadgeAlert color={theme.danger} size={15} strokeWidth={2.3} />
+              <Text color={theme.danger} flex={1} fontSize={scale(12)} fontWeight="600">{warning}</Text>
             </XStack>
-          </> : <Text color={theme.placeholder} fontSize={scale(12)}>{reputationUnavailable ? 'No disponible en este cliente' : 'Cargando...'}</Text>}
+          ) : null}
+          <Text color={theme.placeholder} fontSize={scale(12)}>{reputationUnavailable ? 'No disponible en este cliente' : !hasReputation ? 'Cargando...' : `${connections} ${connections === 1 ? 'contacto directo' : 'contactos directos'} en tu red. La reputación es un criterio interno que solo se avisa cuando es muy mala.`}</Text>
         </YStack>
   
         <YStack gap={10} padding={16}>
