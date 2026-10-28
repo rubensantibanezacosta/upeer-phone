@@ -70,21 +70,24 @@ function RecordingMic({ color, background }: { color: string; background: string
 export function ChatActivityBubble({ activity }: { activity: ConversationActivity | '' }) {
   const theme = useTheme();
   const bubble = activityBubbleOf(activity);
-  if (!bubble) return null;
-  const recording = bubble.kind === 'recording';
+  const recording = bubble?.kind === 'recording';
   return (
-    <View
-      accessibilityLabel={bubble.label}
-      accessibilityLiveRegion="polite"
-      accessible
-      style={styles.row}
-      testID="chat-activity-bubble"
-    >
-      <View style={[styles.bubble, recording ? styles.bubbleRecording : styles.bubbleTyping, { backgroundColor: theme.backgroundElement }]}>
-        {recording
-          ? <RecordingMic background={`${theme.danger}1F`} color={theme.danger} />
-          : <TypingDots color={theme.placeholder} />}
-      </View>
+    <View style={styles.slot}>
+      {bubble ? (
+        <View
+          accessibilityLabel={bubble.label}
+          accessibilityLiveRegion="polite"
+          accessible
+          style={styles.row}
+          testID="chat-activity-bubble"
+        >
+          <View style={[styles.bubble, recording ? styles.bubbleRecording : styles.bubbleTyping, { backgroundColor: theme.backgroundElement }]}>
+            {recording
+              ? <RecordingMic background={`${theme.danger}1F`} color={theme.danger} />
+              : <TypingDots color={theme.placeholder} />}
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -107,5 +110,6 @@ const styles = StyleSheet.create({
   mic: { alignItems: 'center', height: 26, justifyContent: 'center', width: 26 },
   micCircle: { alignItems: 'center', borderRadius: 11, height: 22, justifyContent: 'center', width: 22 },
   micRing: { borderRadius: 13, borderWidth: 2, height: 26, position: 'absolute', width: 26 },
-  row: { flexDirection: 'row', justifyContent: 'flex-start', marginVertical: 6, width: '100%' },
+  row: { flexDirection: 'row', justifyContent: 'flex-start', width: '100%' },
+  slot: { height: 44, justifyContent: 'flex-end', width: '100%' },
 });

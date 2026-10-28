@@ -39,7 +39,12 @@ export const ChatTimelineList = memo(function ChatTimelineList({ activity = '', 
   return (
     <View style={styles.timeline}>
       <ChatStyleBackground styleId={styleId} />
-      {data.length === 0 ? (loading ? <LoadingState label="Cargando mensajes…" /> : <ChatEmptyState />) : (
+      {data.length === 0 ? (
+        <View style={styles.empty}>
+          {loading ? <LoadingState label="Cargando mensajes…" /> : <ChatEmptyState />}
+          <ChatActivityBubble activity={activity} />
+        </View>
+      ) : (
         <FlatList
           ref={listRef}
           contentContainerStyle={styles.listContent}
@@ -49,7 +54,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({ activity = '', 
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
           keyExtractor={keyExtractor}
-          ListHeaderComponent={<>{activity ? <ChatActivityBubble activity={activity} /> : null}<ChatRetentionNotice text={notice} /></>}
+          ListHeaderComponent={<><ChatActivityBubble activity={activity} /><ChatRetentionNotice text={notice} /></>}
           maxToRenderPerBatch={16}
           onScroll={onScroll}
           onScrollToIndexFailed={onScrollToIndexFailed ?? fallbackScrollToIndexFailed}
@@ -70,4 +75,5 @@ const styles = StyleSheet.create({
   timeline: { flex: 1, position: 'relative' },
   list: { flex: 1 },
   listContent: { flexGrow: 1, paddingHorizontal: 12, paddingVertical: 16 },
+  empty: { flex: 1 },
 });
