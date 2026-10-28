@@ -10,6 +10,7 @@ import type { UPeerIdentity } from '@/domain/identity-record';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useOwnVouchScore } from '@/hooks/use-vouch-score';
+import { useVaultUsage } from '@/hooks/use-vault-usage';
 import { useTheme } from '@/hooks/use-theme';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { confirmSignOut } from '@/components/confirm-sign-out';
@@ -87,6 +88,7 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
     }
   };
 
+  const { usage: vaultUsage } = useVaultUsage();
   const copyProfileAddress = () => { void copyToClipboard(fullId, 'Copiado al portapapeles'); };
   const copyQrAddress = () => { copyProfileAddress(); setQrOpen(false); };
   const copyProfileValue = (value: string) => { void copyToClipboard(value, 'Copiado al portapapeles'); };
@@ -98,7 +100,7 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
         <ProfileHeroSection identity={identity} alias={alias} avatar={avatar} busy={busy} onAliasChange={(value) => { setAlias(value); setError(''); }} onAliasSave={() => void saveAlias()} onAvatarPress={() => void chooseAvatar()} />
         {error ?
           <Paragraph accessibilityRole="alert" color={theme.danger}>{error}</Paragraph> : null}
-        <ProfileStatsSection reputation={reputation} vaultStats={null} reputationUnavailable={false} vaultUnavailable onInfo={setInfo} />
+        <ProfileStatsSection reputation={reputation} vaultStats={{ count: vaultUsage.entries, sizeBytes: vaultUsage.bytes }} reputationUnavailable={false} onInfo={setInfo} />
         <ProfileAddressSection fullId={fullId} onCopy={copyProfileAddress} onShowQr={() => setQrOpen(true)} onInfo={() => setInfo('direccion')} />
         <DeviceAuthorizerPanel onInfo={() => setInfo('dispositivos')} />
         <ProfileTechnicalSection identity={identity} address={address} onInfo={setInfo} onCopy={copyProfileValue} />
