@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { ChevronDown, ChevronUp, Search, X } from '@tamagui/lucide-icons-2';
+import { CalendarDays, ChevronDown, ChevronUp, Search, X } from '@tamagui/lucide-icons-2';
 import { Input, Text, XStack } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
@@ -15,6 +15,7 @@ type ChatSearchBarProps = {
   onChangeQuery: (value: string) => void;
   onClose: () => void;
   onNext: () => void;
+  onOpenCalendar: () => void;
   onPrevious: () => void;
   query: string;
 };
@@ -27,7 +28,7 @@ function BarAction({ disabled = false, label, onPress, children }: { disabled?: 
   );
 }
 
-export function ChatSearchBar({ hasMore, index, loading, matches, onChangeQuery, onClose, onNext, onPrevious, query }: ChatSearchBarProps) {
+export function ChatSearchBar({ hasMore, index, loading, matches, onChangeQuery, onClose, onNext, onOpenCalendar, onPrevious, query }: ChatSearchBarProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const empty = matches === 0;
@@ -35,6 +36,7 @@ export function ChatSearchBar({ hasMore, index, loading, matches, onChangeQuery,
   return (
     <XStack alignItems="center" backgroundColor={theme.backgroundElement} borderTopColor={theme.border} borderTopWidth={StyleSheet.hairlineWidth} gap={2} paddingHorizontal={4} paddingVertical={8}>
       <BarAction label="Cerrar búsqueda" onPress={onClose}><X color={theme.text} size={22} /></BarAction>
+      <BarAction label="Ir a una fecha" onPress={onOpenCalendar}><CalendarDays color={theme.text} size={21} /></BarAction>
       <XStack alignItems="center" backgroundColor={theme.backgroundSelected} borderRadius={25} flex={1} gap={8} paddingLeft={12} style={styles.field}>
         <Search color={theme.placeholder} size={18} />
         <Input

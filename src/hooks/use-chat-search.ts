@@ -9,7 +9,10 @@ import {
   toChatSearchResults,
   type ChatSearchResult,
 } from '@/domain/chat-search';
-import { searchChatMessages } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import { DAY_MS, firstMessageOfDay, startOfDay } from '@/domain/chat-calendar';
+import { getMessagesBefore, searchChatMessages } from '../../modules/upeer-transport/src/UPeerTransportModule';
+
+export type DayJumpResult = 'jumped' | 'empty' | 'failed';
 
 type UseChatSearchOptions = {
   chatId: string;
@@ -17,6 +20,7 @@ type UseChatSearchOptions = {
 };
 
 const DEBOUNCE_MS = 250;
+const DAY_PAGE_SIZE = 200;
 
 export function useChatSearch({ chatId, onJump }: UseChatSearchOptions) {
   const [active, setActive] = useState(false);
@@ -132,6 +136,21 @@ export function useChatSearch({ chatId, onJump }: UseChatSearchOptions) {
     jump(results, action.index);
   }, [hasMore, index, jump, loadNextPage, results]);
 
+  const jumpToDay = useCallback(async (timestamp: number): Promise<DayJumpResult> => {
+    if (!chatId || !Number.isFinite(timestamp)) return 'failed';
+    const dayStart = startOfDay(timestamp);
+    try {
+      const page = await getMessagesBefore(chatId, dayStart + DAY_MS, DAY_PAGE_SIZE);
+      const target = firstMessageOfDay(page, dayStart);
+      if (!target) return 'empty';
+      onJump(target.id, target.timestamp);
+      return 'jumped';
+    } catch (cause) {
+      console.warn('No se pudo cargar el día elegido.', cause);
+      return 'failed';
+    }
+  }, [chatId, onJump]);
+
   useEffect(() => {
     if (!active) return;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -149,6 +168,7 @@ export function useChatSearch({ chatId, onJump }: UseChatSearchOptions) {
     hasMore,
     highlightedID: results[index]?.id,
     index,
+    jumpToDay,
     loading,
     open,
     query,
