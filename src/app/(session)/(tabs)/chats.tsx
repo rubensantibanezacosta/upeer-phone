@@ -3,11 +3,14 @@ import { ScrollView, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ellipsis, MessageSquarePlus, UserPlus } from '@tamagui/lucide-icons-2';
-import { H1, Text, XStack, YStack } from 'tamagui';
+import { H1, XStack, YStack } from 'tamagui';
 
 import { ChatContextMenu } from '@/components/chat-context-menu';
+import { ChatFilterChips } from '@/components/chat-filter-chips';
+import { ChatListChatsSheet } from '@/components/chat-list-chats-sheet';
 import { ChatListEmptyState } from '@/components/chat-list-empty-state';
 import { ChatListMenu } from '@/components/chat-list-menu';
+import { ChatListsSheet } from '@/components/chat-lists-sheet';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { ContactFormSheet, type ContactDraft } from '@/components/contact-form-sheet';
 import { saveContactDraft } from '@/services/contact-actions';
@@ -17,7 +20,9 @@ import { useChatListActions } from '@/hooks/use-chat-list-actions';
 import { NewConversationList } from '@/components/new-conversation-list';
 import { GroupComposerSheet } from '@/components/group-composer-sheet';
 import { ChatListItem, type ChatListEntry } from '@/components/chat-list-item';
-import { CHAT_LIST_FILTERS, filterChatEntries, isChatFilterActive, type ChatListFilter } from '@/domain/chat-list-filters';
+import { filterChatEntries, isChatFilterActive, type ChatListFilter } from '@/domain/chat-list-filters';
+import { findChatList, restrictToChatList } from '@/domain/chat-lists';
+import { useChatLists } from '@/hooks/use-chat-lists';
 import { previewMessage } from '@/domain/message-preview';
 import { flagsFor, orderByPinned } from '@/domain/conversation-flags';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
@@ -55,8 +60,13 @@ export default function ChatsRoute() {
   const [addingContact, setAddingContact] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [filter, setFilter] = useState<ChatListFilter>('all');
+  const [activeListId, setActiveListId] = useState<string | null>(null);
+  const [listsOpen, setListsOpen] = useState(false);
+  const [editingListId, setEditingListId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const { loading, markLoaded } = useFirstLoad();
+  const chatLists = useChatLists();
+  const activeList = findChatList(chatLists, activeListId);
 
   useEffect(() => {
     const loadContacts = () => {
@@ -110,8 +120,11 @@ export default function ChatsRoute() {
       ...flagsFor(conversationFlags, conversation.upeerId),
     })), [contacts, conversationFlags, conversations, partition.hidden, requestIds]);
 
-  const visibleEntries = useMemo(() => orderByPinned(filterChatEntries(entries, filter, query), conversationFlags), [conversationFlags, entries, filter, query]);
-  const filtering = isChatFilterActive(filter, query);
+  const visibleEntries = useMemo(
+    () => orderByPinned(filterChatEntries(restrictToChatList(entries, activeList), filter, query), conversationFlags),
+    [activeList, conversationFlags, entries, filter, query],
+  );
+  const filtering = isChatFilterActive(filter, query) || activeList !== null;
   const searchActive = query.trim().length > 0;
 
   const messageHits = useGlobalMessageSearch(query);
@@ -191,12 +204,14 @@ export default function ChatsRoute() {
         </XStack>
         <SyncProgressBanner />
         <SearchField onChangeText={setQuery} placeholder="Buscar un chat o iniciar uno nuevo" value={query} />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chatFiltersScroll} contentContainerStyle={styles.chatFilters}>
-          {CHAT_LIST_FILTERS.map((item) => {
-            const active = filter === item.id;
-            return <NativeRipplePressable key={item.id} onPress={() => setFilter(item.id)} style={[styles.chatFilterChip, { backgroundColor: active ? theme.accent : theme.backgroundElement }]}><Text color={active ? theme.onAccent : theme.text} fontSize={scale(13)} fontWeight={active ? '700' : '400'}>{item.label}</Text></NativeRipplePressable>;
-          })}
-        </ScrollView>
+        <ChatFilterChips
+          activeListId={activeListId}
+          filter={filter}
+          lists={chatLists}
+          onManageLists={() => setListsOpen(true)}
+          onSelectFilter={(next) => { setActiveListId(null); setFilter(next); }}
+          onSelectList={(listId) => { setActiveListId(listId); setFilter('all'); }}
+        />
         {searchActive ? (
           <SearchResultsView
             loading={loading}
@@ -219,15 +234,26 @@ export default function ChatsRoute() {
       <ChatContextMenu entry={selectedEntry} onClear={clearEntry} onClose={() => setSelectedEntry(null)} onMarkRead={markEntryRead} onToggleFavorite={toggleEntryFavorite} onToggleFlag={toggleEntryFlag} />
       {menuOpen ? (
         <ChatListMenu
+          onAddContact={() => setAddingContact(true)}
           onClose={() => setMenuOpen(false)}
           onMarkAllRead={markAllRead}
           onNewConversation={() => setComposerOpen(true)}
-          onAddContact={() => setAddingContact(true)}
+          onOpenLists={() => setListsOpen(true)}
           onOpenSettings={() => router.navigate('/settings')}
           onSignOut={() => void signOut()}
           onUnavailable={(label) => showSnackbar(`${label} estará disponible próximamente`)}
         />
       ) : null}
+      <ChatListsSheet
+        onClose={() => setListsOpen(false)}
+        onEditChats={(list) => { setListsOpen(false); setEditingListId(list.id); }}
+        visible={listsOpen}
+      />
+      <ChatListChatsSheet
+        chats={entries.map((entry) => ({ title: entry.title, upeerId: entry.upeerId }))}
+        list={findChatList(chatLists, editingListId)}
+        onClose={() => setEditingListId(null)}
+      />
       <BottomSheet icon={<MessageSquarePlus color={theme.accent} size={20} />} onClose={() => setComposerOpen(false)} title="Nueva conversación" visible={composerOpen}>
         <NewConversationList
           contacts={contacts}
@@ -255,4 +281,4 @@ export default function ChatsRoute() {
   );
 }
 
-const styles = StyleSheet.create({ root: { flex: 1 }, chatContent: { flexGrow: 1, gap: 12, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 18 }, chatFiltersScroll: { flexGrow: 0 }, chatFilters: { alignItems: 'center', gap: 8 }, chatClearButton: { alignItems: 'center', height: 24, justifyContent: 'center', width: 24 }, chatFilterChip: { alignItems: 'center', borderRadius: 999, justifyContent: 'center', marginTop: 8, minHeight: 30, overflow: 'hidden', paddingHorizontal: 12 }, chatMenuButton: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 }, emptyAvatar: { alignItems: 'center', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 } });
+const styles = StyleSheet.create({ root: { flex: 1 }, chatContent: { flexGrow: 1, gap: 12, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 18 }, chatClearButton: { alignItems: 'center', height: 24, justifyContent: 'center', width: 24 }, chatMenuButton: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 }, emptyAvatar: { alignItems: 'center', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 } });
