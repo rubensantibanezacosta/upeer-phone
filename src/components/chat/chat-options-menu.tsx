@@ -1,12 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ban, Bell, BellOff, Download, Eraser, Info, LogOut, Search, Star, Trash2, X } from '@tamagui/lucide-icons-2';
+import { Ban, Bell, BellOff, Download, Eraser, Info, LogOut, Search, Star, Timer, Trash2, X } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { ChatRetentionPicker } from '@/components/chat/chat-retention-picker';
 import { flagsFor } from '@/domain/conversation-flags';
 import { useChatOptions } from '@/hooks/use-chat-options';
+import { useChatRetention } from '@/hooks/use-chat-retention';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
@@ -59,17 +61,22 @@ export function ChatOptionsMenu({ isGroup, messages, name, onChanged, onCloseCha
       .catch((cause: unknown) => console.warn('No se pudo leer el favorito de la conversación.', cause));
   }, [upeerId, visible]);
 
+  const { retention, set: setRetention } = useChatRetention(upeerId);
+  const [retentionOpen, setRetentionOpen] = useState(false);
+
   const run = (action: () => void) => () => {
     onCloseMenu();
     action();
   };
+  const openRetention = run(() => setRetentionOpen(true));
   const toggleFavorite = run(() => {
     setFavorite((current) => !current);
     actions.toggleFavorite();
   });
 
   return (
-    <Modal animationType="fade" onRequestClose={onCloseMenu} presentationStyle="overFullScreen" statusBarTranslucent transparent visible={visible}>
+    <>
+      <Modal animationType="fade" onRequestClose={onCloseMenu} presentationStyle="overFullScreen" statusBarTranslucent transparent visible={visible}>
       <View style={styles.overlay}>
         <Pressable accessibilityLabel="Cerrar opciones de la conversación" onPress={onCloseMenu} style={[StyleSheet.absoluteFill, { backgroundColor: theme.backdrop }]} />
         <View accessibilityViewIsModal style={[styles.menu, { backgroundColor: theme.backgroundElement, borderColor: theme.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
@@ -83,6 +90,7 @@ export function ChatOptionsMenu({ isGroup, messages, name, onChanged, onCloseCha
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <MenuAction color={theme.text} icon={<Info color={theme.text} size={19} />} label={isGroup ? 'Info. del grupo' : 'Info. del contacto'} onPress={run(onOpenInfo)} />
           <MenuAction color={theme.text} icon={<Search color={theme.text} size={19} />} label="Buscar" onPress={run(onSearch)} />
+          <MenuAction color={theme.text} icon={<Timer color={theme.text} size={19} />} label="Mensajes temporales" onPress={openRetention} />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <MenuAction color={theme.text} icon={muted ? <Bell color={theme.text} size={19} /> : <BellOff color={theme.text} size={19} />} label={muted ? 'Reactivar notificaciones' : 'Silenciar notificaciones'} onPress={run(actions.toggleMute)} />
           <MenuAction color={theme.text} icon={<Star color={isFavorite ? theme.accent : theme.text} fill={isFavorite ? theme.accent : 'none'} size={19} />} label={isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />
@@ -98,7 +106,17 @@ export function ChatOptionsMenu({ isGroup, messages, name, onChanged, onCloseCha
           )}
         </View>
       </View>
-    </Modal>
+      </Modal>
+      <ChatRetentionPicker
+        onClose={() => setRetentionOpen(false)}
+        onSelect={(id) => {
+          setRetentionOpen(false);
+          void setRetention(id);
+        }}
+        value={retention}
+        visible={retentionOpen}
+      />
+    </>
   );
 }
 

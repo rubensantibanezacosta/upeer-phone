@@ -62,6 +62,8 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   setNotificationPrefs(prefsJSON: string): Promise<void>;
   setReadReceipts(enabled: boolean): Promise<void>;
   setMutedPeers(mutedJSON: string): Promise<void>;
+  setRetentionMap(mapJSON: string): Promise<void>;
+  retentionStatusJSON(): Promise<string>;
   registerPeer(upeerId: string, address: string, publicKey: string, signedPreKeyJSON: string): Promise<boolean>;
   flushOutbox(): Promise<void>;
   protocolStatus(): Promise<string>;
@@ -404,6 +406,14 @@ export async function setReadReceipts(enabled: boolean): Promise<void> {
 
 export async function setMutedPeers(mutedJSON: string): Promise<void> {
   return nativeModule.setMutedPeers(mutedJSON);
+}
+
+export async function setRetentionMap(mapJSON: string): Promise<void> {
+  return nativeModule.setRetentionMap(mapJSON);
+}
+
+export async function getRetentionStatus(): Promise<string> {
+  return nativeModule.retentionStatusJSON();
 }
 
 export async function registerPeer(upeerId: string, address: string, publicKey: string, signedPreKeyJSON: string): Promise<boolean> {

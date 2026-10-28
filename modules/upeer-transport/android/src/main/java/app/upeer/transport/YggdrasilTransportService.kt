@@ -229,6 +229,17 @@ class YggdrasilTransportService : Service() {
       protocolState.setMutedPeers(muted)
       Log.i(TAG, "Conversaciones silenciadas: ${muted.size}")
     }
+    override fun setRetentionMap(mapJSON: String) {
+      val parsed = runCatching { JSONObject(mapJSON.ifBlank { "{}" }) }.getOrElse { JSONObject() }
+      val map = LinkedHashMap<String, String>()
+      for (chatId in parsed.keys()) {
+        val value = parsed.optString(chatId, "")
+        if (value.isNotEmpty()) map[chatId] = value
+      }
+      protocolState.setRetentionMap(map)
+      Log.i(TAG, "Mensajes temporales sincronizados: ${map.size}")
+    }
+    override fun retentionStatusJSON(): String = protocolState.retentionStatusJSON()
     override fun setProfile(alias: String, avatar: String) {
       protocol.setProfile(alias, avatar)
       Log.i(TAG, "Perfil actualizado: alias=${alias.isNotEmpty()} avatar=${avatar.isNotEmpty()}")

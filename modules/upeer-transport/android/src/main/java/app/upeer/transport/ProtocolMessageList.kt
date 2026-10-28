@@ -7,6 +7,7 @@ internal class ProtocolMessageList(
   private val stateProvider: () -> JSONObject,
   private val lock: Any,
   private val persist: () -> Unit,
+  private val retentionFor: (String) -> String? = { null },
 ) {
   fun owner(messageID: String): String? = synchronized(lock) {
     ProtocolMessageState.find(messages(), messageID)?.optString("upeerId")?.ifEmpty { null }
@@ -20,7 +21,10 @@ internal class ProtocolMessageList(
 
   fun save(message: JSONObject) {
     synchronized(lock) {
-      put(ProtocolMessageState.upsert(messages(), copy(message)))
+      val current = messages()
+      val next = copy(message)
+      MessageRetention.stamp(current, next, retentionFor(next.optString("upeerId")), System.currentTimeMillis())
+      put(ProtocolMessageState.upsert(current, next))
       persist()
     }
   }
@@ -124,6 +128,7 @@ internal class ProtocolMessageList(
 
   fun historyPage(afterTimestamp: Long, afterId: String, limit: Int): List<JSONObject> = synchronized(lock) {
     if (limit <= 0) return@synchronized emptyList()
+    purgeExpired()
     collectAfter(afterTimestamp, afterId).take(limit)
   }
 
@@ -162,15 +167,26 @@ internal class ProtocolMessageList(
   }
 
   fun snapshot(upeerId: String, limit: Int): String = synchronized(lock) {
+    purgeExpired()
     ProtocolMessageState.snapshot(messages(), upeerId, limit)
   }
 
   fun searchJSON(query: String, limit: Int, offset: Int, chatUpeerId: String? = null): String = synchronized(lock) {
+    purgeExpired()
     JSONArray(MessageSearch.matches(query, limit, offset, messages(), chatUpeerId)).toString()
   }
 
   fun historyBeforeJSON(upeerId: String, beforeTimestamp: Long, limit: Int): String = synchronized(lock) {
+    purgeExpired()
     ProtocolMessageState.historyBefore(messages(), upeerId, beforeTimestamp, limit)
+  }
+
+  fun purgeExpired(now: Long = System.currentTimeMillis()) {
+    synchronized(lock) {
+      val next = MessageRetention.withoutExpired(messages(), now) ?: return@synchronized
+      put(next)
+      persist()
+    }
   }
 
   private fun messages(): JSONArray = stateProvider().optJSONArray("messages") ?: JSONArray()

@@ -23,6 +23,7 @@ import { ChatListItem, type ChatListEntry } from '@/components/chat-list-item';
 import { filterChatEntries, isChatFilterActive, type ChatListFilter } from '@/domain/chat-list-filters';
 import { findChatList, restrictToChatList } from '@/domain/chat-lists';
 import { useChatLists } from '@/hooks/use-chat-lists';
+import { useChatRetention } from '@/hooks/use-chat-retention';
 import { previewMessage } from '@/domain/message-preview';
 import { flagsFor, orderByPinned } from '@/domain/conversation-flags';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
@@ -66,6 +67,7 @@ export default function ChatsRoute() {
   const [query, setQuery] = useState('');
   const { loading, markLoaded } = useFirstLoad();
   const chatLists = useChatLists();
+  useChatRetention();
   const activeList = findChatList(chatLists, activeListId);
 
   useEffect(() => {

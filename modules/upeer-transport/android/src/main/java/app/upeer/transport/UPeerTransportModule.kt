@@ -125,6 +125,8 @@ class UPeerTransportModule : Module() {
     AsyncFunction("setNotificationPrefs") { prefsJSON: String -> service().setNotificationPrefs(prefsJSON) }
     AsyncFunction("setReadReceipts") { enabled: Boolean -> service().setReadReceipts(enabled) }
     AsyncFunction("setMutedPeers") { mutedJSON: String -> service().setMutedPeers(mutedJSON) }
+    AsyncFunction("setRetentionMap") { mapJSON: String -> service().setRetentionMap(mapJSON) }
+    AsyncFunction("retentionStatusJSON") { service().retentionStatusJSON() }
     AsyncFunction("registerPeer") { upeerId: String, address: String, publicKey: String, signedPreKeyJSON: String ->
       service().registerPeer(upeerId, address, publicKey, signedPreKeyJSON)
     }

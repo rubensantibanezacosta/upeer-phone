@@ -17,7 +17,8 @@ internal class ProtocolStateStore(context: Context) {
   private var state = ProtocolStateCodec.load(store)
   private var lastSyncState = ""
 
-  val messages = ProtocolMessageList({ state }, lock, ::persist)
+  val retention = ProtocolRetention({ state }, lock, ::persist)
+  val messages = ProtocolMessageList({ state }, lock, ::persist, ::retentionId)
   val groups = ProtocolGroups({ state }, lock, ::persist)
   val groupKeys = ProtocolGroupKeys({ state }, lock, ::persist)
   val presence = ProtocolPresence({ state }, lock, ::persist)
@@ -267,6 +268,7 @@ internal class ProtocolStateStore(context: Context) {
     messages.historyBeforeJSON(upeerId, beforeTimestamp, limit)
 
   fun conversationsJSON(): String = synchronized(lock) {
+    messages.purgeExpired()
     ProtocolConversations.build(
       state.optJSONArray("messages") ?: JSONArray(),
       state.optJSONObject("peers") ?: JSONObject(),
@@ -300,6 +302,16 @@ internal class ProtocolStateStore(context: Context) {
   fun isMuted(upeerId: String): Boolean = preferences.isMuted(upeerId)
 
   fun setMutedPeers(upeerIds: List<String>) = preferences.setMuted(upeerIds)
+
+  fun retentionId(upeerId: String): String = retention.id(upeerId)
+
+  fun retentionStatusJSON(): String = retention.statusJSON()
+
+  fun setRetentionMap(map: Map<String, String>): String {
+    retention.set(map)
+    messages.purgeExpired()
+    return retention.statusJSON()
+  }
 
   fun markTyping(upeerId: String, activity: String, untilMillis: Long) = typing.mark(upeerId, activity, untilMillis)
 

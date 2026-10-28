@@ -15,6 +15,7 @@ import { ChatTimelineList } from '@/components/chat/chat-timeline-list';
 import { MediaViewer } from '@/components/media/media-viewer';
 import { useSnackbar } from '@/components/snackbar';
 import { buildChatTimeline, mergeChatHistory, toInvertedChatTimeline, type ChatTimelineEntry } from '@/domain/chat-timeline';
+import { dropExpired } from '@/domain/retention';
 import type { AttachmentInfo } from '@/domain/attachment';
 import type { ConversationActivity } from '@/domain/chat-preview';
 import { useChatBack } from '@/hooks/use-chat-back';
@@ -32,6 +33,7 @@ import { placeholderName, resolveContactName } from '@/domain/contact-name';
 import { useChatRowRenderer } from '@/hooks/use-chat-row-renderer';
 import { useChatComposerArea } from '@/hooks/use-chat-composer-area';
 import { useChatSearchController } from '@/hooks/use-chat-search-controller';
+import { useChatRetention } from '@/hooks/use-chat-retention';
 import { useChatSelection } from '@/hooks/use-chat-selection';
 import { useContactCard } from '@/hooks/use-contact-card';
 import { usePresenceLabel } from '@/hooks/use-presence-label';
@@ -68,7 +70,7 @@ export default function ChatRoute() {
   const refresh = useCallback(async () => {
     if (!upeerId) return;
     const [nextMessages, contacts, conversations] = await Promise.all([getMessages(upeerId, MESSAGE_LIMIT), getContacts(), getConversations()]);
-    setMessages((current) => mergeChatHistory(nextMessages, current));
+    setMessages((current) => dropExpired(mergeChatHistory(nextMessages, current), Date.now()));
     markMessagesLoaded();
     setContacts(contacts);
     const contact = contacts.find((item) => item.upeerId === upeerId);
@@ -173,6 +175,7 @@ export default function ChatRoute() {
   const reloadContacts = useCallback(() => refresh().catch((cause: unknown) => console.warn('No se pudo recargar la agenda.', cause)), [refresh]);
   const contactCard = useContactCard({ contacts, onOpenContact: openContactInfo, onSaved: reloadContacts });
   const presence = usePresenceLabel(peerPresence.lastActive, peerPresence.lastSeen);
+  const { notice: retentionNotice } = useChatRetention(upeerId);
   const androidKeyboard = useAndroidKeyboardHeight();
   const openCard = contactCard.open;
   const savedContactIds = contactCard.savedIds;
@@ -256,6 +259,7 @@ export default function ChatRoute() {
               data={timeline}
               listRef={listRef}
               loading={loadingMessages}
+              notice={retentionNotice}
               onScroll={handleScroll}
               onScrollToIndexFailed={handleScrollToIndexFailed}
               onScrollToLatest={scrollToLatest}

@@ -4,6 +4,7 @@ import { FlatList, StyleSheet, View, type ListRenderItemInfo, type NativeScrollE
 
 import { ChatActivityBubble } from '@/components/chat/chat-activity-bubble';
 import { ChatEmptyState } from '@/components/chat/chat-empty-state';
+import { ChatRetentionNotice } from '@/components/chat/chat-retention-notice';
 import { ChatScrollButton } from '@/components/chat/chat-scroll-button';
 import type { ConversationActivity } from '@/domain/chat-preview';
 import type { ChatTimelineEntry } from '@/domain/chat-timeline';
@@ -15,6 +16,7 @@ type ChatTimelineListProps = {
   data: ChatTimelineEntry[];
   listRef: React.RefObject<FlatList<ChatTimelineEntry> | null>;
   loading?: boolean;
+  notice?: string | null;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onScrollToIndexFailed?: (info: ChatScrollToIndexFailure) => void;
   onScrollToLatest: () => void;
@@ -24,7 +26,7 @@ type ChatTimelineListProps = {
 
 const keyExtractor = (entry: ChatTimelineEntry) => entry.message.id;
 
-export const ChatTimelineList = memo(function ChatTimelineList({ activity = '', data, listRef, loading = false, onScroll, onScrollToIndexFailed, onScrollToLatest, renderItem, showScrollButton }: ChatTimelineListProps) {
+export const ChatTimelineList = memo(function ChatTimelineList({ activity = '', data, listRef, loading = false, notice = null, onScroll, onScrollToIndexFailed, onScrollToLatest, renderItem, showScrollButton }: ChatTimelineListProps) {
   const fallbackScrollToIndexFailed = useCallback((info: ChatScrollToIndexFailure) => {
     listRef.current?.scrollToOffset({ animated: false, offset: info.averageItemLength * info.index });
     setTimeout(() => {
@@ -44,7 +46,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({ activity = '', 
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
           keyExtractor={keyExtractor}
-          ListHeaderComponent={activity ? <ChatActivityBubble activity={activity} /> : undefined}
+          ListHeaderComponent={<>{activity ? <ChatActivityBubble activity={activity} /> : null}<ChatRetentionNotice text={notice} /></>}
           maxToRenderPerBatch={16}
           onScroll={onScroll}
           onScrollToIndexFailed={onScrollToIndexFailed ?? fallbackScrollToIndexFailed}

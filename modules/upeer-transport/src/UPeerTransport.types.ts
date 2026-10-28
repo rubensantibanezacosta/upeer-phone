@@ -42,6 +42,7 @@ export type ProtocolMessage = {
   deleted?: boolean;
   deletedAt?: number;
   reactions?: Record<string, string[]>;
+  expiresAt?: number;
 };
 
 export type ProtocolGroup = {
