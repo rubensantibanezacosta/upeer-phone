@@ -6,6 +6,7 @@ import { ChatActivityBubble } from '@/components/chat/chat-activity-bubble';
 import { ChatEmptyState } from '@/components/chat/chat-empty-state';
 import { ChatRetentionNotice } from '@/components/chat/chat-retention-notice';
 import { ChatScrollButton } from '@/components/chat/chat-scroll-button';
+import { ChatStyleBackground } from '@/components/chat/chat-style-background';
 import type { ConversationActivity } from '@/domain/chat-preview';
 import type { ChatTimelineEntry } from '@/domain/chat-timeline';
 import type { ChatScrollToIndexFailure } from '@/hooks/use-chat-anchor';
@@ -22,11 +23,12 @@ type ChatTimelineListProps = {
   onScrollToLatest: () => void;
   renderItem: (info: ListRenderItemInfo<ChatTimelineEntry>) => ReactElement;
   showScrollButton: boolean;
+  styleId?: string | null;
 };
 
 const keyExtractor = (entry: ChatTimelineEntry) => entry.message.id;
 
-export const ChatTimelineList = memo(function ChatTimelineList({ activity = '', data, listRef, loading = false, notice = null, onScroll, onScrollToIndexFailed, onScrollToLatest, renderItem, showScrollButton }: ChatTimelineListProps) {
+export const ChatTimelineList = memo(function ChatTimelineList({ activity = '', data, listRef, loading = false, notice = null, onScroll, onScrollToIndexFailed, onScrollToLatest, renderItem, showScrollButton, styleId = null }: ChatTimelineListProps) {
   const fallbackScrollToIndexFailed = useCallback((info: ChatScrollToIndexFailure) => {
     listRef.current?.scrollToOffset({ animated: false, offset: info.averageItemLength * info.index });
     setTimeout(() => {
@@ -36,6 +38,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({ activity = '', 
 
   return (
     <View style={styles.timeline}>
+      <ChatStyleBackground styleId={styleId} />
       {data.length === 0 ? (loading ? <LoadingState label="Cargando mensajes…" /> : <ChatEmptyState />) : (
         <FlatList
           ref={listRef}

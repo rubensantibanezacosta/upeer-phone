@@ -34,6 +34,7 @@ import { useChatRowRenderer } from '@/hooks/use-chat-row-renderer';
 import { useChatComposerArea } from '@/hooks/use-chat-composer-area';
 import { useChatSearchController } from '@/hooks/use-chat-search-controller';
 import { useChatRetention } from '@/hooks/use-chat-retention';
+import { useChatStyle } from '@/hooks/use-chat-style';
 import { useChatSelection } from '@/hooks/use-chat-selection';
 import { useContactCard } from '@/hooks/use-contact-card';
 import { usePresenceLabel } from '@/hooks/use-presence-label';
@@ -176,6 +177,7 @@ export default function ChatRoute() {
   const contactCard = useContactCard({ contacts, onOpenContact: openContactInfo, onSaved: reloadContacts });
   const presence = usePresenceLabel(peerPresence.lastActive, peerPresence.lastSeen);
   const { notice: retentionNotice } = useChatRetention(upeerId);
+  const { styleId: chatStyleId } = useChatStyle(upeerId);
   const androidKeyboard = useAndroidKeyboardHeight();
   const openCard = contactCard.open;
   const savedContactIds = contactCard.savedIds;
@@ -265,6 +267,7 @@ export default function ChatRoute() {
               onScrollToLatest={scrollToLatest}
               renderItem={renderItem}
               showScrollButton={showScrollButton}
+              styleId={chatStyleId}
             />
           )}
           {selection.active ? (
