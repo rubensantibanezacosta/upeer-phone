@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { CheckCheck, ListPlus, LogOut, Settings, Users, UserPlus, UsersRound } from '@tamagui/lucide-icons-2';
+import { CheckCheck, ListPlus, LogOut, Settings, Star, Users, UserPlus, UsersRound } from '@tamagui/lucide-icons-2';
 import { Text } from 'tamagui';
 
 import { confirmSignOut } from '@/components/confirm-sign-out';
@@ -14,12 +14,13 @@ type ChatListMenuProps = {
   onNewConversation: () => void;
   onAddContact: () => void;
   onOpenLists: () => void;
+  onOpenStarred: () => void;
   onOpenSettings: () => void;
   onSignOut: () => void;
   onUnavailable: (label: string) => void;
 };
 
-export function ChatListMenu({ onClose, onMarkAllRead, onNewConversation, onAddContact, onOpenLists, onOpenSettings, onSignOut, onUnavailable }: ChatListMenuProps) {
+export function ChatListMenu({ onClose, onMarkAllRead, onNewConversation, onAddContact, onOpenLists, onOpenStarred, onOpenSettings, onSignOut, onUnavailable }: ChatListMenuProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const run = (action: () => void) => () => {
@@ -42,6 +43,7 @@ export function ChatListMenu({ onClose, onMarkAllRead, onNewConversation, onAddC
         {item(<Users color={theme.text} size={18} />, 'Añadir contacto', run(onAddContact))}
         {item(<UsersRound color={theme.text} size={18} />, 'Nuevo grupo', run(() => onUnavailable('Nuevo grupo')))}
         {item(<ListPlus color={theme.text} size={18} />, 'Listas', run(onOpenLists))}
+        {item(<Star color={theme.text} size={18} />, 'Mensajes destacados', run(onOpenStarred))}
         {item(<CheckCheck color={theme.text} size={18} />, 'Marcar todo como leído', run(onMarkAllRead))}
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
         {item(<Settings color={theme.text} size={18} />, 'Configuración', run(onOpenSettings))}

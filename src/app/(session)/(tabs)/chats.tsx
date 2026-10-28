@@ -10,6 +10,7 @@ import { ChatFilterChips } from '@/components/chat-filter-chips';
 import { ChatListChatsSheet } from '@/components/chat-list-chats-sheet';
 import { ChatListEmptyState } from '@/components/chat-list-empty-state';
 import { ChatListMenu } from '@/components/chat-list-menu';
+import { StarredGlobalSheet } from '@/components/starred-global-sheet';
 import { ChatListsSheet } from '@/components/chat-lists-sheet';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { ContactFormSheet, type ContactDraft } from '@/components/contact-form-sheet';
@@ -63,6 +64,7 @@ export default function ChatsRoute() {
   const [filter, setFilter] = useState<ChatListFilter>('all');
   const [activeListId, setActiveListId] = useState<string | null>(null);
   const [listsOpen, setListsOpen] = useState(false);
+  const [starredOpen, setStarredOpen] = useState(false);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const { loading, markLoaded } = useFirstLoad();
@@ -121,6 +123,8 @@ export default function ChatsRoute() {
       members: conversation.members,
       ...flagsFor(conversationFlags, conversation.upeerId),
     })), [contacts, conversationFlags, conversations, partition.hidden, requestIds]);
+
+  const chatTitles = useMemo(() => Object.fromEntries(entries.map((item) => [item.upeerId, item.title])), [entries]);
 
   const visibleEntries = useMemo(
     () => orderByPinned(filterChatEntries(restrictToChatList(entries, activeList), filter, query), conversationFlags),
@@ -241,6 +245,7 @@ export default function ChatsRoute() {
           onMarkAllRead={markAllRead}
           onNewConversation={() => setComposerOpen(true)}
           onOpenLists={() => setListsOpen(true)}
+          onOpenStarred={() => setStarredOpen(true)}
           onOpenSettings={() => router.navigate('/settings')}
           onSignOut={() => void signOut()}
           onUnavailable={(label) => showSnackbar(`${label} estará disponible próximamente`)}
@@ -255,6 +260,12 @@ export default function ChatsRoute() {
         chats={entries.map((entry) => ({ title: entry.title, upeerId: entry.upeerId }))}
         list={findChatList(chatLists, editingListId)}
         onClose={() => setEditingListId(null)}
+      />
+      <StarredGlobalSheet
+        onClose={() => setStarredOpen(false)}
+        onOpen={(chatId, messageId) => router.push({ pathname: '/chat/[upeerId]', params: { messageId, upeerId: chatId } })}
+        titles={chatTitles}
+        visible={starredOpen}
       />
       <BottomSheet icon={<MessageSquarePlus color={theme.accent} size={20} />} onClose={() => setComposerOpen(false)} title="Nueva conversación" visible={composerOpen}>
         <NewConversationList
