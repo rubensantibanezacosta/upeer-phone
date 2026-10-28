@@ -210,6 +210,10 @@ internal class ProtocolStateStore(context: Context) {
     state.optJSONObject("peers")?.optJSONObject(upeerId)?.optString("address")?.ifEmpty { null }
   }
 
+  fun aliasFor(upeerId: String): String = synchronized(lock) {
+    state.optJSONObject("peers")?.optJSONObject(upeerId)?.optString("alias").orEmpty()
+  }
+
   fun peersJSON(): String = synchronized(lock) {
     JSONObject(state.optJSONObject("peers")?.toString() ?: "{}").toString()
   }

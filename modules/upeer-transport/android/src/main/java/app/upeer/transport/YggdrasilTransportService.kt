@@ -316,6 +316,13 @@ class YggdrasilTransportService : Service() {
     override fun requestFile(upeerId: String, fileId: String, messageId: String, chatUpeerId: String): Boolean =
       protocol.requestFile(upeerId, fileId, messageId.ifBlank { null }, chatUpeerId.ifBlank { null })
     override fun outboundFilesJSON(): String = protocol.outboundFiles()
+    override fun startCall(upeerId: String, kind: String): String = protocol.startCall(upeerId, kind).orEmpty()
+    override fun acceptCall(callId: String): Boolean = protocol.acceptCall(callId)
+    override fun rejectCall(callId: String): Boolean = protocol.rejectCall(callId)
+    override fun endCall(callId: String): Boolean = protocol.endCall(callId)
+    override fun setCallMute(callId: String, muted: Boolean): Boolean = protocol.setCallMute(callId, muted)
+    override fun setCallCamera(callId: String, enabled: Boolean): Boolean = protocol.setCallCamera(callId, enabled)
+    override fun callStateJSON(): String = protocol.callStateJSON()
     override fun deviceEnrollmentLastIssued(): String = lastIssued
     override fun deviceEnrollmentSubmit(): String =
       this@YggdrasilTransportService.submitEnrollment()
@@ -392,6 +399,13 @@ class YggdrasilTransportService : Service() {
       { accountRegistry.registryJSON() },
       { enrollment.installedAuthorizerAddress() },
     )
+    protocol.setIncomingCallListener { call ->
+      notifications.notifyCall(
+        call.peerUpeerId,
+        protocolState.aliasFor(call.peerUpeerId),
+        call.kind,
+      )
+    }
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

@@ -84,6 +84,15 @@ internal class YggdrasilProtocol(
     selfUpeerId = { identity.current()?.upeerID().orEmpty() },
   )
   private val fileRequests = FileRequestOutbound(::sendSealed)
+  private val callEvents = CallEvents(state.messages) { upeerId, content, messageId ->
+    outbox.enqueue(upeerId, content, "", messageId)
+  }
+  private val callStore = CallStore(onEnded = callEvents::onEnded)
+  private val callInbound = CallInbound(
+    store = callStore,
+    send = { upeerId, data, label -> controlSender.scheduleCall(upeerId, data, label) },
+    onIncoming = ::onIncomingCall,
+  )
   private val vaultReplies = VaultReplies(
     identity,
     deviceBindings,
@@ -121,6 +130,93 @@ internal class YggdrasilProtocol(
   )
 
   fun attachVaultDirectory(directory: VaultDirectory) = outbox.attachVaultDirectory(directory)
+
+  @Volatile
+  private var incomingCallListener: ((CallSession) -> Unit)? = null
+
+  fun setIncomingCallListener(listener: (CallSession) -> Unit) {
+    incomingCallListener = listener
+  }
+
+  private fun onIncomingCall(session: CallSession) {
+    incomingCallListener?.invoke(session)
+  }
+
+  fun startCall(upeerId: String, kind: String): String? {
+    if (upeerId.isBlank()) return null
+    if (state.isBlocked(upeerId)) {
+      Log.i(TAG, "Llamada a $upeerId no iniciada: contacto bloqueado")
+      return null
+    }
+    if (state.addressFor(upeerId) == null) {
+      Log.i(TAG, "Llamada a $upeerId no iniciada: sin dirección conocida")
+      return null
+    }
+    val session = callStore.start(upeerId, kind, outgoing = true) ?: run {
+      Log.i(TAG, "Llamada a $upeerId no iniciada: ya hay otra en curso")
+      return null
+    }
+    val packet = CallPackets.offer(session.callId, session.kind, System.currentTimeMillis())
+    controlSender.scheduleCall(upeerId, packet, CallPackets.OFFER)
+    return session.callId
+  }
+
+  fun acceptCall(callId: String): Boolean {
+    val session = callStore.active() ?: return false
+    if (session.callId != callId || session.outgoing) return false
+    if (!callStore.accept(callId)) return false
+    controlSender.scheduleCall(session.peerUpeerId, CallPackets.accept(callId, System.currentTimeMillis()), CallPackets.ACCEPT)
+    callStore.connect(callId)
+    return true
+  }
+
+  fun rejectCall(callId: String): Boolean {
+    val session = callStore.active() ?: return false
+    if (session.callId != callId) return false
+    if (!callStore.end(callId, CallEndReasons.REJECTED)) return false
+    val packet = if (session.outgoing) {
+      CallPackets.cancel(callId, System.currentTimeMillis())
+    } else {
+      CallPackets.reject(callId, System.currentTimeMillis())
+    }
+    controlSender.scheduleCall(session.peerUpeerId, packet, packet.optString("type"))
+    return true
+  }
+
+  fun endCall(callId: String): Boolean {
+    val session = callStore.active() ?: return false
+    if (session.callId != callId) return false
+    if (!callStore.end(callId, CallEndReasons.LOCAL_HANGUP)) return false
+    val connected = session.connectedAt > 0L
+    val packet = if (!connected && session.outgoing) {
+      CallPackets.cancel(callId, System.currentTimeMillis())
+    } else {
+      CallPackets.end(callId, System.currentTimeMillis())
+    }
+    controlSender.scheduleCall(session.peerUpeerId, packet, packet.optString("type"))
+    return true
+  }
+
+  fun setCallMute(callId: String, muted: Boolean): Boolean {
+    val session = callStore.active() ?: return false
+    if (!callStore.setMuted(callId, muted)) return false
+    broadcastCallMedia(session)
+    return true
+  }
+
+  fun setCallCamera(callId: String, enabled: Boolean): Boolean {
+    val session = callStore.active() ?: return false
+    if (!callStore.setCamera(callId, enabled)) return false
+    broadcastCallMedia(session)
+    return true
+  }
+
+  fun callStateJSON(): String = callStore.snapshotJSON()
+
+  private fun broadcastCallMedia(session: CallSession) {
+    val packet = CallPackets.mediaUpdate(session.callId, session.muted, session.cameraEnabled, System.currentTimeMillis())
+    controlSender.scheduleCall(session.peerUpeerId, packet, CallPackets.MEDIA_UPDATE)
+  }
 
   fun attachSyncDiscovery(
     store: (String, String) -> Int,
@@ -336,7 +432,7 @@ internal class YggdrasilProtocol(
     if (FILE_TYPES.contains(type)) {
       return handleFilePacket(activeBridge, payload, packet, type, sourceAddress)
     }
-    if (type !in SIGNED_MESSAGE_TYPES) throw IllegalArgumentException("unsupported packet type $type")
+    if (type !in SIGNED_MESSAGE_TYPES && type !in CallPackets.TYPES) throw IllegalArgumentException("unsupported packet type $type")
     val senderUpeerId = packet.optString("senderUpeerId").lowercase()
     val publicKey = state.publicKeyFor(senderUpeerId)
       ?: throw IllegalStateException("unknown peer $senderUpeerId")
@@ -373,6 +469,10 @@ internal class YggdrasilProtocol(
       "GROUP_ACK" -> receiveGroupAck(packet, metadataJSON)
       ReputationReplies.GOSSIP, ReputationReplies.REQUEST, ReputationReplies.DELIVER ->
         receiveReputation(packet, senderUpeerId, type, metadataJSON)
+      in CallPackets.TYPES -> {
+        callInbound.handle(packet, senderUpeerId, type)
+        metadataJSON
+      }
       else -> chatInbound.receive(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
     }
   }

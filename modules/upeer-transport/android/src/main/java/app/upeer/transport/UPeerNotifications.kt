@@ -186,6 +186,33 @@ internal class UPeerNotifications(
 
   private fun manager(): NotificationManager = context.getSystemService(NotificationManager::class.java)
 
+  fun notifyCall(upeerId: String, alias: String, kind: String) {
+    if (!canPostNotifications()) {
+      Log.w(TAG, "No se muestra la llamada de $upeerId: POST_NOTIFICATIONS no está concedido")
+      return
+    }
+    val current = prefs()
+    if (!current.allows(isKnownContact(upeerId))) {
+      Log.i(TAG, "Llamada de $upeerId omitida por las preferencias de notificaciones")
+      return
+    }
+    val title = alias.trim().ifEmpty { "uPeer · ${upeerId.take(8)}" }
+    val channelId = messageChannelId(current.sound)
+    val notificationId = messageNotificationId(upeerId)
+    val notification = builder(channelId)
+      .setSmallIcon(android.R.drawable.stat_notify_chat)
+      .setContentTitle(title)
+      .setContentText(if (kind == CallKinds.VIDEO) "Videollamada entrante" else "Llamada de voz entrante")
+      .setCategory(Notification.CATEGORY_CALL)
+      .setAutoCancel(true)
+      .setContentIntent(chatPendingIntent(upeerId, notificationId))
+      .setVisibility(Notification.VISIBILITY_PRIVATE)
+      .apply { if (!current.sound) applySilence() }
+      .build()
+    manager().notify(notificationId, notification)
+    Log.i(TAG, "Aviso de llamada entrante de $upeerId")
+  }
+
   private fun pendingIntentFlags(): Int = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
   private fun preview(content: String): String {

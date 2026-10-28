@@ -44,7 +44,7 @@ import { useTheme } from '@/hooks/use-theme';
 import type { PickedAttachment } from '@/services/attachment-picker';
 import { getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
 import type { ProtocolMessage } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
-import { getMessages, getConversations, markConversationRead } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
+import { getMessages, getConversations, markConversationRead, startCall as startChatCall } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
 
 const MESSAGE_LIMIT = 200;
 
@@ -195,6 +195,19 @@ export default function ChatRoute() {
     showSnackbar(`${label}: pendiente en el roadmap`);
   }, [showSnackbar]);
 
+  const startCall = useCallback((kind: 'audio' | 'video') => {
+    if (isGroup) {
+      showSnackbar('La llamada de grupo llegará más adelante');
+      return;
+    }
+    void startChatCall(upeerId ?? '', kind).then((callId) => {
+      if (!callId) showSnackbar('No se pudo iniciar la llamada');
+    }).catch((cause: unknown) => {
+      console.warn('No se pudo iniciar la llamada.', cause);
+      showSnackbar('No se pudo iniciar la llamada');
+    });
+  }, [isGroup, showSnackbar, upeerId]);
+
   const [media, setMedia] = useState<AttachmentInfo | null>(null);
   const requestAttachment = useAttachmentRequester(upeerId ?? '');
   const openAttachment = useAttachmentOpener(setMedia, requestAttachment);
@@ -255,7 +268,7 @@ export default function ChatRoute() {
     <View style={styles.root}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
         {selection.active ? <ChatSelectionBar count={selection.chosen.length} onClose={selection.clear} /> : null}
-        <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={openInfo} onOpenMenu={() => setMenuOpen(true)} onUnavailable={showUnavailable} presence={isGroup ? (groupMembers > 0 ? `${groupMembers} miembros` : 'Grupo') : presence} status={contactStatus} activity={peerActivity} upeerId={upeerId ?? ''} />
+        <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={openInfo} onOpenMenu={() => setMenuOpen(true)} onStartCall={startCall} onUnavailable={showUnavailable} presence={isGroup ? (groupMembers > 0 ? `${groupMembers} miembros` : 'Grupo') : presence} status={contactStatus} activity={peerActivity} upeerId={upeerId ?? ''} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.root, androidKeyboard > 0 ? { paddingBottom: androidKeyboard } : null]}>
           {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} upeerId={upeerId ?? ''} /> : (
             <ChatTimelineList

@@ -84,6 +84,13 @@ class UPeerTransportModule extends NativeModule<{}> {
   async cancelFile(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async requestFile(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async outboundFilesJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async startCall(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async acceptCall(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async rejectCall(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async endCall(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async setCallMute(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async setCallCamera(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async callStateJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
 }
 
 export default registerWebModule(UPeerTransportModule, 'UPeerTransport');

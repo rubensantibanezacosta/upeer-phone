@@ -101,6 +101,41 @@ internal class ControlSender(
     thread.start()
   }
 
+  /** La señalización de llamada viaja firmada pero sin sellar, igual que en el escritorio. */
+  fun scheduleCall(upeerId: String, data: JSONObject, label: String) {
+    val thread = Thread({ sendSigned(upeerId, data, label) }, "upeer-${label.lowercase()}")
+    thread.isDaemon = true
+    thread.start()
+  }
+
+  private fun sendSigned(upeerId: String, data: JSONObject, label: String) {
+    val activeBridge = bridgeProvider() ?: return
+    val address = state.addressFor(upeerId) ?: return
+    val currentIdentity = identity.current() ?: return
+    val device = identity.currentDevice()
+    var connectionID = 0
+    try {
+      val frame = if (device != null) {
+        device.crypto.buildLinkedControl(device.deviceId, currentIdentity.upeerID(), activeBridge.address(), data.toString())
+      } else {
+        currentIdentity.buildSignedPacket(activeBridge.address(), data.toString())
+      }
+      connectionID = activeBridge.dialTCP(address, PORT)
+      activeBridge.writeFrame(connectionID, frame.toByteArray(Charsets.UTF_8))
+      Log.i(TAG, "$label enviado a $address")
+    } catch (cause: Exception) {
+      Log.w(TAG, "No se pudo enviar $label a $address: ${message(cause)}")
+    } finally {
+      if (connectionID != 0) {
+        try {
+          activeBridge.closeConnection(connectionID)
+        } catch (cause: Exception) {
+          Log.w(TAG, "No se pudo cerrar la conexión de $label: ${message(cause)}")
+        }
+      }
+    }
+  }
+
   private fun sendGroupAck(senderUpeerId: String, messageID: String, groupId: String) {
     if (!ReplayPolicy.validMessageID(messageID) || !ProtocolGroups.validId(groupId)) return
     val activeBridge = bridgeProvider() ?: return

@@ -24,6 +24,7 @@ type ChatHeaderProps = {
   onBack: () => void;
   onOpenInfo: () => void;
   onOpenMenu: () => void;
+  onStartCall?: (kind: 'audio' | 'video') => void;
   onUnavailable: (label: string) => void;
 };
 
@@ -35,7 +36,7 @@ function HeaderAction({ label, onPress, children }: { label: string; onPress: ()
   );
 }
 
-export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isRequest = false, activity = '', presence = null, onBack, onOpenInfo, onOpenMenu, onUnavailable }: ChatHeaderProps) {
+export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isRequest = false, activity = '', presence = null, onBack, onOpenInfo, onOpenMenu, onStartCall, onUnavailable }: ChatHeaderProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const score = useVouchScore(upeerId) ?? vouchScore;
@@ -57,8 +58,8 @@ export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isReque
           <Text color={activity ? theme.accent : theme.placeholder} fontSize={scale(12)} numberOfLines={1}>{subtitle}</Text>
         </YStack>
       </NativeRipplePressable>
-      {isRequest ? null : <HeaderAction label="Videollamada" onPress={() => onUnavailable('Videollamada')}><Video color={theme.text} size={24} /></HeaderAction>}
-      {isRequest ? null : <HeaderAction label="Llamada de voz" onPress={() => onUnavailable('Llamada de voz')}><Phone color={theme.text} size={22} /></HeaderAction>}
+      {isRequest ? null : <HeaderAction label="Videollamada" onPress={() => (onStartCall ? onStartCall('video') : onUnavailable('Videollamada'))}><Video color={theme.text} size={24} /></HeaderAction>}
+      {isRequest ? null : <HeaderAction label="Llamada de voz" onPress={() => (onStartCall ? onStartCall('audio') : onUnavailable('Llamada de voz'))}><Phone color={theme.text} size={22} /></HeaderAction>}
       <HeaderAction label="Opciones de la conversación" onPress={onOpenMenu}><MoreVertical color={theme.text} size={24} /></HeaderAction>
     </XStack>
   );

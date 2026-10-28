@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 import { Stack, router } from 'expo-router';
 
+import { CallOverlay } from '@/components/call/call-overlay';
 import { SessionShell } from '@/components/session-shell';
 import { SyncBlockingOverlay } from '@/components/sync-blocking-overlay';
 import { ThemedText } from '@/components/themed-text';
@@ -34,6 +35,7 @@ export default function AuthenticatedLayout() {
       <Stack.Screen name="contact/[upeerId]" options={{ headerShown: false }} />
     </Stack>
     <SyncBlockingOverlay />
+    <CallOverlay />
   </SessionShell>;
 }
 

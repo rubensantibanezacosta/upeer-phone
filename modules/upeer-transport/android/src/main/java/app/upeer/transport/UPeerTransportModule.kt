@@ -185,6 +185,13 @@ class UPeerTransportModule : Module() {
       service().requestFile(upeerId, fileId, messageId, chatUpeerId)
     }
     AsyncFunction("outboundFilesJSON") { service().outboundFilesJSON() }
+    AsyncFunction("startCall") { upeerId: String, kind: String -> service().startCall(upeerId, kind) }
+    AsyncFunction("acceptCall") { callId: String -> service().acceptCall(callId) }
+    AsyncFunction("rejectCall") { callId: String -> service().rejectCall(callId) }
+    AsyncFunction("endCall") { callId: String -> service().endCall(callId) }
+    AsyncFunction("setCallMute") { callId: String, muted: Boolean -> service().setCallMute(callId, muted) }
+    AsyncFunction("setCallCamera") { callId: String, enabled: Boolean -> service().setCallCamera(callId, enabled) }
+    AsyncFunction("callStateJSON") { service().callStateJSON() }
   }
 
   private fun bind() {

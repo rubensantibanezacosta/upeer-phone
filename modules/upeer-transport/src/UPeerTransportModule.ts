@@ -106,6 +106,13 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   cancelFile(fileId: string): Promise<boolean>;
   requestFile(upeerId: string, fileId: string, messageId: string, chatUpeerId: string): Promise<boolean>;
   outboundFilesJSON(): Promise<string>;
+  startCall(upeerId: string, kind: string): Promise<string>;
+  acceptCall(callId: string): Promise<boolean>;
+  rejectCall(callId: string): Promise<boolean>;
+  endCall(callId: string): Promise<boolean>;
+  setCallMute(callId: string, muted: boolean): Promise<boolean>;
+  setCallCamera(callId: string, enabled: boolean): Promise<boolean>;
+  callStateJSON(): Promise<string>;
   generateNodeSeed(): Promise<number[]>;
 }
 
@@ -608,5 +615,58 @@ export async function requestFile(
 
 export async function getOutboundFiles(): Promise<OutboundFileTransfer[]> {
   return JSON.parse(await nativeModule.outboundFilesJSON()) as OutboundFileTransfer[];
+}
+
+export type CallKind = 'audio' | 'video';
+export type CallDirection = 'outgoing' | 'incoming';
+export type CallPhase = 'outgoing-ringing' | 'incoming-ringing' | 'negotiating' | 'connected' | 'ended';
+
+export type CallState = {
+  callId: string;
+  peerUpeerId: string;
+  kind: CallKind;
+  direction: CallDirection;
+  phase: CallPhase;
+  muted: boolean;
+  cameraEnabled: boolean;
+  startedAt: number;
+  connectedAt: number;
+  endedAt: number;
+  endReason: string;
+};
+
+export async function startCall(upeerId: string, kind: CallKind): Promise<string> {
+  return nativeModule.startCall(upeerId, kind);
+}
+
+export async function acceptCall(callId: string): Promise<boolean> {
+  return nativeModule.acceptCall(callId);
+}
+
+export async function rejectCall(callId: string): Promise<boolean> {
+  return nativeModule.rejectCall(callId);
+}
+
+export async function endCall(callId: string): Promise<boolean> {
+  return nativeModule.endCall(callId);
+}
+
+export async function setCallMute(callId: string, muted: boolean): Promise<boolean> {
+  return nativeModule.setCallMute(callId, muted);
+}
+
+export async function setCallCamera(callId: string, enabled: boolean): Promise<boolean> {
+  return nativeModule.setCallCamera(callId, enabled);
+}
+
+export async function getCallState(): Promise<CallState | null> {
+  const raw = await nativeModule.callStateJSON();
+  if (!raw || raw === '{}') return null;
+  try {
+    return JSON.parse(raw) as CallState;
+  } catch (cause) {
+    console.warn('No se pudo leer el estado de la llamada.', cause);
+    return null;
+  }
 }
 

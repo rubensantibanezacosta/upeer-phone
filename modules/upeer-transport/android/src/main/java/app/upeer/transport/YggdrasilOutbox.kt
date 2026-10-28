@@ -74,9 +74,8 @@ internal class YggdrasilOutbox(
 
   fun wake() = synchronized(wakeLock) { wakeLock.notifyAll() }
 
-  fun enqueue(upeerId: String, content: String, replyTo: String): String {
+  fun enqueue(upeerId: String, content: String, replyTo: String, messageID: String = UUID.randomUUID().toString()): String {
     val text = ChatSendPolicy.text(upeerId, content, replyTo)
-    val messageID = UUID.randomUUID().toString()
     val timestamp = System.currentTimeMillis()
     state.messages.save(
       JSONObject()

@@ -92,4 +92,11 @@ interface IYggdrasilTransport {
   boolean cancelFile(String fileId);
   boolean requestFile(String upeerId, String fileId, String messageId, String chatUpeerId);
   String outboundFilesJSON();
+  String startCall(String upeerId, String kind);
+  boolean acceptCall(String callId);
+  boolean rejectCall(String callId);
+  boolean endCall(String callId);
+  boolean setCallMute(String callId, boolean muted);
+  boolean setCallCamera(String callId, boolean enabled);
+  String callStateJSON();
 }
