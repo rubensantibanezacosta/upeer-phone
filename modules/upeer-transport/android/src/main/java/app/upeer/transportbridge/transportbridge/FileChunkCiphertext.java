@@ -12,29 +12,29 @@ import go.Seq;
  */
 public final class FileChunkCiphertext implements Seq.Proxy {
 	static { Transportbridge.touch(); }
-
+	
 	private final int refnum;
-
+	
 	@Override public final int incRefnum() {
 	      Seq.incGoRef(refnum, this);
 	      return refnum;
 	}
-
+	
 	FileChunkCiphertext(int refnum) { this.refnum = refnum; Seq.trackGoRef(refnum, this); }
-
+	
 	public FileChunkCiphertext() { this.refnum = __New(); Seq.trackGoRef(refnum, this); }
-
+	
 	private static native int __New();
-
+	
 	public final native String getData();
 	public final native void setData(String v);
-
+	
 	public final native String getIV();
 	public final native void setIV(String v);
-
+	
 	public final native String getTag();
 	public final native void setTag(String v);
-
+	
 	@Override public boolean equals(Object o) {
 		if (o == null || !(o instanceof FileChunkCiphertext)) {
 		    return false;
@@ -69,11 +69,11 @@ public final class FileChunkCiphertext implements Seq.Proxy {
 		}
 		return true;
 	}
-
+	
 	@Override public int hashCode() {
 	    return java.util.Arrays.hashCode(new Object[] {getData(), getIV(), getTag()});
 	}
-
+	
 	@Override public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append("FileChunkCiphertext").append("{");

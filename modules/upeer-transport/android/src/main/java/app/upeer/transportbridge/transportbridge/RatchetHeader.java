@@ -9,29 +9,29 @@ import go.Seq;
 
 public final class RatchetHeader implements Seq.Proxy {
 	static { Transportbridge.touch(); }
-
+	
 	private final int refnum;
-
+	
 	@Override public final int incRefnum() {
 	      Seq.incGoRef(refnum, this);
 	      return refnum;
 	}
-
+	
 	RatchetHeader(int refnum) { this.refnum = refnum; Seq.trackGoRef(refnum, this); }
-
+	
 	public RatchetHeader() { this.refnum = __New(); Seq.trackGoRef(refnum, this); }
-
+	
 	private static native int __New();
-
+	
 	public final native String getDH();
 	public final native void setDH(String v);
-
+	
 	public final native long getPN();
 	public final native void setPN(long v);
-
+	
 	public final native long getN();
 	public final native void setN(long v);
-
+	
 	@Override public boolean equals(Object o) {
 		if (o == null || !(o instanceof RatchetHeader)) {
 		    return false;
@@ -58,11 +58,11 @@ public final class RatchetHeader implements Seq.Proxy {
 		}
 		return true;
 	}
-
+	
 	@Override public int hashCode() {
 	    return java.util.Arrays.hashCode(new Object[] {getDH(), getPN(), getN()});
 	}
-
+	
 	@Override public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append("RatchetHeader").append("{");

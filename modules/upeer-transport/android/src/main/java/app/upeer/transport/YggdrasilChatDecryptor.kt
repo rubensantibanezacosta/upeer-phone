@@ -10,7 +10,7 @@ internal class YggdrasilChatDecryptor(
   private val signedPreKeys: SignedPreKeyStore,
   private val deviceSignedPreKeys: DeviceSignedPreKeyStore,
   private val state: ProtocolStateStore,
-  private val sendDrReset: (String) -> Unit,
+  private val sendDrReset: (String, String) -> Unit,
 ) {
   fun decrypt(packet: JSONObject, senderUpeerId: String, publicKey: String, isDevicePacket: Boolean): DecryptedChat {
     val plaintext = decryptContent(packet, senderUpeerId, publicKey, isDevicePacket)
@@ -38,16 +38,37 @@ internal class YggdrasilChatDecryptor(
     return plaintext
   }
 
-  private fun decryptContent(packet: JSONObject, senderUpeerId: String, publicKey: String, isDevicePacket: Boolean): String {
-    val content = packet.optString("content")
+  fun decryptControl(
+    packet: JSONObject,
+    field: String,
+    senderUpeerId: String,
+    publicKey: String,
+    isDevicePacket: Boolean,
+    context: String,
+  ): String? = openContent(packet, field, senderUpeerId, publicKey, isDevicePacket, context)
+
+  private fun decryptContent(packet: JSONObject, senderUpeerId: String, publicKey: String, isDevicePacket: Boolean): String =
+    openContent(packet, "content", senderUpeerId, publicKey, isDevicePacket, DIRECT_CONTEXT)
+      ?: throw IllegalStateException("CHAT has no usable ratchet session")
+
+  private fun openContent(
+    packet: JSONObject,
+    field: String,
+    senderUpeerId: String,
+    publicKey: String,
+    isDevicePacket: Boolean,
+    context: String,
+  ): String? {
+    val content = packet.optString(field)
     val nonce = packet.optString("nonce")
     val ratchetHeader = packet.optJSONObject("ratchetHeader")
     if (content.isEmpty() || nonce.isEmpty() || ratchetHeader == null) {
-      sendDrReset(senderUpeerId)
-      throw IllegalArgumentException("CHAT is missing ratchet fields")
+      sendDrReset(senderUpeerId, context)
+      Log.w(TAG, "Paquete sin campos de ratchet para $senderUpeerId en $context")
+      return null
     }
     val currentIdentity = identity.current() ?: throw IllegalStateException("uPeer identity is not available")
-    val existingSession = state.sessionFor(senderUpeerId)
+    val existingSession = state.sessionFor(senderUpeerId, context)
     val message = JSONObject()
       .put("content", content)
       .put("nonce", nonce)
@@ -78,16 +99,18 @@ internal class YggdrasilChatDecryptor(
       }
     }
     if (resultJSON == null) {
-      sendDrReset(senderUpeerId)
-      throw IllegalStateException("CHAT has no usable ratchet session")
+      sendDrReset(senderUpeerId, context)
+      Log.w(TAG, "Sin sesión de ratchet utilizable para $senderUpeerId en $context")
+      return null
     }
     val result = JSONObject(resultJSON)
     val plaintext = YggdrasilPayloadCodec.decompress(YggdrasilPayloadCodec.hexToBytes(result.optString("plaintextHex")))
-    state.saveSession(senderUpeerId, result.optString("session"))
+    state.saveSession(senderUpeerId, result.optString("session"), context)
     return plaintext
   }
 
   private companion object {
     private const val TAG = "UPeerTransport"
+    private const val DIRECT_CONTEXT = ProtocolStateStore.DIRECT_SESSION_CONTEXT
   }
 }

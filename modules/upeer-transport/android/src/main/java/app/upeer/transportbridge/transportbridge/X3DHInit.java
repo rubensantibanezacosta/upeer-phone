@@ -9,29 +9,29 @@ import go.Seq;
 
 public final class X3DHInit implements Seq.Proxy {
 	static { Transportbridge.touch(); }
-
+	
 	private final int refnum;
-
+	
 	@Override public final int incRefnum() {
 	      Seq.incGoRef(refnum, this);
 	      return refnum;
 	}
-
+	
 	X3DHInit(int refnum) { this.refnum = refnum; Seq.trackGoRef(refnum, this); }
-
+	
 	public X3DHInit() { this.refnum = __New(); Seq.trackGoRef(refnum, this); }
-
+	
 	private static native int __New();
-
+	
 	public final native String getEKPub();
 	public final native void setEKPub(String v);
-
+	
 	public final native long getSPKID();
 	public final native void setSPKID(long v);
-
+	
 	public final native String getIKPub();
 	public final native void setIKPub(String v);
-
+	
 	@Override public boolean equals(Object o) {
 		if (o == null || !(o instanceof X3DHInit)) {
 		    return false;
@@ -62,11 +62,11 @@ public final class X3DHInit implements Seq.Proxy {
 		}
 		return true;
 	}
-
+	
 	@Override public int hashCode() {
 	    return java.util.Arrays.hashCode(new Object[] {getEKPub(), getSPKID(), getIKPub()});
 	}
-
+	
 	@Override public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append("X3DHInit").append("{");

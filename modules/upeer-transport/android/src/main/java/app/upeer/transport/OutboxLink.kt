@@ -50,16 +50,22 @@ internal class OutboxLink(
     }
   }
 
-  fun sendDrReset(activeBridge: Bridge, address: String, upeerId: String, peer: JSONObject): Boolean {
+  fun sendDrReset(
+    activeBridge: Bridge,
+    address: String,
+    upeerId: String,
+    peer: JSONObject,
+    context: String = "direct",
+  ): Boolean {
     val currentIdentity = identity.current() ?: return false
     val packet = try {
       val device = deviceBindings.bindingFor(peer, upeerId)
         ?.let { identity.currentDevice() }
         ?.takeIf { it.accountUpeerId == currentIdentity.upeerID() }
       if (device != null) {
-        OutboxPacketFactory.drReset(currentIdentity, device, selfAddress(), deviceSignedPreKeys)
+        OutboxPacketFactory.drReset(currentIdentity, device, selfAddress(), deviceSignedPreKeys, context)
       } else {
-        currentIdentity.buildDrReset(selfAddress(), signedPreKeys.currentJSON(currentIdentity), "direct")
+        currentIdentity.buildDrReset(selfAddress(), signedPreKeys.currentJSON(currentIdentity), context)
       }
     } catch (cause: Exception) {
       Log.w(TAG, "No se pudo construir DR_RESET para $upeerId: ${message(cause)}")

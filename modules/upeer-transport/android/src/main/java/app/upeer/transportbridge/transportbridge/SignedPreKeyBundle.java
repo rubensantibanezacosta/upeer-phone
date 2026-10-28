@@ -9,29 +9,29 @@ import go.Seq;
 
 public final class SignedPreKeyBundle implements Seq.Proxy {
 	static { Transportbridge.touch(); }
-
+	
 	private final int refnum;
-
+	
 	@Override public final int incRefnum() {
 	      Seq.incGoRef(refnum, this);
 	      return refnum;
 	}
-
+	
 	SignedPreKeyBundle(int refnum) { this.refnum = refnum; Seq.trackGoRef(refnum, this); }
-
+	
 	public SignedPreKeyBundle() { this.refnum = __New(); Seq.trackGoRef(refnum, this); }
-
+	
 	private static native int __New();
-
+	
 	public final native String getSPKPub();
 	public final native void setSPKPub(String v);
-
+	
 	public final native String getSPKSig();
 	public final native void setSPKSig(String v);
-
+	
 	public final native long getSPKID();
 	public final native void setSPKID(long v);
-
+	
 	@Override public boolean equals(Object o) {
 		if (o == null || !(o instanceof SignedPreKeyBundle)) {
 		    return false;
@@ -62,11 +62,11 @@ public final class SignedPreKeyBundle implements Seq.Proxy {
 		}
 		return true;
 	}
-
+	
 	@Override public int hashCode() {
 	    return java.util.Arrays.hashCode(new Object[] {getSPKPub(), getSPKSig(), getSPKID()});
 	}
-
+	
 	@Override public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append("SignedPreKeyBundle").append("{");

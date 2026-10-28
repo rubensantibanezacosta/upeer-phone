@@ -61,6 +61,15 @@ internal class ProtocolMessageList(
     true
   }
 
+  fun groupAck(messageID: String, groupId: String, status: String): Boolean = synchronized(lock) {
+    val message = ProtocolMessageState.find(messages(), messageID) ?: return@synchronized false
+    if (message.optString("upeerId") != groupId || !message.optBoolean("isMine")) return@synchronized false
+    if (status != "delivered" && status != "read") return@synchronized false
+    message.put("status", status)
+    persist()
+    true
+  }
+
   fun applyReaction(messageID: String, actorUpeerId: String, emoji: String, remove: Boolean): Boolean =
     react(messageID, actorUpeerId, emoji, remove)
   fun reactLocally(

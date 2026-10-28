@@ -165,11 +165,12 @@ internal object OutboxPacketFactory {
     device: DeviceIdentity,
     selfAddress: String,
     deviceSignedPreKeys: DeviceSignedPreKeyStore,
+    context: String = "direct",
   ): String = device.crypto.buildLinkedDrReset(
     identity.upeerID(),
     selfAddress,
     deviceSignedPreKeys.currentJSON(device),
-    "direct",
+    context,
     device.deviceId,
   )
 }

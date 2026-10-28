@@ -143,7 +143,7 @@ internal class YggdrasilOutbox(
     wake()
   }
 
-  fun sendDrReset(upeerId: String) = actions.sendDrReset(upeerId)
+  fun sendDrReset(upeerId: String, context: String = "direct") = actions.sendDrReset(upeerId, context)
 
   fun attachVaultDirectory(directory: VaultDirectory) = vault.attachDirectory(directory)
 

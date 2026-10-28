@@ -7,6 +7,15 @@ internal object ChatSendPolicy {
 
   fun text(upeerId: String, content: String, replyTo: String): String {
     require(ID_PATTERN.matches(upeerId)) { "uPeer ID no válido" }
+    return body(content, replyTo)
+  }
+
+  fun groupText(groupId: String, content: String, replyTo: String): String {
+    require(ProtocolGroups.validId(groupId)) { "El identificador de grupo no es válido" }
+    return body(content, replyTo)
+  }
+
+  private fun body(content: String, replyTo: String): String {
     require(replyTo.isEmpty() || ReplayPolicy.validMessageID(replyTo)) { "El mensaje citado no es válido" }
     val text = content.trim()
     require(text.isNotEmpty()) { "El mensaje está vacío" }

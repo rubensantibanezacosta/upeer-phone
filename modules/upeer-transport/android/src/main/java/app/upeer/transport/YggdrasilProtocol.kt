@@ -45,7 +45,7 @@ internal class YggdrasilProtocol(
     signedPreKeys,
     deviceSignedPreKeys,
     state,
-    outbox::sendDrReset,
+    { upeerId, context -> outbox.sendDrReset(upeerId, context) },
   )
   @Volatile
   private var bridge: Bridge? = null
@@ -53,6 +53,14 @@ internal class YggdrasilProtocol(
   private val controlSender = ControlSender(identity, state) { bridge }
   private val controlReplies = ControlReplies(identity, deviceBindings, state, outbox, rateLimiter, controlSender::sendPong)
   private val chatInbound = ChatInbound(state, chatDecryptor, controlSender, onInboundMessage)
+  private val groupInbound = GroupInbound(
+    state = state,
+    decryptor = chatDecryptor,
+    controlSender = controlSender,
+    onInboundMessage = onInboundMessage,
+    myUpeerId = { identity.current()?.upeerID().orEmpty() },
+  )
+  private val groupOutbound = GroupOutbound(identity, state, egress) { bridge }
   private val fileInbound = FileInbound(
     accountCrypto = { identity.current()?.let { BridgeFileReceiveCrypto(it) } },
     deviceCrypto = { identity.currentDevice()?.crypto?.let { BridgeFileReceiveCrypto(it) } },
@@ -133,7 +141,12 @@ internal class YggdrasilProtocol(
     state.clear()
   }
 
-  fun sendChat(upeerId: String, content: String, replyTo: String): String = outbox.enqueue(upeerId, content, replyTo)
+  fun sendChat(upeerId: String, content: String, replyTo: String): String =
+    if (upeerId.startsWith(ProtocolGroups.PREFIX)) {
+      groupOutbound.sendMessage(upeerId, content, replyTo)
+    } else {
+      outbox.enqueue(upeerId, content, replyTo)
+    }
 
   fun editChat(upeerId: String, messageId: String, content: String): Int = outbox.editChat(upeerId, messageId, content)
 
@@ -285,7 +298,7 @@ internal class YggdrasilProtocol(
     if (FILE_TYPES.contains(type)) {
       return handleFilePacket(activeBridge, payload, packet, type, sourceAddress)
     }
-    if (type != "CHAT" && type != "CHAT_UPDATE") throw IllegalArgumentException("unsupported packet type $type")
+    if (type !in SIGNED_MESSAGE_TYPES) throw IllegalArgumentException("unsupported packet type $type")
     val senderUpeerId = packet.optString("senderUpeerId").lowercase()
     val publicKey = state.publicKeyFor(senderUpeerId)
       ?: throw IllegalStateException("unknown peer $senderUpeerId")
@@ -313,11 +326,26 @@ internal class YggdrasilProtocol(
     val metadata = JSONObject(metadataJSON)
     if (!policy.allow(metadata, sourceAddress)) return policy.rateLimited(metadata)
     if (!isDevicePacket) state.rememberPeer(metadata)
-    return if (type == "CHAT_UPDATE") {
-      chatInbound.receiveUpdate(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
-    } else {
-      chatInbound.receive(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
+    return when (type) {
+      "CHAT_UPDATE" -> chatInbound.receiveUpdate(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
+      "GROUP_INVITE" -> groupInbound.receiveInvite(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
+      "GROUP_UPDATE" -> groupInbound.receiveUpdate(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
+      "GROUP_MSG" -> groupInbound.receiveMessage(packet, senderUpeerId, metadataJSON)
+      "GROUP_ACK" -> receiveGroupAck(packet, metadataJSON)
+      else -> chatInbound.receive(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
     }
+  }
+
+  private fun receiveGroupAck(packet: JSONObject, metadataJSON: String): String {
+    val messageID = packet.optString("id")
+    val groupId = packet.optString("groupId")
+    if (!ReplayPolicy.validMessageID(messageID) || !ProtocolGroups.validId(groupId)) {
+      throw IllegalArgumentException("GROUP_ACK id or groupId is invalid")
+    }
+    if (state.messages.groupAck(messageID, groupId, "delivered")) {
+      Log.i(TAG, "GROUP_ACK aplicado a $messageID en $groupId")
+    }
+    return metadataJSON
   }
 
   private fun handleEnrollmentResponse(packet: JSONObject, sourceAddress: String): String {
@@ -442,6 +470,14 @@ internal class YggdrasilProtocol(
   private companion object {
     private const val TAG = "UPeerTransport"
     private val VAULT_TYPES = setOf("VAULT_STORE", "VAULT_QUERY", "VAULT_ACK", "VAULT_DELIVERY", "VAULT_RENEW")
+    private val SIGNED_MESSAGE_TYPES = setOf(
+      "CHAT",
+      "CHAT_UPDATE",
+      "GROUP_INVITE",
+      "GROUP_UPDATE",
+      "GROUP_MSG",
+      "GROUP_ACK",
+    )
     private val FILE_TYPES = setOf(
       "FILE_PROPOSAL",
       "FILE_ACCEPT",

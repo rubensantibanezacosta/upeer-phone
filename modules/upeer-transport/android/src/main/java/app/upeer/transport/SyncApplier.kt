@@ -24,7 +24,7 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
       SyncEventKinds.CHAT_CLEAR -> applyChatClear(payload)
       SyncEventKinds.REACTION_SET -> applyReaction(payload)
       SyncEventKinds.GROUP_UPSERT -> state.groups.upsert(payload)
-      SyncEventKinds.GROUP_DELETE -> state.groups.delete(payload.optString("groupId"))
+      SyncEventKinds.GROUP_DELETE -> deleteGroup(payload.optString("groupId"))
       SyncEventKinds.CONTACT_PROFILE -> applyContactProfile(payload)
       else -> return SyncApplyOutcome.UNSUPPORTED
     }
@@ -42,6 +42,11 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
       applied += 1
     }
     return applied
+  }
+
+  private fun deleteGroup(groupId: String): Boolean {
+    state.groupKeys.forget(groupId)
+    return state.groups.delete(groupId)
   }
 
   private fun applyMessage(payload: JSONObject): Boolean {

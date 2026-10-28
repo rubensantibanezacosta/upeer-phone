@@ -36,4 +36,19 @@ class ChatSendPolicyTest {
   fun `rejects a text above the limit`() {
     ChatSendPolicy.text(peer, "a".repeat(ChatSendPolicy.MAX_MESSAGE_BYTES + 1), "")
   }
+
+  @Test
+  fun `accepts a group conversation id`() {
+    assertEquals("hola", ChatSendPolicy.groupText("grp-1a2b", "  hola ", ""))
+  }
+
+  @Test(expected = IllegalArgumentException::class)
+  fun `rejects a group id without prefix`() {
+    ChatSendPolicy.groupText(peer, "hola", "")
+  }
+
+  @Test(expected = IllegalArgumentException::class)
+  fun `rejects an empty group text`() {
+    ChatSendPolicy.groupText("grp-1a2b", "  ", "")
+  }
 }

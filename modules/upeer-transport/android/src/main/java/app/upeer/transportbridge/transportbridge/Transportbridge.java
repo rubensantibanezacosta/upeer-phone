@@ -12,29 +12,29 @@ public abstract class Transportbridge {
 		Seq.touch(); // for loading the native library
 		_init();
 	}
-
+	
 	private Transportbridge() {} // uninstantiable
-
+	
 	// touch is called from other bound packages to initialize this package
 	public static void touch() {}
-
+	
 	private static native void _init();
-
-
+	
+	
 	public static final long MaxFrameBytes = 10485760L;
-
+	
 	public static native void setErrEmptyFrame(java.lang.Exception v);
 	public static native java.lang.Exception getErrEmptyFrame();
-
+	
 	public static native void setErrFrameTooLarge(java.lang.Exception v);
 	public static native java.lang.Exception getErrFrameTooLarge();
-
+	
 	public static native void setErrRatchetAuthentication(java.lang.Exception v);
 	public static native java.lang.Exception getErrRatchetAuthentication();
-
+	
 	public static native void setErrRootIdentityUnavailable(java.lang.Exception v);
 	public static native java.lang.Exception getErrRootIdentityUnavailable();
-
+	
 	public static native String accountRegistryKey(String accountUpeerID) throws Exception;
 	public static native String approveDevicePairingRequest(byte[] accountSecretKey, String requestJSON, long epoch, long issuedAt, long expiresAt) throws Exception;
 	public static native String buildAccountRegistryFromCertificates(byte[] accountSecretKey, String certificatesJSON, String revokedJSON, long epoch, long issuedAt, long ttlMillis) throws Exception;
@@ -58,6 +58,12 @@ public abstract class Transportbridge {
 	 */
 	public static native String openEnrollmentCertificate(String inviteJSON, String sealedJSON, String expectedAccountUpeerID, long nowMillis) throws Exception;
 	/**
+	 * OpenGroupPayload decrypts a group message with the sender key of the group.
+	It returns an error instead of a partial plaintext when authentication fails,
+	so a tampered or truncated ciphertext never reaches the message store.
+	 */
+	public static native String openGroupPayload(String senderKeyHex, String nonceHex, String ciphertextHex) throws Exception;
+	/**
 	 * ParseEnrollmentInvite decodes the out-of-band invitation shown by the account
 	owner and returns the offer plus the one-time secret for the current session.
 	 */
@@ -65,6 +71,12 @@ public abstract class Transportbridge {
 	public static native long probePeer(String uri) throws Exception;
 	public static native long probePeerLatency(String uri);
 	public static native String revokeAccountDevice(String previousRegistryJSON, byte[] accountSecretKey, String deviceID, String reason, long nowMillis) throws Exception;
+	/**
+	 * SealGroupPayload encrypts a group message with the sender key of the group.
+	The construction is XSalsa20-Poly1305, byte for byte the same as the
+	crypto_secretbox_easy that the desktop client uses through sodium-native.
+	 */
+	public static native String sealGroupPayload(String senderKeyHex, String plaintext) throws Exception;
 	public static native boolean validateAccountRegistryUpdate(String previousJSON, String nextJSON, String expectedAccountUpeerID, long nowMillis) throws Exception;
 	public static native boolean validateDeviceAdmission(String certificateJSON, String registryJSON, String expectedAccountUpeerID, long nowMillis) throws Exception;
 	public static native boolean verifyAccountRegistry(String registryJSON, String expectedAccountUpeerID, long nowMillis) throws Exception;

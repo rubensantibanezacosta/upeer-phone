@@ -8,7 +8,11 @@ internal class ProtocolGroups(
   private val lock: Any,
   private val persist: () -> Unit,
 ) {
-  fun upsert(payload: JSONObject, nowMillis: Long = System.currentTimeMillis()): Boolean {
+  fun upsert(
+    payload: JSONObject,
+    nowMillis: Long = System.currentTimeMillis(),
+    clearAvatar: Boolean = false,
+  ): Boolean {
     val groupId = payload.optString("groupId")
     if (!validId(groupId)) return false
     val name = payload.optString("name").trim()
@@ -29,10 +33,13 @@ internal class ProtocolGroups(
         .put("adminUpeerId", admin)
         .put("members", JSONArray(members.toString()))
         .put("status", status)
-        .put("isFavorite", payload.optBoolean("isFavorite"))
+        .put("isFavorite", if (payload.has("isFavorite")) payload.optBoolean("isFavorite") else existing?.optBoolean("isFavorite") ?: false)
         .put("updatedAt", nowMillis)
-      if (avatar.isNotEmpty()) entry.put("avatar", avatar)
-      else existing?.optString("avatar")?.takeIf(String::isNotEmpty)?.let { entry.put("avatar", it) }
+      if (avatar.isNotEmpty()) {
+        entry.put("avatar", avatar)
+      } else if (!clearAvatar) {
+        existing?.optString("avatar")?.takeIf(String::isNotEmpty)?.let { entry.put("avatar", it) }
+      }
       val createdAt = payload.optLong("createdAt", 0L).takeIf { it > 0 }
         ?: existing?.optLong("createdAt", 0L)?.takeIf { it > 0 }
       createdAt?.let { entry.put("createdAt", it) }

@@ -9,23 +9,23 @@ import go.Seq;
 
 public final class CryptoIdentity implements Seq.Proxy {
 	static { Transportbridge.touch(); }
-
+	
 	private final int refnum;
-
+	
 	@Override public final int incRefnum() {
 	      Seq.incGoRef(refnum, this);
 	      return refnum;
 	}
-
+	
 	public CryptoIdentity(byte[] secretKey) {
 		this.refnum = __NewCryptoIdentity(secretKey);
 		Seq.trackGoRef(refnum, this);
 	}
-
+	
 	private static native int __NewCryptoIdentity(byte[] secretKey);
-
+	
 	CryptoIdentity(int refnum) { this.refnum = refnum; Seq.trackGoRef(refnum, this); }
-
+	
 	public native String acceptInboundSession(String peerPublicKeyHex, String x3dhInitJSON, String spkSecretKeyHex) throws Exception;
 	public native String approveDevicePairingRequest(String requestJSON, long epoch, long issuedAt, long expiresAt) throws Exception;
 	public native String buildAccountRegistryFromCertificates(String certificatesJSON, String revokedJSON, long epoch, long issuedAt, long ttlMillis) throws Exception;
@@ -80,11 +80,11 @@ public final class CryptoIdentity implements Seq.Proxy {
 		CryptoIdentity that = (CryptoIdentity)o;
 		return true;
 	}
-
+	
 	@Override public int hashCode() {
 	    return java.util.Arrays.hashCode(new Object[] {});
 	}
-
+	
 	@Override public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append("CryptoIdentity").append("{");

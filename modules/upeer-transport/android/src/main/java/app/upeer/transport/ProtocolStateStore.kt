@@ -19,6 +19,7 @@ internal class ProtocolStateStore(context: Context) {
 
   val messages = ProtocolMessageList({ state }, lock, ::persist)
   val groups = ProtocolGroups({ state }, lock, ::persist)
+  val groupKeys = ProtocolGroupKeys({ state }, lock, ::persist)
   val presence = ProtocolPresence({ state }, lock, ::persist)
   val syncEvents = SyncEventLog({ state }, lock, ::persist)
   val syncPeers = SyncDevicePeers({ state }, lock, ::persist)
@@ -48,7 +49,7 @@ internal class ProtocolStateStore(context: Context) {
           !existing.optString("deviceId").equals(deviceId, ignoreCase = true)
         )
       if (keyChanged || deviceChanged) {
-        state.optJSONObject("sessions")?.remove(upeerId)
+        removeSessionsFor(upeerId)
         existing.remove("signedPreKey")
       }
       existing.put("publicKey", publicKey).put("lastSeen", System.currentTimeMillis())
@@ -89,7 +90,7 @@ internal class ProtocolStateStore(context: Context) {
       val previousKey = existing.optString("publicKey")
       val keyChanged = previousKey.isNotEmpty() && publicKey.isNotEmpty() && previousKey != publicKey
       if (keyChanged) {
-        state.optJSONObject("sessions")?.remove(upeerId)
+        removeSessionsFor(upeerId)
         existing.remove("signedPreKey")
       }
       existing.put("address", address).put("lastSeen", System.currentTimeMillis())
@@ -211,25 +212,44 @@ internal class ProtocolStateStore(context: Context) {
     JSONObject(state.optJSONObject("peers")?.toString() ?: "{}").toString()
   }
 
-  fun sessionFor(upeerId: String): String? = synchronized(lock) {
-    state.optJSONObject("sessions")?.optString(upeerId)?.ifEmpty { null }
+  fun sessionFor(upeerId: String, context: String = DIRECT_SESSION_CONTEXT): String? = synchronized(lock) {
+    state.optJSONObject("sessions")?.optString(sessionKey(upeerId, context))?.ifEmpty { null }
   }
 
-  fun saveSession(upeerId: String, sessionJSON: String) {
+  fun saveSession(upeerId: String, sessionJSON: String, context: String = DIRECT_SESSION_CONTEXT) {
     synchronized(lock) {
       val sessions = state.optJSONObject("sessions") ?: JSONObject()
-      sessions.put(upeerId, sessionJSON)
+      sessions.put(sessionKey(upeerId, context), sessionJSON)
       state.put("sessions", sessions)
       persist()
     }
   }
 
-  fun clearSession(upeerId: String) {
+  fun clearSession(upeerId: String, context: String = DIRECT_SESSION_CONTEXT) {
     synchronized(lock) {
-      state.optJSONObject("sessions")?.remove(upeerId)
+      state.optJSONObject("sessions")?.remove(sessionKey(upeerId, context))
       persist()
     }
   }
+
+  fun clearSessions(upeerId: String) {
+    synchronized(lock) {
+      removeSessionsFor(upeerId)
+      persist()
+    }
+  }
+
+  private fun removeSessionsFor(upeerId: String) {
+    val sessions = state.optJSONObject("sessions") ?: return
+    sessions.remove(upeerId)
+    val groupPrefix = "$upeerId$SESSION_CONTEXT_SEPARATOR"
+    for (key in sessions.keys().asSequence().toList()) {
+      if (key.startsWith(groupPrefix)) sessions.remove(key)
+    }
+  }
+
+  private fun sessionKey(upeerId: String, context: String): String =
+    if (context == DIRECT_SESSION_CONTEXT) upeerId else "$upeerId$SESSION_CONTEXT_SEPARATOR$context"
 
   fun clearSyncHistory(deviceId: String? = null) {
     if (deviceId == null) history.clearAll() else history.clear(deviceId)
@@ -341,7 +361,9 @@ internal class ProtocolStateStore(context: Context) {
     }
   }
 
-  private companion object {
+  internal companion object {
     private const val TAG = "UPeerTransport"
+    const val DIRECT_SESSION_CONTEXT = "direct"
+    private const val SESSION_CONTEXT_SEPARATOR = "|"
   }
 }

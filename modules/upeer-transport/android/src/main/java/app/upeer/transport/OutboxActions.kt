@@ -59,13 +59,13 @@ internal class OutboxActions(
     }
   }
 
-  fun sendDrReset(upeerId: String) {
+  fun sendDrReset(upeerId: String, context: String = "direct") {
     if (!admission.isAdmitted()) return
     val activeBridge = bridge() ?: return
     val peer = state.peerFor(upeerId) ?: return
     val address = peer.optString("address")
     if (address.isBlank()) return
-    if (!link.sendDrReset(activeBridge, address, upeerId, peer)) {
+    if (!link.sendDrReset(activeBridge, address, upeerId, peer, context)) {
       Log.w(TAG, "DR_RESET no enviado a $upeerId")
     }
   }

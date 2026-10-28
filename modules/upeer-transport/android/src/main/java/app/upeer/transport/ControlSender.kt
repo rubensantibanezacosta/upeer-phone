@@ -90,6 +90,50 @@ internal class ControlSender(
     thread.start()
   }
 
+  fun scheduleGroupAck(senderUpeerId: String, messageID: String, groupId: String) {
+    val thread = Thread({ sendGroupAck(senderUpeerId, messageID, groupId) }, "upeer-group-ack")
+    thread.isDaemon = true
+    thread.start()
+  }
+
+  private fun sendGroupAck(senderUpeerId: String, messageID: String, groupId: String) {
+    if (!ReplayPolicy.validMessageID(messageID) || !ProtocolGroups.validId(groupId)) return
+    val activeBridge = bridgeProvider() ?: return
+    val address = state.addressFor(senderUpeerId) ?: return
+    val currentIdentity = identity.current() ?: return
+    val device = identity.currentDevice()
+    var connectionID = 0
+    try {
+      val data = JSONObject()
+        .put("type", "GROUP_ACK")
+        .put("id", messageID)
+        .put("groupId", groupId)
+      val ack = if (device != null) {
+        device.crypto.buildLinkedControl(
+          device.deviceId,
+          currentIdentity.upeerID(),
+          activeBridge.address(),
+          data.toString(),
+        )
+      } else {
+        currentIdentity.buildSignedPacket(activeBridge.address(), data.toString())
+      }
+      connectionID = activeBridge.dialTCP(address, PORT)
+      activeBridge.writeFrame(connectionID, ack.toByteArray(Charsets.UTF_8))
+      Log.i(TAG, "GROUP_ACK enviado a $address para $messageID")
+    } catch (cause: Exception) {
+      Log.w(TAG, "No se pudo enviar GROUP_ACK a $address: ${message(cause)}")
+    } finally {
+      if (connectionID != 0) {
+        try {
+          activeBridge.closeConnection(connectionID)
+        } catch (cause: Exception) {
+          Log.w(TAG, "No se pudo cerrar la conexión de GROUP_ACK: ${message(cause)}")
+        }
+      }
+    }
+  }
+
   private fun sendAck(senderUpeerId: String, messageID: String) {
     val activeBridge = bridgeProvider() ?: return
     val address = state.addressFor(senderUpeerId) ?: return
