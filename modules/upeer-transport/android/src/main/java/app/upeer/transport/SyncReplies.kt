@@ -194,14 +194,23 @@ internal class SyncReplies(
     }
   }
 
-  private fun requestSessionReset(
+  internal fun pullHistory(activeBridge: Bridge, now: Long = System.currentTimeMillis()) {
+    for (peer in state.syncPeers.list()) {
+      if (peer.address.isBlank()) continue
+      if (now - peer.lastSeen > PULL_WINDOW_MS) continue
+      history.request(activeBridge, peer)
+    }
+  }
+
+  internal fun requestSessionReset(
     activeBridge: Bridge,
     peer: SyncPeerRecord,
     address: String,
-    now: Long,
+    now: Long = System.currentTimeMillis(),
+    clearHistory: Boolean = true,
   ) {
     state.clearSession(SyncPackets.contextId(peer.deviceId))
-    state.clearSyncHistory(peer.deviceId)
+    if (clearHistory) state.clearSyncHistory(peer.deviceId)
     val device = identity.currentDevice() ?: return
     val frame = syncFrame(SyncPackets.reset(SyncSender(device.deviceId, device.certificate), now)) ?: return
     if (!send(activeBridge, address.ifBlank { peer.address }, frame)) {
@@ -321,5 +330,6 @@ internal class SyncReplies(
 
   private companion object {
     private const val TAG = "UPeerTransport"
+    private const val PULL_WINDOW_MS = 300_000L
   }
 }

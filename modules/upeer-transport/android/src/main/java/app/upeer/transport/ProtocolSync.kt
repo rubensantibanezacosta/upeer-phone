@@ -209,6 +209,7 @@ internal class ProtocolSync(
         runCatching { active.publish() }
         runCatching { active.discover(activeBridge, registry()) }
         runCatching { applyPending() }
+        runCatching { replies.pullHistory(activeBridge) }
         runCatching { flushOutbound() }
         try {
           Thread.sleep(DISCOVERY_INTERVAL_MS)

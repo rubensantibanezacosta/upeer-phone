@@ -94,6 +94,33 @@ class SyncHistoryTallyTest {
     assertEquals(5_000, progress.total)
   }
 
+  @Test
+  fun `el progreso solo cuenta mensajes y no los eventos de acompanamiento`() {
+    val entries = JSONArray()
+      .put(JSONObject().put("eventId", "history-a").put("kind", SyncEventKinds.MESSAGE_UPSERT))
+      .put(JSONObject().put("eventId", "history-b").put("kind", SyncEventKinds.MESSAGE_UPSERT))
+      .put(JSONObject().put("eventId", "profile-a").put("kind", SyncEventKinds.CONTACT_PROFILE))
+      .put(JSONObject().put("eventId", "group-a").put("kind", SyncEventKinds.GROUP_UPSERT))
+
+    val tally = tallyHistoryPage(entries, { true }, { false })
+
+    assertEquals(4, tally.recorded)
+    assertEquals(2, tally.recordedMessages)
+  }
+
+  @Test
+  fun `repetir una pagina ya recorrida no infla el avance`() {
+    val state = JSONObject()
+    val history = SyncHistoryState({ state }, Any(), {})
+
+    history.savePage(DEVICE, "10:a", false, 3, 5)
+    history.savePage(DEVICE, "10:a", false, 0, 5)
+
+    val progress = history.progress(DEVICE)
+    assertEquals(3, progress.applied)
+    assertEquals(8, progress.total)
+  }
+
   private fun pageOf(prefix: String, count: Int): JSONArray {
     val entries = JSONArray()
     for (index in 0 until count) entries.put(JSONObject().put("eventId", "$prefix$index"))
