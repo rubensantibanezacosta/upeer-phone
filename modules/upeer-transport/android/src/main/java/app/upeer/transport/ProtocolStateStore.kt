@@ -35,6 +35,9 @@ internal class ProtocolStateStore(context: Context) {
   private val typing = ProtocolTyping({ state }, lock, ::persist)
   val preferences = ProtocolPreferences({ state }, lock, ::persist)
 
+  @Volatile
+  var fileWork: SyncFileWork = SyncFileWork.EMPTY
+
   fun rememberPeer(metadata: JSONObject): Boolean {
     val upeerId = metadata.optString("senderUpeerId")
     val publicKey = metadata.optString("publicKey")
@@ -406,6 +409,7 @@ internal class ProtocolStateStore(context: Context) {
       syncEvents.pendingCount(),
       syncEvents.unsupportedCount(),
       nowMillis,
+      files = fileWork,
       unsupportedKinds = syncEvents.unsupportedSummary(),
     )
     val current = report.optString("state")

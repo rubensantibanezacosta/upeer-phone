@@ -11,6 +11,10 @@ const DISABLED_PROGRESS: SyncProgressStatus = {
   historyKnown: false,
   pendingEvents: 0,
   pendingFiles: 0,
+  filesDone: 0,
+  filesTotal: 0,
+  filesFailed: 0,
+  filesKnown: false,
   headline: 'Sincronizando tus dispositivos…',
   detail: 'Conectando con tus dispositivos',
 };

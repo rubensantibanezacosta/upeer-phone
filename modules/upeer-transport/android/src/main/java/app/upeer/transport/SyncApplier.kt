@@ -76,10 +76,8 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
   private fun applyMessage(payload: JSONObject): SyncApplyOutcome {
     val message = SyncHistoryPayload.local(payload) ?: return SyncApplyOutcome.REJECTED
     val id = message.optString("id")
-    val content = message.optString("content")
     if (state.messages.find(id) != null) return SyncApplyOutcome.UNCHANGED
     state.messages.save(message)
-    if (SyncHistoryPayload.isAttachment(content)) state.syncEvents.markUnsupported(UNSUPPORTED_ATTACHMENT)
     return SyncApplyOutcome.APPLIED
   }
 
@@ -171,7 +169,6 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
     const val TAG = "UPeerTransport"
     const val MAX_CONTENT = 50_000
     const val REPAIR_BATCH = 200
-    const val UNSUPPORTED_ATTACHMENT = "ATTACHMENT"
     val STATUSES = setOf("pending", "sent", "vaulted", "delivered", "read", "failed")
   }
 }

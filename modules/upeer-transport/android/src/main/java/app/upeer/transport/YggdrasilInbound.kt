@@ -114,7 +114,15 @@ internal class YggdrasilInbound(
   private fun readFrames(activeBridge: Bridge, connectionID: Int, sourceAddress: String) {
     try {
       while (isActive(activeBridge)) {
-        val payload = activeBridge.readFrame(connectionID, 0L)
+        val payload = try {
+          activeBridge.readFrame(connectionID, READ_TIMEOUT_MILLIS)
+        } catch (cause: Exception) {
+          if (isTimeout(cause)) {
+            Log.i(TAG, "Conexión entrante $connectionID inactiva durante ${READ_TIMEOUT_MILLIS / 1000}s: se libera")
+            return
+          }
+          throw cause
+        }
         synchronized(lock) {
           state = state.copy(frames = state.frames + 1, lastFrameAt = System.currentTimeMillis())
         }
@@ -143,7 +151,8 @@ internal class YggdrasilInbound(
               lastError = "",
             )
           }
-          Log.i(TAG, "Frame de control validado: ${metadata.optString("type")}")
+          val frameType = metadata.optString("type")
+          if (frameType != SyncFilePackets.CHUNK) Log.i(TAG, "Frame de control validado: $frameType")
         } catch (cause: Exception) {
           synchronized(lock) {
             state = state.copy(invalid = state.invalid + 1, lastError = message(cause))
@@ -191,9 +200,17 @@ internal class YggdrasilInbound(
     }
   }
 
+  private fun detail(cause: Throwable): String =
+    (cause.message ?: cause.javaClass.simpleName).lowercase()
+
   private fun isCleanClose(cause: Throwable): Boolean {
-    val detail = message(cause).lowercase()
+    val detail = detail(cause)
     return detail == "eof" || detail.contains("closed") || detail.contains("reset by peer")
+  }
+
+  private fun isTimeout(cause: Throwable): Boolean {
+    val detail = detail(cause)
+    return detail.contains("timeout") || detail.contains("timed out") || detail.contains("deadline")
   }
 
   private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
@@ -201,6 +218,7 @@ internal class YggdrasilInbound(
   private companion object {
     private const val TAG = "UPeerTransport"
     private const val ACCEPT_TIMEOUT_MILLIS = 1000
+    private const val READ_TIMEOUT_MILLIS = 60_000L
     private const val RETRY_DELAY_MILLIS = 250L
     private const val MAX_CONNECTIONS = 32
   }

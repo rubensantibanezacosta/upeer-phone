@@ -3,6 +3,7 @@ package app.upeer.transport
 import org.json.JSONObject
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -85,6 +86,25 @@ class SyncFileReceiveTest {
 
     assertEquals(SyncFileReceive.Outcome.DISCARDED, outcome)
     assertNull(SyncFileReceive.finish("req87654321"))
+  }
+
+  @Test
+  fun `no considera presente un adjunto que solo tiene el parcial`() {
+    val root = folder.newFolder("attachments")
+    SyncFileReceive.attachDirectory(root)
+    val first = ByteArray(16) { 1 }
+
+    SyncFileReceive.open("req11223344", "file-9", SyncFilePackets.ResMeta("video.mkv", 32L, 16, 2))
+    assertEquals(SyncFileReceive.Outcome.PROGRESS, SyncFileReceive.write(payload("req11223344", first, 0), "file-9"))
+
+    assertFalse(SyncFileReceive.isStored("file-9"))
+    assertNull(SyncFileReceive.storedPath("file-9"))
+
+    assertEquals(SyncFileReceive.Outcome.DONE, SyncFileReceive.write(payload("req11223344", first, 1), "file-9"))
+    SyncFileReceive.finish("req11223344")
+
+    assertTrue(SyncFileReceive.isStored("file-9"))
+    assertTrue(SyncFileReceive.storedPath("file-9")!!.endsWith("file-9.mkv"))
   }
 
   @Test

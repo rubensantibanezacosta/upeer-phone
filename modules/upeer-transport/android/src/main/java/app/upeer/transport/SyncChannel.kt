@@ -7,7 +7,11 @@ import org.json.JSONObject
 internal class SyncChannel(
   private val identity: YggdrasilIdentity,
   private val state: ProtocolStateStore,
+  private val onNeedsSession: (Bridge, SyncPeerRecord) -> Unit = { _, _ -> },
 ) {
+  private val ratchetLock = Any()
+  private val failures = HashMap<String, MutableList<Long>>()
+
   fun open(
     device: DeviceIdentity,
     decryptedKeys: DeviceSignedPreKeyStore,
@@ -29,6 +33,16 @@ internal class SyncChannel(
     packet: JSONObject,
     senderDevicePublicKey: String,
     senderDeviceId: String,
+  ): String? = synchronized(ratchetLock) {
+    openLocked(device, decryptedKeys, packet, senderDevicePublicKey, senderDeviceId)
+  }
+
+  private fun openLocked(
+    device: DeviceIdentity,
+    decryptedKeys: DeviceSignedPreKeyStore,
+    packet: JSONObject,
+    senderDevicePublicKey: String,
+    senderDeviceId: String,
   ): String? {
     val content = packet.optString("content")
     val nonce = packet.optString("nonce")
@@ -43,13 +57,28 @@ internal class SyncChannel(
     val decrypted = existing?.let { session -> decrypt(device, session, message) }
     if (decrypted != null) {
       state.saveSession(context, decrypted.session)
+      failures.remove(context)
       return decrypted.plaintext
+    }
+    if (existing != null && packet.optJSONObject("x3dhInit") == null && !shouldReset(context)) {
+      Log.w(TAG, "Marco de sincronización duplicado o fuera de orden de ${senderDeviceId.take(12)}: se ignora")
+      return null
     }
     if (existing != null) {
       state.clearSession(context)
       Log.w(TAG, "Sesión de sincronización con ${senderDeviceId.take(12)} descartada: el ratchet no pudo descifrar")
     }
     return acceptFresh(device, decryptedKeys, packet, senderDevicePublicKey, message, existing, context)
+  }
+
+  private fun shouldReset(context: String): Boolean {
+    val now = System.currentTimeMillis()
+    val recent = failures.getOrPut(context) { mutableListOf() }
+    recent.removeAll { now - it > FAILURE_WINDOW_MS }
+    recent.add(now)
+    if (recent.size < FAILURE_LIMIT) return false
+    failures.remove(context)
+    return true
   }
 
   fun seal(
@@ -66,11 +95,23 @@ internal class SyncChannel(
     envelope: JSONObject,
     content: JSONObject,
   ): String? {
+    val sealed = synchronized(ratchetLock) { sealLocked(activeBridge, device, peer, envelope, content) }
+    if (sealed.needsSession) onNeedsSession(activeBridge, peer)
+    return sealed.frame
+  }
+
+  private fun sealLocked(
+    activeBridge: Bridge,
+    device: DeviceIdentity,
+    peer: SyncPeerRecord,
+    envelope: JSONObject,
+    content: JSONObject,
+  ): Sealed {
     val context = SyncPackets.contextId(peer.deviceId)
     val session = state.sessionFor(context)
     if (!SyncSessionPolicy.mayInitiate(device.deviceId, peer.deviceId, session != null)) {
       Log.d(TAG, "Sesión de sincronización con ${peer.deviceId.take(12)} aún sin abrir: la inicia el dispositivo de id menor")
-      return null
+      return Sealed(null, needsSession = true)
     }
     val started = if (session != null) {
       Session(session, null)
@@ -78,15 +119,17 @@ internal class SyncChannel(
       val spk = peer.signedPreKey
       val init = attempt {
         device.crypto.startOutboundSession(peer.devicePublicKey, spk.optString("spkPub"), spk.optLong("spkId"))
-      } ?: return null
-      val parsed = runCatching { JSONObject(init) }.getOrNull() ?: return null
+      } ?: return Sealed(null, needsSession = false)
+      val parsed = runCatching { JSONObject(init) }.getOrNull() ?: return Sealed(null, needsSession = false)
       Session(parsed.optString("session"), parsed.optString("x3dhInit").takeIf(String::isNotEmpty))
     }
     val result = attempt {
       JSONObject(device.crypto.ratchetEncrypt(started.json, content.toString().toByteArray(Charsets.UTF_8)))
-    } ?: return null
-    val encrypted = runCatching { JSONObject(result.optString("message")) }.getOrNull() ?: return null
-    val nextSession = result.optString("session").takeIf(String::isNotEmpty) ?: return null
+    } ?: return Sealed(null, needsSession = false)
+    val encrypted = runCatching { JSONObject(result.optString("message")) }.getOrNull()
+      ?: return Sealed(null, needsSession = false)
+    val nextSession = result.optString("session").takeIf(String::isNotEmpty)
+      ?: return Sealed(null, needsSession = false)
     val packet = JSONObject(envelope.toString())
       .put("content", encrypted.optString("content"))
       .put("nonce", encrypted.optString("nonce"))
@@ -95,9 +138,10 @@ internal class SyncChannel(
     started.x3dhInit?.let { packet.put("x3dhInit", JSONObject(it)) }
     state.saveSession(context, nextSession)
     val address = activeBridge.address()
-    return attempt {
+    val frame = attempt {
       device.crypto.buildLinkedControl(device.deviceId, identity.current()?.upeerID().orEmpty(), address, packet.toString())
     }
+    return Sealed(frame, needsSession = false)
   }
 
   private fun decrypt(device: DeviceIdentity, session: String, message: String): Decrypted? {
@@ -150,7 +194,11 @@ internal class SyncChannel(
 
   private data class Decrypted(val session: String, val plaintext: String)
 
+  private data class Sealed(val frame: String?, val needsSession: Boolean)
+
   private companion object {
     private const val TAG = "UPeerTransport"
+    private const val FAILURE_WINDOW_MS = 15_000L
+    private const val FAILURE_LIMIT = 3
   }
 }

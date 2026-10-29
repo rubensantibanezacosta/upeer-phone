@@ -134,6 +134,25 @@ class SyncHistoryTallyTest {
     assertEquals(8, progress.total)
   }
 
+  @Test
+  fun `una nueva pasada solo cuenta lo que falta por traer`() {
+    val state = JSONObject()
+    val history = SyncHistoryState({ state }, Any(), {})
+
+    history.savePage(DEVICE, "10:a", false, 50, 60)
+    history.savePage(DEVICE, null, true, 60, 0)
+    assertEquals(110, history.progress(DEVICE).total)
+
+    history.beginAllRuns()
+    assertEquals(0, history.progress(DEVICE).total)
+    assertTrue(history.progress(DEVICE).done.not())
+
+    history.savePage(DEVICE, "20:b", false, 2, 3)
+    val progress = history.progress(DEVICE)
+    assertEquals(2, progress.applied)
+    assertEquals(5, progress.total)
+  }
+
   private fun pageOf(prefix: String, count: Int): JSONArray {
     val entries = JSONArray()
     for (index in 0 until count) entries.put(JSONObject().put("eventId", "$prefix$index"))

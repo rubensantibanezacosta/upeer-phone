@@ -115,6 +115,10 @@ export type SyncProgressStatus = {
   historyKnown: boolean;
   pendingEvents: number;
   pendingFiles: number;
+  filesDone?: number;
+  filesTotal?: number;
+  filesFailed?: number;
+  filesKnown?: boolean;
   headline: string;
   detail: string;
 };

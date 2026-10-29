@@ -26,7 +26,7 @@ export function ChatMediaAttachment({ info, isMine, onOpen }: {
   const localUri = attachmentUri(info);
   const downloaded = useAttachmentFile(localUri);
   const generated = useVideoThumbnail(isVideo && !info.thumbnail && downloaded ? localUri : null);
-  const preview = info.thumbnail ?? (downloaded ? (isVideo ? generated : localUri) : null);
+  const preview = downloaded ? (info.thumbnail ?? (isVideo ? generated : localUri)) : null;
   const [brokenPreview, setBrokenPreview] = useState<string | null>(null);
   const showPreview = Boolean(preview) && brokenPreview !== preview;
 

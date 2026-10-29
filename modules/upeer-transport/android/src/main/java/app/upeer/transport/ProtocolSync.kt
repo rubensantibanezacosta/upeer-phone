@@ -16,7 +16,8 @@ internal class ProtocolSync(
   private val streamFrames: (Bridge, String, Iterator<String>, String) -> Boolean = { _, _, _, _ -> false },
   private val onAdmissionChanged: () -> Unit = {},
 ) {
-  private val channel = SyncChannel(identity, state)
+  private val channel = SyncChannel(identity, state, ::greetForSession)
+  private val greeted = java.util.concurrent.ConcurrentHashMap<String, Long>()
   private val applier = SyncApplier(state)
   private val files = SyncFileChannel(
     identity,
@@ -25,6 +26,7 @@ internal class ProtocolSync(
     channel,
     { peer, packet -> sendFilePacket(peer, packet) },
     { peer, packets -> streamFilePackets(peer, packets) },
+    { fileId -> fileStored(fileId) },
   )
   private val history = SyncHistory(
     identity,
@@ -61,6 +63,19 @@ internal class ProtocolSync(
     { active, address, json -> send(active, address, json) },
   )
 
+  private val autofetch = SyncFileAutoFetch(
+    { state.messages.attachmentRefs() },
+    { fileId -> SyncFileReceive.isStored(fileId) },
+    { fileId -> files.request(fileId) },
+    { fileId -> files.isPending(fileId) },
+    { fileId -> files.progressOf(fileId) },
+  )
+
+  private fun fileStored(fileId: String) {
+    autofetch.forget(fileId)
+    state.fileWork = autofetch.tick()
+  }
+
   @Volatile
   private var activeBridge: Bridge? = null
 
@@ -95,6 +110,8 @@ internal class ProtocolSync(
 
   @Volatile
   private var discoveryLoop: Thread? = null
+  @Volatile
+  private var progressLoop: Thread? = null
   private val seenPeers = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
   fun attachDiscovery(
@@ -116,6 +133,17 @@ internal class ProtocolSync(
     registrySource = registry
   }
 
+  private fun greetForSession(activeBridge: Bridge, peer: SyncPeerRecord) {
+    val now = System.currentTimeMillis()
+    val previous = greeted[peer.deviceId] ?: 0L
+    if (now - previous < GREET_INTERVAL_MS) return
+    greeted[peer.deviceId] = now
+    val discovery = discovery ?: return
+    if (discovery.greet(activeBridge, peer.address)) {
+      Log.i("UPeerTransport", "Sesión sin abrir con ${peer.deviceId.take(12)}: saludo reenviado para que la inicie")
+    }
+  }
+
   private fun activePeerAddresses(): Set<String> {
     val threshold = System.currentTimeMillis() - LIVE_PEER_WINDOW_MS
     return seenPeers.entries.filter { it.value >= threshold }.map { it.key }.toSet()
@@ -126,6 +154,21 @@ internal class ProtocolSync(
   fun isSyncFileType(type: String): Boolean = files.isFileType(type)
 
   fun requestFileSync(fileId: String): Boolean = files.request(fileId)
+
+  fun fileWork(): SyncFileWork = autofetch.snapshot()
+
+  fun tickFileWork(): SyncFileWork {
+    val peers = state.syncPeers.list().count { it.address.isNotBlank() }
+    val work = if (peers == 0) autofetch.snapshot() else autofetch.tick()
+    state.fileWork = work
+    return work
+  }
+
+  private fun refreshFileWork(): SyncFileWork {
+    val work = autofetch.refresh()
+    if (work != state.fileWork) state.fileWork = work
+    return work
+  }
 
   fun filesHandling(packet: org.json.JSONObject, senderDeviceId: String, senderDevicePublicKey: String, source: String): Boolean {
     val type = packet.optString("type")
@@ -177,7 +220,7 @@ internal class ProtocolSync(
     try {
       validate(payload, auth.devicePublicKey, self)
     } catch (cause: Exception) {
-      Log.w("UPeerTransport", "Firma de $type inválida para ${auth.deviceId.take(12)}")
+      Log.w("UPeerTransport", "Firma de $type inválida para ${auth.deviceId.take(12)}: ${cause.message ?: cause.javaClass.simpleName}")
       return InboundPolicy.rejected(packet)
     }
     filesHandling(packet, auth.deviceId, auth.devicePublicKey, source)
@@ -202,6 +245,9 @@ internal class ProtocolSync(
   fun start(activeBridge: Bridge) {
     val active = discovery ?: return
     this.activeBridge = activeBridge
+    runCatching { history.resetSession() }
+    runCatching { state.history.beginAllRuns() }
+    runCatching { state.fileWork = autofetch.refresh() }
     val registry = registrySource
     discoveryLoop?.interrupt()
     val thread = Thread({
@@ -209,7 +255,6 @@ internal class ProtocolSync(
         runCatching { active.publish() }
         runCatching { active.discover(activeBridge, registry()) }
         runCatching { applyPending() }
-        runCatching { replies.pullHistory(activeBridge) }
         runCatching { flushOutbound() }
         try {
           Thread.sleep(DISCOVERY_INTERVAL_MS)
@@ -221,6 +266,32 @@ internal class ProtocolSync(
     thread.isDaemon = true
     discoveryLoop = thread
     thread.start()
+    startProgressLoop(activeBridge)
+  }
+
+  private fun startProgressLoop(activeBridge: Bridge) {
+    progressLoop?.interrupt()
+    val thread = Thread({
+      var round = 0
+      while (!Thread.currentThread().isInterrupted) {
+        if (round % HEAVY_EVERY_TICKS == 0) {
+          runCatching { applyPending() }
+          runCatching { replies.pullHistory(activeBridge) }
+          runCatching { tickFileWork() }
+        } else {
+          runCatching { refreshFileWork() }
+        }
+        round += 1
+        try {
+          Thread.sleep(PROGRESS_TICK_MS)
+        } catch (_: InterruptedException) {
+          return@Thread
+        }
+      }
+    }, "upeer-sync-progress")
+    thread.isDaemon = true
+    progressLoop = thread
+    thread.start()
   }
 
   private fun applyPending() {
@@ -231,6 +302,8 @@ internal class ProtocolSync(
     }
     val repaired = applier.repairMissingMessages()
     if (repaired > 0) Log.i("UPeerTransport", "Mensajes sincronizados recuperados: $repaired")
+    val relinked = state.messages.repairAttachmentPaths(SyncFileReceive::storedPath)
+    if (relinked > 0) Log.i("UPeerTransport", "Adjuntos reenlazados a la copia sincronizada: $relinked")
   }
 
   private fun verifyOrigin(record: SyncEventRecord, account: String, now: Long): Boolean {
@@ -250,7 +323,10 @@ internal class ProtocolSync(
 
   private companion object {
     private const val DISCOVERY_INTERVAL_MS = 60_000L
+    private const val PROGRESS_TICK_MS = 1_500L
+    private const val HEAVY_EVERY_TICKS = 3
     private const val LIVE_PEER_WINDOW_MS = 300_000L
+    private const val GREET_INTERVAL_MS = 30_000L
     private const val APPLY_BATCH = 500
   }
 

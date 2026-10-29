@@ -66,6 +66,12 @@ internal class SyncDiscovery(
     return found
   }
 
+  fun greet(activeBridge: Bridge, address: String): Boolean {
+    if (address.isBlank() || isSelfAddress(address)) return false
+    val frame = helloFrame() ?: return false
+    return send(activeBridge, address, frame)
+  }
+
   private fun deviceIds(registryJSON: String?, account: String): List<String> {
     val registry = registryJSON?.takeIf(String::isNotEmpty)?.let { raw ->
       runCatching { JSONObject(raw) }.getOrNull()

@@ -7,7 +7,7 @@ internal object SyncFilePackets {
   const val RES = "SYNC_FILE_RES"
   const val CHUNK = "SYNC_FILE_CHUNK"
 
-  const val CHUNK_SIZE = 48 * 1024
+  const val CHUNK_SIZE = 192 * 1024
   const val MAX_BYTES = 512L * 1024L * 1024L
 
   private val types = setOf(REQ, RES, CHUNK)
@@ -61,7 +61,7 @@ internal object SyncFilePackets {
     if (!SyncPackets.validRequestId(requestId)) return null
     if (index < 0) return null
     if (data.isEmpty() || data.size > CHUNK_SIZE) return null
-    val encoded = data.joinToString("") { byte -> "%02x".format(byte) }
+    val encoded = encodeHex(data)
     return SyncPackets.decorate(
       JSONObject().put("type", CHUNK).put("requestId", requestId).put("index", index).put("data", encoded),
       sender,
@@ -104,10 +104,8 @@ internal object SyncFilePackets {
     if (index < 0) return null
     val encoded = payload.optString("data")
     if (encoded.isEmpty() || encoded.length > CHUNK_SIZE * 2) return null
-    if (encoded.length % 2 != 0 || !encoded.all(::isHexChar)) return null
-    val bytes = ByteArray(encoded.length / 2) { position ->
-      encoded.substring(position * 2, position * 2 + 2).toInt(16).toByte()
-    }
+    if (encoded.length % 2 != 0) return null
+    val bytes = decodeHex(encoded) ?: return null
     if (bytes.isEmpty() || bytes.size > CHUNK_SIZE) return null
     return Chunk(requestId, index, bytes)
   }
@@ -130,8 +128,35 @@ internal object SyncFilePackets {
   private fun safeFileIdChar(char: Char): Boolean =
     char in 'a'..'z' || char in 'A'..'Z' || char in '0'..'9' || char == '-' || char == '_' || char == '.'
 
-  private fun isHexChar(char: Char): Boolean =
-    char in '0'..'9' || char in 'a'..'f' || char in 'A'..'F'
+  private fun hexValue(char: Char): Int = when (char) {
+    in '0'..'9' -> char - '0'
+    in 'a'..'f' -> char - 'a' + 10
+    in 'A'..'F' -> char - 'A' + 10
+    else -> -1
+  }
+
+  private fun encodeHex(data: ByteArray): String {
+    val out = CharArray(data.size * 2)
+    for (position in data.indices) {
+      val value = data[position].toInt() and 0xFF
+      out[position * 2] = HEX_DIGITS[value ushr 4]
+      out[position * 2 + 1] = HEX_DIGITS[value and 0x0F]
+    }
+    return String(out)
+  }
+
+  private fun decodeHex(encoded: String): ByteArray? {
+    val out = ByteArray(encoded.length / 2)
+    for (position in out.indices) {
+      val high = hexValue(encoded[position * 2])
+      val low = hexValue(encoded[position * 2 + 1])
+      if (high < 0 || low < 0) return null
+      out[position] = ((high shl 4) or low).toByte()
+    }
+    return out
+  }
+
+  private val HEX_DIGITS = "0123456789abcdef".toCharArray()
 
   internal data class Req(val requestId: String, val fileId: String)
 

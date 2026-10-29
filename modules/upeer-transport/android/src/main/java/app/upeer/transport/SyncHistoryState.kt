@@ -65,17 +65,52 @@ internal class SyncHistoryState(
     }
   }
 
-  fun savePage(deviceId: String, cursor: String?, done: Boolean, applied: Int, pending: Int?) {
+  fun savePage(deviceId: String, cursor: String?, done: Boolean, applied: Int, pending: Int?, fresh: Boolean = false) {
     if (!validDeviceId(deviceId)) return
     synchronized(lock) {
       val history = bucket()
       val entry = history.optJSONObject(deviceId) ?: JSONObject()
+      if (fresh) {
+        entry.put("applied", 0)
+        entry.put("total", 0)
+        entry.put("known", false)
+      }
       val previous = entry.optString("cursor").ifBlank { null }
       if (cursor.isNullOrBlank()) entry.remove("cursor") else entry.put("cursor", cursor)
       entry.put("done", done)
       addCountersTo(entry, if (cursor != null && cursor == previous) 0 else applied, pending)
       if (done) finishCountersIn(entry)
       history.put(deviceId, entry)
+      state().put(KEY, history)
+      persist()
+    }
+  }
+
+  fun beginRun(deviceId: String) {
+    if (!validDeviceId(deviceId)) return
+    synchronized(lock) {
+      val history = bucket()
+      val entry = history.optJSONObject(deviceId) ?: JSONObject()
+      entry.put("done", false)
+      entry.put("applied", 0)
+      entry.put("total", 0)
+      entry.put("known", false)
+      history.put(deviceId, entry)
+      state().put(KEY, history)
+      persist()
+    }
+  }
+
+  fun beginAllRuns() {
+    synchronized(lock) {
+      val history = bucket()
+      for (deviceId in history.keys()) {
+        val entry = history.optJSONObject(deviceId) ?: continue
+        entry.put("done", false)
+        entry.put("applied", 0)
+        entry.put("total", 0)
+        entry.put("known", false)
+      }
       state().put(KEY, history)
       persist()
     }

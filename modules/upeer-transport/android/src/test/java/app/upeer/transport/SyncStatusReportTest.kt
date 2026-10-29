@@ -111,4 +111,37 @@ class SyncStatusReportTest {
 
     assertEquals(0, report.optJSONObject("unsupportedKinds")?.length())
   }
+
+  @Test
+  fun `pending attachments keep the state syncing even when the history is done`() {
+    val report = SyncStatusReport.json(
+      listOf(SyncHistoryProgress(cursor = "1:a", done = true)),
+      listOf(peer),
+      0,
+      0,
+      now,
+      files = SyncFileWork(total = 3, done = 1, pending = 2),
+    )
+
+    assertEquals(SyncStatusReport.STATE_SYNCING, report.optString("state"))
+    val progress = report.optJSONObject("progress")
+    assertEquals(2, progress?.optInt("pendingFiles"))
+    assertEquals(1, progress?.optInt("filesDone"))
+    assertEquals(3, progress?.optInt("filesTotal"))
+  }
+
+  @Test
+  fun `attachments already downloaded leave the state live`() {
+    val report = SyncStatusReport.json(
+      listOf(SyncHistoryProgress(cursor = "1:a", done = true)),
+      listOf(peer),
+      0,
+      0,
+      now,
+      files = SyncFileWork(total = 3, done = 3),
+    )
+
+    assertEquals(SyncStatusReport.STATE_LIVE, report.optString("state"))
+    assertEquals(100, report.optJSONObject("progress")?.optInt("percent"))
+  }
 }

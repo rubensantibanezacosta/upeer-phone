@@ -13,14 +13,16 @@ internal object SyncStatusReport {
     pendingEvents: Int,
     unsupported: Int,
     nowMillis: Long,
-    activeFiles: Int = 0,
+    files: SyncFileWork = SyncFileWork.EMPTY,
     unsupportedKinds: JSONObject = JSONObject(),
   ): JSONObject {
     val done = progress.isNotEmpty() && progress.all { it.done }
     val lastSeen = peers.maxOfOrNull { it.lastSeen } ?: 0L
     val stale = peers.isEmpty() || lastSeen <= 0L || nowMillis - lastSeen > STALE_MS
+    val filesBusy = files.pending > 0 || files.total > files.done + files.failed
     val state = when {
       peers.isEmpty() && progress.isEmpty() -> STATE_IDLE
+      filesBusy -> STATE_SYNCING
       !stale && done.not() -> STATE_SYNCING
       else -> STATE_LIVE
     }
@@ -33,7 +35,7 @@ internal object SyncStatusReport {
       .put("unsupportedKinds", JSONObject(unsupportedKinds.toString()))
       .put("lastPeerAt", lastSeen)
       .put("ageMillis", if (peers.isEmpty()) 0L else nowMillis - lastSeen)
-      .put("progress", SyncProgress.json(progress, pendingEvents, activeFiles, state))
+      .put("progress", SyncProgress.json(progress, pendingEvents, files, state))
   }
 
   private const val STALE_MS = 45_000L

@@ -17,15 +17,25 @@ internal class SyncHistory(
   private val nowMillis: () -> Long = System::currentTimeMillis,
 ) {
   private val lastRequest = mutableMapOf<String, Long>()
+  private val checked = mutableSetOf<String>()
 
   fun request(activeBridge: Bridge, peer: SyncPeerRecord, force: Boolean = false) {
     val progress = state.history.progress(peer.deviceId)
-    if (progress.done && !force) return
+    if (progress.done && !force) {
+      if (!checked.add(peer.deviceId)) return
+      state.history.beginRun(peer.deviceId)
+      lastRequest.remove(peer.deviceId)
+    }
     val now = nowMillis()
     if (now - (lastRequest[peer.deviceId] ?: 0L) < REQUEST_COOLDOWN_MS) return
     lastRequest[peer.deviceId] = now
     Log.i(TAG, "Pidiendo histórico a ${peer.deviceId.take(12)} desde ${progress.cursor ?: "el principio"}")
     sendRequest(activeBridge, peer, progress.cursor)
+  }
+
+  fun resetSession() {
+    lastRequest.clear()
+    checked.clear()
   }
 
   fun resetBackoff(peerDeviceId: String) {
@@ -85,6 +95,7 @@ internal class SyncHistory(
 
   fun apply(activeBridge: Bridge, peer: SyncPeerRecord, payload: JSONObject) {
     val entries = payload.optJSONArray("entries")
+    val wasDone = state.history.progress(peer.deviceId).done
     var failed = 0
     var messages = 0
     Log.i(
@@ -111,7 +122,7 @@ internal class SyncHistory(
     }
     val done = payload.optBoolean("done", false)
     val finished = done || nextCursor == null
-    state.history.savePage(peer.deviceId, nextCursor, finished, messages, if (finished) 0 else pendingCount(payload))
+    state.history.savePage(peer.deviceId, nextCursor, finished, messages, if (finished) 0 else pendingCount(payload), wasDone)
     if (!done && nextCursor != null) {
       val refreshed = state.syncPeers.list().firstOrNull { it.deviceId == peer.deviceId } ?: return
       lastRequest[peer.deviceId] = nowMillis()

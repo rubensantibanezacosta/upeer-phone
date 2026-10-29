@@ -8,7 +8,7 @@ internal object MessageAttachments {
   fun contentOf(raw: String): String? {
     if (raw.isEmpty() || !raw.startsWith("{")) return null
     val parsed = runCatching { JSONObject(raw) }.getOrNull() ?: return null
-    if (parsed.optString("type") != "file") return null
+    if (parsed.optString("type") !in KINDS) return null
     return raw
   }
 
@@ -35,5 +35,7 @@ internal object MessageAttachments {
   fun fileNameOfContent(raw: String): String = parsed(raw)?.optString("fileName").orEmpty()
 
   private fun parsed(raw: String): JSONObject? =
-    runCatching { JSONObject(raw) }.getOrNull()?.takeIf { it.optString("type") == "file" }
+    runCatching { JSONObject(raw) }.getOrNull()?.takeIf { it.optString("type") in KINDS }
+
+  private val KINDS = setOf("file", "image")
 }

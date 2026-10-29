@@ -2,6 +2,7 @@ package app.upeer.transport
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 internal class ProtocolMessageList(
   private val stateProvider: () -> JSONObject,
@@ -203,6 +204,18 @@ internal class ProtocolMessageList(
     }
   }
 
+  fun attachmentRefs(): List<AttachmentRef> = synchronized(lock) {
+    val found = LinkedHashMap<String, AttachmentRef>()
+    val list = messages()
+    for (index in 0 until list.length()) {
+      val message = list.optJSONObject(index) ?: continue
+      if (message.optBoolean("deleted")) continue
+      val fileId = MessageAttachments.fileIdOf(message) ?: continue
+      found.putIfAbsent(fileId, AttachmentRef(fileId, MessageAttachments.savedPathOf(message)))
+    }
+    found.values.toList()
+  }
+
   fun attachmentContent(fileId: String): String? = synchronized(lock) {
     if (fileId.isBlank()) return@synchronized null
     for (index in 0 until messages().length()) {
@@ -227,6 +240,26 @@ internal class ProtocolMessageList(
       return@synchronized message.optString("id").ifEmpty { null }
     }
     null
+  }
+
+  fun repairAttachmentPaths(resolve: (String) -> String?): Int = synchronized(lock) {
+    var fixed = 0
+    val list = messages()
+    for (index in 0 until list.length()) {
+      val message = list.optJSONObject(index) ?: continue
+      if (message.optBoolean("deleted")) continue
+      val fileId = MessageAttachments.fileIdOf(message) ?: continue
+      val content = MessageAttachments.content(message) ?: continue
+      val parsed = runCatching { JSONObject(content) }.getOrNull() ?: continue
+      val current = parsed.optString("savedPath")
+      if (current.isNotEmpty() && runCatching { File(current).isFile }.getOrDefault(false)) continue
+      val stored = runCatching { resolve(fileId) }.getOrNull() ?: continue
+      parsed.put("savedPath", stored)
+      message.put("content", parsed.toString())
+      fixed += 1
+    }
+    if (fixed > 0) persist()
+    fixed
   }
 
   private fun messages(): JSONArray = stateProvider().optJSONArray("messages") ?: JSONArray()
