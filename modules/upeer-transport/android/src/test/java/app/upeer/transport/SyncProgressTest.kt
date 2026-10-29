@@ -72,6 +72,14 @@ class SyncProgressTest {
   }
 
   @Test
+  fun `al dia no anuncia una conexion que ya termino`() {
+    val progress = SyncProgress.json(emptyList(), pendingEvents = 0, activeFiles = 0, phase = SyncStatusReport.STATE_LIVE)
+
+    assertEquals("¡Al día!", progress.optString("headline"))
+    assertEquals("Todo sincronizado", progress.optString("detail"))
+  }
+
+  @Test
   fun `los contadores del historico se acumulan y se cierran`() {
     val state = JSONObject()
     val history = SyncHistoryState({ state }, Any(), {})

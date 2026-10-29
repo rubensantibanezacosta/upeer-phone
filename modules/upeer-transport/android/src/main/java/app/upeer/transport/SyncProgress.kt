@@ -23,18 +23,26 @@ internal object SyncProgress {
       .put("pendingEvents", pendingEvents.coerceAtLeast(0))
       .put("pendingFiles", activeFiles.coerceAtLeast(0))
       .put("headline", headline(phase))
-      .put("detail", detail(done, total, determinate, pendingEvents, activeFiles))
+      .put("detail", detail(done, total, determinate, pendingEvents, activeFiles, phase))
   }
 
   private fun headline(phase: String): String =
     if (phase == SyncStatusReport.STATE_SYNCING) "Sincronizando tus dispositivos…" else "¡Al día!"
 
-  private fun detail(done: Int, total: Int, determinate: Boolean, pendingEvents: Int, activeFiles: Int): String {
+  private fun detail(
+    done: Int,
+    total: Int,
+    determinate: Boolean,
+    pendingEvents: Int,
+    activeFiles: Int,
+    phase: String,
+  ): String {
     val parts = mutableListOf<String>()
     when {
       determinate -> parts.add("$done de ${plural(total, "mensaje", "mensajes")}")
       done > 0 -> parts.add(plural(done, "mensaje sincronizado", "mensajes sincronizados"))
-      else -> parts.add("Conectando con tus dispositivos")
+      phase == SyncStatusReport.STATE_SYNCING -> parts.add("Conectando con tus dispositivos")
+      else -> parts.add("Todo sincronizado")
     }
     if (pendingEvents > 0) parts.add("${plural(pendingEvents, "evento pendiente", "eventos pendientes")} de aplicar")
     if (activeFiles > 0) parts.add("${plural(activeFiles, "archivo", "archivos")} en curso")
