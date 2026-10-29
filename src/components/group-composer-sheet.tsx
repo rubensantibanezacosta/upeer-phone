@@ -65,8 +65,9 @@ export function GroupComposerSheet({ contacts, visible, onClose, onCreated, onEr
       <Input
         accessibilityLabel="Nombre del grupo"
         autoCapitalize="sentences"
-        backgroundColor={theme.background}
+        backgroundColor={theme.backgroundSelected}
         borderColor={theme.border}
+        borderRadius={24}
         color={theme.text}
         onChangeText={setName}
         placeholder="Equipo, familia, proyecto…"

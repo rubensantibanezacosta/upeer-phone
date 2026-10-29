@@ -146,7 +146,7 @@ export function EmojiGrid({ onDelete, onPick, onSearchClosed }: EmojiGridProps) 
   }, [pages.length, query, warmUp, width]);
 
   return <YStack gap={8} onLayout={handleLayout}>
-    {searchOpen ? <XStack alignItems="center" backgroundColor={theme.background} borderColor={theme.border} borderRadius={10} borderWidth={StyleSheet.hairlineWidth} gap={8} paddingHorizontal={10} paddingVertical={8}>
+    {searchOpen ? <XStack alignItems="center" backgroundColor={theme.backgroundSelected} borderColor={theme.border} borderRadius={10} borderWidth={StyleSheet.hairlineWidth} gap={8} paddingHorizontal={10} paddingVertical={8}>
       <Search color={theme.placeholder} size={16} />
       <Input
         accessibilityLabel="Buscar emoji"

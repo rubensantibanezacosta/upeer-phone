@@ -64,8 +64,9 @@ export function ChatListsSheet({ onClose, onEditChats, visible }: ChatListsSheet
           <Input
             accessibilityLabel="Nombre de la lista"
             autoCapitalize="sentences"
-            backgroundColor={theme.background}
+            backgroundColor={theme.backgroundSelected}
             borderColor={theme.border}
+            borderRadius={24}
             color={theme.text}
             flex={1}
             maxLength={LIST_NAME_MAX_LENGTH}
@@ -99,8 +100,9 @@ export function ChatListsSheet({ onClose, onEditChats, visible }: ChatListsSheet
               <Input
                 accessibilityLabel="Nuevo nombre de la lista"
                 autoFocus
-                backgroundColor={theme.background}
+                backgroundColor={theme.backgroundSelected}
                 borderColor={theme.border}
+                borderRadius={24}
                 color={theme.text}
                 flex={1}
                 maxLength={LIST_NAME_MAX_LENGTH}

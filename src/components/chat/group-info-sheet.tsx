@@ -159,8 +159,9 @@ export function GroupInfoSheet({ groupId, onChanged, onClose }: GroupInfoSheetPr
         <Input
           accessibilityLabel="Nombre del grupo"
           autoFocus
-          backgroundColor={theme.background}
+          backgroundColor={theme.backgroundSelected}
           borderColor={theme.border}
+          borderRadius={24}
           color={theme.text}
           onChangeText={setDraft}
           value={draft}
