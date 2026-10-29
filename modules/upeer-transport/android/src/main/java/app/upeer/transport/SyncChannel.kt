@@ -66,7 +66,12 @@ internal class SyncChannel(
     envelope: JSONObject,
     content: JSONObject,
   ): String? {
-    val session = state.sessionFor(SyncPackets.contextId(peer.deviceId))
+    val context = SyncPackets.contextId(peer.deviceId)
+    val session = state.sessionFor(context)
+    if (!SyncSessionPolicy.mayInitiate(device.deviceId, peer.deviceId, session != null)) {
+      Log.d(TAG, "Sesión de sincronización con ${peer.deviceId.take(12)} aún sin abrir: la inicia el dispositivo de id menor")
+      return null
+    }
     val started = if (session != null) {
       Session(session, null)
     } else {
@@ -88,7 +93,7 @@ internal class SyncChannel(
       .put("ratchetHeader", encrypted.optJSONObject("ratchetHeader"))
       .put("senderDeviceCertificate", device.certificate)
     started.x3dhInit?.let { packet.put("x3dhInit", JSONObject(it)) }
-    state.saveSession(SyncPackets.contextId(peer.deviceId), nextSession)
+    state.saveSession(context, nextSession)
     val address = activeBridge.address()
     return attempt {
       device.crypto.buildLinkedControl(device.deviceId, identity.current()?.upeerID().orEmpty(), address, packet.toString())
