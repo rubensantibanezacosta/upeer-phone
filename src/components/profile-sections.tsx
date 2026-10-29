@@ -1,11 +1,8 @@
 import { StyleSheet, View } from 'react-native';
-import { BadgeAlert, Check, Cloud, Copy, Fingerprint, Info, Pencil, QrCode, Shield } from '@tamagui/lucide-icons-2';
+import { Check, Copy, Fingerprint, Info, Pencil, QrCode } from '@tamagui/lucide-icons-2';
 import { Input, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import type { UPeerIdentity } from '@/domain/identity-record';
-import { formatStorageSize } from '@/domain/storage-usage';
-import { getTrustWarning } from '@/domain/trust';
-import { describeVaultEntries, type VaultUsage, vaultFillPercent } from '@/domain/vault-usage';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { CopyField } from '@/components/copy-field';
@@ -42,61 +39,6 @@ export function ProfileHeroSection({ identity, alias, avatar, busy, onAliasChang
         </YStack>
       </XStack>
     </SettingsGroup>
-  );
-}
-
-export function ProfileStatsSection({ reputation, vaultUsage, vaultReady = false, onInfo }: {
-  reputation: { vouchScore: number; connectionCount: number } | null;
-  vaultUsage: VaultUsage;
-  vaultReady?: boolean;
-  onInfo: (key: 'reputacion' | 'almacenamiento') => void;
-}) {
-  const theme = useTheme();
-  const scale = useTextScale();
-  const vouchScore = reputation?.vouchScore;
-  const connectionCount = reputation?.connectionCount;
-  const hasReputation = vouchScore !== undefined && connectionCount !== undefined;
-  const connections = connectionCount ?? 0;
-  const warning = getTrustWarning(vouchScore);
-  return (
-    <YStack gap={10}>
-      <SettingsGroupLabel action={<InfoButton label="¿Qué es la reputación?" onPress={() => onInfo('reputacion')} />} icon={<Shield color={theme.placeholder} size={15} />} title="Reputación" />
-      <SettingsGroup>
-        <YStack gap={10} padding={16}>
-          {warning ? (
-            <XStack alignItems="flex-start" gap={8}>
-              <BadgeAlert color={theme.danger} size={15} strokeWidth={2.3} />
-              <Text color={theme.danger} flex={1} fontSize={scale(12)} fontWeight="600">{warning}</Text>
-            </XStack>
-          ) : null}
-          <Text color={theme.placeholder} fontSize={scale(12)}>{!hasReputation ? 'Leyendo tu red de contactos…' : `${connections} ${connections === 1 ? 'contacto directo' : 'contactos directos'} en tu red. La reputación es un criterio interno que solo se avisa cuando es muy mala.`}</Text>
-        </YStack>
-      </SettingsGroup>
-
-      <SettingsGroupLabel action={<InfoButton label="¿Qué es el almacenamiento cedido?" onPress={() => onInfo('almacenamiento')} />} icon={<Cloud color={theme.placeholder} size={15} />} title="Almacenamiento cedido" />
-      <SettingsGroup>
-        <YStack gap={10} padding={16}>
-          <XStack alignItems="baseline" gap={6}>
-            <SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{formatStorageSize(vaultUsage.bytes)}</SizableText>
-            <Text color={theme.placeholder} flex={1} fontSize={scale(11)}>usados</Text>
-            <Text color={theme.placeholder} fontSize={scale(11)}>{vaultReady ? describeVaultEntries(vaultUsage) : 'Calculando…'}</Text>
-          </XStack>
-          <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
-            <View style={[styles.fill, { backgroundColor: theme.accent, width: `${vaultFillPercent(vaultUsage)}%` }]} />
-          </View>
-          <XStack gap={20}>
-            <YStack gap={2}>
-              <Text color={theme.placeholder} fontSize={scale(10)} fontWeight="600" letterSpacing={0.6}>ARCHIVOS P2P</Text>
-              <SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{vaultUsage.entries}</SizableText>
-            </YStack>
-            <YStack gap={2}>
-              <Text color={theme.placeholder} fontSize={scale(10)} fontWeight="600" letterSpacing={0.6}>CUOTA DINÁMICA</Text>
-              <SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">Activa</SizableText>
-            </YStack>
-          </XStack>
-        </YStack>
-      </SettingsGroup>
-    </YStack>
   );
 }
 
@@ -165,7 +107,5 @@ const styles = StyleSheet.create({
   avatar: { height: 96, position: 'relative', width: 96 },
   avatarClip: { borderRadius: 48, height: 96, overflow: 'hidden', width: 96 },
   avatarEditBadge: { alignItems: 'center', borderRadius: 11, borderWidth: 2, bottom: 0, height: 22, justifyContent: 'center', position: 'absolute', right: 0, width: 22 },
-  fill: { borderRadius: 4, height: 6 },
   info: { alignItems: 'center', borderRadius: 14, height: 28, justifyContent: 'center', overflow: 'hidden', width: 28 },
-  track: { borderRadius: 4, height: 6, overflow: 'hidden' },
 });

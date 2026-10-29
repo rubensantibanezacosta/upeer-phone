@@ -8,10 +8,14 @@ import { biometricRowDetail, biometricRowTitle, canUseBiometrics, type Biometric
 import { describeRecoveryPhrase } from '@/domain/recovery-phrase';
 import { askForBiometrics, readBiometricAvailability, writeBiometricEnabled } from '@/services/biometric-lock';
 import { BottomSheet } from '@/components/bottom-sheet';
+import { InfoDialog } from '@/components/info-dialog';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import { profileHelpContent } from '@/components/profile-help-content';
+import { ReputationSection } from '@/components/reputation-section';
 import { SettingsGroup, SettingsGroupLabel, SettingsNote, SettingsSectionHeader } from '@/components/settings-section-parts';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { useOwnReputation } from '@/hooks/use-own-reputation';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -19,7 +23,9 @@ export function SecuritySettingsSection({ identity }: { identity: UPeerIdentity 
   const theme = useTheme();
   const scale = useTextScale();
   const phrase = describeRecoveryPhrase(identity);
+  const reputation = useOwnReputation(identity.upeerId);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [biometrics, setBiometrics] = useState<BiometricAvailability>({ enabled: false, enrolled: false, hasHardware: false, kind: 'none' });
 
   useEffect(() => {
@@ -82,6 +88,8 @@ export function SecuritySettingsSection({ identity }: { identity: UPeerIdentity 
       </NativeRipplePressable>
     </SettingsGroup>
 
+    <ReputationSection onInfo={() => setInfoOpen(true)} reputation={reputation} />
+
     <SettingsNote>Si pierdes el teléfono y no tienes la frase, la cuenta y sus mensajes no se pueden recuperar. La frase solo se muestra aquí, nunca se envía a ningún servidor.</SettingsNote>
 
     <YStack alignItems="center" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={12} borderWidth={1} flexDirection="row" gap={10} padding={12}>
@@ -90,6 +98,7 @@ export function SecuritySettingsSection({ identity }: { identity: UPeerIdentity 
     </YStack>
 
     <RecoveryPhraseSheet onClose={() => setSheetOpen(false)} phrase={phrase.words} visible={sheetOpen} />
+    <InfoDialog content={infoOpen ? profileHelpContent.reputacion : null} onClose={() => setInfoOpen(false)} />
   </YStack>;
 }
 

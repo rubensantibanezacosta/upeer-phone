@@ -11,7 +11,7 @@ import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 const settingsSections = [
   { id: 'dispositivos', label: 'Dispositivos', description: 'Añadir y revisar los de tu cuenta', icon: Smartphone },
   { id: 'privacidad', label: 'Privacidad', description: 'Lecturas, presencia y última vez', icon: LockKeyhole },
-  { id: 'seguridad', label: 'Seguridad', description: 'Frase de recuperación de tu cuenta', icon: KeyRound },
+  { id: 'seguridad', label: 'Seguridad', description: 'Frase de recuperación y reputación', icon: KeyRound },
   { id: 'bloqueados', label: 'Bloqueados', description: 'Contactos que no pueden escribirte', icon: ShieldOff },
   { id: 'notificaciones', label: 'Notificaciones', description: 'Mensajes, solicitudes y sonidos', icon: Bell },
   { id: 'apariencia', label: 'Apariencia', description: 'Tema y tamaño de texto', icon: Palette },

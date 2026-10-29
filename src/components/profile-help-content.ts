@@ -3,11 +3,11 @@ export type ProfileInfoKey = 'reputacion' | 'almacenamiento' | 'direccion' | 'di
 export const profileHelpContent: Record<ProfileInfoKey, { title: string; description: string; items: { label: string; description: string }[] }> = {
   reputacion: {
     title: 'Reputación',
-    description: 'La reputación es un criterio técnico interno que puntúa cuentas, no dispositivos ni nodos: la misma cuenta vale lo mismo desde cualquier equipo suyo. Solo se te avisa cuando es muy mala, porque una puntuación normal no es asunto de nadie.',
+    description: 'La reputación es un criterio técnico interno que puntúa cuentas, no dispositivos ni nodos: la misma cuenta vale lo mismo desde cualquier equipo suyo. La puntuación solo la ves tú, en Seguridad, y únicamente se avisa cuando es muy mala.',
     items: [
       { label: 'De dónde sale', description: 'De avales firmados que intercambian tus contactos directos: un mensaje entregado, un trozo de mensaje guardado mientras estabas desconectado, o una penalización por comportamiento malicioso o fallo de integridad.' },
       { label: 'Quién cuenta', description: 'Solo los avales de tus contactos directos, durante los últimos 30 días. Un desconocido no puede subir ni hundir tu puntuación.' },
-      { label: 'Cuándo se avisa', description: 'Únicamente por debajo de 40 sobre 100. El resto del tiempo no se muestra ninguna nota, ni la tuya ni la de los demás.' },
+      { label: 'Cuándo se avisa', description: 'La puntuación se muestra siempre en Seguridad. El aviso en rojo aparece por debajo de 40 sobre 100, y esa nota no se enseña a nadie más.' },
       { label: 'Para qué se usa', description: 'Para decidir con qué prioridad se procesan los paquetes de una cuenta y para marcar como sospechosa una solicitud de contacto antes de aceptarla.' },
     ],
   },
