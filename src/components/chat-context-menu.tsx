@@ -6,8 +6,10 @@ import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import type { ChatListEntry } from '@/components/chat-list-item';
 import type { ConversationFlag } from '@/domain/conversation-flags';
+import { isSelfConversation } from '@/domain/self-conversation';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ProfileAvatar } from '@/components/profile-avatar';
+import { useSelfUpeerId } from '@/hooks/use-self-upeer-id';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -42,7 +44,9 @@ export function ChatContextMenu({ entry, onClear, onClose, onMarkRead, onToggleF
   const theme = useTheme();
   const scale = useTextScale();
   const insets = useSafeAreaInsets();
+  const ownUpeerId = useSelfUpeerId();
   if (!entry) return null;
+  const isSelf = isSelfConversation(entry.upeerId, ownUpeerId);
   const canMarkRead = entry.unread > 0;
 
   return (
@@ -70,7 +74,7 @@ export function ChatContextMenu({ entry, onClear, onClose, onMarkRead, onToggleF
             label="Marcar como leído"
             onPress={() => onMarkRead(entry)}
           />
-          <MenuAction color={theme.text} icon={<Star color={theme.text} size={19} />} label={entry.favorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={() => onToggleFavorite(entry)} />
+          {isSelf ? null : <MenuAction color={theme.text} icon={<Star color={theme.text} size={19} />} label={entry.favorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={() => onToggleFavorite(entry)} />}
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <MenuAction color={theme.danger} icon={<Trash2 color={theme.danger} size={19} />} label="Vaciar chat" onPress={() => onClear(entry)} />
         </View>

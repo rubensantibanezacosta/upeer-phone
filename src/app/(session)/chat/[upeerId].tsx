@@ -25,12 +25,14 @@ import { useFirstLoad } from '@/hooks/use-first-load';
 import { buildReplyPreview, type ReplyPreview } from '@/domain/chat-reply';
 import { decideRequestState } from '@/domain/message-request';
 import { useChatComposer } from '@/hooks/use-chat-composer';
+import { useSelfUpeerId } from '@/hooks/use-self-upeer-id';
 import { useAttachmentOpener } from '@/hooks/use-attachment-opener';
 import { useAttachmentRequester } from '@/hooks/use-attachment-request';
 import { useAttachmentSender } from '@/hooks/use-attachment-send';
 import { useChatMessageSheet } from '@/hooks/use-chat-message-sheet';
 import { useRequestResolution } from '@/hooks/use-request-resolution';
 import { placeholderName, resolveContactName } from '@/domain/contact-name';
+import { isSelfConversation } from '@/domain/self-conversation';
 import { useChatRowRenderer } from '@/hooks/use-chat-row-renderer';
 import { useChatComposerArea } from '@/hooks/use-chat-composer-area';
 import { useChatSearchController } from '@/hooks/use-chat-search-controller';
@@ -155,6 +157,8 @@ export default function ChatRoute() {
   const forwardOne = useCallback((message: ProtocolMessage) => startForwarding([message]), [startForwarding]);
   const sheet = useChatMessageSheet({ onChanged: refresh, onEdit: startEditing, onError: setError, onForward: forwardOne, onReply: startReplying, upeerId });
   const { open: openActions, selfUpeerId, toggleReaction } = sheet;
+  const ownUpeerId = useSelfUpeerId();
+  const isSelfChat = !isGroup && isSelfConversation(upeerId, ownUpeerId);
   const selection = useChatSelection({ messages, onChanged: refresh, onError: setError, onForward: startForwarding, upeerId });
 
   const replyPreviews = useMemo(() => {
@@ -196,6 +200,10 @@ export default function ChatRoute() {
   }, [showSnackbar]);
 
   const startCall = useCallback((kind: 'audio' | 'video') => {
+    if (isSelfChat) {
+      showSnackbar('No puedes llamarte a ti mismo');
+      return;
+    }
     if (isGroup) {
       showSnackbar('La llamada de grupo llegará más adelante');
       return;
@@ -206,7 +214,7 @@ export default function ChatRoute() {
       console.warn('No se pudo iniciar la llamada.', cause);
       showSnackbar('No se pudo iniciar la llamada');
     });
-  }, [isGroup, showSnackbar, upeerId]);
+  }, [isGroup, isSelfChat, showSnackbar, upeerId]);
 
   const [media, setMedia] = useState<AttachmentInfo | null>(null);
   const requestAttachment = useAttachmentRequester(upeerId ?? '');
@@ -268,7 +276,7 @@ export default function ChatRoute() {
     <View style={styles.root}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
         {selection.active ? <ChatSelectionBar count={selection.chosen.length} onClose={selection.clear} /> : null}
-        <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} onBack={() => router.back()} onOpenInfo={openInfo} onOpenMenu={() => setMenuOpen(true)} onStartCall={startCall} onUnavailable={showUnavailable} presence={isGroup ? (groupMembers > 0 ? `${groupMembers} miembros` : 'Grupo') : presence} status={contactStatus} activity={peerActivity} upeerId={upeerId ?? ''} />
+        <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} isSelf={isSelfChat} onBack={() => router.back()} onOpenInfo={openInfo} onOpenMenu={() => setMenuOpen(true)} onStartCall={startCall} onUnavailable={showUnavailable} presence={isGroup ? (groupMembers > 0 ? `${groupMembers} miembros` : 'Grupo') : presence} status={contactStatus} activity={peerActivity} upeerId={upeerId ?? ''} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.root, androidKeyboard > 0 ? { paddingBottom: androidKeyboard } : null]}>
           {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} upeerId={upeerId ?? ''} /> : (
             <ChatTimelineList
@@ -296,7 +304,7 @@ export default function ChatRoute() {
       <CameraCaptureSheet onClose={closeCamera} onOpenLibrary={openLibrary} onPick={(attachment) => { void sendPicked(attachment); }} visible={cameraOpen} />
       <ContactCardSheet action={contactCard.action} card={contactCard.selected} error={contactCard.error} onClose={contactCard.close} visible={contactCard.selected !== null} />
       <GroupInfoSheet groupId={isGroup && groupInfoOpen ? upeerId ?? null : null} onChanged={refresh} onClose={() => setGroupInfoOpen(false)} />
-      <ChatOptionsMenu isGroup={isGroup} messages={messages} name={alias} onChanged={refresh} onCloseChat={() => router.back()} onCloseMenu={() => setMenuOpen(false)} onOpenInfo={openInfo} onOpenMessage={scrollToMessage} onSearch={search.open} upeerId={upeerId ?? ''} visible={menuOpen} />
+      <ChatOptionsMenu isGroup={isGroup} isSelf={isSelfChat} messages={messages} name={alias} onChanged={refresh} onCloseChat={() => router.back()} onCloseMenu={() => setMenuOpen(false)} onOpenInfo={openInfo} onOpenMessage={scrollToMessage} onSearch={search.open} upeerId={upeerId ?? ''} visible={menuOpen} />
       <ChatMessageOverlays contacts={contacts} forwarding={forwarding} onForwardClose={cancelForwarding} onForwarded={handleForwarded} onSelect={(message) => { sheet.close(); selection.start(message); }} selfUpeerId={selfUpeerId} sheet={sheet} />
       <MediaViewer attachment={media} onClose={() => setMedia(null)} />
     </View>

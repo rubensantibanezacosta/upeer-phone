@@ -18,12 +18,13 @@ type ContactInfoHeroProps = {
   status: UPeerContact['status'];
   presence?: string | null;
   vouchScore?: number;
+  isSelf?: boolean;
   onCall: () => void;
   onVideo: () => void;
   onSearch: () => void;
 };
 
-export function ContactInfoHero({ alias, avatar, upeerId, status, presence = null, vouchScore, onCall, onVideo, onSearch }: ContactInfoHeroProps) {
+export function ContactInfoHero({ alias, avatar, upeerId, status, presence = null, vouchScore, isSelf = false, onCall, onVideo, onSearch }: ContactInfoHeroProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const statusColor = presence === 'En línea' ? theme.success : status === 'blocked' ? theme.danger : theme.placeholder;
@@ -49,8 +50,8 @@ export function ContactInfoHero({ alias, avatar, upeerId, status, presence = nul
         </XStack>
       ) : null}
       <XStack gap={18} paddingTop={12}>
-        <InteractiveRow accessibilityLabel="Llamar" disabled icon={Phone} label="Llamar" onPress={onCall} variant="action" />
-        <InteractiveRow accessibilityLabel="Videollamada" disabled icon={Video} label="Vídeo" onPress={onVideo} variant="action" />
+        {isSelf ? null : <InteractiveRow accessibilityLabel="Llamar" disabled icon={Phone} label="Llamar" onPress={onCall} variant="action" />}
+        {isSelf ? null : <InteractiveRow accessibilityLabel="Videollamada" disabled icon={Video} label="Vídeo" onPress={onVideo} variant="action" />}
         <InteractiveRow accessibilityLabel="Buscar en la conversación" icon={Search} label="Buscar" onPress={onSearch} variant="action" />
       </XStack>
     </YStack>

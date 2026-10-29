@@ -20,6 +20,7 @@ import type { ProtocolMessage } from '../../../modules/upeer-transport/src/UPeer
 
 type ChatOptionsMenuProps = {
   isGroup: boolean;
+  isSelf?: boolean;
   messages: ProtocolMessage[];
   name: string;
   onChanged: () => Promise<void>;
@@ -49,7 +50,7 @@ function MenuAction({ color, icon, label, onPress }: MenuActionProps) {
   );
 }
 
-export function ChatOptionsMenu({ isGroup, messages, name, onChanged, onCloseChat, onCloseMenu, onOpenInfo, onOpenMessage, onSearch, upeerId, visible }: ChatOptionsMenuProps) {
+export function ChatOptionsMenu({ isGroup, isSelf = false, messages, name, onChanged, onCloseChat, onCloseMenu, onOpenInfo, onOpenMessage, onSearch, upeerId, visible }: ChatOptionsMenuProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const insets = useSafeAreaInsets();
@@ -97,22 +98,22 @@ export function ChatOptionsMenu({ isGroup, messages, name, onChanged, onCloseCha
             <NativeRipplePressable accessibilityLabel="Cerrar menú" onPress={onCloseMenu} style={styles.closeButton}><X color={theme.placeholder} size={18} /></NativeRipplePressable>
           </XStack>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <MenuAction color={theme.text} icon={<Info color={theme.text} size={19} />} label={isGroup ? 'Info. del grupo' : 'Info. del contacto'} onPress={run(onOpenInfo)} />
+          <MenuAction color={theme.text} icon={<Info color={theme.text} size={19} />} label={isGroup ? 'Info. del grupo' : (isSelf ? 'Info. de tu cuenta' : 'Info. del contacto')} onPress={run(onOpenInfo)} />
           <MenuAction color={theme.text} icon={<Search color={theme.text} size={19} />} label="Buscar" onPress={run(onSearch)} />
           <MenuAction color={theme.text} icon={<Timer color={theme.text} size={19} />} label="Mensajes temporales" onPress={openRetention} />
           <MenuAction color={theme.text} icon={<Palette color={theme.text} size={19} />} label="Estilo del chat" onPress={openStyle} />
           <MenuAction color={theme.text} icon={<Star color={theme.text} size={19} />} label="Mensajes destacados" onPress={openStarred} />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <MenuAction color={theme.text} icon={muted ? <Bell color={theme.text} size={19} /> : <BellOff color={theme.text} size={19} />} label={muted ? 'Reactivar notificaciones' : 'Silenciar notificaciones'} onPress={run(actions.toggleMute)} />
-          <MenuAction color={theme.text} icon={<Star color={isFavorite ? theme.accent : theme.text} fill={isFavorite ? theme.accent : 'none'} size={19} />} label={isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />
+          {isSelf ? null : <MenuAction color={theme.text} icon={<Star color={isFavorite ? theme.accent : theme.text} fill={isFavorite ? theme.accent : 'none'} size={19} />} label={isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />}
           <MenuAction color={theme.text} icon={<Download color={theme.text} size={19} />} label="Exportar chat" onPress={run(actions.exportChat)} />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <MenuAction color={theme.text} icon={<X color={theme.text} size={19} />} label="Cerrar chat" onPress={run(onCloseChat)} />
-          {isGroup ? null : <MenuAction color={theme.text} icon={<Ban color={theme.text} size={19} />} label="Bloquear" onPress={run(actions.blockContact)} />}
+          {isGroup || isSelf ? null : <MenuAction color={theme.text} icon={<Ban color={theme.text} size={19} />} label="Bloquear" onPress={run(actions.blockContact)} />}
           <MenuAction color={theme.text} icon={<Eraser color={theme.text} size={19} />} label="Vaciar chat" onPress={run(actions.clearChat)} />
           {isGroup ? (
             <MenuAction color={theme.danger} icon={<LogOut color={theme.danger} size={19} />} label="Salir del grupo" onPress={run(actions.leaveGroup)} />
-          ) : (
+          ) : isSelf ? null : (
             <MenuAction color={theme.danger} icon={<Trash2 color={theme.danger} size={19} />} label="Eliminar chat" onPress={run(actions.deleteChat)} />
           )}
         </View>

@@ -12,12 +12,14 @@ import { CopyField } from '@/components/copy-field';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useSnackbar } from '@/components/snackbar';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { useSelfUpeerId } from '@/hooks/use-self-upeer-id';
 import { usePresenceLabel } from '@/hooks/use-presence-label';
 import { usePeerSecurity } from '@/hooks/use-peer-security';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
 import { resolveContactName } from '@/domain/contact-name';
+import { isSelfConversation } from '@/domain/self-conversation';
 import { flagMessage, flagsFor, type ConversationFlag } from '@/domain/conversation-flags';
 import { requestChatSearch } from '@/storage/chat-search-request';
 import { setConversationFlag } from '@/storage/conversation-flags-store';
@@ -46,6 +48,8 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
   const loadCipher = cipher.load;
   const conversationFlags = useConversationFlags();
   const flags = flagsFor(conversationFlags, upeerId);
+  const ownUpeerId = useSelfUpeerId();
+  const isSelf = isSelfConversation(upeerId, ownUpeerId);
 
   const reportFailure = useCallback((cause: unknown) => {
     console.warn('No se pudo cargar la ficha del contacto.', cause);
@@ -168,10 +172,10 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
         <NativeRipplePressable accessibilityLabel="Volver a la conversación" accessibilityRole="button" onPress={onBack} style={styles.headerButton}>
           <ArrowLeft color={theme.text} size={22} />
         </NativeRipplePressable>
-        <SizableText color={theme.text} flex={1} fontSize={scale(17)} fontWeight="700" numberOfLines={1}>Info. del contacto</SizableText>
+        <SizableText color={theme.text} flex={1} fontSize={scale(17)} fontWeight="700" numberOfLines={1}>{isSelf ? 'Info. de tu cuenta' : 'Info. del contacto'}</SizableText>
       </XStack>
       <ScrollView contentContainerStyle={styles.content}>
-        <ContactInfoHero alias={alias} avatar={peerAvatar} onCall={pending('Llamada de voz')} onSearch={openSearch} onVideo={pending('Videollamada')} presence={presence} status={contact?.status ?? 'offline'} upeerId={upeerId} />
+        <ContactInfoHero alias={alias} avatar={peerAvatar} isSelf={isSelf} onCall={pending('Llamada de voz')} onSearch={openSearch} onVideo={pending('Videollamada')} presence={presence} status={contact?.status ?? 'offline'} upeerId={upeerId} />
         <YStack gap={6}>
           <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Identidad uPeer</Text>
           <CopyField accessibilityLabel="Copiar identidad uPeer" onCopy={() => { void copyToClipboard(upeerId, 'Identidad copiada'); }} truncate value={upeerId} />
@@ -182,14 +186,18 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
           <InteractiveRow disabled={!contact} icon={Share2} label="Compartir contacto" onPress={() => setSharing(true)} />
           <InteractiveRow icon={flags.muted ? Bell : BellOff} label={flags.muted ? 'Activar notificaciones' : 'Silenciar notificaciones'} onPress={() => toggleFlag('muted')} />
           <InteractiveRow icon={flags.archived ? ArchiveRestore : Archive} label={flags.archived ? 'Desarchivar chat' : 'Archivar chat'} onPress={() => toggleFlag('archived')} />
-          <InteractiveRow icon={Star} label={contact?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />
+          {isSelf ? null : <InteractiveRow icon={Star} label={contact?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />}
           <InteractiveRow icon={LockKeyhole} label="Cifrado" onPress={() => setCipherOpen(true)} />
         </YStack>
         <YStack gap={6}>
           <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Zona de riesgo</Text>
           <InteractiveRow icon={Trash2} label="Vaciar chat" onPress={confirmClearChat} />
-          <InteractiveRow disabled={!contact} icon={blocked ? LockOpen : Ban} label={blocked ? 'Desbloquear contacto' : `Bloquear a ${alias}`} onPress={toggleBlock} tone="danger" />
-          <InteractiveRow disabled={!contact} icon={UserMinus} label="Eliminar contacto" onPress={confirmDelete} tone="danger" />
+          {isSelf ? null : (
+            <>
+              <InteractiveRow disabled={!contact} icon={blocked ? LockOpen : Ban} label={blocked ? 'Desbloquear contacto' : `Bloquear a ${alias}`} onPress={toggleBlock} tone="danger" />
+              <InteractiveRow disabled={!contact} icon={UserMinus} label="Eliminar contacto" onPress={confirmDelete} tone="danger" />
+            </>
+          )}
         </YStack>
       </ScrollView>
       <ContactShareSheet
