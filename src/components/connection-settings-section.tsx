@@ -66,7 +66,6 @@ export function ConnectionSettingsSection({ address, phase, peers, error, manage
       </SettingsGroup>
 
       {activeCount > 0 ? <>
-        <View style={[styles.divider, { backgroundColor: theme.border }]} />
         <YStack gap={10} paddingHorizontal={4}>
           <XStack alignItems="center" flexWrap="wrap" gap={8}>
             <Globe2 color={theme.placeholder} size={15} />
