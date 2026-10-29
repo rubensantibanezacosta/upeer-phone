@@ -28,7 +28,7 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
   const [qrOpen, setQrOpen] = useState(false);
   const copyToClipboard = useCopyToClipboard();
   const [info, setInfo] = useState<ProfileInfoKey | null>(null);
-  const fullId = `${identity.upeerId}@${address}`;
+  const fullId = address ? `${identity.upeerId}@${address}` : '';
 
   useEffect(() => {
     loadProfile().then((profile) => { setAlias(profile?.alias ?? ''); setAvatar(profile?.avatar); }).catch((cause: unknown) => {

@@ -49,16 +49,21 @@ export function ProfileAddressSection({ fullId, onCopy, onShowQr, onInfo }: {
   onInfo: () => void;
 }) {
   const theme = useTheme();
+  const scale = useTextScale();
   return (
     <YStack gap={10}>
       <SettingsGroupLabel action={<InfoButton label="¿Qué es la dirección de contacto?" onPress={onInfo} />} icon={<Fingerprint color={theme.placeholder} size={15} />} title="Tu dirección de contacto">Compártela para que puedan escribirte sin usar tu frase de recuperación.</SettingsGroupLabel>
       <SettingsGroup>
         <YStack gap={12} padding={16}>
-          <CopyField accessibilityLabel="Copiar dirección de contacto" onCopy={onCopy} value={fullId} />
-          <XStack gap={8}>
-            <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} icon={<QrCode color={theme.placeholder} size={15} />} onPress={onShowQr}>Mostrar QR</NativeRippleButton>
-            <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} icon={<Copy color={theme.placeholder} size={15} />} onPress={onCopy}>Copiar</NativeRippleButton>
-          </XStack>
+          {fullId ? <CopyField accessibilityLabel="Copiar dirección de contacto" onCopy={onCopy} value={fullId} /> : <Text color={theme.placeholder} fontSize={scale(13)}>Sin dirección de red todavía</Text>}
+          {fullId ? (
+            <XStack gap={8}>
+              <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} icon={<QrCode color={theme.placeholder} size={15} />} onPress={onShowQr}>Mostrar QR</NativeRippleButton>
+              <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} icon={<Copy color={theme.placeholder} size={15} />} onPress={onCopy}>Copiar</NativeRippleButton>
+            </XStack>
+          ) : (
+            <Text color={theme.textSecondary} fontSize={scale(12)}>La dirección se completa en cuanto el teléfono tiene dirección de red. Sin ella nadie puede añadirte por esta vía.</Text>
+          )}
         </YStack>
       </SettingsGroup>
     </YStack>
@@ -78,7 +83,7 @@ export function ProfileTechnicalSection({ identity, address, onInfo, onCopy }: {
       <SettingsGroup>
         <TechnicalField label="ID de contacto" value={identity.upeerId} onInfo={() => onInfo('id')} onCopy={onCopy} />
         <TechnicalField label="Clave de verificación" value={identity.publicKey} onInfo={() => onInfo('clave')} onCopy={onCopy} />
-        <TechnicalField label="Dirección de red" value={address} onInfo={() => onInfo('red')} onCopy={onCopy} />
+        <TechnicalField label="Dirección de red" value={address || 'Sin dirección todavía'} onInfo={() => onInfo('red')} onCopy={onCopy} />
       </SettingsGroup>
     </YStack>
   );
