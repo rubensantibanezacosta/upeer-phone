@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text as NativeText, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text as NativeText, View } from 'react-native';
 import { ChevronDown, ChevronUp, Globe2, LockKeyhole, Network } from '@tamagui/lucide-icons-2';
-import { Card, Paragraph, SizableText, XStack, YStack } from 'tamagui';
+import { Paragraph, SizableText, XStack, YStack } from 'tamagui';
 
 import { CopyField } from '@/components/copy-field';
 import { SettingsGroup, SettingsSectionHeader } from '@/components/settings-section-parts';
@@ -86,18 +86,18 @@ export function ConnectionSettingsSection({ address, phase, peers, error, manage
           </XStack>
           <NetworkMap peers={managedPeers} connectedUris={connectedUris} selfLat={management.selfLat} selfLon={management.selfLon} />
           <SizableText color={theme.text} fontSize={scale(13)} fontWeight="700">Conectados ahora · {connected.length}</SizableText>
-          {connected.length ? <SettingsGroup>{connected.map((peer, index) => <PeerRow first={index === 0} key={peer.uri} peer={peer} latencyColor={latencyColor} theme={theme} />)}</SettingsGroup> : <Paragraph color={theme.placeholder} fontSize={scale(12)}>Sin peers públicos conectados.</Paragraph>}
+          {connected.length ? <SettingsGroup>{connected.map((peer) => <PeerRow key={peer.uri} peer={peer} latencyColor={latencyColor} theme={theme} />)}</SettingsGroup> : <Paragraph color={theme.placeholder} fontSize={scale(12)}>Sin peers públicos conectados.</Paragraph>}
           <SizableText color={theme.text} fontSize={scale(13)} fontWeight="700">Peers públicos en reserva · {reserve.length}</SizableText>
           {reserve.length ? <>
-            <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false}>
-              <XStack gap={8}>
-                {(showAllReserve ? reserve : reserve.slice(0, 5)).map((peer) => <View key={peer.uri} style={{ width: 228 }}>
-                  <Card backgroundColor={theme.backgroundElement} borderRadius={10} padding={10}>
-                    <YStack gap={4}><SizableText color={theme.text} fontSize={scale(12)} fontWeight="600">{peer.country}</SizableText><TextSmall color={theme.placeholder}>{peer.host}</TextSmall><TextSmall color={theme.placeholder}>{peer.uri}</TextSmall><TextSmall color={theme.placeholder}>{peer.alive ? `${peer.latencyMs ?? '—'} ms · score ${Math.round(peer.score)}` : 'Sin respuesta'}</TextSmall></YStack>
-                  </Card>
-                </View>)}
-              </XStack>
-            </ScrollView>
+            <SettingsGroup>
+              {(showAllReserve ? reserve : reserve.slice(0, 5)).map((peer) => <XStack alignItems="center" gap={10} key={peer.uri} paddingHorizontal={14} paddingVertical={12}>
+                <YStack flex={1} gap={2}>
+                  <SizableText color={theme.text} fontSize={scale(12)} fontWeight="600" numberOfLines={1}>{peer.country} · {peer.host}</SizableText>
+                  <TextSmall color={theme.placeholder}>{peer.uri}</TextSmall>
+                </YStack>
+                <TextSmall color={theme.placeholder}>{peer.alive ? `${peer.latencyMs ?? '—'} ms` : 'Sin respuesta'}</TextSmall>
+              </XStack>)}
+            </SettingsGroup>
             {reserve.length > 5 ? <NativeRipplePressable accessibilityRole="button" onPress={() => setShowAllReserve((shown) => !shown)}><SizableText color={theme.accent} fontSize={scale(12)}>{showAllReserve ? 'Mostrar menos' : `Ver todos (${reserve.length})`}</SizableText></NativeRipplePressable> : null}
           </> : <Paragraph color={theme.placeholder} fontSize={scale(12)}>No hay peers públicos de reserva.</Paragraph>}
         </YStack>
@@ -128,24 +128,22 @@ export function ConnectionSettingsSection({ address, phase, peers, error, manage
   );
 }
 
-function PeerRow({ first, peer, latencyColor, theme }: { first: boolean; peer: PeerPoolEntry; latencyColor: (latency: number | null) => string; theme: ReturnType<typeof useTheme> }) {
+function PeerRow({ peer, latencyColor, theme }: { peer: PeerPoolEntry; latencyColor: (latency: number | null) => string; theme: ReturnType<typeof useTheme> }) {
   const scale = useTextScale();
   const latency = peer.latencyMs;
   const color = latencyColor(latency);
   const width = `${Math.min(((latency ?? 0) / LATENCY_MAX) * 100, 100)}%` as `${number}%`;
-  return <View style={first ? undefined : [styles.separator, { borderTopColor: theme.border }]}>
-    <YStack gap={8} padding={14}>
-      <XStack alignItems="center" gap={10}>
-        <YStack flex={1} gap={2}>
-          <SizableText color={theme.text} fontSize={scale(12)} fontWeight="600">{peer.country}</SizableText>
-          <TextSmall color={theme.placeholder}>{peer.host}</TextSmall>
-          <TextSmall color={theme.placeholder}>{peer.uri}</TextSmall>
-        </YStack>
-        <TextSmall color={latency !== null ? color : theme.placeholder}>{latency !== null ? `${Math.round(latency)} ms` : '—'}</TextSmall>
-      </XStack>
-      <View style={[styles.latencyTrack, { backgroundColor: theme.backgroundSelected }]}><View style={[styles.latencyBar, { backgroundColor: color, width }]} /></View>
-    </YStack>
-  </View>;
+  return <YStack gap={8} padding={14}>
+    <XStack alignItems="center" gap={10}>
+      <YStack flex={1} gap={2}>
+        <SizableText color={theme.text} fontSize={scale(12)} fontWeight="600">{peer.country}</SizableText>
+        <TextSmall color={theme.placeholder}>{peer.host}</TextSmall>
+        <TextSmall color={theme.placeholder}>{peer.uri}</TextSmall>
+      </YStack>
+      <TextSmall color={latency !== null ? color : theme.placeholder}>{latency !== null ? `${Math.round(latency)} ms` : '—'}</TextSmall>
+    </XStack>
+    <View style={[styles.latencyTrack, { backgroundColor: theme.backgroundSelected }]}><View style={[styles.latencyBar, { backgroundColor: color, width }]} /></View>
+  </YStack>;
 }
 
 function TextSmall({ children, color }: { children: React.ReactNode; color: string }) {
@@ -189,5 +187,4 @@ const styles = StyleSheet.create({
   techIcon: { alignItems: 'center', borderRadius: 7, height: 30, justifyContent: 'center', width: 30 },
   latencyTrack: { borderRadius: 99, height: 6, overflow: 'hidden' },
   latencyBar: { borderRadius: 99, height: '100%' },
-  separator: { borderTopWidth: StyleSheet.hairlineWidth },
 });
