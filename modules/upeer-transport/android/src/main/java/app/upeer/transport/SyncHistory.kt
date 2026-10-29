@@ -50,14 +50,17 @@ internal class SyncHistory(
     }
     val cursor = SyncHistoryPayload.parseCursor(payload.opt("cursor"))
     val limit = payload.optInt("limit", PAGE_SIZE).coerceIn(1, MAX_PAGE)
-    val rows = state.messages.historyPage(cursor.first, cursor.second, limit + 1)
-    val done = rows.size <= limit
-    val page = if (done) rows else rows.take(limit)
+    val extras = if (payload.opt("cursor") == null) historyMetadata(device.deviceId) else emptyList()
+    val budget = (MAX_PAGE - extras.size).coerceAtLeast(1)
+    val rows = state.messages.historyPage(cursor.first, cursor.second, minOf(limit, budget) + 1)
+    val done = rows.size <= minOf(limit, budget)
+    val page = if (done) rows else rows.take(minOf(limit, budget))
     val entries = JSONArray()
     for (message in page) {
       val entry = historyEntry(device.deviceId, message) ?: continue
       entries.put(entry)
     }
+    for (entry in extras) entries.put(entry)
     Log.i(TAG, "Histórico para ${peer.deviceId.take(12)}: ${entries.length()} de ${page.size} mensajes (${rows.size} leídos)")
     if (page.isNotEmpty() && entries.length() == 0) {
       Log.w(TAG, "Histórico para ${peer.deviceId.take(12)} sin ningún evento firmado: revisa la clave del dispositivo")
@@ -138,6 +141,15 @@ internal class SyncHistory(
     }
     if (!send(activeBridge, peer.address, frame)) Log.w(TAG, "No se pudo enviar SYNC_HISTORY_REQ")
   }
+
+  private fun historyMetadata(deviceId: String): List<JSONObject> =
+    SyncHistoryMetadata.groupEntries(
+      deviceId = deviceId,
+      groups = state.groups.snapshot(),
+      now = nowMillis(),
+      sign = signOrigin,
+      limit = MAX_PAGE - 1,
+    )
 
   private fun historyEntry(deviceId: String, message: JSONObject): JSONObject? {
     val occurredAt = message.optLong("timestamp", 0L)
