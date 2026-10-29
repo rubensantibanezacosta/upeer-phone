@@ -100,6 +100,8 @@ internal class YggdrasilProtocol(
     state,
     vaultMailbox,
     policy,
+    state.reputation,
+    { state.knownContacts() },
     { active, address, json -> egress.send(active, address, json, "de vault") },
     ::replayVaultEntry,
   )

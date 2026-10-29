@@ -24,8 +24,8 @@ internal class VaultMailboxStore(context: Context) {
     state
   }
 
-  fun insert(entry: VaultEntry, nowMillis: Long): VaultMailboxInsert = synchronized(lock) {
-    val result = VaultMailbox.insert(state, entry, nowMillis)
+  fun insert(entry: VaultEntry, nowMillis: Long, quotaBytes: Long = VaultMailbox.QUOTA_BYTES_PER_SENDER): VaultMailboxInsert = synchronized(lock) {
+    val result = VaultMailbox.insert(state, entry, nowMillis, quotaBytes)
     if (result is VaultMailboxInsert.Stored) {
       state = result.state
       persist()

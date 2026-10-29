@@ -17,7 +17,6 @@ import { confirmSignOut } from '@/components/confirm-sign-out';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { loadProfile, saveProfile } from '@/storage/identity-store';
 import { getContacts } from '@/storage/contact-store';
-import { DeviceAuthorizerPanel } from '@/components/device-authorizer-panel';
 import { InfoDialog } from '@/components/info-dialog';
 import { profileHelpContent, type ProfileInfoKey } from '@/components/profile-help-content';
 import { ProfileAddressSection, ProfileHeroSection, ProfileStatsSection, ProfileTechnicalSection } from '@/components/profile-sections';
@@ -102,7 +101,6 @@ export function ProfileScreen({ identity, address, onProfileUpdated, onSignOut }
           <Paragraph accessibilityRole="alert" color={theme.danger}>{error}</Paragraph> : null}
         <ProfileStatsSection onInfo={setInfo} reputation={reputation} vaultReady={vaultReady} vaultUsage={vaultUsage} />
         <ProfileAddressSection fullId={fullId} onCopy={copyProfileAddress} onShowQr={() => setQrOpen(true)} onInfo={() => setInfo('direccion')} />
-        <DeviceAuthorizerPanel onInfo={() => setInfo('dispositivos')} />
         <ProfileTechnicalSection identity={identity} address={address} onInfo={setInfo} onCopy={copyProfileValue} />
         <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.danger} height={48} icon={<LogOut color={theme.danger} size={18} />} onPress={() => confirmSignOut(onSignOut)}>Cerrar sesión y borrar datos locales</NativeRippleButton>
       </ScrollView>

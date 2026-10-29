@@ -6,6 +6,7 @@ import app.upeer.transport.vault.VaultAcknowledgement
 import app.upeer.transport.vault.VaultEntry
 import app.upeer.transport.vault.VaultMailboxInsert
 import app.upeer.transport.vault.VaultMailboxStore
+import app.upeer.transport.vault.VaultQuota
 import app.upeer.transport.vault.VaultQueryDelivery
 import app.upeer.transport.vault.VaultRenewal
 import app.upeer.transport.vault.VaultRenewalResult
@@ -20,6 +21,8 @@ internal class VaultReplies(
   private val state: ProtocolStateStore,
   private val mailbox: VaultMailboxStore,
   private val policy: InboundPolicy,
+  private val reputation: ReputationStore,
+  private val directContacts: () -> Collection<String>,
   private val send: (Bridge, String, String) -> Boolean,
   private val replay: (Bridge, ByteArray, String) -> Unit,
 ) {
@@ -65,13 +68,19 @@ internal class VaultReplies(
     sourceAddress: String,
     now: Long,
   ) {
+    val score = reputation.score(senderUpeerId, directContacts(), now)
+    if (score < VaultQuota.MIN_SCORE) {
+      Log.w(TAG, "VAULT_STORE de $senderUpeerId rechazado: reputación $score por debajo de ${VaultQuota.MIN_SCORE}")
+      return
+    }
+    val quota = VaultQuota.of(score)
     when (val parsed = VaultStoreRequest.parse(packet, senderUpeerId, now)) {
       is VaultStoreResult.Rejected -> {
         Log.w(TAG, "VAULT_STORE rechazado de $senderUpeerId: ${parsed.reason}")
         return
       }
       is VaultStoreResult.Accepted -> {
-        when (val stored = mailbox.insert(parsed.entry, now)) {
+        when (val stored = mailbox.insert(parsed.entry, now, quota)) {
           is VaultMailboxInsert.Rejected -> {
             Log.w(TAG, "VAULT_STORE no almacenado de $senderUpeerId: ${stored.reason}")
             return

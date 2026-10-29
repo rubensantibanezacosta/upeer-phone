@@ -12,7 +12,7 @@ internal sealed class VaultMailboxInsert {
 
 internal object VaultMailbox {
   const val MAX_ENTRIES = 2_000
-  const val QUOTA_BYTES_PER_SENDER = 50L * 1024 * 1024
+  const val QUOTA_BYTES_PER_SENDER = VaultQuota.CASUAL_BYTES
 
   fun insert(
     state: VaultMailboxState,

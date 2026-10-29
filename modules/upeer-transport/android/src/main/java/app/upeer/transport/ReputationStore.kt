@@ -59,6 +59,11 @@ internal class ReputationStore(
       .take(ReputationVouch.DELIVER_MAX_VOUCHES)
   }
 
+  fun score(subject: String, directContacts: Collection<String>, now: Long): Int {
+    val direct = directContacts.mapTo(HashSet()) { it.trim().lowercase() }
+    return ReputationScore.of(subject, all(), direct, now)
+  }
+
   fun scoresJSON(subjects: List<String>, directContacts: List<String>, now: Long): String {
     val vouches = all()
     val direct = directContacts.mapTo(HashSet()) { it.trim().lowercase() }

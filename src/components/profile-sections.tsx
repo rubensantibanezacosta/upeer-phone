@@ -5,7 +5,7 @@ import { Input, SizableText, Text, XStack, YStack } from 'tamagui';
 import type { UPeerIdentity } from '@/domain/identity-record';
 import { formatStorageSize } from '@/domain/storage-usage';
 import { getTrustWarning } from '@/domain/trust';
-import { describeVaultEntries, describeVaultHint, type VaultUsage, vaultFillPercent } from '@/domain/vault-usage';
+import { describeVaultEntries, type VaultUsage, vaultFillPercent } from '@/domain/vault-usage';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { CopyField } from '@/components/copy-field';
@@ -73,17 +73,27 @@ export function ProfileStatsSection({ reputation, vaultUsage, vaultReady = false
         </YStack>
       </SettingsGroup>
 
-      <SettingsGroupLabel action={<InfoButton label="¿Qué es el almacenamiento cedido?" onPress={() => onInfo('almacenamiento')} />} icon={<Cloud color={theme.placeholder} size={15} />} title="Almacenamiento cedido">Mensajes cifrados que custodias para contactos desconectados.</SettingsGroupLabel>
+      <SettingsGroupLabel action={<InfoButton label="¿Qué es el almacenamiento cedido?" onPress={() => onInfo('almacenamiento')} />} icon={<Cloud color={theme.placeholder} size={15} />} title="Almacenamiento cedido" />
       <SettingsGroup>
         <YStack gap={10} padding={16}>
-          <XStack alignItems="baseline" gap={8}>
-            <SizableText color={theme.text} fontSize={scale(24)} fontWeight="700">{formatStorageSize(vaultUsage.bytes)}</SizableText>
-            <Text color={theme.placeholder} flex={1} fontSize={scale(12)}>{vaultReady ? describeVaultEntries(vaultUsage) : 'Calculando…'}</Text>
+          <XStack alignItems="baseline" gap={6}>
+            <SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{formatStorageSize(vaultUsage.bytes)}</SizableText>
+            <Text color={theme.placeholder} flex={1} fontSize={scale(11)}>usados</Text>
+            <Text color={theme.placeholder} fontSize={scale(11)}>{vaultReady ? describeVaultEntries(vaultUsage) : 'Calculando…'}</Text>
           </XStack>
           <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
             <View style={[styles.fill, { backgroundColor: theme.accent, width: `${vaultFillPercent(vaultUsage)}%` }]} />
           </View>
-          <Text color={theme.placeholder} fontSize={scale(12)}>{vaultReady ? describeVaultHint(vaultUsage) : 'Leyendo el vault de este dispositivo…'}</Text>
+          <XStack gap={20}>
+            <YStack gap={2}>
+              <Text color={theme.placeholder} fontSize={scale(10)} fontWeight="600" letterSpacing={0.6}>ARCHIVOS P2P</Text>
+              <SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">{vaultUsage.entries}</SizableText>
+            </YStack>
+            <YStack gap={2}>
+              <Text color={theme.placeholder} fontSize={scale(10)} fontWeight="600" letterSpacing={0.6}>CUOTA DINÁMICA</Text>
+              <SizableText color={theme.text} fontSize={scale(13)} fontWeight="600">Activa</SizableText>
+            </YStack>
+          </XStack>
         </YStack>
       </SettingsGroup>
     </YStack>
