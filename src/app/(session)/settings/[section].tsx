@@ -2,7 +2,7 @@ import { Link, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from '@tamagui/lucide-icons-2';
-import { Card, Paragraph, SizableText, Text } from 'tamagui';
+import { Paragraph, SizableText, Text, YStack } from 'tamagui';
 
 import { renderSettingsSection, SETTINGS_SECTION_LABELS } from '@/components/settings-sections';
 import { useSession } from '@/components/session-shell';
@@ -26,7 +26,7 @@ export default function SettingsSectionRoute() {
           <ArrowLeft color={theme.text} size={18} /><Text color={theme.text} fontSize={scale(15)}>Configuración</Text>
         </Pressable>
       </Link>
-      {rendered ?? <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={8} padding={16}><SizableText color={theme.text} fontSize={scale(22)} fontWeight="700">{label}</SizableText><Paragraph color={theme.placeholder}>Esta sección todavía no está disponible en la app móvil.</Paragraph></Card>}
+      {rendered ?? <YStack gap={6} paddingVertical={8}><SizableText color={theme.text} fontSize={scale(22)} fontWeight="700">{label}</SizableText><Paragraph color={theme.placeholder} fontSize={scale(13)}>Esta sección todavía no está disponible en la app móvil.</Paragraph></YStack>}
     </ScrollView>
   </SafeAreaView>;
 }
