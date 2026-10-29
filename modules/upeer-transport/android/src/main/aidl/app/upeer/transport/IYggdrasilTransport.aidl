@@ -67,7 +67,7 @@ interface IYggdrasilTransport {
   String syncStatusJSON();
   String preferencesJSON();
   void publishSettingsPatch(String payloadJSON);
-  String syncEventsAfterJSON(long sequence, int limit);
+  String settingsEventsJSON(long sequence, int limit);
   String locationBlockJSON(long ttlMillis);
   String deviceIdentityStatusJSON();
   String dhtLocationStatusJSON();

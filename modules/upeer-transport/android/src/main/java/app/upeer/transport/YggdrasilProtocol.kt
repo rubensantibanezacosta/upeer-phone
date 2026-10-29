@@ -347,7 +347,7 @@ internal class YggdrasilProtocol(
     return sync.publishPatch(payload)
   }
 
-  fun syncEventsAfterJSON(sequence: Long, limit: Int): String = state.syncEventsAfterJSON(sequence, limit)
+  fun settingsEventsJSON(sequence: Long, limit: Int): String = state.settingsEventsAfterJSON(sequence, limit)
 
   fun setProfile(alias: String, avatar: String) {
     val previous = state.profile()

@@ -1,7 +1,7 @@
 import Storage from 'expo-sqlite/kv-store';
 
-import { publishSettingsPatch, readSyncEventsAfter } from '../../modules/upeer-transport/src/UPeerTransportModule';
-import type { SyncEventRecordSnapshot } from '../../modules/upeer-transport/src/UPeerTransport.types';
+import { publishSettingsPatch, readSyncSettingsEvents } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import type { SyncSettingsEventSnapshot } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import { parseSettingsClocks, parseSettingsCursor, settingsEntityOf } from '@/domain/settings-sync';
 import type { ChatList } from '@/domain/chat-lists';
 
@@ -86,24 +86,27 @@ export async function drainRemoteSettings(handlers: Record<string, SettingsHandl
   try {
     await ensureLoaded();
     for (;;) {
-      const events = await readSyncEventsAfter(cursor, PAGE).catch((cause: unknown) => {
+      const page = await readSyncSettingsEvents(cursor, PAGE).catch((cause: unknown) => {
         console.warn('El servicio no devolvió los ajustes sincronizados.', cause);
-        return [] as SyncEventRecordSnapshot[];
+        return null;
       });
-      if (events.length === 0) break;
-      await applyEvents(events, handlers);
-      if (events.length < PAGE) break;
+      if (!page) break;
+      if (page.cursor <= cursor && page.events.length === 0) break;
+      await applyEvents(page.cursor, page.events, handlers);
+      if (page.events.length < PAGE) break;
     }
   } finally {
     draining = false;
   }
 }
 
-async function applyEvents(events: SyncEventRecordSnapshot[], handlers: Record<string, SettingsHandler>): Promise<void> {
+async function applyEvents(
+  nextCursor: number,
+  events: SyncSettingsEventSnapshot[],
+  handlers: Record<string, SettingsHandler>,
+): Promise<void> {
+  if (nextCursor > cursor) cursor = nextCursor;
   for (const event of events) {
-    if (event.sequence > cursor) cursor = event.sequence;
-    if (event.kind !== 'SETTINGS_UPDATE') continue;
-    if (event.direction !== 'inbound') continue;
     const payload = event.payload ?? {};
     const block = typeof payload.block === 'string' ? payload.block : '';
     const handler = handlers[block];

@@ -144,13 +144,16 @@ export type SettingsPatchPayload = {
   [field: string]: boolean | string | string[] | undefined;
 };
 
-export type SyncEventRecordSnapshot = {
+export type SyncSettingsEventSnapshot = {
   sequence: number;
   eventId: string;
-  kind: string;
   occurredAt: number;
-  direction: string;
   payload: Record<string, unknown>;
+};
+
+export type SyncSettingsEventsPage = {
+  cursor: number;
+  events: SyncSettingsEventSnapshot[];
 };
 
 export type DhtRuntimeStatus = {

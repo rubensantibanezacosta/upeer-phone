@@ -152,8 +152,8 @@ class UPeerTransportModule : Module() {
     AsyncFunction("syncStatus") { service().syncStatusJSON() }
     AsyncFunction("preferencesJSON") { service().preferencesJSON() }
     AsyncFunction("publishSettingsPatch") { payloadJSON: String -> service().publishSettingsPatch(payloadJSON) }
-    AsyncFunction("syncEventsAfter") { sequence: Double, limit: Int ->
-      service().syncEventsAfterJSON(sequence.toLong(), limit)
+    AsyncFunction("syncSettingsEvents") { sequence: Double, limit: Int ->
+      service().settingsEventsJSON(sequence.toLong(), limit)
     }
     AsyncFunction("lookupContactLocation") { upeerId: String -> service().lookupContactLocation(upeerId) }
     AsyncFunction("verifyLocationBlock") { blockJSON: String, publicKeyHex: String, nowMillis: Double ->
