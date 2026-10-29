@@ -45,7 +45,7 @@ export function SettingsGroupLabel({ action, children, icon, title }: { action?:
 export function SettingsGroup({ children }: { children: ReactNode }) {
   const theme = useTheme();
   return (
-    <YStack backgroundColor={theme.backgroundElement} borderRadius={14} overflow="hidden">
+    <YStack style={[styles.group, { borderBottomColor: theme.border }]}>
       {Children.toArray(children).map((child, index) => (
         <View key={index} style={index === 0 ? undefined : [styles.separator, { borderTopColor: theme.border }]}>{child}</View>
       ))}
@@ -60,5 +60,6 @@ export function SettingsNote({ children }: { children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
+  group: { borderBottomWidth: StyleSheet.hairlineWidth },
   separator: { borderTopWidth: StyleSheet.hairlineWidth },
 });

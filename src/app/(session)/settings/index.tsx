@@ -28,11 +28,11 @@ export default function SettingsIndexRoute() {
     <ScrollView contentContainerStyle={styles.content}>
       <Link href="/chats" asChild>
         <Pressable accessibilityRole="button" style={styles.back}>
-          <ArrowLeft color={theme.text} size={18} /><Text color={theme.text} fontSize={scale(15)}>Volver a chats</Text>
+          <ArrowLeft color={theme.text} size={18} /><Text color={theme.text} fontSize={scale(15)}>Chats</Text>
         </Pressable>
       </Link>
       <YStack gap={4} paddingBottom={8}><H1 color={theme.text} fontSize={scale(24)}>Configuración</H1><Text color={theme.placeholder} fontSize={scale(14)}>Elige una sección para administrar tu cuenta</Text></YStack>
-      <YStack backgroundColor={theme.backgroundElement} borderRadius={14} overflow="hidden">
+      <YStack>
         {settingsSections.map((item, index) => <Link key={item.id} href={{ pathname: '/settings/[section]', params: { section: item.id } }} asChild>
           <NativeRipplePressable accessibilityLabel={item.label} accessibilityRole="button" style={StyleSheet.flatten([styles.row, index === 0 ? null : styles.separator, index === 0 ? null : { borderTopColor: theme.border }])}>
             <YStack alignItems="center" height={40} justifyContent="center" width={40}><item.icon color={theme.placeholder} size={20} /></YStack>

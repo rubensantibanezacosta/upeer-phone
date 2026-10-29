@@ -23,7 +23,7 @@ export default function SettingsSectionRoute() {
     <ScrollView contentContainerStyle={styles.content}>
       <Link href="/settings" asChild>
         <Pressable accessibilityRole="button" style={styles.back}>
-          <ArrowLeft color={theme.text} size={18} /><Text color={theme.text} fontSize={scale(15)}>Volver a configuración</Text>
+          <ArrowLeft color={theme.text} size={18} /><Text color={theme.text} fontSize={scale(15)}>Configuración</Text>
         </Pressable>
       </Link>
       {rendered ?? <Card backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={14} borderWidth={1} gap={8} padding={16}><SizableText color={theme.text} fontSize={scale(22)} fontWeight="700">{label}</SizableText><Paragraph color={theme.placeholder}>Esta sección todavía no está disponible en la app móvil.</Paragraph></Card>}

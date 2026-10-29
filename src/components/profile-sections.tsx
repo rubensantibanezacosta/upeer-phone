@@ -6,7 +6,7 @@ import type { UPeerIdentity } from '@/domain/identity-record';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 import { CopyField } from '@/components/copy-field';
-import { SettingsGroup, SettingsGroupLabel } from '@/components/settings-section-parts';
+import { SettingsGroupLabel } from '@/components/settings-section-parts';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ProfileAvatar } from '@/components/profile-avatar';
@@ -23,22 +23,20 @@ export function ProfileHeroSection({ identity, alias, avatar, busy, onAliasChang
   const theme = useTheme();
   const scale = useTextScale();
   return (
-    <SettingsGroup>
-      <XStack alignItems="center" gap={16} padding={16}>
-        <NativeRipplePressable accessibilityLabel="Cambiar foto de perfil" accessibilityRole="button" disabled={busy} onPress={onAvatarPress} style={styles.avatar}>
-          <View style={styles.avatarClip}><ProfileAvatar avatar={avatar} name={alias || identity.upeerId} /></View>
-          <View style={[styles.avatarEditBadge, { backgroundColor: theme.accent, borderColor: theme.backgroundElement }]}><Pencil color={theme.onAccent} size={11} /></View>
-        </NativeRipplePressable>
-        <YStack flex={1} gap={6} minWidth={0}>
-          <SizableText color={theme.placeholder} fontSize={scale(10)} fontWeight="600" letterSpacing={0.6}>NOMBRE</SizableText>
-          <XStack alignItems="center" gap={8}>
-            <Input accessibilityLabel="Nombre visible" autoCapitalize="words" backgroundColor={theme.background} borderColor={theme.border} color={theme.text} flex={1} maxLength={64} onChangeText={onAliasChange} onSubmitEditing={onAliasSave} placeholder="Escribe tu nombre..." placeholderTextColor={theme.placeholder} value={alias} />
-            <NativeRippleButton accessibilityLabel="Guardar nombre" backgroundColor={theme.accent} circular disabled={busy} icon={<Check color={theme.onAccent} size={18} />} onPress={onAliasSave} />
-          </XStack>
-          <Text color={theme.placeholder} fontFamily="$mono" fontSize={scale(11)} numberOfLines={1}>{identity.upeerId.slice(0, 24)}…</Text>
-        </YStack>
-      </XStack>
-    </SettingsGroup>
+    <XStack alignItems="center" gap={16} paddingVertical={16}>
+      <NativeRipplePressable accessibilityLabel="Cambiar foto de perfil" accessibilityRole="button" disabled={busy} onPress={onAvatarPress} style={styles.avatar}>
+        <View style={styles.avatarClip}><ProfileAvatar avatar={avatar} name={alias || identity.upeerId} /></View>
+        <View style={[styles.avatarEditBadge, { backgroundColor: theme.accent, borderColor: theme.background }]}><Pencil color={theme.onAccent} size={11} /></View>
+      </NativeRipplePressable>
+      <YStack flex={1} gap={6} minWidth={0}>
+        <SizableText color={theme.placeholder} fontSize={scale(10)} fontWeight="600" letterSpacing={0.6}>NOMBRE</SizableText>
+        <XStack alignItems="center" gap={8}>
+          <Input accessibilityLabel="Nombre visible" autoCapitalize="words" backgroundColor={theme.background} borderColor={theme.border} color={theme.text} flex={1} maxLength={64} onChangeText={onAliasChange} onSubmitEditing={onAliasSave} placeholder="Escribe tu nombre..." placeholderTextColor={theme.placeholder} value={alias} />
+          <NativeRippleButton accessibilityLabel="Guardar nombre" backgroundColor={theme.accent} circular disabled={busy} icon={<Check color={theme.onAccent} size={18} />} onPress={onAliasSave} />
+        </XStack>
+        <Text color={theme.placeholder} fontFamily="$mono" fontSize={scale(11)} numberOfLines={1}>{identity.upeerId.slice(0, 24)}…</Text>
+      </YStack>
+    </XStack>
   );
 }
 
@@ -51,21 +49,17 @@ export function ProfileAddressSection({ fullId, onCopy, onShowQr, onInfo }: {
   const theme = useTheme();
   const scale = useTextScale();
   return (
-    <YStack gap={10}>
+    <YStack gap={10} paddingVertical={16}>
       <SettingsGroupLabel action={<InfoButton label="¿Qué es la dirección de contacto?" onPress={onInfo} />} icon={<Fingerprint color={theme.placeholder} size={15} />} title="Tu dirección de contacto">Compártela para que puedan escribirte sin usar tu frase de recuperación.</SettingsGroupLabel>
-      <SettingsGroup>
-        <YStack gap={12} padding={16}>
-          {fullId ? <CopyField accessibilityLabel="Copiar dirección de contacto" onCopy={onCopy} value={fullId} /> : <Text color={theme.placeholder} fontSize={scale(13)}>Sin dirección de red todavía</Text>}
-          {fullId ? (
-            <XStack gap={8}>
-              <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} icon={<QrCode color={theme.placeholder} size={15} />} onPress={onShowQr}>Mostrar QR</NativeRippleButton>
-              <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} icon={<Copy color={theme.placeholder} size={15} />} onPress={onCopy}>Copiar</NativeRippleButton>
-            </XStack>
-          ) : (
-            <Text color={theme.textSecondary} fontSize={scale(12)}>La dirección se completa en cuanto el teléfono tiene dirección de red. Sin ella nadie puede añadirte por esta vía.</Text>
-          )}
-        </YStack>
-      </SettingsGroup>
+      {fullId ? <CopyField accessibilityLabel="Copiar dirección de contacto" onCopy={onCopy} value={fullId} /> : <Text color={theme.placeholder} fontSize={scale(13)}>Sin dirección de red todavía</Text>}
+      {fullId ? (
+        <XStack gap={8}>
+          <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} icon={<QrCode color={theme.placeholder} size={15} />} onPress={onShowQr}>Mostrar QR</NativeRippleButton>
+          <NativeRippleButton backgroundColor="transparent" borderColor={theme.border} borderWidth={1} color={theme.text} icon={<Copy color={theme.placeholder} size={15} />} onPress={onCopy}>Copiar</NativeRippleButton>
+        </XStack>
+      ) : (
+        <Text color={theme.textSecondary} fontSize={scale(12)}>La dirección se completa en cuanto el teléfono tiene dirección de red. Sin ella nadie puede añadirte por esta vía.</Text>
+      )}
     </YStack>
   );
 }
@@ -78,13 +72,13 @@ export function ProfileTechnicalSection({ identity, address, onInfo, onCopy }: {
 }) {
   const theme = useTheme();
   return (
-    <YStack gap={10}>
+    <YStack gap={10} paddingVertical={16}>
       <SettingsGroupLabel icon={<Fingerprint color={theme.placeholder} size={15} />} title="Datos técnicos" />
-      <SettingsGroup>
+      <YStack gap={12}>
         <TechnicalField label="ID de contacto" value={identity.upeerId} onInfo={() => onInfo('id')} onCopy={onCopy} />
         <TechnicalField label="Clave de verificación" value={identity.publicKey} onInfo={() => onInfo('clave')} onCopy={onCopy} />
         <TechnicalField label="Dirección de red" value={address || 'Sin dirección todavía'} onInfo={() => onInfo('red')} onCopy={onCopy} />
-      </SettingsGroup>
+      </YStack>
     </YStack>
   );
 }
@@ -93,7 +87,7 @@ function TechnicalField({ label, value, onInfo, onCopy }: { label: string; value
   const theme = useTheme();
   const scale = useTextScale();
   return (
-    <YStack gap={5} padding={16}>
+    <YStack gap={5} paddingVertical={12}>
       <XStack alignItems="center" gap={4}>
         <SizableText color={theme.placeholder} flex={1} fontSize={scale(10)} fontWeight="600" letterSpacing={0.6}>{label.toUpperCase()}</SizableText>
         <InfoButton label={`¿Qué es ${label}?`} onPress={onInfo} />
