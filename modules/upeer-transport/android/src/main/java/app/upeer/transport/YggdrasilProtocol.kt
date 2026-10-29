@@ -41,6 +41,7 @@ internal class YggdrasilProtocol(
     admission,
     contactAdmission,
     vaultMailbox,
+    ::replayVaultEntry,
   )
   private val chatDecryptor = YggdrasilChatDecryptor(
     identity,

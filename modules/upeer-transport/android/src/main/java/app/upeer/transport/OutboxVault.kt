@@ -4,6 +4,7 @@ import android.util.Log
 import app.upeer.transport.vault.VaultChannel
 import app.upeer.transport.vault.VaultCustodianCandidate
 import app.upeer.transport.vault.VaultDirectory
+import app.upeer.transport.vault.VaultLocalDrain
 import app.upeer.transport.vault.VaultMailboxInsert
 import app.upeer.transport.vault.VaultMailboxStore
 import app.upeer.transport.vault.VaultStoreEnvelope
@@ -21,6 +22,7 @@ internal class OutboxVault(
   private val mailbox: VaultMailboxStore,
   private val selfAddress: () -> String,
   private val isActive: (Bridge) -> Boolean,
+  private val replay: (Bridge, ByteArray, String) -> Unit = { _, _, _ -> },
 ) {
   private val channel = VaultChannel(identity, state, selfAddress)
   @Volatile
@@ -32,6 +34,7 @@ internal class OutboxVault(
 
   fun queryVaults(activeBridge: Bridge) {
     if (!admission.isAdmitted()) return
+    drainOwnMailbox(activeBridge)
     queryOwnMailbox(activeBridge)
     val peers = runCatching { JSONObject(state.peersJSON()) }.getOrNull() ?: return
     val keys = peers.keys()
@@ -146,6 +149,35 @@ internal class OutboxVault(
     }
   }
 
+  private fun drainOwnMailbox(activeBridge: Bridge) {
+    val self = identity.current()?.upeerID() ?: return
+    val now = System.currentTimeMillis()
+    val pending = VaultLocalDrain.select(
+      mailbox.snapshot(now).entries,
+      self,
+      identity.currentDevice()?.deviceId,
+      now,
+    )
+    if (pending.isEmpty()) return
+    val applied = mutableListOf<String>()
+    for (entry in pending) {
+      if (!isActive(activeBridge)) return
+      val bytes = runCatching { entry.data.chunked(2).map { it.toInt(16).toByte() }.toByteArray() }.getOrNull() ?: run {
+        Log.w(TAG, "Entrada local del vault ${entry.payloadHash.take(12)} con datos ilegibles")
+        continue
+      }
+      try {
+        replay(activeBridge, bytes, selfAddress())
+        applied.add(entry.payloadHash)
+      } catch (cause: Exception) {
+        Log.w(TAG, "Entrada local del vault ${entry.payloadHash.take(12)} no aplicable: ${message(cause)}")
+      }
+    }
+    if (applied.isEmpty()) return
+    val released = mailbox.release(applied)
+    Log.i(TAG, "Buzón local del vault drenado: $released de ${pending.size} mensajes propios aplicados")
+  }
+
   private fun queryOwnMailbox(activeBridge: Bridge) {
     val active = directory ?: return
     val self = identity.current()?.upeerID() ?: return
@@ -162,6 +194,8 @@ internal class OutboxVault(
     thread.isDaemon = true
     thread.start()
   }
+
+  private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
 
   private companion object {
     private const val TAG = "UPeerTransport"

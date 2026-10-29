@@ -23,6 +23,7 @@ internal class YggdrasilOutbox(
   private val admission: DeviceAdmissionGuard,
   private val contactAdmission: ContactEncryptionAdmission,
   private val vaultMailbox: VaultMailboxStore,
+  private val replayVaultEntry: (Bridge, ByteArray, String) -> Unit,
 ) {
   private val lock = Any()
   private val wakeLock = Object()
@@ -42,6 +43,7 @@ internal class YggdrasilOutbox(
     vaultMailbox,
     { synchronized(lock) { selfAddress } },
     ::isActive,
+    replayVaultEntry,
   )
   private val giveUp = OutboxGiveUp(outbox, state, sealer, vault, deviceBindings)
   private val actions = OutboxActions(link, state, outbox, admission, { synchronized(lock) { bridge } }, { synchronized(lock) { running } }) { wake() }
