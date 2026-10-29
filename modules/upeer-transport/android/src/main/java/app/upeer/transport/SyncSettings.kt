@@ -11,6 +11,7 @@ internal object SyncSettings {
   const val NOTIFICATIONS = "notifications"
   const val RETENTION = "retention"
   const val CHAT = "chat"
+  const val MESSAGE = "message"
 
   private const val MAX_ID_LENGTH = 200
 
@@ -21,25 +22,31 @@ internal object SyncSettings {
 
   private val chatFields = listOf("archived", "muted", "pinned", "unread")
 
-  fun blocks(): Set<String> = fields.keys + RETENTION + CHAT
+  private val messageFields = listOf("starred", "pinned")
+
+  private val idFields = mapOf(RETENTION to "chatId", CHAT to "chatId", MESSAGE to "messageId")
+
+  fun blocks(): Set<String> = fields.keys + RETENTION + CHAT + MESSAGE
 
   fun isBooleanBlock(block: String): Boolean = fields.containsKey(block)
 
-  fun isRemoteBlock(block: String): Boolean = block == CHAT
+  fun isRemoteBlock(block: String): Boolean = block == CHAT || block == MESSAGE
 
   fun entity(payload: JSONObject): String? {
     val block = payload.optString("block")
     if (isBooleanBlock(block)) return block
-    if (block != RETENTION && block != CHAT) return null
-    val chatId = chatId(payload) ?: return null
-    return "$block:$chatId"
+    val field = idFields[block] ?: return null
+    val id = id(payload, field) ?: return null
+    return "$block:$id"
   }
 
-  fun chatId(payload: JSONObject): String? {
-    val candidate = payload.optString("chatId").trim()
+  fun id(payload: JSONObject, field: String): String? {
+    val candidate = payload.optString(field).trim()
     if (candidate.isEmpty() || candidate.length > MAX_ID_LENGTH) return null
     return candidate
   }
+
+  fun chatId(payload: JSONObject): String? = id(payload, "chatId")
 
   fun parse(payload: JSONObject): SyncSettingsPatch? {
     val block = payload.optString("block")
@@ -76,6 +83,22 @@ internal object SyncSettings {
     for (field in chatFields) {
       val value = values[field]
       if (value is Boolean) {
+        payload.put(field, value)
+        count += 1
+      }
+    }
+    if (count == 0) return null
+    return payload
+  }
+
+  fun messagePayload(messageId: String, values: Map<String, Boolean>): JSONObject? {
+    val id = messageId.trim()
+    if (id.isEmpty() || id.length > MAX_ID_LENGTH) return null
+    val payload = JSONObject().put("block", MESSAGE).put("messageId", id)
+    var count = 0
+    for (field in messageFields) {
+      val value = values[field]
+      if (value != null) {
         payload.put(field, value)
         count += 1
       }

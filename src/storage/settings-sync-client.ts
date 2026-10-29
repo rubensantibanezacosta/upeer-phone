@@ -52,6 +52,15 @@ export async function publishChatFlags(chatId: string, flags: Record<string, boo
   });
 }
 
+export async function publishMessageStarred(messageId: string, starred: boolean): Promise<void> {
+  await ensureLoaded();
+  clocks[`message:${messageId}`] = Date.now();
+  await persistClocks();
+  await publishSettingsPatch({ block: 'message', messageId, starred }).catch((cause: unknown) => {
+    console.warn('El servicio no pudo publicar el destacado del mensaje.', cause);
+  });
+}
+
 export async function drainRemoteSettings(handlers: Record<string, SettingsHandler>): Promise<void> {
   if (draining) return;
   draining = true;

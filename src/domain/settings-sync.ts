@@ -1,8 +1,14 @@
 import type { ConversationFlags } from '@/domain/conversation-flags';
+import type { StarredMap } from '@/domain/starred';
 
-export const REMOTE_SETTINGS_BLOCKS = ['chat'] as const;
+export const REMOTE_SETTINGS_BLOCKS = ['chat', 'message'] as const;
 
 export type RemoteSettingsBlock = (typeof REMOTE_SETTINGS_BLOCKS)[number];
+
+const ID_FIELD: Record<RemoteSettingsBlock, string> = {
+  chat: 'chatId',
+  message: 'messageId',
+};
 
 const CONVERSATION_KEYS = ['archived', 'muted', 'pinned'] as const;
 
@@ -13,9 +19,10 @@ export function isRemoteSettingsBlock(value: unknown): value is RemoteSettingsBl
 export function settingsEntityOf(payload: Record<string, unknown>): string | null {
   const block = payload.block;
   if (!isRemoteSettingsBlock(block)) return null;
-  const chatId = typeof payload.chatId === 'string' ? payload.chatId.trim() : '';
-  if (!chatId) return null;
-  return `${block}:${chatId}`;
+  const field = ID_FIELD[block];
+  const id = typeof payload[field] === 'string' ? (payload[field] as string).trim() : '';
+  if (!id) return null;
+  return `${block}:${id}`;
 }
 
 export function parseSettingsClocks(raw: string | null): Record<string, number> {
@@ -53,4 +60,15 @@ export function mergeConversationFlags(current: ConversationFlags, values: Recor
 
 export function isEmptyConversationFlags(flags: ConversationFlags): boolean {
   return !flags.archived && !flags.muted && !flags.pinned;
+}
+
+export function mergeStarredMessage(map: StarredMap, values: Record<string, unknown>): StarredMap | null {
+  const messageId = typeof values.messageId === 'string' ? values.messageId.trim() : '';
+  const starred = values.starred;
+  if (!messageId || typeof starred !== 'boolean') return null;
+  if (Boolean(map[messageId]) === starred) return null;
+  const next: StarredMap = { ...map };
+  if (starred) next[messageId] = true;
+  else delete next[messageId];
+  return next;
 }

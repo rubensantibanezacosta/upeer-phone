@@ -170,4 +170,34 @@ class SyncSettingsTest {
     assertNull(SyncSettings.chatPayload("grp-3", mapOf("theme" to "dark")))
     assertNull(SyncSettings.chatPayload("  ", mapOf("muted" to true)))
   }
+
+  @Test
+  fun starredMessagesAreTheirOwnEntity() {
+    assertEquals(
+      "message:msg-1",
+      SyncSettings.entity(JSONObject().put("block", "message").put("messageId", "msg-1")),
+    )
+    assertNull(SyncSettings.entity(JSONObject().put("block", "message")))
+  }
+
+  @Test
+  fun messageIsARemoteBlock() {
+    assertTrue(SyncSettings.isRemoteBlock(SyncSettings.MESSAGE))
+    assertTrue(SyncSettings.isRemoteBlock(SyncSettings.CHAT))
+  }
+
+  @Test
+  fun messagePayloadKeepsOnlyTheStar() {
+    val payload = SyncSettings.messagePayload("msg-2", mapOf("starred" to false, "reported" to true))
+    assertEquals("message", payload?.optString("block"))
+    assertEquals("msg-2", payload?.optString("messageId"))
+    assertEquals(false, payload?.opt("starred"))
+    assertTrue(payload?.has("reported") == false)
+  }
+
+  @Test
+  fun messagePayloadNeedsAnIdAndAValue() {
+    assertNull(SyncSettings.messagePayload("msg-3", emptyMap()))
+    assertNull(SyncSettings.messagePayload("  ", mapOf("starred" to true)))
+  }
 }

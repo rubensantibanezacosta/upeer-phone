@@ -4,6 +4,7 @@ import {
   isEmptyConversationFlags,
   isRemoteSettingsBlock,
   mergeConversationFlags,
+  mergeStarredMessage,
   parseSettingsClocks,
   parseSettingsCursor,
   settingsEntityOf,
@@ -24,8 +25,25 @@ describe('settings-sync del móvil', () => {
 
   it('solo el bloque de chat viaja como ajuste remoto', () => {
     expect(isRemoteSettingsBlock('chat')).toBe(true);
+    expect(isRemoteSettingsBlock('message')).toBe(true);
     expect(isRemoteSettingsBlock('privacy')).toBe(false);
     expect(isRemoteSettingsBlock(null)).toBe(false);
+  });
+
+  it('la entidad de un mensaje destacado es el mensaje', () => {
+    expect(settingsEntityOf({ block: 'message', messageId: ' msg-1 ' })).toBe('message:msg-1');
+    expect(settingsEntityOf({ block: 'message' })).toBeNull();
+  });
+
+  it('mezcla el destacado de un mensaje', () => {
+    expect(mergeStarredMessage({}, { messageId: 'm1', starred: true })).toEqual({ m1: true });
+    expect(mergeStarredMessage({ m1: true }, { messageId: 'm1', starred: false })).toEqual({});
+  });
+
+  it('un destacado que no cambia nada no devuelve nada', () => {
+    expect(mergeStarredMessage({ m1: true }, { messageId: 'm1', starred: true })).toBeNull();
+    expect(mergeStarredMessage({}, { messageId: 'm1' })).toBeNull();
+    expect(mergeStarredMessage({}, { starred: true })).toBeNull();
   });
 
   it('lee los relojes guardados y descarta lo imposible', () => {

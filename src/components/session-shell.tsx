@@ -15,6 +15,7 @@ import { adoptNativePreferences } from '@/storage/preferences-sync';
 import { adoptNativeRetention } from '@/storage/retention-store';
 import { drainRemoteSettings } from '@/storage/settings-sync-client';
 import { applyRemoteConversationFlags } from '@/storage/conversation-flags-store';
+import { applyRemoteStarred } from '@/storage/starred-store';
 
 const SETTINGS_SYNC_POLL_MS = 2000;
 
@@ -89,7 +90,7 @@ export function SessionShell({ identity, onSignOut, children }: {
       adoptNativePreferences()
         .then(() => setNativePreferencesReady(true))
         .then(() => adoptNativeRetention())
-        .then(() => drainRemoteSettings({ chat: applyRemoteConversationFlags }))
+        .then(() => drainRemoteSettings({ chat: applyRemoteConversationFlags, message: applyRemoteStarred }))
         .catch((cause: unknown) => {
           console.warn('No se pudieron adoptar los ajustes sincronizados.', cause);
         });
