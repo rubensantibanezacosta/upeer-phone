@@ -5,7 +5,7 @@ import java.io.File
 import java.io.RandomAccessFile
 
 internal object SyncFileReceive {
-  enum class Outcome { PROGRESS, DONE, DISCARDED }
+  enum class Outcome { PROGRESS, DONE, DISCARDED, QUEUED }
 
   private class Open(
     val fileId: String,
@@ -14,10 +14,11 @@ internal object SyncFileReceive {
     val target: File,
     val handle: RandomAccessFile,
   ) {
-    var nextIndex: Int = 0
+    val received = HashSet<Int>()
   }
 
   private val open = HashMap<String, Open>()
+  private val early = HashMap<String, HashMap<Int, ByteArray>>()
 
   @Volatile
   private var directory: File? = null
@@ -45,23 +46,43 @@ internal object SyncFileReceive {
   }
 
   fun write(chunk: SyncFilePackets.Chunk, fileId: String): Outcome {
-    val entry = open[chunk.requestId] ?: return Outcome.DISCARDED
+    val entry = open[chunk.requestId] ?: run {
+      stashEarly(chunk)
+      return Outcome.QUEUED
+    }
     if (entry.fileId != fileId) return Outcome.DISCARDED
-    if (chunk.index != entry.nextIndex) {
-      Log.w(TAG, "Tramo fuera de orden del adjunto $fileId (#${chunk.index} != ${entry.nextIndex})")
+    if (chunk.index >= entry.totalChunks) {
+      Log.w(TAG, "Tramo fuera del rango declarado del adjunto $fileId (#${chunk.index})")
       close(chunk.requestId)
       return Outcome.DISCARDED
     }
     return try {
       entry.handle.seek(chunk.index.toLong() * SyncFilePackets.CHUNK_SIZE)
       entry.handle.write(chunk.bytes)
-      entry.nextIndex += 1
-      if (entry.nextIndex < entry.totalChunks) Outcome.PROGRESS else Outcome.DONE
+      entry.received.add(chunk.index)
+      if (entry.received.size < entry.totalChunks) Outcome.PROGRESS else Outcome.DONE
     } catch (cause: Exception) {
       Log.w(TAG, "No se pudo escribir el tramo del adjunto $fileId: ${message(cause)}")
       close(chunk.requestId)
       Outcome.DISCARDED
     }
+  }
+
+  fun flushEarly(requestId: String, fileId: String): Outcome {
+    val store = early.remove(requestId) ?: return Outcome.PROGRESS
+    var outcome = Outcome.PROGRESS
+    for (index in store.keys.sorted()) {
+      val bytes = store[index] ?: continue
+      outcome = write(SyncFilePackets.Chunk(requestId, index, bytes), fileId)
+      if (outcome == Outcome.DISCARDED) return outcome
+    }
+    return outcome
+  }
+
+  private fun stashEarly(chunk: SyncFilePackets.Chunk) {
+    val store = early.getOrPut(chunk.requestId) { HashMap() }
+    if (store.size >= MAX_EARLY_CHUNKS) return
+    store[chunk.index] = chunk.bytes
   }
 
   fun finish(requestId: String): String? {
@@ -84,5 +105,6 @@ internal object SyncFileReceive {
 
   private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
 
+  private const val MAX_EARLY_CHUNKS = 256
   private const val TAG = "UPeerTransport"
 }

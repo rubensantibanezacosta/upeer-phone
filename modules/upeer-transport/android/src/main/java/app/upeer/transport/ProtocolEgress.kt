@@ -29,6 +29,28 @@ internal class ProtocolEgress(
     }
   }
 
+  fun stream(activeBridge: Bridge, destination: String, frames: Iterator<String>, label: String): Boolean {
+    var connectionID = 0
+    return try {
+      connectionID = activeBridge.dialTCP(destination, port)
+      while (frames.hasNext()) {
+        activeBridge.writeFrame(connectionID, frames.next().toByteArray(Charsets.UTF_8))
+      }
+      true
+    } catch (cause: Exception) {
+      Log.w(TAG, "No se pudo transmitir $label a $destination: ${message(cause)}")
+      false
+    } finally {
+      if (connectionID != 0) {
+        try {
+          activeBridge.closeConnection(connectionID)
+        } catch (cause: Exception) {
+          Log.w(TAG, "No se pudo cerrar la conexión de $label: ${message(cause)}")
+        }
+      }
+    }
+  }
+
   private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
 
   companion object {

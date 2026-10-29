@@ -134,6 +134,7 @@ internal class YggdrasilProtocol(
     ::selfAddress,
     ::validateLinked,
     { active, address, json -> egress.send(active, address, json, "de sincronización") },
+    { active, address, frames, label -> egress.stream(active, address, frames, label) },
     { admission.isAdmitted() },
   )
 

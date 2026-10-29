@@ -13,6 +13,7 @@ internal class ProtocolSync(
   private val selfAddress: () -> String,
   private val validate: (ByteArray, String, String) -> Unit,
   private val send: (Bridge, String, String) -> Boolean,
+  private val streamFrames: (Bridge, String, Iterator<String>, String) -> Boolean = { _, _, _, _ -> false },
   private val onAdmissionChanged: () -> Unit = {},
 ) {
   private val channel = SyncChannel(identity, state)
@@ -23,6 +24,7 @@ internal class ProtocolSync(
     deviceSignedPreKeys,
     channel,
     { peer, packet -> sendFilePacket(peer, packet) },
+    { peer, packets -> streamFilePackets(peer, packets) },
   )
   private val history = SyncHistory(
     identity,
@@ -125,13 +127,19 @@ internal class ProtocolSync(
 
   fun requestFileSync(fileId: String): Boolean = files.request(fileId)
 
-  fun filesHandling(packet: org.json.JSONObject, senderDeviceId: String, senderDevicePublicKey: String): Boolean {
+  fun filesHandling(packet: org.json.JSONObject, senderDeviceId: String, senderDevicePublicKey: String, source: String): Boolean {
     val type = packet.optString("type")
     if (!files.isFileType(type)) return false
     val device = identity.currentDevice()
     if (device == null) return true
     if (!packet.optString("recipientDeviceId").equals(device.deviceId, ignoreCase = true)) return true
-    files.handle(packet, senderDeviceId, senderDevicePublicKey)
+    if (!files.handle(packet, senderDeviceId, senderDevicePublicKey)) {
+      val bridge = activeBridge
+      val peer = state.syncPeers.list().firstOrNull { it.deviceId == senderDeviceId }
+      if (bridge != null && peer != null) {
+        replies.requestSessionReset(bridge, peer, source, clearHistory = false)
+      }
+    }
     return true
   }
 
@@ -144,6 +152,16 @@ internal class ProtocolSync(
       return false
     }
     return send(bridge, peer.address, frame)
+  }
+
+  private fun streamFilePackets(peer: SyncPeerRecord, packets: Iterator<org.json.JSONObject>): Boolean {
+    val bridge = activeBridge ?: return false
+    if (peer.address.isBlank()) return false
+    val device = identity.currentDevice() ?: return false
+    val sealed = packets.asSequence()
+      .mapNotNull { packet -> channel.sealEnvelope(bridge, device, peer, packet, packet) }
+      .iterator()
+    return streamFrames(bridge, peer.address, sealed, "adjunto de sincronización")
   }
 
   private fun handleFilePacket(payload: ByteArray, packet: org.json.JSONObject, type: String, source: String): String {
@@ -162,7 +180,7 @@ internal class ProtocolSync(
       Log.w("UPeerTransport", "Firma de $type inválida para ${auth.deviceId.take(12)}")
       return InboundPolicy.rejected(packet)
     }
-    filesHandling(packet, auth.deviceId, auth.devicePublicKey)
+    filesHandling(packet, auth.deviceId, auth.devicePublicKey, source)
     return JSONObject().put("type", type).put("senderUpeerId", self).put("deviceId", auth.deviceId).toString()
   }
 

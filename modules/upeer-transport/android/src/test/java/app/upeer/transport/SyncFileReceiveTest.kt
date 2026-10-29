@@ -47,11 +47,41 @@ class SyncFileReceiveTest {
   }
 
   @Test
-  fun `descarta la recepcion cuando un tramo llega fuera de orden`() {
+  fun `acepta los tramos fuera de orden y reensambla igual`() {
+    val root = folder.newFolder("attachments")
+    SyncFileReceive.attachDirectory(root)
+    val first = ByteArray(SyncFilePackets.CHUNK_SIZE) { (it % 251).toByte() }
+    val second = ByteArray(37) { (it + 7).toByte() }
+
+    SyncFileReceive.open("req13572468", "file-4", meta(2))
+    assertEquals(SyncFileReceive.Outcome.PROGRESS, SyncFileReceive.write(payload("req13572468", second, 1), "file-4"))
+    assertEquals(SyncFileReceive.Outcome.DONE, SyncFileReceive.write(payload("req13572468", first, 0), "file-4"))
+    val savedPath = SyncFileReceive.finish("req13572468")
+
+    assertArrayEquals(first + second, File(savedPath!!).readBytes())
+  }
+
+  @Test
+  fun `guarda los tramos que llegan antes que la cabecera`() {
+    val root = folder.newFolder("attachments")
+    SyncFileReceive.attachDirectory(root)
+    val only = ByteArray(20) { 3 }
+    val early = payload("req24681357", only, 0)
+
+    assertEquals(SyncFileReceive.Outcome.QUEUED, SyncFileReceive.write(early, "file-5"))
+    SyncFileReceive.open("req24681357", "file-5", meta(1))
+    assertEquals(SyncFileReceive.Outcome.DONE, SyncFileReceive.flushEarly("req24681357", "file-5"))
+    val savedPath = SyncFileReceive.finish("req24681357")
+
+    assertArrayEquals(only, File(savedPath!!).readBytes())
+  }
+
+  @Test
+  fun `descarta la recepcion cuando un tramo llega fuera del rango declarado`() {
     val root = folder.newFolder("attachments")
     SyncFileReceive.attachDirectory(root)
     SyncFileReceive.open("req87654321", "file-2", meta(2))
-    val outcome = SyncFileReceive.write(payload("req87654321", ByteArray(16) { 1 }, 1), "file-2")
+    val outcome = SyncFileReceive.write(payload("req87654321", ByteArray(16) { 1 }, 5), "file-2")
 
     assertEquals(SyncFileReceive.Outcome.DISCARDED, outcome)
     assertNull(SyncFileReceive.finish("req87654321"))
