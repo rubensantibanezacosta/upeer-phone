@@ -23,6 +23,7 @@ export type ChatListEntry = {
   unread: number;
   isMine: boolean;
   lastStatus: ProtocolMessage['status'] | null;
+  reaction?: boolean;
   pending?: boolean;
   incoming?: boolean;
   vouchScore?: number;
@@ -53,7 +54,7 @@ function formatConversationTime(timestamp: number): string {
 
 function LastMessageStatus({ entry, color }: { entry: ChatListEntry; color: string }) {
   const theme = useTheme();
-  if (!entry.isMine || !entry.lastStatus) return null;
+  if (entry.reaction || !entry.isMine || !entry.lastStatus) return null;
   if (entry.lastStatus === 'failed') return <CircleAlert color={theme.danger} size={15} strokeWidth={2.2} />;
   if (entry.lastStatus === 'pending') return <Clock3 color={color} size={14} strokeWidth={2.2} />;
   if (entry.lastStatus === 'sent') return <Check color={color} size={15} strokeWidth={2.2} />;

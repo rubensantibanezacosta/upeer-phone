@@ -23,16 +23,16 @@ class ProtocolMessageListReactionTest {
   }
 
   @Test
-  fun `remote reaction records the sender`() {
+  fun `synced reaction records the sender even when it is not the conversation owner`() {
     val id = seed(PEER, isMine = true)
-    assertTrue(messages.applyReaction(id, PEER, "❤️", false))
-    assertEquals(listOf(PEER), actors(id, "❤️"))
+    assertTrue(messages.applySyncedReaction(id, ME, "❤️", false))
+    assertEquals(listOf(ME), actors(id, "❤️"))
   }
 
   @Test
-  fun `remote reaction for another conversation is rejected`() {
-    val id = seed(PEER, isMine = true)
-    assertFalse(messages.applyReaction(id, "b".repeat(64), "👍", false))
+  fun `synced reaction for an unknown message is rejected`() {
+    seed(PEER, isMine = true)
+    assertFalse(messages.applySyncedReaction(UUID.randomUUID().toString(), ME, "👍", false))
     assertEquals(0, persisted)
   }
 

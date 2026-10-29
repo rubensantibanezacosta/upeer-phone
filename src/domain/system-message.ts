@@ -11,6 +11,8 @@ export type SystemMessage = {
 };
 
 const PREFIX = '__SYS__|';
+const ACTOR_ID = /^[0-9a-f]{16,}(?=\s)/i;
+const ACTOR_PLACEHOLDER = 'Alguien';
 
 const OUTCOME_MATCH = /^(Llamada de voz|Videollamada) (perdida|rechazada)$/;
 const DURATION_MATCH = /^(Llamada de voz|Videollamada) · (\d{1,}:\d{2})(?: · (\d{10,}))?$/;
@@ -35,9 +37,13 @@ export function parseCallSystemEvent(message: string): CallSystemEvent | null {
   };
 }
 
+export function humanizeSystemActor(text: string): string {
+  return text.replace(ACTOR_ID, ACTOR_PLACEHOLDER);
+}
+
 export function parseSystemMessage(content: string): SystemMessage | null {
   if (!content.startsWith(PREFIX)) return null;
-  const text = content.slice(PREFIX.length).trim();
+  const text = humanizeSystemActor(content.slice(PREFIX.length).trim());
   if (!text) return null;
   return { text, call: parseCallSystemEvent(text) };
 }

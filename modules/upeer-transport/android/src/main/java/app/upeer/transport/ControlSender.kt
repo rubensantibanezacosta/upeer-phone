@@ -9,6 +9,7 @@ internal class ControlSender(
   private val identity: YggdrasilIdentity,
   private val state: ProtocolStateStore,
   private val bridgeProvider: () -> Bridge?,
+  private val publishReaction: (messageId: String, emoji: String, remove: Boolean) -> Unit = { _, _, _ -> },
 ) {
   fun sendTyping(upeerId: String, state: String) {
     send(upeerId, "upeer-typing", TypingIndicators.data(state), "TYPING")
@@ -37,6 +38,7 @@ internal class ControlSender(
     if (!ReplayPolicy.validMessageID(messageID) || !ChatReactions.validEmoji(emoji)) return
     val selfUpeerId = identity.current()?.upeerID() ?: return
     state.messages.reactLocally(messageID, upeerId, selfUpeerId, emoji, remove)
+    publishReaction(messageID, emoji, remove)
     send(
       upeerId,
       "upeer-reaction",

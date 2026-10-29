@@ -61,6 +61,14 @@ export type ConversationActivityState = 'typing' | 'recording' | 'stop';
 
 export type ConversationActivity = Exclude<ConversationActivityState, 'stop'>;
 
+export type ProtocolConversationReaction = {
+  emoji: string;
+  actorUpeerId: string;
+  timestamp: number;
+  message: string;
+  messageIsMine: boolean;
+};
+
 export type ProtocolConversation = {
   upeerId: string;
   alias: string;
@@ -71,6 +79,7 @@ export type ProtocolConversation = {
   lastStatus: ProtocolMessage['status'];
   lastTimestamp: number;
   lastIsMine: boolean;
+  lastReaction?: ProtocolConversationReaction;
   unread: number;
   typing?: boolean;
   activity?: ConversationActivity | '';

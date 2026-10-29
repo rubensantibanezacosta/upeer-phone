@@ -23,7 +23,7 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
       SyncEventKinds.MESSAGE_EDIT -> applyEdit(payload)
       SyncEventKinds.MESSAGE_DELETE -> applyDelete(payload)
       SyncEventKinds.CHAT_CLEAR -> applyChatClear(payload)
-      SyncEventKinds.REACTION_SET -> applyReaction(payload)
+      SyncEventKinds.REACTION_SET -> applyReaction(payload, record.occurredAt)
       SyncEventKinds.GROUP_UPSERT -> state.groups.upsert(payload)
       SyncEventKinds.GROUP_DELETE -> deleteGroup(payload.optString("groupId"))
       SyncEventKinds.CONTACT_PROFILE -> applyContactProfile(payload)
@@ -123,12 +123,21 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
     return state.messages.deleteConversation(upeerId)
   }
 
-  private fun applyReaction(payload: JSONObject): Boolean {
-    val id = payload.optString("id")
-    val emoji = payload.optString("emoji")
-    val actor = payload.optString("actorUpeerId").lowercase()
-    if (id.isBlank() || emoji.isBlank() || actor.length != 64) return false
-    return state.messages.applyReaction(id, actor, emoji, payload.optBoolean("remove"))
+  private fun applyReaction(payload: JSONObject, occurredAt: Long): Boolean {
+    val fields = SyncReaction.parse(payload) ?: return false
+    val applied = state.messages.applySyncedReaction(
+      fields.messageId,
+      fields.actorUpeerId,
+      fields.emoji,
+      fields.remove,
+      occurredAt,
+    )
+    if (!applied) {
+      val known = state.messages.find(fields.messageId) != null
+      val motivo = if (known) "reacción ya registrada para ${fields.actorUpeerId.take(10)}" else "mensaje ${fields.messageId} ausente"
+      Log.w(TAG, "Reacción ${fields.emoji} no aplicada: $motivo")
+    }
+    return applied
   }
 
   private fun applySettings(payload: JSONObject, occurredAt: Long): Boolean {

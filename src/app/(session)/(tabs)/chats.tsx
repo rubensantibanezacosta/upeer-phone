@@ -26,6 +26,7 @@ import { findChatList, restrictToChatList } from '@/domain/chat-lists';
 import { useChatLists } from '@/hooks/use-chat-lists';
 import { useChatRetention } from '@/hooks/use-chat-retention';
 import { previewMessage } from '@/domain/message-preview';
+import { reactionPreview } from '@/domain/reaction-preview';
 import { flagsFor, orderByPinned } from '@/domain/conversation-flags';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
 import { useNow } from '@/hooks/use-now';
@@ -106,23 +107,27 @@ export default function ChatsRoute() {
 
   const entries: ChatListEntry[] = useMemo(() => conversations
     .filter((conversation) => !partition.hidden.some((hidden) => hidden.upeerId === conversation.upeerId))
-    .map((conversation) => ({
-      upeerId: conversation.upeerId,
-      title: conversation.alias || conversation.upeerId.slice(0, 12),
-      avatar: conversation.avatar,
-      preview: previewMessage(conversation.lastMessage),
-      timestamp: conversation.lastTimestamp,
-      unread: conversation.unread,
-      isMine: conversation.lastIsMine === true,
-      lastStatus: conversation.lastStatus ?? null,
-      incoming: requestIds.has(conversation.upeerId),
-      favorite: contacts.some((contact) => contact.upeerId === conversation.upeerId && contact.isFavorite === true),
-      activity: conversation.activity ?? '',
-      lastActive: conversation.lastActive,
-      group: conversation.group === true,
-      members: conversation.members,
-      ...flagsFor(conversationFlags, conversation.upeerId),
-    })), [contacts, conversationFlags, conversations, partition.hidden, requestIds]);
+    .map((conversation) => {
+      const reaction = reactionPreview(conversation.lastReaction) ?? null;
+      return {
+        upeerId: conversation.upeerId,
+        title: conversation.alias || conversation.upeerId.slice(0, 12),
+        avatar: conversation.avatar,
+        preview: reaction ?? previewMessage(conversation.lastMessage),
+        timestamp: conversation.lastReaction?.timestamp ?? conversation.lastTimestamp,
+        unread: conversation.unread,
+        isMine: reaction ? false : conversation.lastIsMine === true,
+        lastStatus: reaction ? null : conversation.lastStatus ?? null,
+        reaction: reaction !== null,
+        incoming: requestIds.has(conversation.upeerId),
+        favorite: contacts.some((contact) => contact.upeerId === conversation.upeerId && contact.isFavorite === true),
+        activity: conversation.activity ?? '',
+        lastActive: conversation.lastActive,
+        group: conversation.group === true,
+        members: conversation.members,
+        ...flagsFor(conversationFlags, conversation.upeerId),
+      };
+    }), [contacts, conversationFlags, conversations, partition.hidden, requestIds]);
 
   const chatTitles = useMemo(() => Object.fromEntries(entries.map((item) => [item.upeerId, item.title])), [entries]);
 

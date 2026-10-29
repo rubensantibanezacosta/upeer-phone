@@ -58,6 +58,16 @@ describe('parseSystemMessage', () => {
   it('ignora el prefijo vacio', () => {
     expect(parseSystemMessage('__SYS__|   ')).toBeNull();
   });
+
+  it('sustituye un identificador suelto por un actor legible', () => {
+    const actor = 'da4163f3528710db1adeca2211274d217728845044c70b912759e856493d1834';
+    expect(parseSystemMessage(`__SYS__|${actor} te añadió al grupo`)).toEqual({ text: 'Alguien te añadió al grupo', call: null });
+  });
+
+  it('no toca los nombres normales', () => {
+    expect(parseSystemMessage('__SYS__|Rubén te añadió al grupo')).toEqual({ text: 'Rubén te añadió al grupo', call: null });
+    expect(parseSystemMessage('__SYS__|abc123 dejó el grupo')).toEqual({ text: 'abc123 dejó el grupo', call: null });
+  });
 });
 
 describe('etiquetas de llamada', () => {

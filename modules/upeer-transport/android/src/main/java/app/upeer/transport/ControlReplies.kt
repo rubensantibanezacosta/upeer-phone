@@ -158,9 +158,27 @@ internal class ControlReplies(
       return
     }
     val remove = packet.optBoolean("remove")
-    if (!state.messages.applyReaction(messageID, senderUpeerId, emoji, remove)) {
+    val conversation = state.messages.conversation(messageID)
+    if (conversation == null || !canReact(conversation, senderUpeerId)) {
+      Log.w(TAG, "CHAT_REACTION ignorado de $senderUpeerId para $messageID")
+      return
+    }
+    val atMillis = packet.optLong("timestamp", System.currentTimeMillis())
+    val applied = state.messages.applySyncedReaction(messageID, senderUpeerId, emoji, remove, atMillis)
+    if (!applied) {
       Log.w(TAG, "CHAT_REACTION ignorado de $senderUpeerId para $messageID")
     }
+  }
+
+  private fun canReact(conversation: String, senderUpeerId: String): Boolean {
+    if (conversation.equals(senderUpeerId, ignoreCase = true)) return true
+    if (identity.current()?.upeerID()?.equals(senderUpeerId, ignoreCase = true) == true) return true
+    if (!conversation.startsWith(ProtocolGroups.PREFIX)) return false
+    val members = state.groups.get(conversation)?.optJSONArray("members") ?: return false
+    for (index in 0 until members.length()) {
+      if (members.optString(index).equals(senderUpeerId, ignoreCase = true)) return true
+    }
+    return false
   }
 
   private fun handleDelete(senderUpeerId: String, packet: JSONObject) {

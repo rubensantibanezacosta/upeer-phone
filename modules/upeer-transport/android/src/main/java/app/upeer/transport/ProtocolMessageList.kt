@@ -74,30 +74,33 @@ internal class ProtocolMessageList(
     true
   }
 
-  fun applyReaction(messageID: String, actorUpeerId: String, emoji: String, remove: Boolean): Boolean =
-    react(messageID, actorUpeerId, emoji, remove)
+  fun applySyncedReaction(
+    messageID: String,
+    actorUpeerId: String,
+    emoji: String,
+    remove: Boolean,
+    atMillis: Long = System.currentTimeMillis(),
+  ): Boolean = synchronized(lock) {
+    val message = ProtocolMessageState.find(messages(), messageID) ?: return@synchronized false
+    if (!ChatReactions.apply(message, actorUpeerId, emoji, remove, atMillis)) return@synchronized false
+    persist()
+    true
+  }
+
   fun reactLocally(
     messageID: String,
     conversationUpeerId: String,
     selfUpeerId: String,
     emoji: String,
     remove: Boolean,
+    atMillis: Long = System.currentTimeMillis(),
   ): Boolean = synchronized(lock) {
     val message = ProtocolMessageState.find(messages(), messageID) ?: return@synchronized false
     if (!message.optString("upeerId").equals(conversationUpeerId, ignoreCase = true)) return@synchronized false
-    if (!ChatReactions.apply(message, selfUpeerId, emoji, remove)) return@synchronized false
+    if (!ChatReactions.apply(message, selfUpeerId, emoji, remove, atMillis)) return@synchronized false
     persist()
     true
   }
-
-  private fun react(messageID: String, actorUpeerId: String, emoji: String, remove: Boolean): Boolean =
-    synchronized(lock) {
-      val message = ProtocolMessageState.find(messages(), messageID) ?: return@synchronized false
-      if (!message.optString("upeerId").equals(actorUpeerId, ignoreCase = true)) return@synchronized false
-      if (!ChatReactions.apply(message, actorUpeerId, emoji, remove)) return@synchronized false
-      persist()
-      true
-    }
 
   fun delete(messageID: String, senderUpeerId: String): Boolean = synchronized(lock) {
     val message = ProtocolMessageState.find(messages(), messageID) ?: return@synchronized false

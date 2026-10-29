@@ -51,6 +51,49 @@ class ProtocolConversationsTest {
     assertEquals("", result.optString("activity"))
   }
 
+  @Test
+  fun `a newer reaction on an older message becomes the preview`() {
+    val messages = JSONArray()
+      .put(message("m1", "hola", 1_000L).put("latestReaction", reaction("👍", "b".repeat(64), 5_000L)))
+      .put(message("m2", "adios", 2_000L))
+    val result = JSONArray(ProtocolConversations.build(messages, peers(42L))).optJSONObject(0)
+
+    assertEquals("adios", result.optString("lastMessage"))
+    assertEquals(5_000L, result.optLong("lastTimestamp"))
+    assertEquals("👍", result.optJSONObject("lastReaction")!!.optString("emoji"))
+    assertEquals("hola", result.optJSONObject("lastReaction")!!.optString("message"))
+  }
+
+  @Test
+  fun `a reaction older than the last message keeps the plain preview`() {
+    val messages = JSONArray()
+      .put(message("m1", "hola", 1_000L).put("latestReaction", reaction("👍", "b".repeat(64), 1_500L)))
+      .put(message("m2", "adios", 2_000L))
+    val result = JSONArray(ProtocolConversations.build(messages, peers(42L))).optJSONObject(0)
+
+    assertEquals(false, result.has("lastReaction"))
+    assertEquals(2_000L, result.optLong("lastTimestamp"))
+  }
+
+  @Test
+  fun `conversation without reactions has no reaction preview`() {
+    val result = conversations(peers = peers(42L))
+    assertEquals(false, result.has("lastReaction"))
+  }
+
+  private fun message(id: String, content: String, timestamp: Long): JSONObject = JSONObject()
+    .put("id", id)
+    .put("upeerId", peerId)
+    .put("content", content)
+    .put("isMine", false)
+    .put("status", "delivered")
+    .put("timestamp", timestamp)
+
+  private fun reaction(emoji: String, actor: String, at: Long): JSONObject = JSONObject()
+    .put("emoji", emoji)
+    .put("actorUpeerId", actor)
+    .put("at", at)
+
   private fun conversations(peers: JSONObject, typing: Map<String, String> = emptyMap()): JSONObject {
     val messages = JSONArray().put(
       JSONObject()

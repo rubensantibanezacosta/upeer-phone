@@ -68,6 +68,11 @@ internal class ProtocolSync(
   fun publishPatch(payload: JSONObject): Boolean =
     outbound.publish(activeBridge, SyncEventKinds.SETTINGS_UPDATE, payload)
 
+  fun publishReaction(messageId: String, emoji: String, remove: Boolean): Boolean {
+    val self = identity.current()?.upeerID() ?: return false
+    return outbound.publish(activeBridge, SyncEventKinds.REACTION_SET, SyncReaction.payload(messageId, self, emoji, remove))
+  }
+
   fun flushOutbound(): Int {
     val bridge = activeBridge ?: return 0
     return outbound.flush(bridge)
