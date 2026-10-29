@@ -168,6 +168,18 @@ class FileOutboundGroupTest {
   }
 
   @Test
+  fun `un mensaje que ya iba leido no vuelve a enviado con un acuse parcial`() {
+    val outbound = outbound({ listOf(self, memberOne, memberTwo) })
+    val messageId = outbound.start(request(groupId))
+    stored[messageId]!!.put("status", "read")
+    val first = sent.first { it.second.optString("type") == "FILE_PROPOSAL" }.second
+
+    outbound.handle(JSONObject().put("type", "FILE_DONE_ACK").put("fileId", first.getString("fileId")), memberOne, "FILE_DONE_ACK")
+
+    assertEquals("read", stored[messageId]!!.getString("status"))
+  }
+
+  @Test
   fun `un miembro que cancela no completa el mensaje del grupo`() {
     val outbound = outbound({ listOf(self, memberOne, memberTwo) })
     val messageId = outbound.start(request(groupId))

@@ -358,8 +358,9 @@ internal class FileOutbound(
   private fun rankOf(status: String): Int = when (status) {
     "pending" -> 0
     "sent" -> 1
-    "failed" -> 2
+    "failed", "vaulted" -> 2
     "delivered" -> 3
+    "read" -> 4
     else -> -1
   }
 
