@@ -12,11 +12,11 @@ export function CopyField({ value, onCopy, accessibilityLabel, truncate = false 
 }) {
   const theme = useTheme();
   return (
-    <NativeRipplePressable accessibilityLabel={accessibilityLabel} accessibilityRole="button" accessibilityState={{ disabled: !value }} disabled={!value} onPress={onCopy} style={[styles.field, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+    <NativeRipplePressable accessibilityLabel={accessibilityLabel} accessibilityRole="button" accessibilityState={{ disabled: !value }} disabled={!value} onPress={onCopy} style={[styles.field, { backgroundColor: theme.background, borderColor: theme.border }]}>
       <Text numberOfLines={truncate ? 1 : undefined} ellipsizeMode="middle" style={[styles.value, { color: theme.textSecondary }]}>{value || '—'}</Text>
       <Copy color={theme.placeholder} size={16} />
     </NativeRipplePressable>
   );
 }
 
-const styles = StyleSheet.create({ field: { alignItems: 'center', borderRadius: 8, borderWidth: 1, flexDirection: 'row', gap: 8, minHeight: 44, overflow: 'hidden', paddingHorizontal: 12, paddingVertical: 8 }, value: { flex: 1, flexShrink: 1, fontFamily: 'monospace', fontSize: 12, lineHeight: 19 } });
+const styles = StyleSheet.create({ field: { alignItems: 'center', borderRadius: 8, borderWidth: 1, flexDirection: 'row', gap: 8, minHeight: 44, overflow: 'hidden', paddingHorizontal: 12, paddingVertical: 8 }, value: { flex: 1, flexShrink: 1, fontFamily: 'monospace', fontSize: 12 } });
