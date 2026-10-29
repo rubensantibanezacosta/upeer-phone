@@ -78,19 +78,20 @@ internal class YggdrasilOutbox(
   fun enqueue(upeerId: String, content: String, replyTo: String, messageID: String = UUID.randomUUID().toString()): String {
     val text = ChatSendPolicy.text(upeerId, content, replyTo)
     val timestamp = System.currentTimeMillis()
+    val selfChat = SelfMessage.isSelfChat(upeerId, identity.current()?.upeerID())
     state.messages.save(
       JSONObject()
         .put("id", messageID)
         .put("upeerId", upeerId)
         .put("isMine", true)
         .put("content", text)
-        .put("status", "pending")
+        .put("status", if (selfChat) "read" else "pending")
         .put("version", 1)
         .put("isEdited", false)
         .put("timestamp", timestamp)
         .apply { if (replyTo.isNotEmpty()) put("replyTo", replyTo) },
     )
-    outbox.enqueue(messageID, upeerId, text, replyTo, timestamp)
+    if (!selfChat) outbox.enqueue(messageID, upeerId, text, replyTo, timestamp)
     wake()
     return messageID
   }
