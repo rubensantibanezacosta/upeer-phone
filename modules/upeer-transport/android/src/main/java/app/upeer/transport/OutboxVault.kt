@@ -160,22 +160,29 @@ internal class OutboxVault(
     )
     if (pending.isEmpty()) return
     val applied = mutableListOf<String>()
+    var unusable = 0
     for (entry in pending) {
       if (!isActive(activeBridge)) return
-      val bytes = runCatching { entry.data.chunked(2).map { it.toInt(16).toByte() }.toByteArray() }.getOrNull() ?: run {
-        Log.w(TAG, "Entrada local del vault ${entry.payloadHash.take(12)} con datos ilegibles")
+      val bytes = runCatching { entry.data.chunked(2).map { it.toInt(16).toByte() }.toByteArray() }.getOrNull()
+      if (bytes == null) {
+        unusable += 1
+        Log.d(TAG, "Entrada local del vault ${entry.payloadHash.take(12)} con datos ilegibles")
         continue
       }
       try {
         replay(activeBridge, bytes, selfAddress())
         applied.add(entry.payloadHash)
       } catch (cause: Exception) {
-        Log.w(TAG, "Entrada local del vault ${entry.payloadHash.take(12)} no aplicable: ${message(cause)}")
+        unusable += 1
+        Log.d(TAG, "Entrada local del vault ${entry.payloadHash.take(12)} no aplicable: ${message(cause)}")
       }
+    }
+    if (unusable > 0) {
+      Log.w(TAG, "Buzón local del vault: $unusable de ${pending.size} entradas sin aplicar")
     }
     if (applied.isEmpty()) return
     val released = mailbox.release(applied)
-    Log.i(TAG, "Buzón local del vault drenado: $released de ${pending.size} mensajes propios aplicados")
+    Log.i(TAG, "Buzón local del vault drenado: $released de ${pending.size} mensajes propios liberados")
   }
 
   private fun queryOwnMailbox(activeBridge: Bridge) {
