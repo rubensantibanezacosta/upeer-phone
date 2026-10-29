@@ -41,7 +41,7 @@ vi.mock('expo-file-system', () => {
     async base64() {
       const bytes = fs.files.get(this.uri);
       if (!bytes) throw new Error('Archivo inexistente');
-      return Buffer.from(bytes).toString('base64');
+      return btoa(String.fromCharCode(...bytes));
     }
   }
 
@@ -134,6 +134,33 @@ describe('perfil de la cuenta sincronizado', () => {
 
     await applyRemoteProfile({ alias: 'Igual', avatar: '' });
 
+    expect(fs.published).toEqual([]);
+  });
+
+  it('crea el perfil local si el dispositivo aún no tenía ninguno', async () => {
+    const { saveIdentity } = await import('@/storage/identity-store');
+    const { applyRemoteProfile } = await import('@/storage/profile-remote');
+    const { loadProfile } = await import('@/storage/identity-store');
+    await saveIdentity({ mode: 'device', upeerId: 'u1', publicKey: 'p1' });
+    fs.published.length = 0;
+
+    await applyRemoteProfile({ alias: 'Remoto', avatar: JPEG });
+
+    const profile = await loadProfile();
+    expect(profile?.upeerId).toBe('u1');
+    expect(profile?.publicKey).toBe('p1');
+    expect(profile?.alias).toBe('Remoto');
+    expect(fs.files.size).toBe(1);
+    expect(fs.published).toEqual([]);
+  });
+
+  it('sin identidad ni perfil no inventa nada', async () => {
+    const { applyRemoteProfile } = await import('@/storage/profile-remote');
+
+    await applyRemoteProfile({ alias: 'Remoto', avatar: JPEG });
+
+    expect(fs.files.size).toBe(0);
+    expect(fs.secret.size).toBe(0);
     expect(fs.published).toEqual([]);
   });
 

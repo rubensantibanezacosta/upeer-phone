@@ -1,5 +1,5 @@
 import type { IdentityProfile } from '@/storage/identity-store';
-import { loadProfile, saveProfile } from '@/storage/identity-store';
+import { loadIdentity, loadProfile, saveProfile } from '@/storage/identity-store';
 import { decodeAvatarData } from '@/storage/avatar-data';
 import { withProfilePublishSuppressed } from '@/storage/settings-sync-client';
 
@@ -20,8 +20,16 @@ function resolveAvatar(value: unknown): AvatarDecision {
   }
 }
 
+async function baseProfile(): Promise<IdentityProfile | null> {
+  const stored = await loadProfile();
+  if (stored) return stored;
+  const identity = await loadIdentity();
+  if (!identity) return null;
+  return { upeerId: identity.upeerId, publicKey: identity.publicKey, alias: '' };
+}
+
 export async function applyRemoteProfile(values: Record<string, unknown>): Promise<void> {
-  const current = await loadProfile();
+  const current = await baseProfile();
   if (!current) return;
   const alias = typeof values.alias === 'string' ? values.alias.trim().slice(0, ALIAS_MAX) : '';
   const avatar = resolveAvatar(values.avatar);
