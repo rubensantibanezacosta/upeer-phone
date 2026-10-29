@@ -8,7 +8,7 @@ import { DevicePairingPanel } from '@/components/device-pairing-panel';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
-import { SettingsGroup, SettingsGroupLabel } from '@/components/settings-section-parts';
+import { SettingsGroup, SettingsGroupLabel, SettingsNote } from '@/components/settings-section-parts';
 import { useAccountDevices } from '@/hooks/use-account-devices';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
@@ -96,14 +96,12 @@ export function DeviceAuthorizerPanel({ onInfo }: { onInfo?: () => void }) {
         <Text color={theme.placeholder} fontSize={scale(10)} fontWeight="600" letterSpacing={0.6}>REVOCADOS</Text>
       </XStack>
       <SettingsGroup>
-        {state.revoked.slice(0, 3).map((revocation) => <YStack gap={2} key={revocation.deviceId} opacity={0.7} padding={16}>
-          <XStack alignItems="center" gap={8}>
-            <Text color={theme.placeholder} flex={1} fontFamily="monospace" fontSize={scale(11)} numberOfLines={1}>{revocation.deviceId}</Text>
-            <Text color={theme.placeholder} fontSize={scale(11)}>{authorizedLabel(revocation.revokedAt)}</Text>
-          </XStack>
-          {revocation.reason ? <Text color={theme.placeholder} fontSize={scale(10)} numberOfLines={1}>{revocation.reason}</Text> : null}
-        </YStack>)}
+        {state.revoked.slice(0, 3).map((revocation) => <XStack alignItems="center" gap={8} key={revocation.deviceId} opacity={0.7} padding={16}>
+          <Text color={theme.placeholder} flex={1} fontFamily="monospace" fontSize={scale(11)} numberOfLines={1}>{revocation.deviceId}</Text>
+          <Text color={theme.placeholder} fontSize={scale(11)}>{authorizedLabel(revocation.revokedAt)}</Text>
+        </XStack>)}
       </SettingsGroup>
+      <SettingsNote>Un dispositivo revocado deja de recibir mensajes nuevos y puede volver a vincularse con una invitación.</SettingsNote>
     </YStack> : null}
 
     <DeviceInviteSheet onAuthorized={() => void refresh()} onClose={() => setSheetVisible(false)} visible={sheetVisible} />
