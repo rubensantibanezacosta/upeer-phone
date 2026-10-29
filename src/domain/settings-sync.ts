@@ -3,7 +3,7 @@ import { sanitizeChatIds, sanitizeChatLists, sanitizeListName } from '@/domain/c
 import type { ConversationFlags } from '@/domain/conversation-flags';
 import type { StarredMap } from '@/domain/starred';
 
-export const REMOTE_SETTINGS_BLOCKS = ['chat', 'message', 'lists'] as const;
+export const REMOTE_SETTINGS_BLOCKS = ['chat', 'message', 'lists', 'blocked'] as const;
 
 export type RemoteSettingsBlock = (typeof REMOTE_SETTINGS_BLOCKS)[number];
 
@@ -11,6 +11,7 @@ const ID_FIELD: Record<RemoteSettingsBlock, string> = {
   chat: 'chatId',
   message: 'messageId',
   lists: 'listId',
+  blocked: 'upeerId',
 };
 
 const CONVERSATION_KEYS = ['archived', 'muted', 'pinned'] as const;

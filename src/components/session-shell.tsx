@@ -8,7 +8,7 @@ import { clearIdentity as clearTransportIdentity, setIdentity as setTransportIde
 import { clearIdentity, loadProfile, type IdentityProfile } from '@/storage/identity-store';
 import { publishNativeProfileSafely } from '@/storage/profile-sync';
 import { EMPTY_PEER_MANAGEMENT } from '@/domain/yggdrasil-peers';
-import { pushBlockedPeers } from '@/storage/contact-store';
+import { applyRemoteBlocked, pushBlockedPeers } from '@/storage/contact-store';
 import { useActivitySignal } from '@/hooks/use-activity-signal';
 import { usePreferences } from '@/hooks/use-preferences';
 import { adoptNativePreferences } from '@/storage/preferences-sync';
@@ -95,6 +95,7 @@ export function SessionShell({ identity, onSignOut, children }: {
           chat: applyRemoteConversationFlags,
           message: applyRemoteStarred,
           lists: applyRemoteList,
+          blocked: applyRemoteBlocked,
         }))
         .catch((cause: unknown) => {
           console.warn('No se pudieron adoptar los ajustes sincronizados.', cause);

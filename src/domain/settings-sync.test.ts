@@ -52,6 +52,12 @@ describe('settings-sync del móvil', () => {
     expect(settingsEntityOf({ block: 'lists' })).toBeNull();
   });
 
+  it('la entidad de un bloqueo es el contacto', () => {
+    expect(settingsEntityOf({ block: 'blocked', upeerId: ' peer-1 ' })).toBe('blocked:peer-1');
+    expect(settingsEntityOf({ block: 'blocked' })).toBeNull();
+    expect(isRemoteSettingsBlock('blocked')).toBe(true);
+  });
+
   it('crea una lista que no existia', () => {
     expect(applyRemoteChatList([], { listId: 'l1', name: 'Trabajo', chatIds: ['a', 'b'] }))
       .toEqual([{ id: 'l1', name: 'Trabajo', chatIds: ['a', 'b'] }]);

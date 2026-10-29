@@ -80,6 +80,15 @@ export async function publishChatListDeleted(listId: string): Promise<void> {
   });
 }
 
+export async function publishBlockedState(upeerId: string, blocked: boolean): Promise<void> {
+  await ensureLoaded();
+  clocks[`blocked:${upeerId}`] = Date.now();
+  await persistClocks();
+  await publishSettingsPatch({ block: 'blocked', upeerId, blocked }).catch((cause: unknown) => {
+    console.warn('El servicio no pudo publicar el bloqueo del contacto.', cause);
+  });
+}
+
 export async function drainRemoteSettings(handlers: Record<string, SettingsHandler>): Promise<void> {
   if (draining) return;
   draining = true;

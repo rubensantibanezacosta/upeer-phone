@@ -1,6 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 
 import { deleteConversation as deleteNativeConversation, setBlockedPeers, setKnownContacts } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import { publishBlockedState } from '@/storage/settings-sync-client';
 
 export type UPeerContact = {
   upeerId: string;
@@ -60,8 +61,28 @@ async function syncBlockedPeers(): Promise<void> {
 
 export async function saveContact(contact: UPeerContact): Promise<void> {
   const db = await getDatabase();
+  const previous = await db.getFirstAsync<{ status: string }>('SELECT status FROM contacts WHERE upeerId = ?', contact.upeerId);
   await db.runAsync('INSERT INTO contacts (upeerId, address, name, publicKey, status, createdAt) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(upeerId) DO UPDATE SET address = excluded.address, name = excluded.name, publicKey = excluded.publicKey, status = excluded.status', contact.upeerId, contact.address, contact.name, contact.publicKey, contact.status, contact.createdAt);
   await syncBlockedPeers().catch((cause: unknown) => console.warn('El contacto se guardó, pero el servicio no recibió la lista de bloqueados.', cause));
+  const wasBlocked = previous?.status === 'blocked';
+  if (wasBlocked !== (contact.status === 'blocked')) await publishBlockedState(contact.upeerId, contact.status === 'blocked');
+}
+
+export async function setContactBlocked(upeerId: string, blocked: boolean): Promise<void> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ status: string }>('SELECT status FROM contacts WHERE upeerId = ?', upeerId);
+  if (!row) return;
+  if ((row.status === 'blocked') === blocked) return;
+  await db.runAsync('UPDATE contacts SET status = ? WHERE upeerId = ?', blocked ? 'blocked' : 'offline', upeerId);
+  await syncBlockedPeers().catch((cause: unknown) => console.warn('El bloqueo sincronizado no llegó al servicio.', cause));
+}
+
+export function applyRemoteBlocked(values: Record<string, unknown>): void {
+  const upeerId = typeof values.upeerId === 'string' ? values.upeerId.trim() : '';
+  if (!upeerId) return;
+  setContactBlocked(upeerId, values.blocked === true).catch((cause: unknown) => {
+    console.warn('No se pudo aplicar el bloqueo sincronizado.', cause);
+  });
 }
 
 export async function deleteContact(upeerId: string): Promise<void> {

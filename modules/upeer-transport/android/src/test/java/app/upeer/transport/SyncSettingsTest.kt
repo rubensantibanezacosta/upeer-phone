@@ -215,4 +215,36 @@ class SyncSettingsTest {
     assertTrue(SyncSettings.isRemoteBlock(SyncSettings.LISTS))
     assertTrue(SyncSettings.isRemoteBlock("appearance").not())
   }
+
+  @Test
+  fun blockedContactsAreTheirOwnEntity() {
+    assertEquals(
+      "blocked:peer-1",
+      SyncSettings.entity(JSONObject().put("block", "blocked").put("upeerId", "peer-1")),
+    )
+    assertNull(SyncSettings.entity(JSONObject().put("block", "blocked")))
+    assertNull(SyncSettings.entity(JSONObject().put("block", "blocked").put("upeerId", "   ")))
+  }
+
+  @Test
+  fun blockedIsARemoteBlock() {
+    assertTrue(SyncSettings.isRemoteBlock(SyncSettings.BLOCKED))
+    assertTrue(SyncSettings.BLOCKED in SyncSettings.blocks())
+    assertTrue(SyncSettings.isBooleanBlock(SyncSettings.BLOCKED).not())
+  }
+
+  @Test
+  fun blockedPayloadRoundTrips() {
+    val payload = SyncSettings.blockedPayload("peer-2", true)
+    assertEquals("blocked", payload?.optString("block"))
+    assertEquals("peer-2", payload?.optString("upeerId"))
+    assertEquals(true, payload?.opt("blocked"))
+    assertEquals("blocked:peer-2", payload?.let { SyncSettings.entity(it) })
+  }
+
+  @Test
+  fun blockedPayloadRejectsAnEmptyContact() {
+    assertNull(SyncSettings.blockedPayload("  ", true))
+    assertNull(SyncSettings.blockedPayload("x".repeat(201), false))
+  }
 }
