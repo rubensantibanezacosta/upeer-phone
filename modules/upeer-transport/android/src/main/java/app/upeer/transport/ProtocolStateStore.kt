@@ -404,9 +404,11 @@ internal class ProtocolStateStore(context: Context) {
     val current = report.optString("state")
     if (current != lastSyncState) {
       lastSyncState = current
+      val progress = report.optJSONObject("progress")
+      val avance = progress?.optInt("percent") ?: 0
       Log.i(
         TAG,
-        "Estado de sincronización: $current dispositivos=${report.optInt("devices")} alDía=${report.optInt("devicesDone")} pendientes=${report.optInt("pendingEvents")} noSoportados=${report.optInt("unsupported")}",
+        "Estado de sincronización: $current dispositivos=${report.optInt("devices")} alDía=${report.optInt("devicesDone")} pendientes=${report.optInt("pendingEvents")} noSoportados=${report.optInt("unsupported")} avance=$avance% (${progress?.optString("detail")})",
       )
     }
     return report.toString()

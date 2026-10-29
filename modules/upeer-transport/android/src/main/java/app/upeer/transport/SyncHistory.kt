@@ -83,15 +83,13 @@ internal class SyncHistory(
   fun apply(activeBridge: Bridge, peer: SyncPeerRecord, payload: JSONObject) {
     val entries = payload.optJSONArray("entries")
     var failed = 0
-    var applied = 0
+    var processed = 0
     if (entries != null && entries.length() <= MAX_PAGE) {
       val now = nowMillis()
-      for (index in 0 until entries.length()) {
-        val entry = entries.optJSONObject(index) ?: continue
-        if (applyEntry(entry, now)) applied += 1
-        else if (!state.syncEvents.contains(entry.optString("eventId"))) failed += 1
-      }
-      if (applied > 0) Log.i(TAG, "Histórico de ${peer.deviceId.take(12)}: $applied eventos registrados")
+      val tally = tallyHistoryPage(entries, { applyEntry(it, now) }, state.syncEvents::contains)
+      failed = tally.failed
+      processed = tally.processed
+      if (tally.recorded > 0) Log.i(TAG, "Histórico de ${peer.deviceId.take(12)}: ${tally.recorded} eventos registrados")
       val projected = applyEvents()
       if (projected > 0) Log.i(TAG, "Histórico de ${peer.deviceId.take(12)}: $projected eventos proyectados")
     }
@@ -106,7 +104,7 @@ internal class SyncHistory(
     }
     val done = payload.optBoolean("done", false)
     val finished = done || nextCursor == null
-    state.history.savePage(peer.deviceId, nextCursor, finished, applied, if (finished) 0 else pendingCount(payload))
+    state.history.savePage(peer.deviceId, nextCursor, finished, processed, if (finished) 0 else pendingCount(payload))
     if (!done && nextCursor != null) {
       val refreshed = state.syncPeers.list().firstOrNull { it.deviceId == peer.deviceId } ?: return
       lastRequest[peer.deviceId] = nowMillis()
@@ -230,4 +228,30 @@ internal class SyncHistory(
     const val MAX_PAGE = 200
     const val REQUEST_COOLDOWN_MS = 30_000L
   }
+}
+
+internal data class SyncHistoryTally(
+  val processed: Int,
+  val recorded: Int,
+  val failed: Int,
+)
+
+internal fun tallyHistoryPage(
+  entries: JSONArray,
+  applyEntry: (JSONObject) -> Boolean,
+  contains: (String) -> Boolean,
+): SyncHistoryTally {
+  var processed = 0
+  var recorded = 0
+  var failed = 0
+  for (index in 0 until entries.length()) {
+    val entry = entries.optJSONObject(index) ?: continue
+    if (applyEntry(entry)) {
+      recorded += 1
+      processed += 1
+      continue
+    }
+    if (contains(entry.optString("eventId"))) processed += 1 else failed += 1
+  }
+  return SyncHistoryTally(processed, recorded, failed)
 }

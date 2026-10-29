@@ -17,11 +17,13 @@ internal class SyncHistoryState(
 ) {
   fun progress(deviceId: String): SyncHistoryProgress = synchronized(lock) {
     val entry = bucket().optJSONObject(deviceId)
+    val done = entry?.optBoolean("done", false) == true
+    val total = entry?.optInt("total", 0) ?: 0
     SyncHistoryProgress(
       cursor = entry?.optString("cursor")?.ifBlank { null },
-      done = entry?.optBoolean("done", false) == true,
-      applied = entry?.optInt("applied", 0) ?: 0,
-      total = entry?.optInt("total", 0) ?: 0,
+      done = done,
+      applied = if (done) total else entry?.optInt("applied", 0) ?: 0,
+      total = total,
       known = entry?.optBoolean("known", false) == true,
     )
   }
