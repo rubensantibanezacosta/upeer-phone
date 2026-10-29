@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { statusIconIsRead, statusIconKind } from './message-status-icon';
+import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
 
 describe('statusIconKind', () => {
   it('marca el error con su propio icono', () => {
@@ -19,6 +20,11 @@ describe('statusIconKind', () => {
   it('solo entregado y leido llevan doble tick', () => {
     expect(statusIconKind('delivered')).toBe('delivered');
     expect(statusIconKind('read')).toBe('delivered');
+  });
+
+  it('un estado desconocido no presume de entrega', () => {
+    expect(statusIconKind('raro' as ProtocolMessage['status'])).toBe('sent');
+    expect(statusIconKind('' as ProtocolMessage['status'])).toBe('sent');
   });
 
   it('solo leido se resalta como leido', () => {
