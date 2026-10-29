@@ -21,7 +21,7 @@ internal class SyncFileAutoFetch(
 
   private val lock = Any()
   private val attempts = HashMap<String, Attempt>()
-  private var baseline: Set<String>? = null
+  private var baseline: MutableSet<String>? = null
   private val tracked = LinkedHashSet<String>()
   private val completed = HashSet<String>()
 
@@ -47,7 +47,8 @@ internal class SyncFileAutoFetch(
     }
     val seen = LinkedHashMap<String, AttachmentRef>()
     for (ref in refs) seen.putIfAbsent(ref.fileId, ref)
-    val known = baseline ?: seen.filterValues { present(it) }.keys.toSet().also { baseline = it }
+    reviveMissing(seen)
+    val known = baseline ?: seen.filterValues { present(it) }.keys.toMutableSet().also { baseline = it }
     var pending = 0
     var failed = 0
     for ((fileId, ref) in seen) {
@@ -73,6 +74,19 @@ internal class SyncFileAutoFetch(
     last = work
     if (work.known) Log.i(TAG, "Adjuntos por traer de otros dispositivos: ${work.done} de ${work.total}, pendientes ${work.pending}, referencias ${seen.size}")
     return work
+  }
+
+  private fun reviveMissing(seen: Map<String, AttachmentRef>) {
+    val candidates = HashSet(completed)
+    baseline?.let { candidates.addAll(it) }
+    for (fileId in candidates) {
+      val ref = seen[fileId] ?: continue
+      if (present(ref)) continue
+      completed.remove(fileId)
+      attempts.remove(fileId)
+      baseline?.remove(fileId)
+      Log.i(TAG, "El adjunto $fileId ya no está en el dispositivo: se vuelve a pedir")
+    }
   }
 
   private fun compute(pending: Int, failed: Int): SyncFileWork {

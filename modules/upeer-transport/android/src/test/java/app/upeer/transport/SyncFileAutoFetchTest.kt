@@ -104,6 +104,21 @@ class SyncFileAutoFetchTest {
   }
 
   @Test
+  fun `si el adjunto desaparece del disco se vuelve a pedir`() {
+    refs = listOf(AttachmentRef("uno", null), AttachmentRef("dos", null))
+    stored = setOf("uno")
+    fetch.tick()
+
+    stored = setOf("dos")
+    val work = fetch.tick()
+
+    assertEquals(listOf("dos", "uno"), asked)
+    assertEquals(2, work.total)
+    assertEquals(1, work.done)
+    assertEquals(1, work.pending)
+  }
+
+  @Test
   fun `da por bueno el adjunto con savedPath en disco`() {
     val file = java.io.File.createTempFile("upeer-adjunto", ".png")
     try {

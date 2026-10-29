@@ -108,6 +108,24 @@ class SyncFilePacketsTest {
   }
 
   @Test
+  fun `el base64 sigue el alfabeto estandar para entenderse con el escritorio`() {
+    val vectors = mapOf(
+      "" to "",
+      "f" to "Zg==",
+      "fo" to "Zm8=",
+      "foo" to "Zm9v",
+      "foob" to "Zm9vYg==",
+      "fooba" to "Zm9vYmE=",
+      "foobar" to "Zm9vYmFy",
+    )
+    for ((plain, expected) in vectors) {
+      val bytes = plain.toByteArray(Charsets.UTF_8)
+      val packet = SyncFilePackets.chunk(sender, "b".repeat(64), "abc12345", 0, bytes) ?: continue
+      assertEquals(expected, packet.optString("data"))
+    }
+  }
+
+  @Test
   fun `descarta tramos vacios o fuera de rango`() {
     assertNull(SyncFilePackets.chunk(sender, "b".repeat(64), "abc12345", 0, ByteArray(0)))
     assertNull(SyncFilePackets.chunk(sender, "b".repeat(64), "abc12345", -1, ByteArray(4)))
