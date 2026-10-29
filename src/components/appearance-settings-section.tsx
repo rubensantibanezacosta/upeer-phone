@@ -75,7 +75,7 @@ export function AppearanceSettingsSection() {
           accessibilityState={{ selected: active }}
           key={option.value}
           onPress={() => void updatePreferences({ theme: option.value })}
-          style={{ backgroundColor: active ? theme.accentSoft : theme.backgroundElement, borderColor: active ? theme.accent : theme.border, borderRadius: 14, borderWidth: 1, flex: 1, overflow: 'hidden' }}
+          style={{ backgroundColor: active ? theme.accentSoft : 'transparent', borderColor: active ? theme.accent : theme.border, borderRadius: 12, borderWidth: 1, flex: 1, overflow: 'hidden' }}
         >
           <YStack height={72} overflow="hidden">
             <ThemePreview option={option.value} />
@@ -98,7 +98,7 @@ export function AppearanceSettingsSection() {
             accessibilityState={{ selected: active }}
             key={option.value}
             onPress={() => void updatePreferences({ fontSize: option.value })}
-            style={{ alignItems: 'center', backgroundColor: active ? theme.accentSoft : theme.backgroundElement, borderColor: active ? theme.accent : theme.border, borderRadius: 14, borderWidth: 1, flex: 1, gap: 2, justifyContent: 'center', minHeight: 84, overflow: 'hidden', paddingVertical: 10 }}
+            style={{ alignItems: 'center', backgroundColor: active ? theme.accentSoft : 'transparent', borderColor: active ? theme.accent : theme.border, borderRadius: 12, borderWidth: 1, flex: 1, gap: 2, justifyContent: 'center', minHeight: 84, overflow: 'hidden', paddingVertical: 10 }}
           >
             <SizableText color={active ? theme.accent : theme.text} fontSize={option.size} fontWeight="700">Aa</SizableText>
             <Text color={active ? theme.accent : theme.placeholder} fontSize={scale(11)}>{option.label}</Text>

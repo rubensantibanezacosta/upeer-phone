@@ -22,19 +22,19 @@ export function PrivacySettingsSection() {
         value={preferences.readReceipts}
       />
       <SettingsToggleRow
-        description="Que tus contactos vean si estás disponible"
-        label="Mostrar cuando estoy conectado"
+        description="Ver si están en línea en la lista y en el chat"
+        label="Presencia de tus contactos"
         onChange={(value) => void updatePreferences({ onlineStatus: value })}
         value={preferences.onlineStatus}
       />
       <SettingsToggleRow
-        description="Mostrar tu última actividad a tus contactos"
-        label="Última vez visto"
+        description="Ver cuándo fue su última actividad"
+        label="Última vez de tus contactos"
         onChange={(value) => void updatePreferences({ lastSeen: value })}
         value={preferences.lastSeen}
       />
     </SettingsGroup>
 
-    <SettingsNote>Las confirmaciones de lectura ya se aplican en el servicio de red: al desactivarlas, la conversación se marca como leída solo en este dispositivo y no se envía el mensaje `READ`. Conectado y última vez usan la presencia real que ya viaja con los paquetes.</SettingsNote>
+    <SettingsNote>Las confirmaciones de lectura sí se anuncian: al desactivarlas no se envía el mensaje `READ` y la conversación se marca como leída solo aquí. Presencia y última vez filtran lo que ves de tus contactos; tu propia actividad se sigue anunciando en el `PING`.</SettingsNote>
   </YStack>;
 }
