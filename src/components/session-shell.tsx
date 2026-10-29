@@ -14,6 +14,7 @@ import { usePreferences } from '@/hooks/use-preferences';
 import { adoptNativePreferences } from '@/storage/preferences-sync';
 import { adoptNativeRetention } from '@/storage/retention-store';
 import { drainRemoteSettings } from '@/storage/settings-sync-client';
+import { applyRemoteProfile } from '@/storage/profile-remote';
 import { applyRemoteConversationFlags } from '@/storage/conversation-flags-store';
 import { applyRemoteStarred } from '@/storage/starred-store';
 import { applyRemoteList } from '@/storage/chat-lists-store';
@@ -96,13 +97,20 @@ export function SessionShell({ identity, onSignOut, children }: {
           message: applyRemoteStarred,
           lists: applyRemoteList,
           blocked: applyRemoteBlocked,
+          profile: (values) => {
+            applyRemoteProfile(values)
+              .then(() => refreshProfile())
+              .catch((cause: unknown) => {
+                console.warn('El perfil sincronizado no se pudo aplicar en la sesión.', cause);
+              });
+          },
         }))
         .catch((cause: unknown) => {
           console.warn('No se pudieron adoptar los ajustes sincronizados.', cause);
         });
     }, SETTINGS_SYNC_POLL_MS);
     return () => clearInterval(timer);
-  }, []);
+  }, [refreshProfile]);
   useEffect(() => {
     if (identity.mode === 'device') {
       waitForNativeIdentity(identity.upeerId).catch((cause: unknown) => {

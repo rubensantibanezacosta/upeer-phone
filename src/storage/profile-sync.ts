@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 
 import type { IdentityProfile } from '@/storage/identity-store';
 import { setProfile } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import { publishProfileState } from '@/storage/settings-sync-client';
 
 async function avatarPayload(uri: string | undefined): Promise<string> {
   if (!uri) return '';
@@ -13,6 +14,7 @@ async function avatarPayload(uri: string | undefined): Promise<string> {
 export async function publishNativeProfile(profile: IdentityProfile): Promise<void> {
   const avatar = await avatarPayload(profile.avatar);
   await setProfile(profile.alias, avatar);
+  await publishProfileState(profile.alias, avatar);
 }
 
 export async function publishNativeProfileSafely(profile: IdentityProfile | null): Promise<void> {

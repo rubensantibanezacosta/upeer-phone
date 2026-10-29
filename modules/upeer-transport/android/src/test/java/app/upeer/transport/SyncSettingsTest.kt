@@ -247,4 +247,19 @@ class SyncSettingsTest {
     assertNull(SyncSettings.blockedPayload("  ", true))
     assertNull(SyncSettings.blockedPayload("x".repeat(201), false))
   }
+
+  @Test
+  fun profileIsAsingleRemoteBlock() {
+    assertEquals("profile", SyncSettings.entity(JSONObject().put("block", "profile").put("alias", "Rubén")))
+    assertEquals("profile", SyncSettings.entity(JSONObject().put("block", "profile")))
+    assertTrue(SyncSettings.isRemoteBlock(SyncSettings.PROFILE))
+    assertTrue(SyncSettings.PROFILE in SyncSettings.blocks())
+    assertTrue(SyncSettings.isBooleanBlock(SyncSettings.PROFILE).not())
+  }
+
+  @Test
+  fun profileIsNotParsedAsABooleanBlock() {
+    assertNull(SyncSettings.parse(JSONObject().put("block", "profile").put("alias", "Rubén")))
+    assertNull(SyncSettings.parseRetention(JSONObject().put("block", "profile").put("alias", "Rubén")))
+  }
 }

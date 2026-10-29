@@ -14,6 +14,7 @@ internal object SyncSettings {
   const val MESSAGE = "message"
   const val LISTS = "lists"
   const val BLOCKED = "blocked"
+  const val PROFILE = "profile"
 
   private const val MAX_ID_LENGTH = 200
 
@@ -28,15 +29,16 @@ internal object SyncSettings {
 
   private val idFields = mapOf(RETENTION to "chatId", CHAT to "chatId", MESSAGE to "messageId", LISTS to "listId", BLOCKED to "upeerId")
 
-  fun blocks(): Set<String> = fields.keys + RETENTION + CHAT + MESSAGE + LISTS + BLOCKED
+  fun blocks(): Set<String> = fields.keys + RETENTION + CHAT + MESSAGE + LISTS + BLOCKED + PROFILE
 
   fun isBooleanBlock(block: String): Boolean = fields.containsKey(block)
 
-  fun isRemoteBlock(block: String): Boolean = block == CHAT || block == MESSAGE || block == LISTS || block == BLOCKED
+  fun isRemoteBlock(block: String): Boolean = block == CHAT || block == MESSAGE || block == LISTS || block == BLOCKED || block == PROFILE
 
   fun entity(payload: JSONObject): String? {
     val block = payload.optString("block")
     if (isBooleanBlock(block)) return block
+    if (block == PROFILE) return PROFILE
     val field = idFields[block] ?: return null
     val id = id(payload, field) ?: return null
     return "$block:$id"

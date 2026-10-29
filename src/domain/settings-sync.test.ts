@@ -56,6 +56,9 @@ describe('settings-sync del móvil', () => {
     expect(settingsEntityOf({ block: 'blocked', upeerId: ' peer-1 ' })).toBe('blocked:peer-1');
     expect(settingsEntityOf({ block: 'blocked' })).toBeNull();
     expect(isRemoteSettingsBlock('blocked')).toBe(true);
+    expect(settingsEntityOf({ block: 'profile', alias: 'Rubén' })).toBe('profile');
+    expect(settingsEntityOf({ block: 'profile' })).toBe('profile');
+    expect(isRemoteSettingsBlock('profile')).toBe(true);
   });
 
   it('crea una lista que no existia', () => {

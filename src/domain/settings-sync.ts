@@ -3,11 +3,11 @@ import { sanitizeChatIds, sanitizeChatLists, sanitizeListName } from '@/domain/c
 import type { ConversationFlags } from '@/domain/conversation-flags';
 import type { StarredMap } from '@/domain/starred';
 
-export const REMOTE_SETTINGS_BLOCKS = ['chat', 'message', 'lists', 'blocked'] as const;
+export const REMOTE_SETTINGS_BLOCKS = ['chat', 'message', 'lists', 'blocked', 'profile'] as const;
 
 export type RemoteSettingsBlock = (typeof REMOTE_SETTINGS_BLOCKS)[number];
 
-const ID_FIELD: Record<RemoteSettingsBlock, string> = {
+const ID_FIELD: Partial<Record<RemoteSettingsBlock, string>> = {
   chat: 'chatId',
   message: 'messageId',
   lists: 'listId',
@@ -24,6 +24,7 @@ export function settingsEntityOf(payload: Record<string, unknown>): string | nul
   const block = payload.block;
   if (!isRemoteSettingsBlock(block)) return null;
   const field = ID_FIELD[block];
+  if (!field) return block;
   const id = typeof payload[field] === 'string' ? (payload[field] as string).trim() : '';
   if (!id) return null;
   return `${block}:${id}`;

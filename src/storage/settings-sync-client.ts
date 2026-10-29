@@ -11,11 +11,14 @@ const PAGE = 50;
 
 export type SettingsHandler = (values: Record<string, unknown>, occurredAt: number) => void;
 
+export type SyncedProfileState = { alias: string; avatar: string };
+
 let clocks: Record<string, number> = {};
 let cursor = 0;
 let loaded = false;
 let loading: Promise<void> | null = null;
 let draining = false;
+let suppressProfilePublish = false;
 
 async function persistClocks(): Promise<void> {
   await Storage.setItemAsync(CLOCK_KEY, JSON.stringify(clocks)).catch((cause: unknown) => {
@@ -87,6 +90,26 @@ export async function publishBlockedState(upeerId: string, blocked: boolean): Pr
   await publishSettingsPatch({ block: 'blocked', upeerId, blocked }).catch((cause: unknown) => {
     console.warn('El servicio no pudo publicar el bloqueo del contacto.', cause);
   });
+}
+
+export async function publishProfileState(alias: string, avatar: string): Promise<void> {
+  if (suppressProfilePublish) return;
+  const state: SyncedProfileState = { alias: alias.trim(), avatar };
+  await ensureLoaded();
+  clocks.profile = Date.now();
+  await persistClocks();
+  await publishSettingsPatch({ block: 'profile', alias: state.alias, avatar: state.avatar }).catch((cause: unknown) => {
+    console.warn('El servicio no pudo publicar el perfil de la cuenta.', cause);
+  });
+}
+
+export async function withProfilePublishSuppressed<T>(task: () => Promise<T>): Promise<T> {
+  suppressProfilePublish = true;
+  try {
+    return await task();
+  } finally {
+    suppressProfilePublish = false;
+  }
 }
 
 export async function drainRemoteSettings(handlers: Record<string, SettingsHandler>): Promise<void> {
