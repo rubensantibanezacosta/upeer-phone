@@ -157,13 +157,28 @@ class FileOutboundGroupTest {
     val second = proposals[1].second
 
     outbound.handle(JSONObject().put("type", "FILE_ACCEPT").put("fileId", first.getString("fileId")), memberOne, "FILE_ACCEPT")
+    outbound.handle(JSONObject().put("type", "FILE_ACCEPT").put("fileId", second.getString("fileId")), memberTwo, "FILE_ACCEPT")
     assertEquals("sent", stored[messageId]!!.getString("status"))
 
     outbound.handle(JSONObject().put("type", "FILE_DONE_ACK").put("fileId", first.getString("fileId")), memberOne, "FILE_DONE_ACK")
-    assertEquals("delivered", stored[messageId]!!.getString("status"))
+    assertEquals("sent", stored[messageId]!!.getString("status"))
 
-    outbound.handle(JSONObject().put("type", "FILE_CANCEL").put("fileId", second.getString("fileId")), memberTwo, "FILE_CANCEL")
+    outbound.handle(JSONObject().put("type", "FILE_DONE_ACK").put("fileId", second.getString("fileId")), memberTwo, "FILE_DONE_ACK")
     assertEquals("delivered", stored[messageId]!!.getString("status"))
+  }
+
+  @Test
+  fun `un miembro que cancela no completa el mensaje del grupo`() {
+    val outbound = outbound({ listOf(self, memberOne, memberTwo) })
+    val messageId = outbound.start(request(groupId))
+    val proposals = sent.filter { it.second.optString("type") == "FILE_PROPOSAL" }
+    val first = proposals[0].second
+    val second = proposals[1].second
+
+    outbound.handle(JSONObject().put("type", "FILE_DONE_ACK").put("fileId", first.getString("fileId")), memberOne, "FILE_DONE_ACK")
+    outbound.handle(JSONObject().put("type", "FILE_CANCEL").put("fileId", second.getString("fileId")), memberTwo, "FILE_CANCEL")
+
+    assertNotEquals("delivered", stored[messageId]!!.getString("status"))
   }
 
   @Test

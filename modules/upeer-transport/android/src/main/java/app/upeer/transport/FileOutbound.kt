@@ -328,15 +328,28 @@ internal class FileOutbound(
 
   private fun saveMessage(sending: Sending, status: String, savedPath: String?) {
     val current = messages.find(sending.messageId)?.optString("status").orEmpty()
+    val resolved = if (status == "delivered" && sending.chatUpeerId.startsWith(ProtocolGroups.PREFIX)) {
+      if (markMemberDelivered(sending)) "delivered" else latestStatus("sent", current)
+    } else {
+      latestStatus(status, current)
+    }
     FileOutboundMessage.save(
       messages = messages,
       messageId = sending.messageId,
       upeerId = sending.chatUpeerId,
       plan = sending.plan,
       proposal = sending.proposal,
-      status = latestStatus(status, current),
+      status = resolved,
       savedPath = savedPath,
     )
+  }
+
+  private fun markMemberDelivered(sending: Sending): Boolean {
+    val expected = groupRecipients(sending.chatUpeerId).toSet()
+    val message = messages.find(sending.messageId) ?: return false
+    val delivered = GroupAckProgress.record(message, sending.upeerId)
+    messages.save(message)
+    return GroupAckProgress.complete(delivered, expected)
   }
 
   private fun latestStatus(candidate: String, current: String): String =

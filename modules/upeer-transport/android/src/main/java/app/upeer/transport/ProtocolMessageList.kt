@@ -65,13 +65,22 @@ internal class ProtocolMessageList(
     true
   }
 
-  fun groupAck(messageID: String, groupId: String, status: String): Boolean = synchronized(lock) {
+  fun groupAck(
+    messageID: String,
+    groupId: String,
+    memberUpeerId: String,
+    expected: Set<String>,
+    status: String,
+  ): Boolean = synchronized(lock) {
     val message = ProtocolMessageState.find(messages(), messageID) ?: return@synchronized false
     if (message.optString("upeerId") != groupId || !message.optBoolean("isMine")) return@synchronized false
     if (status != "delivered" && status != "read") return@synchronized false
-    message.put("status", status)
+    val delivered = GroupAckProgress.record(message, memberUpeerId)
+    val before = message.optString("status")
+    if (GroupAckProgress.complete(delivered, expected)) message.put("status", status)
+    val after = message.optString("status")
     persist()
-    true
+    before != after
   }
 
   fun applySyncedReaction(

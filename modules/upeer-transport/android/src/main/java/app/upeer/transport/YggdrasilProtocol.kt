@@ -539,7 +539,7 @@ internal class YggdrasilProtocol(
       "GROUP_UPDATE" -> groupInbound.receiveUpdate(packet, senderUpeerId, senderIdentityKey, isDevicePacket, metadataJSON)
       "GROUP_MSG" -> groupInbound.receiveMessage(packet, senderUpeerId, metadataJSON)
       "GROUP_LEAVE" -> groupInbound.receiveLeave(packet, senderUpeerId, metadataJSON)
-      "GROUP_ACK" -> receiveGroupAck(packet, metadataJSON)
+      "GROUP_ACK" -> receiveGroupAck(packet, senderUpeerId, metadataJSON)
       ReputationReplies.GOSSIP, ReputationReplies.REQUEST, ReputationReplies.DELIVER ->
         receiveReputation(packet, senderUpeerId, type, metadataJSON)
       in CallPackets.TYPES -> {
@@ -550,14 +550,18 @@ internal class YggdrasilProtocol(
     }
   }
 
-  private fun receiveGroupAck(packet: JSONObject, metadataJSON: String): String {
+  private fun receiveGroupAck(packet: JSONObject, senderUpeerId: String, metadataJSON: String): String {
     val messageID = packet.optString("id")
     val groupId = packet.optString("groupId")
     if (!ReplayPolicy.validMessageID(messageID) || !ProtocolGroups.validId(groupId)) {
       throw IllegalArgumentException("GROUP_ACK id or groupId is invalid")
     }
-    if (state.messages.groupAck(messageID, groupId, "delivered")) {
-      Log.i(TAG, "GROUP_ACK aplicado a $messageID en $groupId")
+    val expected = GroupAckProgress.recipients(
+      members = activeGroupMembers(groupId).orEmpty(),
+      selfUpeerId = identity.current()?.upeerID().orEmpty(),
+    )
+    if (state.messages.groupAck(messageID, groupId, senderUpeerId, expected, "delivered")) {
+      Log.i(TAG, "GROUP_ACK de ${senderUpeerId.take(12)} completa la entrega de $messageID en $groupId")
     }
     return metadataJSON
   }
