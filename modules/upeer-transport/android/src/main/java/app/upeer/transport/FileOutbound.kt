@@ -353,16 +353,7 @@ internal class FileOutbound(
   }
 
   private fun latestStatus(candidate: String, current: String): String =
-    if (rankOf(candidate) >= rankOf(current)) candidate else current
-
-  private fun rankOf(status: String): Int = when (status) {
-    "pending" -> 0
-    "sent" -> 1
-    "failed", "vaulted" -> 2
-    "delivered" -> 3
-    "read" -> 4
-    else -> -1
-  }
+    MessageStatusTransition.next(current, candidate)
 
   private fun launch(name: String, body: () -> Unit) {
     val thread = Thread(body, name)

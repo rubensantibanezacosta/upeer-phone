@@ -50,6 +50,8 @@ internal class ProtocolMessageList(
   fun markStatus(messageID: String, status: String) {
     synchronized(lock) {
       val message = ProtocolMessageState.find(messages(), messageID) ?: return@synchronized
+      val current = message.optString("status")
+      if (!MessageStatusTransition.canTransition(current, status)) return@synchronized
       message.put("status", status)
       persist()
     }
