@@ -26,7 +26,7 @@ import { findChatList, restrictToChatList } from '@/domain/chat-lists';
 import { useChatLists } from '@/hooks/use-chat-lists';
 import { useChatRetention } from '@/hooks/use-chat-retention';
 import { previewMessage } from '@/domain/message-preview';
-import { reactionPreview } from '@/domain/reaction-preview';
+import { reactionActor, reactionPreview } from '@/domain/reaction-preview';
 import { flagsFor, orderByPinned } from '@/domain/conversation-flags';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
 import { useNow } from '@/hooks/use-now';
@@ -52,7 +52,7 @@ export default function ChatsRoute() {
   const scale = useTextScale();
   const { showSnackbar } = useSnackbar();
   const conversationFlags = useConversationFlags();
-  const { identity, signOut } = useSession();
+  const { identity, profile, signOut } = useSession();
   const now = useNow();
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const [conversations, setConversations] = useState<ProtocolConversation[]>([]);
@@ -104,11 +104,25 @@ export default function ChatsRoute() {
   };
   const partition = useMemo(() => classifyConversations(conversations, contacts), [contacts, conversations]);
   const requestIds = useMemo(() => new Set(partition.requests.map((request) => request.upeerId)), [partition.requests]);
+  const actorNames = useMemo(
+    () => new Map(contacts.filter((contact) => contact.name.trim() !== '').map((contact) => [contact.upeerId.toLowerCase(), contact.name.trim()])),
+    [contacts],
+  );
 
   const entries: ChatListEntry[] = useMemo(() => conversations
     .filter((conversation) => !partition.hidden.some((hidden) => hidden.upeerId === conversation.upeerId))
     .map((conversation) => {
-      const reaction = reactionPreview(conversation.lastReaction) ?? null;
+      const lastReaction = conversation.lastReaction;
+      const actor = reactionActor(lastReaction?.actorUpeerId, actorNames, identity.upeerId, profile?.alias);
+      const reactionName = actor.actorName || (conversation.group === true ? '' : conversation.alias);
+      const reaction = lastReaction
+        ? reactionPreview({
+          emoji: lastReaction.emoji,
+          message: lastReaction.message,
+          actorName: actor.actorIsMe ? '' : reactionName,
+          actorIsMe: actor.actorIsMe,
+        })
+        : null;
       return {
         upeerId: conversation.upeerId,
         title: conversation.alias || conversation.upeerId.slice(0, 12),
@@ -127,7 +141,7 @@ export default function ChatsRoute() {
         members: conversation.members,
         ...flagsFor(conversationFlags, conversation.upeerId),
       };
-    }), [contacts, conversationFlags, conversations, partition.hidden, requestIds]);
+    }), [actorNames, contacts, conversationFlags, conversations, identity.upeerId, partition.hidden, profile?.alias, requestIds]);
 
   const chatTitles = useMemo(() => Object.fromEntries(entries.map((item) => [item.upeerId, item.title])), [entries]);
 
