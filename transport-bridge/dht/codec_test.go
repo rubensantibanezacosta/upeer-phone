@@ -19,7 +19,7 @@ type codecFixture struct {
 	} `json:"signedPackets"`
 }
 
-func loadCodecFixture(t *testing.T) codecFixture {
+func loadCodecFixture(t testing.TB) codecFixture {
 	t.Helper()
 	file, err := os.Open("../testdata/dht_vectors.json")
 	if err != nil {

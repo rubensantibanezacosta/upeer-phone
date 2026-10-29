@@ -141,9 +141,26 @@ func TestAccountRegistryVectorMatchesFixture(t *testing.T) {
 	if err != nil {
 		t.Skipf("todavía no hay vector en %s: %v", accountRegistryVectorPath, err)
 	}
-	if string(existing) != string(encoded) {
+	if vectorWithoutGenerationDate(t, existing) != vectorWithoutGenerationDate(t, encoded) {
 		t.Fatal("el vector del registro de cuenta está desactualizado: UP_WRITE_REGISTRY_VECTOR=1 go test -run TestWriteAccountRegistryVector")
 	}
+}
+
+func vectorWithoutGenerationDate(t *testing.T, encoded []byte) string {
+	t.Helper()
+	var vector map[string]any
+	if err := json.Unmarshal(encoded, &vector); err != nil {
+		t.Fatalf("vector del registro de cuenta ilegible: %v", err)
+	}
+	if _, ok := vector["generatedAt"]; !ok {
+		t.Fatal("el vector del registro de cuenta no declara generatedAt")
+	}
+	delete(vector, "generatedAt")
+	normalized, err := json.Marshal(vector)
+	if err != nil {
+		t.Fatalf("normalizar el vector del registro de cuenta: %v", err)
+	}
+	return string(normalized)
 }
 
 func TestAccountRegistryVectorRejectsTampering(t *testing.T) {
