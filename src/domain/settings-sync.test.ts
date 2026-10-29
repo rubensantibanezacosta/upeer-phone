@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  applyRemoteChatList,
   isEmptyConversationFlags,
   isRemoteSettingsBlock,
   mergeConversationFlags,
@@ -44,6 +45,35 @@ describe('settings-sync del móvil', () => {
     expect(mergeStarredMessage({ m1: true }, { messageId: 'm1', starred: true })).toBeNull();
     expect(mergeStarredMessage({}, { messageId: 'm1' })).toBeNull();
     expect(mergeStarredMessage({}, { starred: true })).toBeNull();
+  });
+
+  it('la entidad de una lista es la lista', () => {
+    expect(settingsEntityOf({ block: 'lists', listId: ' l1 ' })).toBe('lists:l1');
+    expect(settingsEntityOf({ block: 'lists' })).toBeNull();
+  });
+
+  it('crea una lista que no existia', () => {
+    expect(applyRemoteChatList([], { listId: 'l1', name: 'Trabajo', chatIds: ['a', 'b'] }))
+      .toEqual([{ id: 'l1', name: 'Trabajo', chatIds: ['a', 'b'] }]);
+  });
+
+  it('renombra y reordena sin duplicar', () => {
+    const lists = [{ id: 'l1', name: 'Trabajo', chatIds: ['a'] }];
+    expect(applyRemoteChatList(lists, { listId: 'l1', name: 'Oficina', chatIds: ['b', 'a'] }))
+      .toEqual([{ id: 'l1', name: 'Oficina', chatIds: ['b', 'a'] }]);
+  });
+
+  it('borra una lista existente y no inventa borrados', () => {
+    const lists = [{ id: 'l1', name: 'Trabajo', chatIds: [] }];
+    expect(applyRemoteChatList(lists, { listId: 'l1', deleted: true })).toEqual([]);
+    expect(applyRemoteChatList(lists, { listId: 'l2', deleted: true })).toBeNull();
+  });
+
+  it('una lista sin nombre o sin cambios no devuelve nada', () => {
+    const lists = [{ id: 'l1', name: 'Trabajo', chatIds: ['a'] }];
+    expect(applyRemoteChatList(lists, { listId: 'l1', name: '   ' })).toBeNull();
+    expect(applyRemoteChatList(lists, { listId: 'l1', name: 'Trabajo', chatIds: ['a'] })).toBeNull();
+    expect(applyRemoteChatList(lists, { name: 'Trabajo' })).toBeNull();
   });
 
   it('lee los relojes guardados y descarta lo imposible', () => {

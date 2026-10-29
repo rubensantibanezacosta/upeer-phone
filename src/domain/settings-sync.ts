@@ -1,13 +1,16 @@
+import type { ChatList } from '@/domain/chat-lists';
+import { sanitizeChatIds, sanitizeChatLists, sanitizeListName } from '@/domain/chat-lists';
 import type { ConversationFlags } from '@/domain/conversation-flags';
 import type { StarredMap } from '@/domain/starred';
 
-export const REMOTE_SETTINGS_BLOCKS = ['chat', 'message'] as const;
+export const REMOTE_SETTINGS_BLOCKS = ['chat', 'message', 'lists'] as const;
 
 export type RemoteSettingsBlock = (typeof REMOTE_SETTINGS_BLOCKS)[number];
 
 const ID_FIELD: Record<RemoteSettingsBlock, string> = {
   chat: 'chatId',
   message: 'messageId',
+  lists: 'listId',
 };
 
 const CONVERSATION_KEYS = ['archived', 'muted', 'pinned'] as const;
@@ -71,4 +74,25 @@ export function mergeStarredMessage(map: StarredMap, values: Record<string, unkn
   if (starred) next[messageId] = true;
   else delete next[messageId];
   return next;
+}
+
+export function applyRemoteChatList(lists: readonly ChatList[], values: Record<string, unknown>): ChatList[] | null {
+  const listId = typeof values.listId === 'string' ? values.listId.trim() : '';
+  if (!listId) return null;
+  if (values.deleted === true) {
+    if (!lists.some((list) => list.id === listId)) return null;
+    return lists.filter((list) => list.id !== listId);
+  }
+  const name = sanitizeListName(values.name);
+  if (!name) return null;
+  const chatIds = sanitizeChatIds(values.chatIds);
+  const index = lists.findIndex((list) => list.id === listId);
+  if (index >= 0) {
+    const current = lists[index];
+    if (current.name === name && current.chatIds.join('\u0000') === chatIds.join('\u0000')) return null;
+    const next = [...lists];
+    next[index] = { id: listId, name, chatIds };
+    return next;
+  }
+  return sanitizeChatLists([...lists, { id: listId, name, chatIds }]);
 }

@@ -3,6 +3,7 @@ import Storage from 'expo-sqlite/kv-store';
 import { publishSettingsPatch, readSyncEventsAfter } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import type { SyncEventRecordSnapshot } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import { parseSettingsClocks, parseSettingsCursor, settingsEntityOf } from '@/domain/settings-sync';
+import type { ChatList } from '@/domain/chat-lists';
 
 const CLOCK_KEY = 'upeer.settingsClock';
 const CURSOR_KEY = 'upeer.settingsCursor';
@@ -58,6 +59,24 @@ export async function publishMessageStarred(messageId: string, starred: boolean)
   await persistClocks();
   await publishSettingsPatch({ block: 'message', messageId, starred }).catch((cause: unknown) => {
     console.warn('El servicio no pudo publicar el destacado del mensaje.', cause);
+  });
+}
+
+export async function publishChatList(list: ChatList): Promise<void> {
+  await ensureLoaded();
+  clocks[`lists:${list.id}`] = Date.now();
+  await persistClocks();
+  await publishSettingsPatch({ block: 'lists', listId: list.id, name: list.name, chatIds: list.chatIds }).catch((cause: unknown) => {
+    console.warn('El servicio no pudo publicar la lista de chats.', cause);
+  });
+}
+
+export async function publishChatListDeleted(listId: string): Promise<void> {
+  await ensureLoaded();
+  clocks[`lists:${listId}`] = Date.now();
+  await persistClocks();
+  await publishSettingsPatch({ block: 'lists', listId, deleted: true }).catch((cause: unknown) => {
+    console.warn('El servicio no pudo publicar el borrado de la lista.', cause);
   });
 }
 

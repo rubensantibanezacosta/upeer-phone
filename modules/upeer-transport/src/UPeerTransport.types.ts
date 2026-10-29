@@ -135,7 +135,13 @@ export type NativePreferencesSnapshot = {
 export type SettingsPatchPayload = {
   block: string;
   chatId?: string;
-  [field: string]: boolean | string | undefined;
+  messageId?: string;
+  listId?: string;
+  name?: string;
+  chatIds?: string[];
+  starred?: boolean;
+  deleted?: boolean;
+  [field: string]: boolean | string | string[] | undefined;
 };
 
 export type SyncEventRecordSnapshot = {

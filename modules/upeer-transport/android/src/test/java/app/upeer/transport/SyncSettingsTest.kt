@@ -200,4 +200,19 @@ class SyncSettingsTest {
     assertNull(SyncSettings.messagePayload("msg-3", emptyMap()))
     assertNull(SyncSettings.messagePayload("  ", mapOf("starred" to true)))
   }
+
+  @Test
+  fun chatListsAreTheirOwnEntity() {
+    assertEquals(
+      "lists:l1",
+      SyncSettings.entity(JSONObject().put("block", "lists").put("listId", "l1")),
+    )
+    assertNull(SyncSettings.entity(JSONObject().put("block", "lists")))
+  }
+
+  @Test
+  fun listsIsARemoteBlock() {
+    assertTrue(SyncSettings.isRemoteBlock(SyncSettings.LISTS))
+    assertTrue(SyncSettings.isRemoteBlock("appearance").not())
+  }
 }
