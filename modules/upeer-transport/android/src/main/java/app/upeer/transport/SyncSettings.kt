@@ -10,6 +10,7 @@ internal object SyncSettings {
   const val PRIVACY = "privacy"
   const val NOTIFICATIONS = "notifications"
   const val RETENTION = "retention"
+  const val CHAT = "chat"
 
   private const val MAX_ID_LENGTH = 200
 
@@ -18,16 +19,20 @@ internal object SyncSettings {
     NOTIFICATIONS to listOf("messages", "requests", "sound"),
   )
 
-  fun blocks(): Set<String> = fields.keys + RETENTION
+  private val chatFields = listOf("archived", "muted", "pinned", "unread")
+
+  fun blocks(): Set<String> = fields.keys + RETENTION + CHAT
 
   fun isBooleanBlock(block: String): Boolean = fields.containsKey(block)
+
+  fun isRemoteBlock(block: String): Boolean = block == CHAT
 
   fun entity(payload: JSONObject): String? {
     val block = payload.optString("block")
     if (isBooleanBlock(block)) return block
-    if (block != RETENTION) return null
+    if (block != RETENTION && block != CHAT) return null
     val chatId = chatId(payload) ?: return null
-    return "$RETENTION:$chatId"
+    return "$block:$chatId"
   }
 
   fun chatId(payload: JSONObject): String? {
@@ -61,6 +66,22 @@ internal object SyncSettings {
       .put("block", RETENTION)
       .put("chatId", id)
       .put("retention", MessageRetention.resolve(retention))
+  }
+
+  fun chatPayload(chatId: String, values: Map<String, Any>): JSONObject? {
+    val id = chatId.trim()
+    if (id.isEmpty() || id.length > MAX_ID_LENGTH) return null
+    val payload = JSONObject().put("block", CHAT).put("chatId", id)
+    var count = 0
+    for (field in chatFields) {
+      val value = values[field]
+      if (value is Boolean) {
+        payload.put(field, value)
+        count += 1
+      }
+    }
+    if (count == 0) return null
+    return payload
   }
 
   fun payload(block: String, values: Map<String, Boolean>): JSONObject? {

@@ -110,8 +110,9 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
 
   private fun applySettings(payload: JSONObject, occurredAt: Long): Boolean {
     val entity = SyncSettings.entity(payload) ?: return false
-    if (!state.claimSettingsUpdate(entity, occurredAt)) return false
     val block = payload.optString("block")
+    if (SyncSettings.isRemoteBlock(block)) return true
+    if (!state.claimSettingsUpdate(entity, occurredAt)) return false
     if (SyncSettings.isBooleanBlock(block)) {
       val patch = SyncSettings.parse(payload) ?: return false
       val changed = state.applySyncSettings(entity, patch.values, occurredAt)

@@ -340,6 +340,15 @@ internal class YggdrasilProtocol(
 
   fun flushSyncOutbound(): Int = sync.flushOutbound()
 
+  fun publishSettingsPatch(payload: JSONObject): Boolean {
+    val block = payload.optString("block")
+    if (!SyncSettings.isRemoteBlock(block)) return false
+    if (SyncSettings.entity(payload) == null) return false
+    return sync.publishPatch(payload)
+  }
+
+  fun syncEventsAfterJSON(sequence: Long, limit: Int): String = state.syncEventsAfterJSON(sequence, limit)
+
   fun setProfile(alias: String, avatar: String) {
     val previous = state.profile()
     state.setProfile(alias, avatar)

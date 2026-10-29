@@ -362,6 +362,22 @@ internal class ProtocolStateStore(context: Context) {
 
   fun privacyValues(): Map<String, Boolean> = preferences.privacyValues()
 
+  fun syncEventsAfterJSON(sequence: Long, limit: Int): String {
+    val array = JSONArray()
+    for (record in syncEvents.eventsAfter(sequence, limit)) {
+      array.put(
+        JSONObject()
+          .put("sequence", record.sequence)
+          .put("eventId", record.eventId)
+          .put("kind", record.kind)
+          .put("occurredAt", record.occurredAt)
+          .put("direction", record.direction)
+          .put("payload", record.payload),
+      )
+    }
+    return array.toString()
+  }
+
   fun notificationValues(): Map<String, Boolean> = preferences.notificationValues()
 
   fun deleteConversation(upeerId: String): Boolean = messages.deleteConversation(upeerId)

@@ -2,6 +2,7 @@ package app.upeer.transport
 
 import android.util.Log
 import app.upeer.transportbridge.transportbridge.Bridge
+import org.json.JSONObject
 
 internal class ProtocolSync(
   private val identity: YggdrasilIdentity,
@@ -63,6 +64,9 @@ internal class ProtocolSync(
     val payload = SyncSettings.retentionPayload(chatId, retention) ?: return false
     return outbound.publish(activeBridge, SyncEventKinds.SETTINGS_UPDATE, payload)
   }
+
+  fun publishPatch(payload: JSONObject): Boolean =
+    outbound.publish(activeBridge, SyncEventKinds.SETTINGS_UPDATE, payload)
 
   fun flushOutbound(): Int {
     val bridge = activeBridge ?: return 0

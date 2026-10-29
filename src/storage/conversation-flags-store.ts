@@ -1,7 +1,9 @@
 import Storage from 'expo-sqlite/kv-store';
 
 import { flagsFor, mutedPeerIds, parseConversationFlags, toggleFlag, type ConversationFlag, type ConversationFlags, type ConversationFlagsMap } from '@/domain/conversation-flags';
+import { isEmptyConversationFlags, mergeConversationFlags } from '@/domain/settings-sync';
 import { setMutedPeers } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import { publishChatFlags } from '@/storage/settings-sync-client';
 
 const STORAGE_KEY = 'upeer.conversationFlags';
 
@@ -53,4 +55,23 @@ export async function setConversationFlag(upeerId: string, flag: ConversationFla
     console.warn('No se pudieron guardar los ajustes de conversación.', cause);
   });
   await pushMutedPeers();
+  await publishChatFlags(upeerId, { ...flagsFor(current, upeerId) });
+}
+
+export function applyRemoteConversationFlags(values: Record<string, unknown>): void {
+  const upeerId = typeof values.chatId === 'string' ? values.chatId.trim() : '';
+  if (!upeerId) return;
+  const merged = mergeConversationFlags(flagsFor(current, upeerId), values);
+  if (!merged) return;
+  const next = { ...current };
+  if (isEmptyConversationFlags(merged)) delete next[upeerId];
+  else next[upeerId] = merged;
+  current = next;
+  emit();
+  Storage.setItemAsync(STORAGE_KEY, JSON.stringify(current)).catch((cause: unknown) => {
+    console.warn('No se pudieron guardar los ajustes de conversación sincronizados.', cause);
+  });
+  pushMutedPeers().catch((cause: unknown) => {
+    console.warn('El servicio no recibió la lista de conversaciones silenciadas.', cause);
+  });
 }

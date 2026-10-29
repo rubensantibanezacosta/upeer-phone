@@ -132,6 +132,21 @@ export type NativePreferencesSnapshot = {
   };
 };
 
+export type SettingsPatchPayload = {
+  block: string;
+  chatId?: string;
+  [field: string]: boolean | string | undefined;
+};
+
+export type SyncEventRecordSnapshot = {
+  sequence: number;
+  eventId: string;
+  kind: string;
+  occurredAt: number;
+  direction: string;
+  payload: Record<string, unknown>;
+};
+
 export type DhtRuntimeStatus = {
   ready: boolean;
   nodeId?: string;

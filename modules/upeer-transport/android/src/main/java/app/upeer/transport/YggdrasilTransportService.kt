@@ -274,6 +274,13 @@ class YggdrasilTransportService : Service() {
       JSONObject(protocol.statusJSON()).put("dht", JSONObject(dhtRuntime.statusJSON())).toString()
     override fun syncStatusJSON(): String = protocol.syncStatusJSON()
     override fun preferencesJSON(): String = protocol.preferencesJSON()
+    override fun publishSettingsPatch(payloadJSON: String) {
+      val parsed = runCatching { JSONObject(payloadJSON.ifBlank { "{}" }) }.getOrElse { JSONObject() }
+      val published = protocol.publishSettingsPatch(parsed)
+      Log.i(TAG, "Ajuste ${parsed.optString("block")} de ${parsed.optString("chatId")}: publicado=$published")
+    }
+    override fun syncEventsAfterJSON(sequence: Long, limit: Int): String =
+      protocol.syncEventsAfterJSON(sequence, limit)
     override fun locationBlockJSON(ttlMillis: Long): String = dhtBindings.locationBlockJSON(ttlMillis)
     override fun accountRegistryJSON(): String = dhtBindings.accountRegistryJSON()
     override fun accountRegistryStatusJSON(): String = dhtBindings.accountRegistryStatusJSON()

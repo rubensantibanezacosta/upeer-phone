@@ -6,7 +6,7 @@ import { sha512 } from '@noble/hashes/sha2.js';
 import { NativeModule, requireNativeModule } from 'expo';
 import { validateMnemonic } from '../../../src/domain/mnemonic';
 import { decodeEnrollmentTransfer, encodeEnrollmentTransfer } from '../../../src/domain/enrollment-transfer';
-import type { AccountRegistryDocument, AccountRegistryStatus, ConversationActivityState, DeviceEnrollmentBeginResult, DeviceEnrollmentStatus, DeviceIdentityStatus, DhtLocationStatus, EnrollmentAuthorizerInvite, EnrollmentAuthorizerIssued, EnrollmentAuthorizerRequest, EnrollmentAuthorizerStatus, EnrollmentCertificateSummary, IdentityTransportStatus, InboundTransportStatus, LocationBlock, NativePreferencesSnapshot, OutboundFileTransfer, PeerInfo, PeerPoolEntry, PeerSecurity, ProtocolConversation, ProtocolGroup, ProtocolMessage, ProtocolTransportStatus, SyncTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
+import type { AccountRegistryDocument, AccountRegistryStatus, ConversationActivityState, DeviceEnrollmentBeginResult, DeviceEnrollmentStatus, DeviceIdentityStatus, DhtLocationStatus, EnrollmentAuthorizerInvite, EnrollmentAuthorizerIssued, EnrollmentAuthorizerRequest, EnrollmentAuthorizerStatus, EnrollmentCertificateSummary, IdentityTransportStatus, InboundTransportStatus, LocationBlock, NativePreferencesSnapshot, OutboundFileTransfer, PeerInfo, PeerPoolEntry, PeerSecurity, ProtocolConversation, ProtocolGroup, ProtocolMessage, ProtocolTransportStatus, SettingsPatchPayload, SyncEventRecordSnapshot, SyncTransportStatus, YggdrasilNodeInfo } from './UPeerTransport.types';
 
 declare class UPeerTransportModule extends NativeModule<{}> {
   start(configJSON: number[]): Promise<YggdrasilNodeInfo>;
@@ -73,6 +73,8 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   protocolStatus(): Promise<string>;
   syncStatus(): Promise<string>;
   preferencesJSON(): Promise<string>;
+  publishSettingsPatch(payloadJSON: string): Promise<void>;
+  syncEventsAfter(sequence: number, limit: number): Promise<string>;
   locationBlock(ttlMillis: number): Promise<string>;
   deviceIdentityStatus(): Promise<string>;
   accountRegistry(): Promise<string>;
@@ -466,6 +468,14 @@ export async function getSyncStatus(): Promise<SyncTransportStatus> {
 
 export async function getNativePreferences(): Promise<NativePreferencesSnapshot> {
   return JSON.parse(await nativeModule.preferencesJSON()) as NativePreferencesSnapshot;
+}
+
+export async function publishSettingsPatch(payload: SettingsPatchPayload): Promise<void> {
+  await nativeModule.publishSettingsPatch(JSON.stringify(payload));
+}
+
+export async function readSyncEventsAfter(sequence: number, limit = 50): Promise<SyncEventRecordSnapshot[]> {
+  return JSON.parse(await nativeModule.syncEventsAfter(sequence, limit)) as SyncEventRecordSnapshot[];
 }
 
 export async function getLocationBlock(ttlMillis = 0): Promise<LocationBlock> {

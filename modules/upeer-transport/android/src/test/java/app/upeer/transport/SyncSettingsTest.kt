@@ -134,4 +134,40 @@ class SyncSettingsTest {
     assertTrue(SyncSettings.RETENTION in SyncSettings.blocks())
     assertTrue(SyncSettings.isBooleanBlock(SyncSettings.RETENTION).not())
   }
+
+  @Test
+  fun chatFlagsAreTheirOwnEntity() {
+    assertEquals(
+      "chat:grp-1",
+      SyncSettings.entity(JSONObject().put("block", "chat").put("chatId", "grp-1")),
+    )
+  }
+
+  @Test
+  fun chatIsARemoteBlock() {
+    assertTrue(SyncSettings.isRemoteBlock(SyncSettings.CHAT))
+    assertTrue(SyncSettings.isRemoteBlock(SyncSettings.PRIVACY).not())
+    assertTrue(SyncSettings.isRemoteBlock(SyncSettings.RETENTION).not())
+    assertTrue(SyncSettings.isRemoteBlock("appearance").not())
+  }
+
+  @Test
+  fun chatPayloadKeepsOnlyKnownFlags() {
+    val payload = SyncSettings.chatPayload(
+      "grp-2",
+      mapOf("muted" to true, "unread" to false, "chatId" to "otro", "theme" to "dark"),
+    )
+    assertEquals("chat", payload?.optString("block"))
+    assertEquals("grp-2", payload?.optString("chatId"))
+    assertEquals(true, payload?.opt("muted"))
+    assertEquals(false, payload?.opt("unread"))
+    assertTrue(payload?.has("theme") == false)
+  }
+
+  @Test
+  fun chatPayloadNeedsAFlagAndAChat() {
+    assertNull(SyncSettings.chatPayload("grp-3", emptyMap()))
+    assertNull(SyncSettings.chatPayload("grp-3", mapOf("theme" to "dark")))
+    assertNull(SyncSettings.chatPayload("  ", mapOf("muted" to true)))
+  }
 }
