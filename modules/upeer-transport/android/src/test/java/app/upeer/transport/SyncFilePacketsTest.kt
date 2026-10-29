@@ -91,6 +91,23 @@ class SyncFilePacketsTest {
   }
 
   @Test
+  fun `ida y vuelta con cualquier resto de longitud`() {
+    for (size in 1..7) {
+      val data = ByteArray(size) { index -> ((index * 37) % 256).toByte() }
+      val packet = SyncFilePackets.chunk(sender, "b".repeat(64), "abc12345", 0, data)!!
+      assertArrayEquals(data, SyncFilePackets.parseChunk(packet)!!.bytes)
+    }
+  }
+
+  @Test
+  fun `el tramo viaja en base64 para no duplicar los bytes`() {
+    val data = ByteArray(SyncFilePackets.CHUNK_SIZE)
+    val packet = SyncFilePackets.chunk(sender, "b".repeat(64), "abc12345", 0, data)!!
+    val encoded = packet.optString("data")
+    assertEquals((SyncFilePackets.CHUNK_SIZE + 2) / 3 * 4, encoded.length)
+  }
+
+  @Test
   fun `descarta tramos vacios o fuera de rango`() {
     assertNull(SyncFilePackets.chunk(sender, "b".repeat(64), "abc12345", 0, ByteArray(0)))
     assertNull(SyncFilePackets.chunk(sender, "b".repeat(64), "abc12345", -1, ByteArray(4)))

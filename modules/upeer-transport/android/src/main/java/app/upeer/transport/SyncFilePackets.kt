@@ -61,7 +61,7 @@ internal object SyncFilePackets {
     if (!SyncPackets.validRequestId(requestId)) return null
     if (index < 0) return null
     if (data.isEmpty() || data.size > CHUNK_SIZE) return null
-    val encoded = encodeHex(data)
+    val encoded = encodeBase64(data)
     return SyncPackets.decorate(
       JSONObject().put("type", CHUNK).put("requestId", requestId).put("index", index).put("data", encoded),
       sender,
@@ -103,9 +103,8 @@ internal object SyncFilePackets {
     val index = payload.optInt("index", -1)
     if (index < 0) return null
     val encoded = payload.optString("data")
-    if (encoded.isEmpty() || encoded.length > CHUNK_SIZE * 2) return null
-    if (encoded.length % 2 != 0) return null
-    val bytes = decodeHex(encoded) ?: return null
+    if (encoded.isEmpty() || encoded.length > MAX_ENCODED_SIZE) return null
+    val bytes = decodeBase64(encoded) ?: return null
     if (bytes.isEmpty() || bytes.size > CHUNK_SIZE) return null
     return Chunk(requestId, index, bytes)
   }
@@ -128,35 +127,70 @@ internal object SyncFilePackets {
   private fun safeFileIdChar(char: Char): Boolean =
     char in 'a'..'z' || char in 'A'..'Z' || char in '0'..'9' || char == '-' || char == '_' || char == '.'
 
-  private fun hexValue(char: Char): Int = when (char) {
-    in '0'..'9' -> char - '0'
-    in 'a'..'f' -> char - 'a' + 10
-    in 'A'..'F' -> char - 'A' + 10
+  private fun base64Value(char: Char): Int = when (char) {
+    in 'A'..'Z' -> char - 'A'
+    in 'a'..'z' -> char - 'a' + 26
+    in '0'..'9' -> char - '0' + 52
+    '+' -> 62
+    '/' -> 63
     else -> -1
   }
 
-  private fun encodeHex(data: ByteArray): String {
-    val out = CharArray(data.size * 2)
-    for (position in data.indices) {
-      val value = data[position].toInt() and 0xFF
-      out[position * 2] = HEX_DIGITS[value ushr 4]
-      out[position * 2 + 1] = HEX_DIGITS[value and 0x0F]
+  private fun encodeBase64(data: ByteArray): String {
+    val out = StringBuilder((data.size + 2) / 3 * 4)
+    var position = 0
+    while (position + 2 < data.size) {
+      val value = ((data[position].toInt() and 0xFF) shl 16) or
+        ((data[position + 1].toInt() and 0xFF) shl 8) or
+        (data[position + 2].toInt() and 0xFF)
+      out.append(BASE64[value ushr 18 and 0x3F])
+        .append(BASE64[value ushr 12 and 0x3F])
+        .append(BASE64[value ushr 6 and 0x3F])
+        .append(BASE64[value and 0x3F])
+      position += 3
     }
-    return String(out)
+    val remaining = data.size - position
+    if (remaining == 1) {
+      val value = (data[position].toInt() and 0xFF) shl 16
+      out.append(BASE64[value ushr 18 and 0x3F]).append(BASE64[value ushr 12 and 0x3F]).append("==")
+    } else if (remaining == 2) {
+      val value = ((data[position].toInt() and 0xFF) shl 16) or ((data[position + 1].toInt() and 0xFF) shl 8)
+      out.append(BASE64[value ushr 18 and 0x3F])
+        .append(BASE64[value ushr 12 and 0x3F])
+        .append(BASE64[value ushr 6 and 0x3F])
+        .append('=')
+    }
+    return out.toString()
   }
 
-  private fun decodeHex(encoded: String): ByteArray? {
-    val out = ByteArray(encoded.length / 2)
-    for (position in out.indices) {
-      val high = hexValue(encoded[position * 2])
-      val low = hexValue(encoded[position * 2 + 1])
-      if (high < 0 || low < 0) return null
-      out[position] = ((high shl 4) or low).toByte()
+  private fun decodeBase64(encoded: String): ByteArray? {
+    if (encoded.length % 4 != 0) return null
+    val padding = when {
+      encoded.endsWith("==") -> 2
+      encoded.endsWith("=") -> 1
+      else -> 0
+    }
+    val out = ByteArray(encoded.length / 4 * 3 - padding)
+    var source = 0
+    var target = 0
+    while (source < encoded.length) {
+      val first = base64Value(encoded[source])
+      val second = base64Value(encoded[source + 1])
+      val third = if (encoded[source + 2] == '=') 0 else base64Value(encoded[source + 2])
+      val fourth = if (encoded[source + 3] == '=') 0 else base64Value(encoded[source + 3])
+      if (first < 0 || second < 0 || third < 0 || fourth < 0) return null
+      val value = (first shl 18) or (second shl 12) or (third shl 6) or fourth
+      if (target < out.size) out[target++] = (value ushr 16 and 0xFF).toByte()
+      if (target < out.size) out[target++] = (value ushr 8 and 0xFF).toByte()
+      if (target < out.size) out[target++] = (value and 0xFF).toByte()
+      source += 4
     }
     return out
   }
 
-  private val HEX_DIGITS = "0123456789abcdef".toCharArray()
+  private const val MAX_ENCODED_SIZE = (CHUNK_SIZE + 2) / 3 * 4
+
+  private val BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".toCharArray()
 
   internal data class Req(val requestId: String, val fileId: String)
 

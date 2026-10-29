@@ -18,6 +18,7 @@ internal class ProtocolStateStore(context: Context) {
   private var state = ProtocolStateCodec.load(store)
   private var lastSyncState = ""
   private var lastSyncGate = ""
+  private var lastSyncMissing = -1
   private val batchGate = Any()
   private var batchDepth = 0
   private var batchDirty = false
@@ -427,9 +428,10 @@ internal class ProtocolStateStore(context: Context) {
     )
     val current = report.optString("state")
     val gate = report.optString("gate")
-    if (current != lastSyncState || gate != lastSyncGate) {
+    if (current != lastSyncState || gate != lastSyncGate || missing != lastSyncMissing) {
       lastSyncState = current
       lastSyncGate = gate
+      lastSyncMissing = missing
       val progress = report.optJSONObject("progress")
       val avance = progress?.optInt("percent") ?: 0
       Log.i(
