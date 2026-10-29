@@ -122,6 +122,16 @@ export type SyncTransportStatus = {
   progress?: SyncProgressStatus;
 };
 
+export type NativePreferencesSnapshot = {
+  readReceipts: boolean;
+  shareActivity: boolean;
+  notifications: {
+    messages: boolean;
+    requests: boolean;
+    sound: boolean;
+  };
+};
+
 export type DhtRuntimeStatus = {
   ready: boolean;
   nodeId?: string;

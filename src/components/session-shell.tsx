@@ -11,6 +11,9 @@ import { EMPTY_PEER_MANAGEMENT } from '@/domain/yggdrasil-peers';
 import { pushBlockedPeers } from '@/storage/contact-store';
 import { useActivitySignal } from '@/hooks/use-activity-signal';
 import { usePreferences } from '@/hooks/use-preferences';
+import { adoptNativePreferences } from '@/storage/preferences-sync';
+
+const SETTINGS_SYNC_POLL_MS = 2000;
 
 export type SessionContextValue = {
   identity: UPeerIdentity;
@@ -37,6 +40,7 @@ export function SessionShell({ identity, onSignOut, children }: {
   const [address, setAddress] = useState('');
   const [profile, setProfile] = useState<IdentityProfile | null>(null);
   const [connection, setConnection] = useState<ConnectionSnapshot>({ address: '', phase: 'Conectando a la red…', peers: [], error: '', management: EMPTY_PEER_MANAGEMENT });
+  const [nativePreferencesReady, setNativePreferencesReady] = useState(false);
   const preferences = usePreferences();
   const { reportTouch } = useActivitySignal();
   const refreshProfile = useCallback(async () => {
@@ -60,20 +64,33 @@ export function SessionShell({ identity, onSignOut, children }: {
     });
   }, []);
   useEffect(() => {
+    if (!nativePreferencesReady) return;
     setNotificationPrefs(JSON.stringify({ messages: preferences.messageNotifications, requests: preferences.requestNotifications, sound: preferences.notificationSound })).catch((cause: unknown) => {
       console.warn('El servicio no recibió las preferencias de notificaciones.', cause);
     });
-  }, [preferences.messageNotifications, preferences.notificationSound, preferences.requestNotifications]);
+  }, [nativePreferencesReady, preferences.messageNotifications, preferences.notificationSound, preferences.requestNotifications]);
   useEffect(() => {
+    if (!nativePreferencesReady) return;
     setReadReceipts(preferences.readReceipts).catch((cause: unknown) => {
       console.warn('El servicio no recibió la preferencia de confirmaciones de lectura.', cause);
     });
-  }, [preferences.readReceipts]);
+  }, [nativePreferencesReady, preferences.readReceipts]);
   useEffect(() => {
+    if (!nativePreferencesReady) return;
     setActivitySharing(preferences.shareActivity).catch((cause: unknown) => {
       console.warn('El servicio no recibió la preferencia de compartir la hora de actividad.', cause);
     });
-  }, [preferences.shareActivity]);
+  }, [nativePreferencesReady, preferences.shareActivity]);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      adoptNativePreferences()
+        .then(() => setNativePreferencesReady(true))
+        .catch((cause: unknown) => {
+          console.warn('No se pudieron adoptar los ajustes sincronizados.', cause);
+        });
+    }, SETTINGS_SYNC_POLL_MS);
+    return () => clearInterval(timer);
+  }, []);
   useEffect(() => {
     if (identity.mode === 'device') {
       waitForNativeIdentity(identity.upeerId).catch((cause: unknown) => {

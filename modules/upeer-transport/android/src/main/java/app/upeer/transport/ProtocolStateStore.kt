@@ -341,6 +341,18 @@ internal class ProtocolStateStore(context: Context) {
 
   fun setNotificationPrefs(prefs: NotificationPrefs) = preferences.setNotifications(prefs)
 
+  fun settingsClock(block: String): Long = preferences.settingsClock(block)
+
+  fun claimSettingsUpdate(block: String, occurredAt: Long): Boolean =
+    preferences.claimSettingsUpdate(block, occurredAt)
+
+  fun applySyncSettings(block: String, values: Map<String, Boolean>, occurredAt: Long): Boolean =
+    preferences.applySyncSettings(block, values, occurredAt)
+
+  fun privacyValues(): Map<String, Boolean> = preferences.privacyValues()
+
+  fun notificationValues(): Map<String, Boolean> = preferences.notificationValues()
+
   fun deleteConversation(upeerId: String): Boolean = messages.deleteConversation(upeerId)
 
   fun markConversationRead(upeerId: String): List<String> = messages.markRead(upeerId)

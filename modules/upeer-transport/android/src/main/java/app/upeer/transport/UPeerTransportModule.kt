@@ -150,6 +150,7 @@ class UPeerTransportModule : Module() {
     }
     AsyncFunction("dhtLocationStatus") { service().dhtLocationStatusJSON() }
     AsyncFunction("syncStatus") { service().syncStatusJSON() }
+    AsyncFunction("preferencesJSON") { service().preferencesJSON() }
     AsyncFunction("lookupContactLocation") { upeerId: String -> service().lookupContactLocation(upeerId) }
     AsyncFunction("verifyLocationBlock") { blockJSON: String, publicKeyHex: String, nowMillis: Double ->
       service().verifyLocationBlock(blockJSON, publicKeyHex, nowMillis.toLong())

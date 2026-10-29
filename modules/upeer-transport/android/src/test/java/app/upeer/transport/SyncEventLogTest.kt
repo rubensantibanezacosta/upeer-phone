@@ -22,7 +22,11 @@ class SyncEventLogTest {
     eventId = eventId,
     kind = kind,
     occurredAt = now,
-    payload = JSONObject().put("id", "message-1"),
+    payload = if (kind == SyncEventKinds.SETTINGS_UPDATE) {
+      JSONObject().put("block", "privacy")
+    } else {
+      JSONObject().put("id", "message-1")
+    },
     direction = "outbound",
   )
 
@@ -120,5 +124,37 @@ class SyncEventLogTest {
     assertFalse(log.contains("event-0001"))
     assertFalse(log.contains("event-0002"))
     assertTrue(log.contains("event-0005"))
+  }
+
+  @Test
+  fun `an outbound event is never projected as inbound`() {
+    val (_, log, _) = log()
+
+    log.record(draft("event-0100", SyncEventKinds.SETTINGS_UPDATE), now)
+
+    assertEquals(0, log.pendingApplication(10).size)
+    assertEquals(0, log.pendingCount())
+  }
+
+  @Test
+  fun `attaching the origin keeps the queued payload`() {
+    val (_, log, _) = log()
+    val certificate = JSONObject().put("deviceId", DEVICE)
+    log.record(draft("event-0101", SyncEventKinds.SETTINGS_UPDATE), now)
+
+    val attached = log.attachOrigin(
+      "event-0101",
+      SyncOriginSignature(DEVICE, "44".repeat(64), certificate),
+    )
+
+    assertTrue(attached)
+    val stored = log.eventsAfter(0, 10).first()
+    assertEquals(DEVICE, stored.originDeviceId)
+    assertEquals("44".repeat(64), stored.originSignature)
+    assertEquals("privacy", stored.payload.optString("block"))
+  }
+
+  private companion object {
+    val DEVICE = "0d3180fc5bfa".padEnd(64, '0')
   }
 }

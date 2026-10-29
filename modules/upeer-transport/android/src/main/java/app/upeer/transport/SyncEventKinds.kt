@@ -12,6 +12,7 @@ internal object SyncEventKinds {
   const val GROUP_UPSERT = "GROUP_UPSERT"
   const val GROUP_DELETE = "GROUP_DELETE"
   const val CONTACT_PROFILE = "CONTACT_PROFILE"
+  const val SETTINGS_UPDATE = "SETTINGS_UPDATE"
 
   private val all = setOf(
     MESSAGE_UPSERT,
@@ -23,6 +24,7 @@ internal object SyncEventKinds {
     GROUP_UPSERT,
     GROUP_DELETE,
     CONTACT_PROFILE,
+    SETTINGS_UPDATE,
   )
 
   private val groupKinds = setOf(GROUP_UPSERT, GROUP_DELETE)

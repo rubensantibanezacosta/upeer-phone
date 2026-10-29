@@ -26,6 +26,7 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
       SyncEventKinds.GROUP_UPSERT -> state.groups.upsert(payload)
       SyncEventKinds.GROUP_DELETE -> deleteGroup(payload.optString("groupId"))
       SyncEventKinds.CONTACT_PROFILE -> applyContactProfile(payload)
+      SyncEventKinds.SETTINGS_UPDATE -> applySettings(payload, record.occurredAt)
       else -> return SyncApplyOutcome.UNSUPPORTED
     }
     return if (applied) SyncApplyOutcome.APPLIED else SyncApplyOutcome.REJECTED
@@ -105,6 +106,14 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
     val actor = payload.optString("actorUpeerId").lowercase()
     if (id.isBlank() || emoji.isBlank() || actor.length != 64) return false
     return state.messages.applyReaction(id, actor, emoji, payload.optBoolean("remove"))
+  }
+
+  private fun applySettings(payload: JSONObject, occurredAt: Long): Boolean {
+    val patch = SyncSettings.parse(payload) ?: return false
+    if (!state.claimSettingsUpdate(patch.block, occurredAt)) return false
+    val changed = state.applySyncSettings(patch.block, patch.values, occurredAt)
+    Log.i(TAG, "Ajustes de ${patch.block} sincronizados: ${if (changed) "aplicados" else "ya estaban igual"}")
+    return true
   }
 
   private fun applyContactProfile(payload: JSONObject): Boolean {

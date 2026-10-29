@@ -309,9 +309,25 @@ internal class YggdrasilProtocol(
     if (transitioned.isNotEmpty()) controlSender.sendReadReceipts(upeerId, transitioned)
   }
 
-  fun setReadReceipts(enabled: Boolean) = state.setReadReceipts(enabled)
+  fun setReadReceipts(enabled: Boolean): Boolean {
+    val changed = state.setReadReceipts(enabled)
+    if (changed) sync.publishSettings(SyncSettings.PRIVACY)
+    return changed
+  }
 
-  fun setActivitySharing(enabled: Boolean) = state.setActivitySharing(enabled)
+  fun setActivitySharing(enabled: Boolean): Boolean {
+    val changed = state.setActivitySharing(enabled)
+    if (changed) sync.publishSettings(SyncSettings.PRIVACY)
+    return changed
+  }
+
+  fun setNotificationPrefs(prefs: NotificationPrefs): Boolean {
+    val changed = state.setNotificationPrefs(prefs)
+    if (changed) sync.publishSettings(SyncSettings.NOTIFICATIONS)
+    return changed
+  }
+
+  fun flushSyncOutbound(): Int = sync.flushOutbound()
 
   fun setProfile(alias: String, avatar: String) {
     val previous = state.profile()
@@ -386,6 +402,17 @@ internal class YggdrasilProtocol(
   }
 
   fun syncStatusJSON(): String = state.syncStatusJSON()
+
+  fun preferencesJSON(): String {
+    val privacy = state.privacyValues()
+    val notifications = JSONObject()
+    state.notificationValues().forEach { (field, value) -> notifications.put(field, value) }
+    return JSONObject()
+      .put("readReceipts", privacy["readReceipts"] ?: true)
+      .put("shareActivity", privacy["shareActivity"] ?: true)
+      .put("notifications", notifications)
+      .toString()
+  }
 
   fun vaultUsageJSON(): String {
     val now = System.currentTimeMillis()

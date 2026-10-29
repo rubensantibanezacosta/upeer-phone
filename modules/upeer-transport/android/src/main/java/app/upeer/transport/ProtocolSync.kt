@@ -43,6 +43,33 @@ internal class ProtocolSync(
   private var discovery: SyncDiscovery? = null
   private var registrySource: () -> String = { "" }
 
+  private val outbound = SyncOutbound(
+    identity,
+    state,
+    channel,
+    { record -> signOrigin(record) },
+    { active, address, json -> send(active, address, json) },
+  )
+
+  @Volatile
+  private var activeBridge: Bridge? = null
+
+  fun publishSettings(block: String): Boolean {
+    val payload = SyncSettings.payload(block, settingsValues(block)) ?: return false
+    return outbound.publish(activeBridge, SyncEventKinds.SETTINGS_UPDATE, payload)
+  }
+
+  fun flushOutbound(): Int {
+    val bridge = activeBridge ?: return 0
+    return outbound.flush(bridge)
+  }
+
+  private fun settingsValues(block: String): Map<String, Boolean> = when (block) {
+    SyncSettings.PRIVACY -> state.privacyValues()
+    SyncSettings.NOTIFICATIONS -> state.notificationValues()
+    else -> emptyMap()
+  }
+
   @Volatile
   private var discoveryLoop: Thread? = null
   private val seenPeers = java.util.concurrent.ConcurrentHashMap<String, Long>()
@@ -75,11 +102,13 @@ internal class ProtocolSync(
 
   fun handle(activeBridge: Bridge, payload: ByteArray, packet: org.json.JSONObject, type: String, source: String): String {
     seenPeers[source] = System.currentTimeMillis()
+    this.activeBridge = activeBridge
     return replies.handle(activeBridge, payload, packet, type, source)
   }
 
   fun start(activeBridge: Bridge) {
     val active = discovery ?: return
+    this.activeBridge = activeBridge
     val registry = registrySource
     discoveryLoop?.interrupt()
     val thread = Thread({
@@ -87,6 +116,7 @@ internal class ProtocolSync(
         runCatching { active.publish() }
         runCatching { active.discover(activeBridge, registry()) }
         runCatching { applyPending() }
+        runCatching { flushOutbound() }
         try {
           Thread.sleep(DISCOVERY_INTERVAL_MS)
         } catch (_: InterruptedException) {

@@ -57,6 +57,14 @@ internal class SyncChannel(
     device: DeviceIdentity,
     peer: SyncPeerRecord,
     metadata: JSONObject,
+  ): String? = sealEnvelope(activeBridge, device, peer, metadata, metadata)
+
+  fun sealEnvelope(
+    activeBridge: Bridge,
+    device: DeviceIdentity,
+    peer: SyncPeerRecord,
+    envelope: JSONObject,
+    content: JSONObject,
   ): String? {
     val session = state.sessionFor(SyncPackets.contextId(peer.deviceId))
     val started = if (session != null) {
@@ -70,11 +78,11 @@ internal class SyncChannel(
       Session(parsed.optString("session"), parsed.optString("x3dhInit").takeIf(String::isNotEmpty))
     }
     val result = attempt {
-      JSONObject(device.crypto.ratchetEncrypt(started.json, metadata.toString().toByteArray(Charsets.UTF_8)))
+      JSONObject(device.crypto.ratchetEncrypt(started.json, content.toString().toByteArray(Charsets.UTF_8)))
     } ?: return null
     val encrypted = runCatching { JSONObject(result.optString("message")) }.getOrNull() ?: return null
     val nextSession = result.optString("session").takeIf(String::isNotEmpty) ?: return null
-    val packet = JSONObject(metadata.toString())
+    val packet = JSONObject(envelope.toString())
       .put("content", encrypted.optString("content"))
       .put("nonce", encrypted.optString("nonce"))
       .put("ratchetHeader", encrypted.optJSONObject("ratchetHeader"))

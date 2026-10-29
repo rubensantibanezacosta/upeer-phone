@@ -78,6 +78,19 @@ internal object SyncPackets {
     return decorate(meta, sender, recipientDeviceId)
   }
 
+  fun plainEventJson(event: SyncPlainEvent): JSONObject {
+    val json = JSONObject()
+      .put("eventId", event.eventId)
+      .put("kind", event.kind)
+      .put("occurredAt", event.occurredAt)
+      .put("sequence", event.sequence)
+      .put("payload", event.payload)
+    if (event.originDeviceId != null) json.put("originDeviceId", event.originDeviceId)
+    if (event.originSignature != null) json.put("originSignature", event.originSignature)
+    if (event.originCertificate != null) json.put("originCertificate", event.originCertificate)
+    return json
+  }
+
   fun historyMeta(sender: SyncSender, recipientDeviceId: String, type: String, requestId: String): JSONObject? {
     if (type != HISTORY_REQ && type != HISTORY_RES) return null
     if (!validRequestId(requestId)) return null

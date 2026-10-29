@@ -256,16 +256,16 @@ class YggdrasilTransportService : Service() {
     }
     override fun setNotificationPrefs(prefsJSON: String) {
       val prefs = NotificationPrefs.parse(prefsJSON)
-      protocolState.setNotificationPrefs(prefs)
-      Log.i(TAG, "Preferencias de notificaciones: mensajes=${prefs.messages} solicitudes=${prefs.requests} sonido=${prefs.sound}")
+      val changed = protocol.setNotificationPrefs(prefs)
+      Log.i(TAG, "Preferencias de notificaciones: mensajes=${prefs.messages} solicitudes=${prefs.requests} sonido=${prefs.sound} sincronizado=$changed")
     }
     override fun setReadReceipts(enabled: Boolean) {
-      protocol.setReadReceipts(enabled)
-      Log.i(TAG, "Confirmaciones de lectura: $enabled")
+      val changed = protocol.setReadReceipts(enabled)
+      Log.i(TAG, "Confirmaciones de lectura: $enabled sincronizado=$changed")
     }
     override fun setActivitySharing(enabled: Boolean) {
-      protocol.setActivitySharing(enabled)
-      Log.i(TAG, "Hora de actividad compartida: $enabled")
+      val changed = protocol.setActivitySharing(enabled)
+      Log.i(TAG, "Hora de actividad compartida: $enabled sincronizado=$changed")
     }
     override fun registerPeer(upeerId: String, address: String, publicKey: String, signedPreKeyJSON: String): Boolean =
       protocol.registerPeer(upeerId, address, publicKey, signedPreKeyJSON)
@@ -273,6 +273,7 @@ class YggdrasilTransportService : Service() {
     override fun protocolStatusJSON(): String =
       JSONObject(protocol.statusJSON()).put("dht", JSONObject(dhtRuntime.statusJSON())).toString()
     override fun syncStatusJSON(): String = protocol.syncStatusJSON()
+    override fun preferencesJSON(): String = protocol.preferencesJSON()
     override fun locationBlockJSON(ttlMillis: Long): String = dhtBindings.locationBlockJSON(ttlMillis)
     override fun accountRegistryJSON(): String = dhtBindings.accountRegistryJSON()
     override fun accountRegistryStatusJSON(): String = dhtBindings.accountRegistryStatusJSON()

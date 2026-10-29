@@ -65,6 +65,7 @@ interface IYggdrasilTransport {
   void flushOutbox();
   String protocolStatusJSON();
   String syncStatusJSON();
+  String preferencesJSON();
   String locationBlockJSON(long ttlMillis);
   String deviceIdentityStatusJSON();
   String dhtLocationStatusJSON();
