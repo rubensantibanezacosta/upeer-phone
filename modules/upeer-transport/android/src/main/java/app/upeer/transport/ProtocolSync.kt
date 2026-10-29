@@ -140,9 +140,12 @@ internal class ProtocolSync(
 
   private fun applyPending() {
     val pending = state.syncEvents.pendingApplication(APPLY_BATCH)
-    if (pending.isEmpty()) return
-    val applied = applier.applyAll(pending)
-    Log.i("UPeerTransport", "Eventos de sincronización aplicados: $applied de ${pending.size}")
+    if (pending.isNotEmpty()) {
+      val applied = applier.applyAll(pending)
+      Log.i("UPeerTransport", "Eventos de sincronización aplicados: $applied de ${pending.size}")
+    }
+    val repaired = applier.repairMissingMessages()
+    if (repaired > 0) Log.i("UPeerTransport", "Mensajes sincronizados recuperados: $repaired")
   }
 
   private fun verifyOrigin(record: SyncEventRecord, account: String, now: Long): Boolean {

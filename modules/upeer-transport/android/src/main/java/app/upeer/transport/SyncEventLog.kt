@@ -132,8 +132,22 @@ internal class SyncEventLog(
     }
   }
 
-  fun pendingCount(): Int = synchronized(lock) {
-    val events = bucket().getJSONArray("events")
+  fun inboundMessages(limit: Int): List<SyncEventRecord> {
+    if (limit <= 0) return emptyList()
+    return synchronized(lock) {
+      val events = bucket().getJSONArray("events")
+      val found = mutableListOf<SyncEventRecord>()
+      for (index in 0 until events.length()) {
+        val record = SyncEventRecord.from(events.optJSONObject(index) ?: continue) ?: continue
+        if (record.direction != "inbound") continue
+        if (record.kind != SyncEventKinds.MESSAGE_UPSERT) continue
+        found.add(record)
+      }
+      found.sortedByDescending { it.occurredAt }.take(limit)
+    }
+  }
+
+  fun pendingCount(): Int = synchronized(lock) {    val events = bucket().getJSONArray("events")
     val known = bucket().optJSONArray("applied")
     val seen = HashSet<String>()
     if (known != null) for (index in 0 until known.length()) seen.add(known.optString(index))

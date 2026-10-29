@@ -154,6 +154,38 @@ class SyncEventLogTest {
     assertEquals("privacy", stored.payload.optString("block"))
   }
 
+  @Test
+  fun `lists the inbound messages newest first`() {
+    val (_, log, _) = log()
+    log.record(inboundDraft("event-0200", "message-1"), now)
+    log.record(inboundDraft("event-0201", "message-2", now + 5_000), now + 5_000)
+    log.record(draft("event-0202", SyncEventKinds.MESSAGE_STATUS), now + 9_000)
+
+    val found = log.inboundMessages(10)
+
+    assertEquals(2, found.size)
+    assertEquals("message-2", found[0].payload.optString("id"))
+    assertEquals("message-1", found[1].payload.optString("id"))
+  }
+
+  @Test
+  fun `respects the limit when listing inbound messages`() {
+    val (_, log, _) = log()
+    log.record(inboundDraft("event-0300", "message-1"), now)
+    log.record(inboundDraft("event-0301", "message-2", now + 5_000), now + 5_000)
+
+    assertEquals(1, log.inboundMessages(1).size)
+    assertEquals(0, log.inboundMessages(0).size)
+  }
+
+  private fun inboundDraft(eventId: String, messageId: String, occurredAt: Long = now) = SyncEventDraft(
+    eventId = eventId,
+    kind = SyncEventKinds.MESSAGE_UPSERT,
+    occurredAt = occurredAt,
+    payload = JSONObject().put("id", messageId),
+    direction = "inbound",
+  )
+
   private companion object {
     val DEVICE = "0d3180fc5bfa".padEnd(64, '0')
   }

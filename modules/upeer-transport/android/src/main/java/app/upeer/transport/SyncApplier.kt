@@ -8,6 +8,7 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
     val outcome = project(record)
     when (outcome) {
       SyncApplyOutcome.APPLIED -> Log.i(TAG, "Evento ${record.kind} aplicado en el almacén local")
+      SyncApplyOutcome.UNCHANGED -> Log.i(TAG, "Evento ${record.kind} sin cambios que aplicar")
       SyncApplyOutcome.UNSUPPORTED -> Log.i(TAG, "Evento ${record.kind} sin proyección local todavía")
       SyncApplyOutcome.REJECTED -> Log.w(TAG, "Evento ${record.kind} rechazado por contenido inválido")
     }
@@ -16,8 +17,8 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
 
   private fun project(record: SyncEventRecord): SyncApplyOutcome {
     val payload = record.payload
+    if (record.kind == SyncEventKinds.MESSAGE_UPSERT) return applyMessage(payload)
     val applied = when (record.kind) {
-      SyncEventKinds.MESSAGE_UPSERT -> applyMessage(payload)
       SyncEventKinds.MESSAGE_STATUS -> applyStatus(payload)
       SyncEventKinds.MESSAGE_EDIT -> applyEdit(payload)
       SyncEventKinds.MESSAGE_DELETE -> applyDelete(payload)
@@ -36,8 +37,16 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
     var applied = 0
     for (record in records) {
       if (state.syncEvents.applied(record.eventId)) continue
-      runCatching { apply(record) }.onFailure { cause ->
-        Log.w(TAG, "No se pudo aplicar el evento ${record.eventId}: ${cause.message ?: cause.javaClass.simpleName}")
+      val outcome = try {
+        apply(record)
+      } catch (cause: Exception) {
+        Log.w(TAG, "No se pudo aplicar el evento ${record.eventId}, se reintentará: ${cause.message ?: cause.javaClass.simpleName}")
+        continue
+      }
+      if (outcome == SyncApplyOutcome.REJECTED) {
+        Log.w(TAG, "Evento ${record.eventId} descartado por contenido inválido")
+        state.syncEvents.markApplied(record.eventId)
+        continue
       }
       state.syncEvents.markApplied(record.eventId)
       applied += 1
@@ -45,19 +54,33 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
     return applied
   }
 
+  fun repairMissingMessages(limit: Int = REPAIR_BATCH): Int {
+    var repaired = 0
+    for (record in state.syncEvents.inboundMessages(limit)) {
+      val outcome = try {
+        apply(record)
+      } catch (cause: Exception) {
+        Log.w(TAG, "No se pudo recuperar el evento ${record.eventId}: ${cause.message ?: cause.javaClass.simpleName}")
+        continue
+      }
+      if (outcome == SyncApplyOutcome.APPLIED) repaired += 1
+    }
+    return repaired
+  }
+
   private fun deleteGroup(groupId: String): Boolean {
     state.groupKeys.forget(groupId)
     return state.groups.delete(groupId)
   }
 
-  private fun applyMessage(payload: JSONObject): Boolean {
-    val message = SyncHistoryPayload.local(payload) ?: return false
+  private fun applyMessage(payload: JSONObject): SyncApplyOutcome {
+    val message = SyncHistoryPayload.local(payload) ?: return SyncApplyOutcome.REJECTED
     val id = message.optString("id")
     val content = message.optString("content")
-    if (state.messages.find(id) != null) return true
+    if (state.messages.find(id) != null) return SyncApplyOutcome.UNCHANGED
     state.messages.save(message)
     if (SyncHistoryPayload.isAttachment(content)) state.syncEvents.markUnsupported(UNSUPPORTED_ATTACHMENT)
-    return true
+    return SyncApplyOutcome.APPLIED
   }
 
   private fun applyStatus(payload: JSONObject): Boolean {
@@ -138,6 +161,7 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
   private companion object {
     const val TAG = "UPeerTransport"
     const val MAX_CONTENT = 50_000
+    const val REPAIR_BATCH = 200
     const val UNSUPPORTED_ATTACHMENT = "ATTACHMENT"
     val STATUSES = setOf("pending", "sent", "vaulted", "delivered", "read", "failed")
   }
