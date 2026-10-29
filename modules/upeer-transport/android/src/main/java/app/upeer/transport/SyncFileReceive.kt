@@ -28,6 +28,17 @@ internal object SyncFileReceive {
 
   fun attachDirectory(dir: File) {
     directory = dir
+    sweepPartials(File(dir, "synced"))
+  }
+
+  private fun sweepPartials(dir: File) {
+    val names = runCatching { dir.list() }.getOrNull() ?: return
+    var removed = 0
+    for (name in names) {
+      if (!name.endsWith(PARTIAL_SUFFIX)) continue
+      if (runCatching { File(dir, name).delete() }.getOrDefault(false)) removed += 1
+    }
+    if (removed > 0) Log.i(TAG, "Adjuntos a medias descartados al arrancar: $removed")
   }
 
   fun open(requestId: String, fileId: String, meta: SyncFilePackets.ResMeta): String? {

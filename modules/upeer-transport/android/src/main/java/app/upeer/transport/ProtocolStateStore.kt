@@ -5,6 +5,7 @@ import android.util.Log
 import app.upeer.transport.dht.DhtLocation
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 internal class ProtocolStateStore(context: Context) {
   private val store = KeystoreStore(
@@ -16,6 +17,10 @@ internal class ProtocolStateStore(context: Context) {
   private val lock = Any()
   private var state = ProtocolStateCodec.load(store)
   private var lastSyncState = ""
+  private var lastSyncGate = ""
+  private val batchGate = Any()
+  private var batchDepth = 0
+  private var batchDirty = false
   private val persister = StatePersister(
     lock = lock,
     snapshot = { state.toString().toByteArray(Charsets.UTF_8) },
@@ -37,6 +42,9 @@ internal class ProtocolStateStore(context: Context) {
 
   @Volatile
   var fileWork: SyncFileWork = SyncFileWork.EMPTY
+
+  @Volatile
+  var syncGate: Boolean = false
 
   fun rememberPeer(metadata: JSONObject): Boolean {
     val upeerId = metadata.optString("senderUpeerId")
@@ -400,26 +408,33 @@ internal class ProtocolStateStore(context: Context) {
 
   fun statusJSON(): String = synchronized(lock) { ProtocolStatus.json(state) }
 
+  private fun missingAttachments(): Int =
+    SyncAttachmentAudit.missing(messages.attachmentRefs(), SyncFileReceive::isStored)
+
   fun syncStatusJSON(nowMillis: Long = System.currentTimeMillis()): String {
     val peers = syncPeers.list()
     val progress = peers.map { history.progress(it.deviceId) }
+    val missing = missingAttachments()
     val report = SyncStatusReport.json(
       progress,
       peers,
       syncEvents.pendingCount(),
-      syncEvents.unsupportedCount(),
+      missing,
       nowMillis,
       files = fileWork,
-      unsupportedKinds = syncEvents.unsupportedSummary(),
+      unsupportedKinds = if (missing > 0) JSONObject().put(SyncStatusReport.KIND_ATTACHMENT, missing) else JSONObject(),
+      gate = syncGate,
     )
     val current = report.optString("state")
-    if (current != lastSyncState) {
+    val gate = report.optString("gate")
+    if (current != lastSyncState || gate != lastSyncGate) {
       lastSyncState = current
+      lastSyncGate = gate
       val progress = report.optJSONObject("progress")
       val avance = progress?.optInt("percent") ?: 0
       Log.i(
         TAG,
-        "Estado de sincronización: $current dispositivos=${report.optInt("devices")} alDía=${report.optInt("devicesDone")} pendientes=${report.optInt("pendingEvents")} noSoportados=${report.optInt("unsupported")} avance=$avance% (${progress?.optString("detail")})",
+        "Estado de sincronización: $current gate=$gate dispositivos=${report.optInt("devices")} alDía=${report.optInt("devicesDone")} pendientes=${report.optInt("pendingEvents")} noSoportados=${report.optInt("unsupported")} avance=$avance% (${progress?.optString("detail")})",
       )
     }
     return report.toString()
@@ -430,7 +445,29 @@ internal class ProtocolStateStore(context: Context) {
   private fun validId(value: String): Boolean = value.length == 64 && value.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
 
   private fun persist() {
+    if (batchDepth > 0) {
+      batchDirty = true
+      return
+    }
     persister.request()
+  }
+
+  fun <T> batch(write: () -> T): T {
+    synchronized(batchGate) { batchDepth += 1 }
+    try {
+      return write()
+    } finally {
+      val trailing = synchronized(batchGate) {
+        batchDepth -= 1
+        if (batchDepth == 0 && batchDirty) {
+          batchDirty = false
+          true
+        } else {
+          false
+        }
+      }
+      if (trailing) persister.request()
+    }
   }
 
   fun flushPersistence(): Boolean = persister.flush()

@@ -112,6 +112,10 @@ internal class ProtocolSync(
   private var discoveryLoop: Thread? = null
   @Volatile
   private var progressLoop: Thread? = null
+  @Volatile
+  private var gateDeadline = 0L
+  @Volatile
+  private var gateArmedAt = 0L
   private val seenPeers = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
   fun attachDiscovery(
@@ -248,6 +252,7 @@ internal class ProtocolSync(
     runCatching { history.resetSession() }
     runCatching { state.history.beginAllRuns() }
     runCatching { state.fileWork = autofetch.refresh() }
+    armGate()
     val registry = registrySource
     discoveryLoop?.interrupt()
     val thread = Thread({
@@ -281,6 +286,7 @@ internal class ProtocolSync(
         } else {
           runCatching { refreshFileWork() }
         }
+        runCatching { settleGate() }
         round += 1
         try {
           Thread.sleep(PROGRESS_TICK_MS)
@@ -294,15 +300,30 @@ internal class ProtocolSync(
     thread.start()
   }
 
+  private fun armGate() {
+    gateArmedAt = System.currentTimeMillis()
+    gateDeadline = gateArmedAt + GATE_MAX_MS
+    state.syncGate = true
+  }
+
+  private fun settleGate() {
+    if (!state.syncGate) return
+    val now = System.currentTimeMillis()
+    if (now - gateArmedAt < GATE_MIN_MS) return
+    val peers = state.syncPeers.list()
+    val finished = peers.all { state.history.progress(it.deviceId).done } || now > gateDeadline
+    if (finished) state.syncGate = false
+  }
+
   private fun applyPending() {
     val pending = state.syncEvents.pendingApplication(APPLY_BATCH)
     if (pending.isNotEmpty()) {
-      val applied = applier.applyAll(pending)
+      val applied = state.batch { applier.applyAll(pending) }
       Log.i("UPeerTransport", "Eventos de sincronización aplicados: $applied de ${pending.size}")
     }
-    val repaired = applier.repairMissingMessages()
+    val repaired = state.batch { applier.repairMissingMessages() }
     if (repaired > 0) Log.i("UPeerTransport", "Mensajes sincronizados recuperados: $repaired")
-    val relinked = state.messages.repairAttachmentPaths(SyncFileReceive::storedPath)
+    val relinked = state.batch { state.messages.repairAttachmentPaths(SyncFileReceive::storedPath) }
     if (relinked > 0) Log.i("UPeerTransport", "Adjuntos reenlazados a la copia sincronizada: $relinked")
   }
 
@@ -328,6 +349,8 @@ internal class ProtocolSync(
     private const val LIVE_PEER_WINDOW_MS = 300_000L
     private const val GREET_INTERVAL_MS = 30_000L
     private const val APPLY_BATCH = 500
+    private const val GATE_MAX_MS = 90_000L
+    private const val GATE_MIN_MS = 12_000L
   }
 
 }

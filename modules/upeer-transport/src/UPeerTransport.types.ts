@@ -125,6 +125,7 @@ export type SyncProgressStatus = {
 
 export type SyncTransportStatus = {
   state: 'idle' | 'syncing' | 'live';
+  gate: 'boot' | 'open';
   devices: number;
   devicesDone: number;
   pendingEvents: number;

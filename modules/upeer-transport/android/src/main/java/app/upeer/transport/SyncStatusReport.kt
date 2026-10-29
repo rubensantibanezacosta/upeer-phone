@@ -6,6 +6,9 @@ internal object SyncStatusReport {
   const val STATE_IDLE = "idle"
   const val STATE_SYNCING = "syncing"
   const val STATE_LIVE = "live"
+  const val KIND_ATTACHMENT = "attachment"
+  const val GATE_BOOT = "boot"
+  const val GATE_OPEN = "open"
 
   fun json(
     progress: List<SyncHistoryProgress>,
@@ -15,19 +18,22 @@ internal object SyncStatusReport {
     nowMillis: Long,
     files: SyncFileWork = SyncFileWork.EMPTY,
     unsupportedKinds: JSONObject = JSONObject(),
+    gate: Boolean = false,
   ): JSONObject {
-    val done = progress.isNotEmpty() && progress.all { it.done }
     val lastSeen = peers.maxOfOrNull { it.lastSeen } ?: 0L
     val stale = peers.isEmpty() || lastSeen <= 0L || nowMillis - lastSeen > STALE_MS
     val filesBusy = files.pending > 0 || files.total > files.done + files.failed
+    val historyBusy = progress.any { !it.done && it.known }
+    val busy = !stale && (filesBusy || historyBusy || pendingEvents > 0)
     val state = when {
       peers.isEmpty() && progress.isEmpty() -> STATE_IDLE
-      filesBusy -> STATE_SYNCING
-      !stale && done.not() -> STATE_SYNCING
+      busy -> STATE_SYNCING
       else -> STATE_LIVE
     }
+    val booting = gate && (progress.isEmpty() || (!stale && progress.any { !it.done }))
     return JSONObject()
       .put("state", state)
+      .put("gate", if (booting) GATE_BOOT else GATE_OPEN)
       .put("devices", peers.size)
       .put("devicesDone", progress.count { it.done })
       .put("pendingEvents", pendingEvents)

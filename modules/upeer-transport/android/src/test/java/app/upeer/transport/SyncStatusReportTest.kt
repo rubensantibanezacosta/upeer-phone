@@ -25,6 +25,105 @@ class SyncStatusReportTest {
   }
 
   @Test
+  fun `un historico sin totales conocidos no bloquea la app`() {
+    val report = SyncStatusReport.json(
+      listOf(SyncHistoryProgress(cursor = null, done = false)),
+      listOf(peer),
+      0,
+      0,
+      now,
+    )
+
+    assertEquals(SyncStatusReport.STATE_LIVE, report.optString("state"))
+  }
+
+  @Test
+  fun `un historico conocido a medias mantiene la sincronizacion`() {
+    val report = SyncStatusReport.json(
+      listOf(SyncHistoryProgress(cursor = "1:a", done = false, applied = 10, total = 40, known = true)),
+      listOf(peer),
+      0,
+      0,
+      now,
+    )
+
+    assertEquals(SyncStatusReport.STATE_SYNCING, report.optString("state"))
+  }
+
+  @Test
+  fun `un historico a medias con el peer perdido no deja la app bloqueada`() {
+    val report = SyncStatusReport.json(
+      listOf(SyncHistoryProgress(cursor = "1:a", done = false, applied = 10, total = 40, known = true)),
+      listOf(peer.copy(lastSeen = now - 120_000L)),
+      0,
+      0,
+      now,
+    )
+
+    assertEquals(SyncStatusReport.STATE_LIVE, report.optString("state"))
+  }
+
+  @Test
+  fun `el gate de arranque solo bloquea mientras falta historico`() {
+    val booting = SyncStatusReport.json(
+      listOf(SyncHistoryProgress(cursor = "1:a", done = false, applied = 10, total = 40, known = true)),
+      listOf(peer),
+      0,
+      0,
+      now,
+      gate = true,
+    )
+    assertEquals(SyncStatusReport.GATE_BOOT, booting.optString("gate"))
+
+    val ready = SyncStatusReport.json(
+      listOf(SyncHistoryProgress(cursor = "1:a", done = true)),
+      listOf(peer),
+      0,
+      0,
+      now,
+      gate = true,
+    )
+    assertEquals(SyncStatusReport.GATE_OPEN, ready.optString("gate"))
+  }
+
+  @Test
+  fun `un historico a medias sin peer vivo no retiene el gate de arranque`() {
+    val report = SyncStatusReport.json(
+      listOf(SyncHistoryProgress(cursor = "1:a", done = false, applied = 10, total = 40, known = true)),
+      listOf(peer.copy(lastSeen = now - 120_000L)),
+      0,
+      0,
+      now,
+      gate = true,
+    )
+
+    assertEquals(SyncStatusReport.GATE_OPEN, report.optString("gate"))
+  }
+
+  @Test
+  fun `sin peers conocidos el gate de arranque sigue tapando la app`() {
+    val report = SyncStatusReport.json(emptyList(), emptyList(), 0, 0, now, gate = true)
+
+    assertEquals(SyncStatusReport.GATE_BOOT, report.optString("gate"))
+  }
+
+  @Test
+  fun `los adjuntos pendientes no mantienen el gate de arranque`() {
+    val report = SyncStatusReport.json(
+      listOf(SyncHistoryProgress(cursor = "1:a", done = true)),
+      listOf(peer),
+      0,
+      0,
+      now,
+      files = SyncFileWork(total = 5, done = 0, pending = 5),
+      gate = true,
+    )
+
+    assertEquals(SyncStatusReport.STATE_SYNCING, report.optString("state"))
+    assertEquals(SyncStatusReport.GATE_OPEN, report.optString("gate"))
+  }
+
+  @Test
   fun `a pending history with a fresh peer is syncing`() {
     val report = SyncStatusReport.json(
       listOf(SyncHistoryProgress(cursor = null, done = false)),

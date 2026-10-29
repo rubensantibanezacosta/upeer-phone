@@ -71,6 +71,7 @@ internal class StatePersister(
         dirty = false
         generation
       }
+      coalesce()
       val bytes = synchronized(lock) { snapshot() }
       try {
         write(bytes)
@@ -84,8 +85,15 @@ internal class StatePersister(
     }
   }
 
+  private fun coalesce() {
+    synchronized(gate) {
+      if (!closed) gate.wait(COALESCE_MS)
+    }
+  }
+
   private companion object {
     const val WORKER_NAME = "upeer-state-writer"
     const val FLUSH_TIMEOUT_MS = 5_000L
+    const val COALESCE_MS = 150L
   }
 }

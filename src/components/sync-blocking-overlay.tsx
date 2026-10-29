@@ -15,7 +15,7 @@ export function SyncBlockingOverlay() {
   const theme = useTheme();
   const scale = useTextScale();
   const status = useSyncStatus();
-  const syncing = status.state === 'syncing';
+  const syncing = status.gate === 'boot';
   const [opacity] = useState(() => new Animated.Value(0));
   const [spin] = useState(() => new Animated.Value(0));
 

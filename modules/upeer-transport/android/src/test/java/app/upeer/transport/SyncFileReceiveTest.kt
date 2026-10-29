@@ -114,4 +114,19 @@ class SyncFileReceiveTest {
     SyncFileReceive.close("req00000001")
     assertNull(SyncFileReceive.finish("req00000001"))
   }
+
+  @Test
+  fun `descarta los adjuntos a medias de un arranque anterior`() {
+    val root = folder.newFolder("attachments")
+    val dir = File(root, "synced").apply { mkdirs() }
+    val orphan = File(dir, "file-4.mkv.part").apply { writeBytes(ByteArray(128)) }
+    val stored = File(dir, "file-5.png").apply { writeBytes(ByteArray(64)) }
+
+    SyncFileReceive.attachDirectory(root)
+
+    assertFalse(orphan.exists())
+    assertTrue(stored.exists())
+    assertNull(SyncFileReceive.storedPath("file-4"))
+    assertTrue(SyncFileReceive.isStored("file-5"))
+  }
 }

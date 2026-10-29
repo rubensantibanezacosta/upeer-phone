@@ -21,6 +21,7 @@ const DISABLED_PROGRESS: SyncProgressStatus = {
 
 const INITIAL: SyncTransportStatus = {
   state: 'idle',
+  gate: 'open',
   devices: 0,
   devicesDone: 0,
   pendingEvents: 0,
