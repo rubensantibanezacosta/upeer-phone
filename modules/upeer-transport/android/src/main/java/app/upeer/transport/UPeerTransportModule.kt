@@ -128,6 +128,7 @@ class UPeerTransportModule : Module() {
     AsyncFunction("setProfile") { alias: String, avatar: String -> service().setProfile(alias, avatar) }
     AsyncFunction("setNotificationPrefs") { prefsJSON: String -> service().setNotificationPrefs(prefsJSON) }
     AsyncFunction("setReadReceipts") { enabled: Boolean -> service().setReadReceipts(enabled) }
+    AsyncFunction("setActivitySharing") { enabled: Boolean -> service().setActivitySharing(enabled) }
     AsyncFunction("setMutedPeers") { mutedJSON: String -> service().setMutedPeers(mutedJSON) }
     AsyncFunction("setRetentionMap") { mapJSON: String -> service().setRetentionMap(mapJSON) }
     AsyncFunction("retentionStatusJSON") { service().retentionStatusJSON() }

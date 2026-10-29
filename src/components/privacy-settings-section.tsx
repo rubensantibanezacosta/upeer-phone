@@ -12,7 +12,7 @@ export function PrivacySettingsSection() {
   const preferences = usePreferences();
 
   return <YStack gap={12}>
-    <SettingsSectionHeader icon={<LockKeyhole color={theme.accent} size={18} />} title="Privacidad">Las confirmaciones de lectura se anuncian a tus contactos; presencia y última vez solo cambian lo que ves de ellos.</SettingsSectionHeader>
+    <SettingsSectionHeader icon={<LockKeyhole color={theme.accent} size={18} />} title="Privacidad">Las dos primeras se anuncian a tus contactos; presencia y última vez solo cambian lo que ves de ellos.</SettingsSectionHeader>
 
     <SettingsGroup>
       <SettingsToggleRow
@@ -20,6 +20,12 @@ export function PrivacySettingsSection() {
         label="Confirmaciones de lectura"
         onChange={(value) => void updatePreferences({ readReceipts: value })}
         value={preferences.readReceipts}
+      />
+      <SettingsToggleRow
+        description="Enviar la hora de tu última actividad a tus contactos"
+        label="Compartir mi hora de actividad"
+        onChange={(value) => void updatePreferences({ shareActivity: value })}
+        value={preferences.shareActivity}
       />
       <SettingsToggleRow
         description="Ver si están en línea en la lista y en el chat"
@@ -35,6 +41,6 @@ export function PrivacySettingsSection() {
       />
     </SettingsGroup>
 
-    <SettingsNote>Al desactivar las confirmaciones de lectura no se envía `READ`: la conversación se marca leída solo aquí.</SettingsNote>
+    <SettingsNote>Al desactivar las confirmaciones de lectura no se envía `READ`: la conversación se marca leída solo aquí. Al desactivar «Compartir mi hora de actividad» tu latido deja de llevar la hora: lo que ya vieron tus contactos no se borra, pero deja de avanzar. El punto verde de «en línea» sigue dependiendo de que la app esté abierta, porque se deduce de cualquier paquete y no solo de ese latido.</SettingsNote>
   </YStack>;
 }

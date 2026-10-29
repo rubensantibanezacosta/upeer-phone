@@ -311,6 +311,8 @@ internal class YggdrasilProtocol(
 
   fun setReadReceipts(enabled: Boolean) = state.setReadReceipts(enabled)
 
+  fun setActivitySharing(enabled: Boolean) = state.setActivitySharing(enabled)
+
   fun setProfile(alias: String, avatar: String) {
     val previous = state.profile()
     state.setProfile(alias, avatar)

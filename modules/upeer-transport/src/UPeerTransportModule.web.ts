@@ -51,6 +51,7 @@ class UPeerTransportModule extends NativeModule<{}> {
   async setProfile(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async setNotificationPrefs(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async setReadReceipts(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
+  async setActivitySharing(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async setMutedPeers(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async setRetentionMap(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }
   async retentionStatusJSON(): Promise<never> { throw new Error(NATIVE_ONLY_ERROR); }

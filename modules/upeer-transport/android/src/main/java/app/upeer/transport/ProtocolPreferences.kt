@@ -48,6 +48,17 @@ internal class ProtocolPreferences(
     }
   }
 
+  fun activitySharing(): Boolean = synchronized(lock) {
+    stateProvider().optBoolean("shareActivity", true)
+  }
+
+  fun setActivitySharing(enabled: Boolean) {
+    synchronized(lock) {
+      stateProvider().put("shareActivity", enabled)
+      persist()
+    }
+  }
+
   private fun peers(key: String): List<String> = synchronized(lock) {
     val stored = stateProvider().optJSONArray(key) ?: JSONArray()
     PeerIdList.normalize(List(stored.length()) { stored.optString(it) })

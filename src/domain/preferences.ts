@@ -7,6 +7,7 @@ export type Preferences = {
   readReceipts: boolean;
   onlineStatus: boolean;
   lastSeen: boolean;
+  shareActivity: boolean;
   messageNotifications: boolean;
   requestNotifications: boolean;
   notificationSound: boolean;
@@ -18,6 +19,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   readReceipts: true,
   onlineStatus: true,
   lastSeen: true,
+  shareActivity: true,
   messageNotifications: true,
   requestNotifications: true,
   notificationSound: true,
@@ -40,6 +42,7 @@ export function parsePreferences(raw: string | null): Preferences {
       readReceipts: readBoolean(parsed.readReceipts, DEFAULT_PREFERENCES.readReceipts),
       onlineStatus: readBoolean(parsed.onlineStatus, DEFAULT_PREFERENCES.onlineStatus),
       lastSeen: readBoolean(parsed.lastSeen, DEFAULT_PREFERENCES.lastSeen),
+      shareActivity: readBoolean(parsed.shareActivity, DEFAULT_PREFERENCES.shareActivity),
       messageNotifications: readBoolean(parsed.messageNotifications, DEFAULT_PREFERENCES.messageNotifications),
       requestNotifications: readBoolean(parsed.requestNotifications, DEFAULT_PREFERENCES.requestNotifications),
       notificationSound: readBoolean(parsed.notificationSound, DEFAULT_PREFERENCES.notificationSound),

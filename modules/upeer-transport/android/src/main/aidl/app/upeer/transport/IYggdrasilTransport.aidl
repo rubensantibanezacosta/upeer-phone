@@ -55,6 +55,7 @@ interface IYggdrasilTransport {
   void setKnownContacts(String knownJSON);
   void setNotificationPrefs(String prefsJSON);
   void setReadReceipts(boolean enabled);
+  void setActivitySharing(boolean enabled);
   void setMutedPeers(String mutedJSON);
   void setRetentionMap(String mapJSON);
   String retentionStatusJSON();

@@ -311,6 +311,10 @@ internal class ProtocolStateStore(context: Context) {
 
   fun setReadReceipts(enabled: Boolean) = preferences.setReadReceipts(enabled)
 
+  fun activitySharing(): Boolean = preferences.activitySharing()
+
+  fun setActivitySharing(enabled: Boolean) = preferences.setActivitySharing(enabled)
+
   fun mutedPeers(): List<String> = preferences.muted()
 
   fun isMuted(upeerId: String): Boolean = preferences.isMuted(upeerId)

@@ -8,12 +8,13 @@ describe('parsePreferences', () => {
   });
 
   it('conserva los valores válidos', () => {
-    const stored = JSON.stringify({ theme: 'light', fontSize: 'large', readReceipts: false, notificationSound: false });
+    const stored = JSON.stringify({ theme: 'light', fontSize: 'large', readReceipts: false, notificationSound: false, shareActivity: false });
     const parsed = parsePreferences(stored);
     expect(parsed.theme).toBe('light');
     expect(parsed.fontSize).toBe('large');
     expect(parsed.readReceipts).toBe(false);
     expect(parsed.notificationSound).toBe(false);
+    expect(parsed.shareActivity).toBe(false);
     expect(parsed.messageNotifications).toBe(true);
   });
 

@@ -263,6 +263,10 @@ class YggdrasilTransportService : Service() {
       protocol.setReadReceipts(enabled)
       Log.i(TAG, "Confirmaciones de lectura: $enabled")
     }
+    override fun setActivitySharing(enabled: Boolean) {
+      protocol.setActivitySharing(enabled)
+      Log.i(TAG, "Hora de actividad compartida: $enabled")
+    }
     override fun registerPeer(upeerId: String, address: String, publicKey: String, signedPreKeyJSON: String): Boolean =
       protocol.registerPeer(upeerId, address, publicKey, signedPreKeyJSON)
     override fun flushOutbox() = protocol.flushOutbox()

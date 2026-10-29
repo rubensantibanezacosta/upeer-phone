@@ -63,6 +63,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   setProfile(alias: string, avatar: string): Promise<void>;
   setNotificationPrefs(prefsJSON: string): Promise<void>;
   setReadReceipts(enabled: boolean): Promise<void>;
+  setActivitySharing(enabled: boolean): Promise<void>;
   setMutedPeers(mutedJSON: string): Promise<void>;
   setRetentionMap(mapJSON: string): Promise<void>;
   retentionStatusJSON(): Promise<string>;
@@ -420,6 +421,10 @@ export async function setNotificationPrefs(prefsJSON: string): Promise<void> {
 
 export async function setReadReceipts(enabled: boolean): Promise<void> {
   return nativeModule.setReadReceipts(enabled);
+}
+
+export async function setActivitySharing(enabled: boolean): Promise<void> {
+  return nativeModule.setActivitySharing(enabled);
 }
 
 export async function setMutedPeers(mutedJSON: string): Promise<void> {

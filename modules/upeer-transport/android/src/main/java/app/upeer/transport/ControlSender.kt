@@ -19,7 +19,9 @@ internal class ControlSender(
     if (nowMillis - previous < ACTIVE_INTERVAL_MS) return
     if (!activeSentAt.compareAndSet(previous, nowMillis)) return
     val targets = state.presence.targets(nowMillis - ACTIVE_TARGET_WINDOW_MS, MAX_ACTIVE_TARGETS)
-    for (upeerId in targets) send(upeerId, "upeer-presence", ControlPings.active(nowMillis), "PING")
+    val shareActivity = state.activitySharing()
+    val packet = ControlPings.active(nowMillis, shareActivity)
+    for (upeerId in targets) send(upeerId, "upeer-presence", packet, "PING")
   }
 
   fun sendPong(upeerId: String) {

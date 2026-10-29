@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import { fromHex } from '@/domain/identity';
 import type { UPeerIdentity } from '@/domain/identity-record';
 import { SessionScreen, type ConnectionSnapshot } from '@/components/session-screen';
-import { clearIdentity as clearTransportIdentity, setIdentity as setTransportIdentity, setNotificationPrefs, setReadReceipts, stop, waitForIdentity as waitForNativeIdentity } from '../../modules/upeer-transport/src/UPeerTransportModule';
+import { clearIdentity as clearTransportIdentity, setIdentity as setTransportIdentity, setActivitySharing, setNotificationPrefs, setReadReceipts, stop, waitForIdentity as waitForNativeIdentity } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import { clearIdentity, loadProfile, type IdentityProfile } from '@/storage/identity-store';
 import { publishNativeProfileSafely } from '@/storage/profile-sync';
 import { EMPTY_PEER_MANAGEMENT } from '@/domain/yggdrasil-peers';
@@ -69,6 +69,11 @@ export function SessionShell({ identity, onSignOut, children }: {
       console.warn('El servicio no recibió la preferencia de confirmaciones de lectura.', cause);
     });
   }, [preferences.readReceipts]);
+  useEffect(() => {
+    setActivitySharing(preferences.shareActivity).catch((cause: unknown) => {
+      console.warn('El servicio no recibió la preferencia de compartir la hora de actividad.', cause);
+    });
+  }, [preferences.shareActivity]);
   useEffect(() => {
     if (identity.mode === 'device') {
       waitForNativeIdentity(identity.upeerId).catch((cause: unknown) => {
