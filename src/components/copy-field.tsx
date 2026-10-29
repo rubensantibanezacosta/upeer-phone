@@ -4,15 +4,17 @@ import { Copy } from '@tamagui/lucide-icons-2';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useTheme } from '@/hooks/use-theme';
 
-export function CopyField({ value, onCopy, accessibilityLabel, truncate = false }: {
+export function CopyField({ value, onCopy, accessibilityLabel, surface = 'base', truncate = false }: {
   value: string;
   onCopy: () => void;
   accessibilityLabel: string;
+  surface?: 'base' | 'sheet';
   truncate?: boolean;
 }) {
   const theme = useTheme();
+  const fill = surface === 'sheet' ? theme.backgroundSelected : theme.backgroundElement;
   return (
-    <NativeRipplePressable accessibilityLabel={accessibilityLabel} accessibilityRole="button" accessibilityState={{ disabled: !value }} disabled={!value} onPress={onCopy} style={[styles.field, { backgroundColor: theme.background, borderColor: theme.border }]}>
+    <NativeRipplePressable accessibilityLabel={accessibilityLabel} accessibilityRole="button" accessibilityState={{ disabled: !value }} disabled={!value} onPress={onCopy} style={[styles.field, { backgroundColor: fill, borderColor: theme.border }]}>
       <Text numberOfLines={truncate ? 1 : undefined} ellipsizeMode="middle" style={[styles.value, { color: theme.textSecondary }]}>{value || '—'}</Text>
       <Copy color={theme.placeholder} size={16} />
     </NativeRipplePressable>

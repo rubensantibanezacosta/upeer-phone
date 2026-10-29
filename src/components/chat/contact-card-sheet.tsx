@@ -49,6 +49,7 @@ export function ContactCardSheet({ action, card, error, onClose, visible }: {
     <CopyField
       accessibilityLabel="Copiar identidad uPeer"
       onCopy={() => { void copyToClipboard(card.upeerId, 'Identidad copiada'); }}
+      surface="sheet"
       truncate
       value={card.upeerId}
     />
@@ -56,6 +57,7 @@ export function ContactCardSheet({ action, card, error, onClose, visible }: {
       <CopyField
         accessibilityLabel="Copiar dirección de red"
         onCopy={() => { void copyToClipboard(card.address, 'Dirección copiada'); }}
+        surface="sheet"
         truncate
         value={card.address}
       />

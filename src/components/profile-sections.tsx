@@ -31,7 +31,7 @@ export function ProfileHeroSection({ identity, alias, avatar, busy, onAliasChang
       <YStack flex={1} gap={6} minWidth={0}>
         <SizableText color={theme.placeholder} fontSize={scale(10)} fontWeight="600" letterSpacing={0.6}>NOMBRE</SizableText>
         <XStack alignItems="center" gap={8}>
-          <Input accessibilityLabel="Nombre visible" autoCapitalize="words" backgroundColor={theme.background} borderColor={theme.border} color={theme.text} flex={1} maxLength={64} onChangeText={onAliasChange} onSubmitEditing={onAliasSave} placeholder="Escribe tu nombre..." placeholderTextColor={theme.placeholder} value={alias} />
+          <Input accessibilityLabel="Nombre visible" autoCapitalize="words" backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={8} color={theme.text} flex={1} maxLength={64} onChangeText={onAliasChange} onSubmitEditing={onAliasSave} placeholder="Escribe tu nombre..." placeholderTextColor={theme.placeholder} value={alias} />
           <NativeRippleButton accessibilityLabel="Guardar nombre" backgroundColor={theme.accent} circular disabled={busy} icon={<Check color={theme.onAccent} size={18} />} onPress={onAliasSave} />
         </XStack>
         <Text color={theme.placeholder} fontFamily="$mono" fontSize={scale(11)} numberOfLines={1}>{identity.upeerId.slice(0, 24)}…</Text>

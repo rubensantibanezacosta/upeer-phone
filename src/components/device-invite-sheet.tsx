@@ -51,7 +51,7 @@ export function DeviceInviteSheet({ visible, onClose, onAuthorized }: DeviceInvi
             <InfoRow label="Vinculado" theme={theme} value={dateLabel(state.issued.issuedAt)} />
           </YStack>
           <Paragraph color={theme.placeholder} fontSize={scale(12)}>Entrega este código al dispositivo nuevo para que instale su certificado.</Paragraph>
-          <CopyField accessibilityLabel="Copiar respuesta del certificado" onCopy={() => void copyToClipboard(state.issued!.responseCode, 'Respuesta copiada')} truncate value={state.issued.responseCode} />
+          <CopyField accessibilityLabel="Copiar respuesta del certificado" onCopy={() => void copyToClipboard(state.issued!.responseCode, 'Respuesta copiada')} surface="sheet" truncate value={state.issued.responseCode} />
           <QrCanvas theme={theme} value={state.issued.responseCode} />
           <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} fontWeight="700" height={46} icon={<ArrowRight color={theme.onAccent} size={17} />} onPress={finish}>Listo</NativeRippleButton>
         </YStack>

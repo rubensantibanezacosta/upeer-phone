@@ -79,7 +79,7 @@ export function DevicePairingPanel({ onPaired, reuseInstalled = true }: { onPair
 
     {manual ? <YStack gap={12}>
       <Paragraph color={theme.placeholder} fontSize={scale(13)}>Este dispositivo no puede alcanzar al que autoriza. Entrega este código a mano y trae la respuesta del certificado.</Paragraph>
-      <CopyField accessibilityLabel="Copiar solicitud de emparejamiento" onCopy={() => void copyToClipboard(state.requestCode, 'Solicitud copiada')} value={state.requestCode} />
+      <CopyField accessibilityLabel="Copiar solicitud de emparejamiento" onCopy={() => void copyToClipboard(state.requestCode, 'Solicitud copiada')} surface="sheet" value={state.requestCode} />
       {state.offer ? <YStack gap={4}>
         <InfoRow label="Cuenta" theme={theme} value={state.offer.accountUpeerId} />
         <InfoRow label="Caduca" theme={theme} value={new Date(state.offer.expiresAt).toLocaleString()} />

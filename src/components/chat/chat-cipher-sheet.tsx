@@ -61,7 +61,7 @@ export function ChatCipherSheet({ alias, error, loading, onClose, security, visi
           <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Número de seguridad</Text>
           {security.safetyNumber
             ? <>
-              <CopyField accessibilityLabel="Copiar número de seguridad" onCopy={() => { void copyToClipboard(security.safetyNumber, 'Número de seguridad copiado'); }} value={security.safetyNumber} />
+              <CopyField accessibilityLabel="Copiar número de seguridad" onCopy={() => { void copyToClipboard(security.safetyNumber, 'Número de seguridad copiado'); }} surface="sheet" value={security.safetyNumber} />
               <Text color={theme.placeholder} fontSize={scale(11)}>Ambos dispositivos calculan el mismo número. Si coincide, no hay nadie en medio.</Text>
             </>
             : <Text color={theme.placeholder} fontSize={scale(12)}>Todavía no hay clave del contacto para comparar.</Text>}
