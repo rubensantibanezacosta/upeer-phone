@@ -6,6 +6,7 @@ internal data class SyncFileWork(
   val pending: Int = 0,
   val failed: Int = 0,
   val progressUnits: Float? = null,
+  val active: Map<String, Int> = emptyMap(),
 ) {
   val known: Boolean get() = total > 0
   val idle: Boolean get() = pending <= 0

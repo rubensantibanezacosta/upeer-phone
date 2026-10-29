@@ -119,6 +119,7 @@ export type SyncProgressStatus = {
   filesTotal?: number;
   filesFailed?: number;
   filesKnown?: boolean;
+  fileProgress?: Record<string, number>;
   headline: string;
   detail: string;
 };

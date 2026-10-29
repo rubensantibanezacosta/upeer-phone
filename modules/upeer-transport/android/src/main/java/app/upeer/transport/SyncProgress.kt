@@ -30,8 +30,15 @@ internal object SyncProgress {
       .put("filesTotal", files.total.coerceAtLeast(0))
       .put("filesFailed", files.failed.coerceAtLeast(0))
       .put("filesKnown", files.known)
+      .put("fileProgress", activeJSON(files.active))
       .put("headline", headline(phase))
       .put("detail", detail(done, total, known, pendingEvents, files, phase))
+  }
+
+  private fun activeJSON(active: Map<String, Int>): JSONObject {
+    val json = JSONObject()
+    for ((fileId, percent) in active) json.put(fileId, percent)
+    return json
   }
 
   private fun headline(phase: String): String =

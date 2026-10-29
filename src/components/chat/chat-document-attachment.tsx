@@ -2,11 +2,15 @@ import { StyleSheet, View } from 'react-native';
 import { Download, ExternalLink, FileText } from '@tamagui/lucide-icons-2';
 import { Text } from 'tamagui';
 
+import { CircularProgress } from '@/components/circular-progress';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { attachmentDetail, attachmentLabel, attachmentUri, type AttachmentInfo } from '@/domain/attachment';
 import { useAttachmentFile } from '@/hooks/use-attachment-file';
+import { useSyncStatus } from '@/hooks/use-sync-status';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
+
+const TRANSFER_RING_SIZE = 22;
 
 export function ChatDocumentAttachment({ info, isMine, onOpen }: {
   info: AttachmentInfo;
@@ -15,16 +19,22 @@ export function ChatDocumentAttachment({ info, isMine, onOpen }: {
 }) {
   const theme = useTheme();
   const scale = useTextScale();
+  const status = useSyncStatus();
   const titleColor = isMine ? theme.bubbleMineText : theme.text;
   const detailColor = isMine ? theme.bubbleMineText : theme.placeholder;
   const circleColor = isMine ? `${theme.bubbleMineText}2E` : theme.accentSoft;
   const iconColor = isMine ? theme.bubbleMineText : theme.onAccentSoft;
   const downloaded = useAttachmentFile(attachmentUri(info));
+  const transferPercent = status.progress?.fileProgress?.[info.transferId] ?? null;
+  const transferring = !downloaded && transferPercent !== null;
+  const detail = downloaded
+    ? attachmentDetail(info)
+    : [attachmentDetail(info), transferring ? `recibiendo ${transferPercent}%` : 'No está aquí'].filter(Boolean).join(' · ');
 
   return (
     <NativeRipplePressable
       accessibilityHint={downloaded ? 'Abre el archivo' : 'El archivo no está en este dispositivo'}
-      accessibilityLabel={`${attachmentLabel(info)}${downloaded ? '' : ', no está en este dispositivo'}`}
+      accessibilityLabel={`${attachmentLabel(info)}${downloaded ? '' : transferring ? `, recibiendo ${transferPercent}%` : ', no está en este dispositivo'}`}
       accessibilityRole="button"
       onPress={() => onOpen?.()}
       style={[styles.card, { backgroundColor: isMine ? `${theme.bubbleMineText}14` : theme.backgroundSelected }]}
@@ -34,11 +44,18 @@ export function ChatDocumentAttachment({ info, isMine, onOpen }: {
       </View>
       <View style={styles.texts}>
         <Text color={titleColor} fontSize={scale(14)} fontWeight="600" numberOfLines={1}>{info.fileName}</Text>
-        <Text color={detailColor} fontSize={scale(11)} numberOfLines={1}>
-          {downloaded ? attachmentDetail(info) : [attachmentDetail(info), 'No está aquí'].filter(Boolean).join(' · ')}
-        </Text>
+        <Text color={detailColor} fontSize={scale(11)} numberOfLines={1}>{detail}</Text>
       </View>
-      {isMine ? null : downloaded
+      {isMine ? null : transferring ? (
+        <CircularProgress
+          color={theme.accent}
+          determinate
+          size={TRANSFER_RING_SIZE}
+          thickness={3}
+          trackColor={`${theme.accent}2E`}
+          value={transferPercent}
+        />
+      ) : downloaded
         ? <ExternalLink color={iconColor} size={20} strokeWidth={2} />
         : <Download color={iconColor} size={20} strokeWidth={2} />}
     </NativeRipplePressable>

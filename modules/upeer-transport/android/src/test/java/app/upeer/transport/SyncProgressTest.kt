@@ -71,6 +71,28 @@ class SyncProgressTest {
   }
 
   @Test
+  fun `publica el avance de cada adjunto para pintar su anillo`() {
+    val progress = SyncProgress.json(
+      emptyList(),
+      pendingEvents = 0,
+      files = SyncFileWork(total = 2, pending = 2, active = mapOf("uno" to 40, "dos" to 5)),
+      phase = SyncStatusReport.STATE_SYNCING,
+    )
+
+    val active = progress.optJSONObject("fileProgress")
+    assertEquals(40, active?.optInt("uno"))
+    assertEquals(5, active?.optInt("dos"))
+    assertEquals(2, active?.length())
+  }
+
+  @Test
+  fun `sin adjuntos en curso el mapa de avance va vacio`() {
+    val progress = SyncProgress.json(emptyList(), 0, SyncFileWork.EMPTY, SyncStatusReport.STATE_LIVE)
+
+    assertEquals(0, progress.optJSONObject("fileProgress")?.length())
+  }
+
+  @Test
   fun `los adjuntos sin respuesta se anuncian aparte`() {
     val progress = SyncProgress.json(
       listOf(entry(applied = 10, total = 10, known = true)),

@@ -93,6 +93,7 @@ internal class SyncFileAutoFetch(
     if (tracked.isEmpty()) return SyncFileWork.EMPTY
     var units = 0f
     var done = 0
+    val active = LinkedHashMap<String, Int>()
     for (fileId in tracked) {
       if (fileId in completed) {
         done += 1
@@ -100,7 +101,9 @@ internal class SyncFileAutoFetch(
         continue
       }
       val partial = runCatching { progress(fileId) }.getOrNull() ?: 0f
-      units += partial.coerceIn(0f, 1f)
+      val fraction = partial.coerceIn(0f, 1f)
+      units += fraction
+      active[fileId] = (fraction * 100f).toInt().coerceIn(0, 100)
     }
     return SyncFileWork(
       total = tracked.size,
@@ -108,6 +111,7 @@ internal class SyncFileAutoFetch(
       pending = pending,
       failed = failed,
       progressUnits = units,
+      active = active,
     )
   }
 

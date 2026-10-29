@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 import { getSyncStatus } from '../../modules/upeer-transport/src/UPeerTransportModule';
 import type { SyncProgressStatus, SyncTransportStatus } from '../../modules/upeer-transport/src/UPeerTransport.types';
@@ -31,25 +31,52 @@ const INITIAL: SyncTransportStatus = {
   progress: DISABLED_PROGRESS,
 };
 
-export function useSyncStatus(): SyncTransportStatus {
-  const [status, setStatus] = useState<SyncTransportStatus>(INITIAL);
+const POLL_MS = 2000;
 
-  useEffect(() => {
-    let active = true;
-    const read = () => {
-      void getSyncStatus()
-        .then((next) => {
-          if (active) setStatus({ ...next, progress: next.progress ?? DISABLED_PROGRESS });
-        })
-        .catch((cause: unknown) => console.warn('No se pudo leer el estado de sincronización.', cause));
-    };
+let current: SyncTransportStatus = INITIAL;
+let serialized = JSON.stringify(INITIAL);
+let timer: ReturnType<typeof setInterval> | null = null;
+let reading = false;
+const listeners = new Set<() => void>();
+
+function publish(next: SyncTransportStatus): void {
+  const encoded = JSON.stringify(next);
+  current = next;
+  if (encoded === serialized) return;
+  serialized = encoded;
+  for (const listener of listeners) listener();
+}
+
+function read(): void {
+  if (reading) return;
+  reading = true;
+  void getSyncStatus()
+    .then((next) => publish({ ...next, progress: next.progress ?? DISABLED_PROGRESS }))
+    .catch((cause: unknown) => console.warn('No se pudo leer el estado de sincronización.', cause))
+    .finally(() => {
+      reading = false;
+    });
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  if (timer === null) {
+    timer = setInterval(read, POLL_MS);
     read();
-    const timer = setInterval(read, 2000);
-    return () => {
-      active = false;
+  }
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0 && timer !== null) {
       clearInterval(timer);
-    };
-  }, []);
+      timer = null;
+    }
+  };
+}
 
-  return status;
+function snapshot(): SyncTransportStatus {
+  return current;
+}
+
+export function useSyncStatus(): SyncTransportStatus {
+  return useSyncExternalStore(subscribe, snapshot, snapshot);
 }

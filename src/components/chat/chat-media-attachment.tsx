@@ -4,14 +4,17 @@ import { Image } from 'expo-image';
 import { FileImage, FileVideo } from '@tamagui/lucide-icons-2';
 import { Text } from 'tamagui';
 
+import { CircularProgress } from '@/components/circular-progress';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { attachmentDetail, attachmentLabel, attachmentUri, fileExtension, type AttachmentInfo } from '@/domain/attachment';
 import { useAttachmentFile } from '@/hooks/use-attachment-file';
+import { useSyncStatus } from '@/hooks/use-sync-status';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useVideoThumbnail } from '@/hooks/use-video-thumbnail';
 import { useTheme } from '@/hooks/use-theme';
 
 const PREVIEW_HEIGHT = 180;
+const TRANSFER_RING_SIZE = 44;
 
 export function ChatMediaAttachment({ info, isMine, onOpen }: {
   info: AttachmentInfo;
@@ -20,11 +23,14 @@ export function ChatMediaAttachment({ info, isMine, onOpen }: {
 }) {
   const theme = useTheme();
   const scale = useTextScale();
+  const status = useSyncStatus();
   const isVideo = info.kind === 'video';
   const Icon = isVideo ? FileVideo : FileImage;
   const extension = fileExtension(info.fileName);
   const localUri = attachmentUri(info);
   const downloaded = useAttachmentFile(localUri);
+  const transferPercent = status.progress?.fileProgress?.[info.transferId] ?? null;
+  const transferring = !downloaded && transferPercent !== null;
   const generated = useVideoThumbnail(isVideo && !info.thumbnail && downloaded ? localUri : null);
   const preview = downloaded ? (info.thumbnail ?? (isVideo ? generated : localUri)) : null;
   const [brokenPreview, setBrokenPreview] = useState<string | null>(null);
@@ -32,7 +38,7 @@ export function ChatMediaAttachment({ info, isMine, onOpen }: {
 
   return (
     <NativeRipplePressable
-      accessibilityLabel={`${attachmentLabel(info)}${attachmentDetail(info) ? `, ${attachmentDetail(info)}` : ''}${downloaded ? '' : ', no está en este dispositivo'}`}
+      accessibilityLabel={`${attachmentLabel(info)}${attachmentDetail(info) ? `, ${attachmentDetail(info)}` : ''}${downloaded ? '' : transferring ? `, recibiendo ${transferPercent}%` : ', no está en este dispositivo'}`}
       accessibilityRole="imagebutton"
       onPress={() => onOpen?.()}
       style={[styles.frame, { backgroundColor: theme.backgroundSelected }]}
@@ -46,11 +52,22 @@ export function ChatMediaAttachment({ info, isMine, onOpen }: {
         />
       ) : (
         <View style={styles.placeholder}>
-          <Icon color={isMine ? theme.bubbleMineText : theme.placeholder} size={40} strokeWidth={1.5} />
+          {transferring ? (
+            <CircularProgress
+              color={theme.accent}
+              determinate
+              size={TRANSFER_RING_SIZE}
+              thickness={5}
+              trackColor={`${theme.accent}2E`}
+              value={transferPercent}
+            />
+          ) : (
+            <Icon color={isMine ? theme.bubbleMineText : theme.placeholder} size={40} strokeWidth={1.5} />
+          )}
           {extension ? <Text color={theme.placeholder} fontSize={scale(11)}>{extension}</Text> : null}
         </View>
       )}
-      {!downloaded ? (
+      {!downloaded && !transferring ? (
         <View style={styles.pendingBadge}>
           <Text color="#FFFFFF" fontSize={scale(10)} fontWeight="700">No está aquí</Text>
         </View>

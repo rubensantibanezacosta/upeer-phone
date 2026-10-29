@@ -3,6 +3,7 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { CheckCircle2, Router } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, YStack } from 'tamagui';
 
+import { CircularProgress } from '@/components/circular-progress';
 import { useAndroidBack } from '@/hooks/use-android-back';
 import { useSyncStatus } from '@/hooks/use-sync-status';
 import { useTextScale } from '@/hooks/use-text-scale';
@@ -10,6 +11,8 @@ import { useTheme } from '@/hooks/use-theme';
 
 const FADE_IN_MS = 220;
 const FADE_OUT_MS = 700;
+const RING_SIZE = 80;
+const RING_THICKNESS = 3;
 
 export function SyncBlockingOverlay() {
   const theme = useTheme();
@@ -17,7 +20,6 @@ export function SyncBlockingOverlay() {
   const status = useSyncStatus();
   const syncing = status.gate === 'boot';
   const [opacity] = useState(() => new Animated.Value(0));
-  const [spin] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     Animated.timing(opacity, {
@@ -27,16 +29,6 @@ export function SyncBlockingOverlay() {
       useNativeDriver: true,
     }).start();
   }, [opacity, syncing]);
-
-  useEffect(() => {
-    if (!syncing) return;
-    const loop = Animated.loop(Animated.timing(spin, { duration: 1100, easing: Easing.linear, toValue: 1, useNativeDriver: true }));
-    loop.start();
-    return () => {
-      loop.stop();
-      spin.setValue(0);
-    };
-  }, [spin, syncing]);
 
   useAndroidBack(() => true, syncing);
 
@@ -53,8 +45,17 @@ export function SyncBlockingOverlay() {
       <View style={styles.ring}>
         {finished ? <CheckCircle2 color={theme.accent} size={48} strokeWidth={1.8} /> : (
           <>
-            <Animated.View style={[styles.spinner, { borderColor: theme.backgroundElement, borderTopColor: theme.accent, transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }]} />
-            <Router color={theme.accent} size={40} strokeWidth={1.8} />
+            <CircularProgress
+              color={theme.accent}
+              determinate={determinate}
+              size={RING_SIZE}
+              thickness={RING_THICKNESS}
+              trackColor={theme.backgroundElement}
+              value={percent}
+            />
+            <View style={styles.ringIcon}>
+              <Router color={theme.accent} size={40} strokeWidth={1.8} />
+            </View>
           </>
         )}
       </View>
@@ -76,8 +77,8 @@ export function SyncBlockingOverlay() {
 
 const styles = StyleSheet.create({
   root: { alignItems: 'center', bottom: 0, elevation: 30, gap: 18, justifyContent: 'center', left: 0, paddingHorizontal: 32, position: 'absolute', right: 0, top: 0, zIndex: 9999 },
-  ring: { alignItems: 'center', height: 80, justifyContent: 'center', width: 80 },
-  spinner: { borderRadius: 40, borderWidth: 3, bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
+  ring: { alignItems: 'center', height: RING_SIZE, justifyContent: 'center', width: RING_SIZE },
+  ringIcon: { alignItems: 'center', bottom: 0, justifyContent: 'center', left: 0, position: 'absolute', right: 0, top: 0 },
   track: { borderRadius: 4, height: 6, overflow: 'hidden', width: 200 },
   fill: { borderRadius: 4, height: 6 },
 });

@@ -212,6 +212,30 @@ class SyncFileAutoFetchTest {
   }
 
   @Test
+  fun `cada adjunto en curso publica su propio avance`() {
+    refs = listOf(AttachmentRef("uno", null), AttachmentRef("dos", null))
+    fetch.tick()
+
+    partial = mapOf("uno" to 0.5f, "dos" to 0.25f)
+    val work = fetch.refresh()
+
+    assertEquals(mapOf("uno" to 50, "dos" to 25), work.active)
+  }
+
+  @Test
+  fun `el adjunto ya traido deja de anunciar avance`() {
+    refs = listOf(AttachmentRef("uno", null), AttachmentRef("dos", null))
+    fetch.tick()
+
+    partial = mapOf("uno" to 0.5f)
+    fetch.tick()
+    stored = setOf("uno")
+    val work = fetch.tick()
+
+    assertEquals(setOf("dos"), work.active.keys)
+  }
+
+  @Test
   fun `el refresco no vuelve a pedir ni a enumerar adjuntos`() {
     refs = listOf(AttachmentRef("uno", null))
     fetch.tick()
