@@ -29,16 +29,19 @@ export function ContactInfoHero({ alias, avatar, upeerId, status, presence = nul
   const statusColor = presence === 'En línea' ? theme.success : status === 'blocked' ? theme.danger : theme.placeholder;
   const score = useVouchScore(upeerId) ?? vouchScore;
   const warning = getTrustWarning(score);
+  const presenceLabel = presenceText(presence, status);
 
   return (
     <YStack alignItems="center" gap={5} paddingHorizontal={20} paddingTop={4}>
       <ContactTrustAvatar avatar={avatar} name={alias} size={96} vouchScore={score} />
       <SizableText color={theme.text} fontSize={scale(20)} fontWeight="700" numberOfLines={2} textAlign="center">{alias}</SizableText>
       <Text color={theme.placeholder} ellipsizeMode="middle" fontFamily="monospace" fontSize={scale(12)} numberOfLines={1}>{upeerId}</Text>
-      <XStack alignItems="center" gap={5}>
-        <View style={[styles.dot, { backgroundColor: statusColor }]} />
-        <Text color={statusColor} fontSize={scale(12)}>{presenceText(presence, status)}</Text>
-      </XStack>
+      {presenceLabel ? (
+        <XStack alignItems="center" gap={5}>
+          <View style={[styles.dot, { backgroundColor: statusColor }]} />
+          <Text color={statusColor} fontSize={scale(12)}>{presenceLabel}</Text>
+        </XStack>
+      ) : null}
       {warning ? (
         <XStack alignItems="center" gap={4}>
           <BadgeAlert color={theme.danger} size={12} strokeWidth={2.3} />

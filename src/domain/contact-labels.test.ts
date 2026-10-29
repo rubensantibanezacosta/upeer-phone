@@ -9,11 +9,11 @@ describe('presenceText', () => {
     expect(presenceText('Desconectado', 'connected')).toBe('Desconectado');
   });
 
-  it('no afirma conexión cuando no hay ningún dato', () => {
-    expect(presenceText(null, 'connected')).toBe('Desconectado');
-    expect(presenceText(undefined, 'connected')).toBe('Desconectado');
-    expect(presenceText('', 'connected')).toBe('Desconectado');
-    expect(presenceText(null, 'offline')).toBe('Desconectado');
+  it('no dice nada de la conexión si no se comparte actividad', () => {
+    expect(presenceText(null, 'connected')).toBe('');
+    expect(presenceText(undefined, 'connected')).toBe('');
+    expect(presenceText('', 'connected')).toBe('');
+    expect(presenceText(null, 'offline')).toBe('');
   });
 
   it('no oculta los estados que no son presencia', () => {

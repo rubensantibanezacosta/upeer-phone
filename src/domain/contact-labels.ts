@@ -10,6 +10,6 @@ export const CONTACT_STATUS_LABELS: Record<UPeerContact['status'], string> = {
 
 export function presenceText(presence: string | null | undefined, status: UPeerContact['status']): string {
   if (presence) return presence;
-  if (status === 'connected') return CONTACT_STATUS_LABELS.offline;
+  if (status === 'connected' || status === 'offline') return '';
   return CONTACT_STATUS_LABELS[status];
 }

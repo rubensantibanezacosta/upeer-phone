@@ -55,7 +55,7 @@ export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isReque
         <ContactTrustAvatar avatar={avatar} name={alias} size={40} vouchScore={score} />
         <YStack flex={1} gap={2} minWidth={0}>
           <SizableText color={theme.text} fontSize={scale(16)} fontWeight="500" numberOfLines={1}>{alias}</SizableText>
-          <Text color={activity ? theme.accent : theme.placeholder} fontSize={scale(12)} numberOfLines={1}>{subtitle}</Text>
+          {subtitle ? <Text color={activity ? theme.accent : theme.placeholder} fontSize={scale(12)} numberOfLines={1}>{subtitle}</Text> : null}
         </YStack>
       </NativeRipplePressable>
       {isRequest ? null : <HeaderAction label="Videollamada" onPress={() => (onStartCall ? onStartCall('video') : onUnavailable('Videollamada'))}><Video color={theme.text} size={24} /></HeaderAction>}
