@@ -83,6 +83,7 @@ internal class YggdrasilProtocol(
     send = ::sendSealed,
     groupMembers = ::activeGroupMembers,
     selfUpeerId = { identity.current()?.upeerID().orEmpty() },
+    storageDir = transferStorage,
   )
   private val fileRequests = FileRequestOutbound(::sendSealed)
   private val callEvents = CallEvents(state.messages) { upeerId, content, messageId ->
@@ -239,6 +240,7 @@ internal class YggdrasilProtocol(
   fun stop() {
     bridge = null
     outbox.stop()
+    state.flushPersistence()
   }
 
   fun clear() {
@@ -678,7 +680,8 @@ internal class YggdrasilProtocol(
     messageId: String?,
   ): String {
     if (bridge == null) throw IllegalStateException("El transporte no está iniciado")
-    if (!upeerId.startsWith(ProtocolGroups.PREFIX) && state.publicKeyFor(upeerId) == null) {
+    val selfChat = SelfMessage.isSelfChat(upeerId, identity.current()?.upeerID())
+    if (!selfChat && !upeerId.startsWith(ProtocolGroups.PREFIX) && state.publicKeyFor(upeerId) == null) {
       throw IllegalStateException("El contacto $upeerId no es conocido")
     }
     return fileOutbound.start(

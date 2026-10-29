@@ -16,6 +16,12 @@ internal class ProtocolStateStore(context: Context) {
   private val lock = Any()
   private var state = ProtocolStateCodec.load(store)
   private var lastSyncState = ""
+  private val persister = StatePersister(
+    lock = lock,
+    snapshot = { state.toString().toByteArray(Charsets.UTF_8) },
+    write = { bytes -> store.save(bytes) },
+    onError = { cause -> Log.e(TAG, "No se pudo persistir el estado del protocolo", cause) },
+  )
 
   val retention = ProtocolRetention({ state }, lock, ::persist)
   val reputation = ReputationStore({ state }, lock, ::persist)
@@ -378,6 +384,7 @@ internal class ProtocolStateStore(context: Context) {
   }
 
   fun clear() {
+    persister.close()
     synchronized(lock) {
       state = ProtocolStateCodec.empty()
       try {
@@ -419,12 +426,10 @@ internal class ProtocolStateStore(context: Context) {
   private fun validId(value: String): Boolean = value.length == 64 && value.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
 
   private fun persist() {
-    try {
-      store.save(state.toString().toByteArray(Charsets.UTF_8))
-    } catch (cause: Exception) {
-      Log.e(TAG, "No se pudo persistir el estado del protocolo", cause)
-    }
+    persister.request()
   }
+
+  fun flushPersistence(): Boolean = persister.flush()
 
   internal companion object {
     private const val TAG = "UPeerTransport"

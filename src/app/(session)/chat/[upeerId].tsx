@@ -33,6 +33,7 @@ import { useChatMessageSheet } from '@/hooks/use-chat-message-sheet';
 import { useRequestResolution } from '@/hooks/use-request-resolution';
 import { placeholderName, resolveContactName } from '@/domain/contact-name';
 import { isSelfConversation } from '@/domain/self-conversation';
+import { changedSections, hasUnreadIncoming, snapshotRefresh, type ChatRefreshSnapshot } from '@/domain/chat-refresh';
 import { useChatRowRenderer } from '@/hooks/use-chat-row-renderer';
 import { useChatComposerArea } from '@/hooks/use-chat-composer-area';
 import { useChatSearchController } from '@/hooks/use-chat-search-controller';
@@ -70,14 +71,20 @@ export default function ChatRoute() {
   const [groupMembers, setGroupMembers] = useState(0);
   const isGroup = upeerId?.startsWith('grp-') === true;
   const { loading: loadingMessages, markLoaded: markMessagesLoaded } = useFirstLoad();
+  const refreshSnapshot = useRef<ChatRefreshSnapshot | null>(null);
 
   const refresh = useCallback(async () => {
     if (!upeerId) return;
-    const [nextMessages, contacts, conversations] = await Promise.all([getMessages(upeerId, MESSAGE_LIMIT), getContacts(), getConversations()]);
-    setMessages((current) => dropExpired(mergeChatHistory(nextMessages, current), Date.now()));
+    const [nextMessages, nextContacts, conversations] = await Promise.all([getMessages(upeerId, MESSAGE_LIMIT), getContacts(), getConversations()]);
+    const snapshot = snapshotRefresh({ messages: nextMessages, contacts: nextContacts, conversations });
+    const change = changedSections(refreshSnapshot.current, snapshot);
+    refreshSnapshot.current = snapshot;
+    if (change.messages) {
+      setMessages((current) => dropExpired(mergeChatHistory(nextMessages, current), Date.now()));
+    }
     markMessagesLoaded();
-    setContacts(contacts);
-    const contact = contacts.find((item) => item.upeerId === upeerId);
+    if (change.contacts) setContacts(nextContacts);
+    const contact = nextContacts.find((item) => item.upeerId === upeerId);
     const ownConversation = conversations.find((conversation) => conversation.upeerId === upeerId);
     const conversationAlias = ownConversation?.alias;
     setPeerActivity(ownConversation?.activity ?? '');
@@ -103,7 +110,7 @@ export default function ChatRoute() {
       await saveContact({ ...base, name: resolvedName, status: 'connected', upeerId });
       setContactStatus('connected');
     }
-    await markConversationRead(upeerId);
+    if (hasUnreadIncoming(nextMessages)) await markConversationRead(upeerId);
   }, [markMessagesLoaded, upeerId]);
 
   const composer = useChatComposer({ onChanged: refresh, onForwarded: showSnackbar, upeerId });

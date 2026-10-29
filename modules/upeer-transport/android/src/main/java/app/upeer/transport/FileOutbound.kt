@@ -3,6 +3,7 @@ package app.upeer.transport
 import android.util.Log
 import app.upeer.transport.dht.DhtLocation
 import org.json.JSONObject
+import java.io.File
 import java.util.UUID
 
 internal class FileOutbound(
@@ -14,6 +15,7 @@ internal class FileOutbound(
   private val windowFactory: (Int) -> FileSendWindow = { FileSendWindow(it) },
   private val groupMembers: (String) -> List<String>? = { null },
   private val selfUpeerId: () -> String = { "" },
+  private val storageDir: () -> File = { File(System.getProperty("java.io.tmpdir") ?: ".") },
 ) {
   internal class Request(
     val upeerId: String,
@@ -48,6 +50,22 @@ internal class FileOutbound(
   fun start(request: Request): String {
     val plan = FileSendPlan.plan(request.path, request.fileName, request.mimeType)
     require(plan.fileSize > 0L) { "El archivo está vacío" }
+    if (SelfMessage.isSelfChat(request.upeerId, selfUpeerId())) {
+      val ownMessageId = request.messageId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
+      val stored = SelfAttachment.store(File(storageDir(), "attachments/direct"), ownMessageId, plan.file)
+      messages.save(
+        SelfAttachment.message(
+          messageId = ownMessageId,
+          upeerId = request.upeerId,
+          plan = plan,
+          savedPath = stored.absolutePath,
+          caption = request.caption,
+          isVoiceNote = request.isVoiceNote,
+        ),
+      )
+      Log.i(TAG, "Adjunto propio $ownMessageId guardado en ${stored.absolutePath} sin destinatario")
+      return ownMessageId
+    }
     val account = accountCrypto() ?: throw IllegalStateException("No hay identidad para enviar el archivo")
     val crypto = deviceCrypto() ?: account
     val group = request.upeerId.lowercase().takeIf { it.startsWith(ProtocolGroups.PREFIX) }

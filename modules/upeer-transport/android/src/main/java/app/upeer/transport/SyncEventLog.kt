@@ -229,6 +229,6 @@ internal class SyncEventLog(
     value.length == 64 && value.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
 
   private companion object {
-    const val MAX_EVENTS = 2000
+    const val MAX_EVENTS = 300
   }
 }

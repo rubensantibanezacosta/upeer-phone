@@ -22,7 +22,8 @@ internal object ProtocolStateCodec {
         TAG,
         "Estado del protocolo cargado: peers=${decoded.optJSONObject("peers")?.length() ?: 0} " +
           "sessions=${decoded.optJSONObject("sessions")?.length() ?: 0} " +
-          "messages=${decoded.optJSONArray("messages")?.length() ?: 0}",
+          "messages=${decoded.optJSONArray("messages")?.length() ?: 0} " +
+          "bytes=${encoded.size} eventos=${decoded.optJSONObject("sync")?.optJSONArray("events")?.length() ?: 0} ${sizes(decoded)} ${eventFields(decoded)}",
       )
       decoded
     } catch (cause: Exception) {
@@ -36,6 +37,28 @@ internal object ProtocolStateCodec {
     .put("sessions", JSONObject())
     .put("messages", JSONArray())
     .put("sync", JSONObject())
+
+  private fun eventFields(state: JSONObject): String {
+    val events = state.optJSONObject("sync")?.optJSONArray("events") ?: return ""
+    val sample = events.optJSONObject(0) ?: return ""
+    val parts = ArrayList<String>()
+    val keys = sample.keys()
+    while (keys.hasNext()) {
+      val key = keys.next()
+      parts.add("$key=${sample.opt(key)?.toString()?.toByteArray(Charsets.UTF_8)?.size ?: 0}")
+    }
+    return "evento0[$parts]"
+  }
+
+  private fun sizes(state: JSONObject): String {    val parts = ArrayList<String>()
+    val keys = state.keys()
+    while (keys.hasNext()) {
+      val key = keys.next()
+      parts.add("$key=${state.opt(key)?.toString()?.toByteArray(Charsets.UTF_8)?.size ?: 0}")
+    }
+    parts.sortByDescending { it.substringAfter('=').toIntOrNull() ?: 0 }
+    return parts.joinToString(" ")
+  }
 
   private const val TAG = "UPeerTransport"
 }
