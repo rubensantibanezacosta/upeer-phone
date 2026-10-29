@@ -105,7 +105,20 @@ class SyncHistoryTallyTest {
     val tally = tallyHistoryPage(entries, { true }, { false })
 
     assertEquals(4, tally.recorded)
-    assertEquals(2, tally.recordedMessages)
+    assertEquals(2, tally.messages)
+  }
+
+  @Test
+  fun `los mensajes ya conocidos tambien cuentan como recorridos`() {
+    val entries = JSONArray()
+      .put(JSONObject().put("eventId", "history-a").put("kind", SyncEventKinds.MESSAGE_UPSERT))
+      .put(JSONObject().put("eventId", "history-b").put("kind", SyncEventKinds.MESSAGE_UPSERT))
+    val known = entries.ids().toSet()
+
+    val tally = tallyHistoryPage(entries, { false }, { it in known })
+
+    assertEquals(0, tally.recorded)
+    assertEquals(2, tally.messages)
   }
 
   @Test
@@ -114,7 +127,7 @@ class SyncHistoryTallyTest {
     val history = SyncHistoryState({ state }, Any(), {})
 
     history.savePage(DEVICE, "10:a", false, 3, 5)
-    history.savePage(DEVICE, "10:a", false, 0, 5)
+    history.savePage(DEVICE, "10:a", false, 3, 5)
 
     val progress = history.progress(DEVICE)
     assertEquals(3, progress.applied)

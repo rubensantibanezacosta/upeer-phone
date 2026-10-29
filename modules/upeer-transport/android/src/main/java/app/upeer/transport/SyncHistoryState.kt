@@ -70,9 +70,10 @@ internal class SyncHistoryState(
     synchronized(lock) {
       val history = bucket()
       val entry = history.optJSONObject(deviceId) ?: JSONObject()
+      val previous = entry.optString("cursor").ifBlank { null }
       if (cursor.isNullOrBlank()) entry.remove("cursor") else entry.put("cursor", cursor)
       entry.put("done", done)
-      addCountersTo(entry, applied, pending)
+      addCountersTo(entry, if (cursor != null && cursor == previous) 0 else applied, pending)
       if (done) finishCountersIn(entry)
       history.put(deviceId, entry)
       state().put(KEY, history)

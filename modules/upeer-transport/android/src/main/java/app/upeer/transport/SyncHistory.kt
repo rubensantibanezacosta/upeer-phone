@@ -86,7 +86,7 @@ internal class SyncHistory(
   fun apply(activeBridge: Bridge, peer: SyncPeerRecord, payload: JSONObject) {
     val entries = payload.optJSONArray("entries")
     var failed = 0
-    var recordedMessages = 0
+    var messages = 0
     Log.i(
       TAG,
       "Histórico de ${peer.deviceId.take(12)}: página de ${entries?.length() ?: 0} eventos, done=${payload.optBoolean("done", false)}, pendientes=${payload.opt("pending")}, cursor=${payload.opt("nextCursor")}",
@@ -95,8 +95,8 @@ internal class SyncHistory(
       val now = nowMillis()
       val tally = tallyHistoryPage(entries, { applyEntry(it, now) }, state.syncEvents::contains)
       failed = tally.failed
-      recordedMessages = tally.recordedMessages
-      if (tally.recorded > 0) Log.i(TAG, "Histórico de ${peer.deviceId.take(12)}: ${tally.recorded} eventos registrados, ${tally.recordedMessages} mensajes")
+      messages = tally.messages
+      if (tally.recorded > 0) Log.i(TAG, "Histórico de ${peer.deviceId.take(12)}: ${tally.recorded} eventos registrados, ${tally.messages} mensajes")
       val projected = applyEvents()
       if (projected > 0) Log.i(TAG, "Histórico de ${peer.deviceId.take(12)}: $projected eventos proyectados")
     }
@@ -111,7 +111,7 @@ internal class SyncHistory(
     }
     val done = payload.optBoolean("done", false)
     val finished = done || nextCursor == null
-    state.history.savePage(peer.deviceId, nextCursor, finished, recordedMessages, if (finished) 0 else pendingCount(payload))
+    state.history.savePage(peer.deviceId, nextCursor, finished, messages, if (finished) 0 else pendingCount(payload))
     if (!done && nextCursor != null) {
       val refreshed = state.syncPeers.list().firstOrNull { it.deviceId == peer.deviceId } ?: return
       lastRequest[peer.deviceId] = nowMillis()
@@ -250,7 +250,7 @@ internal data class SyncHistoryTally(
   val processed: Int,
   val recorded: Int,
   val failed: Int,
-  val recordedMessages: Int = 0,
+  val messages: Int = 0,
 )
 
 internal fun tallyHistoryPage(
@@ -261,16 +261,22 @@ internal fun tallyHistoryPage(
   var processed = 0
   var recorded = 0
   var failed = 0
-  var recordedMessages = 0
+  var messages = 0
   for (index in 0 until entries.length()) {
     val entry = entries.optJSONObject(index) ?: continue
+    val isMessage = entry.optString("kind") == SyncEventKinds.MESSAGE_UPSERT
     if (applyEntry(entry)) {
       recorded += 1
       processed += 1
-      if (entry.optString("kind") == SyncEventKinds.MESSAGE_UPSERT) recordedMessages += 1
+      if (isMessage) messages += 1
       continue
     }
-    if (contains(entry.optString("eventId"))) processed += 1 else failed += 1
+    if (contains(entry.optString("eventId"))) {
+      processed += 1
+      if (isMessage) messages += 1
+    } else {
+      failed += 1
+    }
   }
-  return SyncHistoryTally(processed, recorded, failed, recordedMessages)
+  return SyncHistoryTally(processed, recorded, failed, messages)
 }
