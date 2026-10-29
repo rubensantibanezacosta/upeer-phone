@@ -8,6 +8,7 @@ import { UnreadCountBadge } from '@/components/unread-count-badge';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import type { AttachmentKind } from '@/domain/attachment';
 import { describeChatPreview, type ConversationActivity } from '@/domain/chat-preview';
+import { statusIconIsRead, statusIconKind } from '@/domain/message-status-icon';
 import { getTrustAnnouncement } from '@/domain/trust';
 import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
 import { usePreferences } from '@/hooks/use-preferences';
@@ -57,10 +58,11 @@ function formatConversationTime(timestamp: number): string {
 function LastMessageStatus({ entry, color }: { entry: ChatListEntry; color: string }) {
   const theme = useTheme();
   if (entry.reaction || !entry.isMine || !entry.lastStatus) return null;
-  if (entry.lastStatus === 'failed') return <CircleAlert color={theme.danger} size={15} strokeWidth={2.2} />;
-  if (entry.lastStatus === 'pending') return <Clock3 color={color} size={14} strokeWidth={2.2} />;
-  if (entry.lastStatus === 'sent') return <Check color={color} size={15} strokeWidth={2.2} />;
-  return <CheckCheck color={entry.lastStatus === 'read' ? theme.accent : color} size={15} strokeWidth={2.2} />;
+  const kind = statusIconKind(entry.lastStatus);
+  if (kind === 'failed') return <CircleAlert color={theme.danger} size={15} strokeWidth={2.2} />;
+  if (kind === 'pending') return <Clock3 color={color} size={14} strokeWidth={2.2} />;
+  if (kind === 'sent') return <Check color={color} size={15} strokeWidth={2.2} />;
+  return <CheckCheck color={statusIconIsRead(entry.lastStatus) ? theme.accent : color} size={15} strokeWidth={2.2} />;
 }
 
 function PreviewAttachmentIcon({ kind, color }: { kind: ChatListEntry['previewIcon']; color: string }) {
