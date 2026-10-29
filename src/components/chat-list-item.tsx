@@ -1,11 +1,12 @@
 import { useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { BellOff, Check, CheckCheck, CircleAlert, Clock3, Pin, Star, Users } from '@tamagui/lucide-icons-2';
+import { BellOff, Check, CheckCheck, CircleAlert, Clock3, FileImage, FileText, FileVideo, Mic, Pin, Star, Users } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { UnreadCountBadge } from '@/components/unread-count-badge';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
+import type { AttachmentKind } from '@/domain/attachment';
 import { describeChatPreview, type ConversationActivity } from '@/domain/chat-preview';
 import { getTrustAnnouncement } from '@/domain/trust';
 import type { ProtocolMessage } from '../../modules/upeer-transport/src/UPeerTransport.types';
@@ -23,6 +24,7 @@ export type ChatListEntry = {
   unread: number;
   isMine: boolean;
   lastStatus: ProtocolMessage['status'] | null;
+  previewIcon?: AttachmentKind | null;
   reaction?: boolean;
   pending?: boolean;
   incoming?: boolean;
@@ -59,6 +61,12 @@ function LastMessageStatus({ entry, color }: { entry: ChatListEntry; color: stri
   if (entry.lastStatus === 'pending') return <Clock3 color={color} size={14} strokeWidth={2.2} />;
   if (entry.lastStatus === 'sent') return <Check color={color} size={15} strokeWidth={2.2} />;
   return <CheckCheck color={entry.lastStatus === 'read' ? theme.accent : color} size={15} strokeWidth={2.2} />;
+}
+
+function PreviewAttachmentIcon({ kind, color }: { kind: ChatListEntry['previewIcon']; color: string }) {
+  if (!kind) return null;
+  const Icon = kind === 'image' ? FileImage : kind === 'video' ? FileVideo : kind === 'voice' ? Mic : FileText;
+  return <Icon color={color} size={14} strokeWidth={2.2} />;
 }
 
 export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemProps) {
@@ -112,6 +120,7 @@ export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemPro
           </XStack>
           <XStack alignItems="center" gap={5}>
             <LastMessageStatus color={theme.placeholder} entry={entry} />
+            {preview.accent ? null : <PreviewAttachmentIcon color={previewColor} kind={entry.previewIcon} />}
             <Text color={entry.incoming ? theme.accent : previewColor} flex={1} fontSize={scale(13)} fontStyle={preview.italic ? 'italic' : 'normal'} numberOfLines={1}>{preview.text}</Text>
             {isUnread ? <UnreadCountBadge count={entry.unread} /> : null}
           </XStack>

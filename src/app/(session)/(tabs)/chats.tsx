@@ -25,7 +25,7 @@ import { filterChatEntries, isChatFilterActive, type ChatListFilter } from '@/do
 import { findChatList, restrictToChatList } from '@/domain/chat-lists';
 import { useChatLists } from '@/hooks/use-chat-lists';
 import { useChatRetention } from '@/hooks/use-chat-retention';
-import { previewMessage } from '@/domain/message-preview';
+import { previewIconKind, previewMessage } from '@/domain/message-preview';
 import { reactionActor, reactionPreview } from '@/domain/reaction-preview';
 import { flagsFor, orderByPinned } from '@/domain/conversation-flags';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
@@ -128,6 +128,7 @@ export default function ChatsRoute() {
         title: conversation.alias || conversation.upeerId.slice(0, 12),
         avatar: conversation.avatar,
         preview: reaction ?? previewMessage(conversation.lastMessage),
+        previewIcon: reaction ? null : previewIconKind(conversation.lastMessage),
         timestamp: conversation.lastReaction?.timestamp ?? conversation.lastTimestamp,
         unread: conversation.unread,
         isMine: reaction ? false : conversation.lastIsMine === true,

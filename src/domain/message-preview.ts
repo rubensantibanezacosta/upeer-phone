@@ -1,4 +1,4 @@
-import { describeMessageContent, parseAttachmentMessage } from './attachment';
+import { describeMessageContent, parseAttachmentMessage, type AttachmentKind } from './attachment';
 import { parseContactCard } from './contact-card';
 import { linkPreviewText } from './link-preview';
 import { systemMessageText } from './system-message';
@@ -7,6 +7,10 @@ const CONTACT_CARD_LABEL = 'Tarjeta de contacto';
 
 export function messageText(content: string): string {
   return linkPreviewText(content) ?? content;
+}
+
+export function previewIconKind(content: string): AttachmentKind | null {
+  return parseAttachmentMessage(content)?.kind ?? null;
 }
 
 export function previewMessage(content: string): string {
