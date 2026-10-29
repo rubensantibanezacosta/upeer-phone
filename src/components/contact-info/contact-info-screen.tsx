@@ -183,7 +183,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
         </YStack>
         <YStack gap={6}>
           <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Conversación</Text>
-          <InteractiveRow disabled={!contact} icon={Share2} label="Compartir contacto" onPress={() => setSharing(true)} />
+          {isSelf ? null : <InteractiveRow disabled={!contact} icon={Share2} label="Compartir contacto" onPress={() => setSharing(true)} />}
           <InteractiveRow icon={flags.muted ? Bell : BellOff} label={flags.muted ? 'Activar notificaciones' : 'Silenciar notificaciones'} onPress={() => toggleFlag('muted')} />
           <InteractiveRow icon={flags.archived ? ArchiveRestore : Archive} label={flags.archived ? 'Desarchivar chat' : 'Archivar chat'} onPress={() => toggleFlag('archived')} />
           {isSelf ? null : <InteractiveRow icon={Star} label={contact?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />}
