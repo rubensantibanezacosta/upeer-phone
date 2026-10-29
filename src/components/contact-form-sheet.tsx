@@ -67,13 +67,13 @@ export function ContactFormSheet({ onAdd, onDone }: { onAdd: (draft: ContactDraf
     <Paragraph color={theme.placeholder} fontSize={scale(12)}>Escanea el QR de tu contacto o pega su identidad completa en formato uPeerID@dirección.</Paragraph>
     <YStack gap={6}>
       <Text color={theme.textSecondary} fontSize={scale(11)} fontWeight="600">IDENTIDAD UPEER</Text>
-      <Input accessibilityLabel="Identidad upeer del contacto" autoCapitalize="none" autoCorrect={false} backgroundColor={theme.backgroundSelected} borderColor={theme.border} borderRadius={8} color={theme.text} fontFamily="monospace" fontSize={scale(12)} onChangeText={(value) => { setInput(value); setError(''); }} placeholder="uPeerID@dirección" placeholderTextColor={theme.placeholder} value={input} />
+      <Input accessibilityLabel="Identidad upeer del contacto" autoCapitalize="none" autoCorrect={false} backgroundColor={theme.backgroundSelected} borderColor={theme.border} color={theme.text} fontFamily="monospace" fontSize={scale(12)} onChangeText={(value) => { setInput(value); setError(''); }} placeholder="uPeerID@dirección" placeholderTextColor={theme.placeholder} value={input} />
       <Text color={theme.placeholder} fontSize={scale(11)}>64 caracteres hexadecimales, @ y la dirección 200: o 300:.</Text>
       <NativeRippleButton accessibilityLabel="Escanear QR de contacto" backgroundColor={theme.accentSoft} color={theme.text} height={46} icon={<QrCode color={theme.onAccentSoft} size={17} />} onPress={() => setScanning(true)}>Escanear QR del contacto</NativeRippleButton>
     </YStack>
     <YStack gap={6}>
       <Text color={theme.textSecondary} fontSize={scale(11)} fontWeight="600">ALIAS</Text>
-      <Input accessibilityLabel="Alias del contacto" autoCapitalize="words" backgroundColor={theme.backgroundSelected} borderColor={theme.border} borderRadius={8} color={theme.text} onChangeText={setName} placeholder="Nombre o apodo para identificarlo" placeholderTextColor={theme.placeholder} value={name} />
+      <Input accessibilityLabel="Alias del contacto" autoCapitalize="words" backgroundColor={theme.backgroundSelected} borderColor={theme.border} color={theme.text} onChangeText={setName} placeholder="Nombre o apodo para identificarlo" placeholderTextColor={theme.placeholder} value={name} />
     </YStack>
     {error ? <Paragraph accessibilityRole="alert" backgroundColor={theme.dangerSoft} borderColor={theme.dangerBorder} borderRadius={10} borderWidth={1} color={theme.onDangerSoft} fontSize={scale(12)} padding={10}>{error}</Paragraph> : null}
     <NativeRippleButton backgroundColor={theme.accent} color={theme.onAccent} disabled={busy || !input.trim()} fontWeight="700" height={46} onPress={() => void submit()}>{busy ? 'Guardando…' : 'Añadir contacto'}</NativeRippleButton>

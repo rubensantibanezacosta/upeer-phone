@@ -31,7 +31,7 @@ export function ProfileHeroSection({ identity, alias, avatar, busy, onAliasChang
       <YStack flex={1} gap={6} minWidth={0}>
         <SizableText color={theme.placeholder} fontSize={scale(10)} fontWeight="600" letterSpacing={0.6}>NOMBRE</SizableText>
         <XStack alignItems="center" gap={8}>
-          <Input accessibilityLabel="Nombre visible" autoCapitalize="words" backgroundColor={theme.backgroundElement} borderColor={theme.border} borderRadius={8} color={theme.text} flex={1} maxLength={64} onChangeText={onAliasChange} onSubmitEditing={onAliasSave} placeholder="Escribe tu nombre..." placeholderTextColor={theme.placeholder} value={alias} />
+          <Input accessibilityLabel="Nombre visible" autoCapitalize="words" backgroundColor={theme.backgroundElement} borderColor={theme.border} color={theme.text} flex={1} maxLength={64} onChangeText={onAliasChange} onSubmitEditing={onAliasSave} placeholder="Escribe tu nombre..." placeholderTextColor={theme.placeholder} value={alias} />
           <NativeRippleButton accessibilityLabel="Guardar nombre" backgroundColor={theme.accent} circular disabled={busy} icon={<Check color={theme.onAccent} size={18} />} onPress={onAliasSave} />
         </XStack>
         <Text color={theme.placeholder} fontFamily="$mono" fontSize={scale(11)} numberOfLines={1}>{identity.upeerId.slice(0, 24)}…</Text>
@@ -50,7 +50,7 @@ export function ProfileAddressSection({ fullId, onCopy, onShowQr, onInfo }: {
   const scale = useTextScale();
   return (
     <YStack gap={10} paddingVertical={16}>
-      <SettingsGroupLabel action={<InfoButton label="¿Qué es la dirección de contacto?" onPress={onInfo} />} icon={<Fingerprint color={theme.placeholder} size={15} />} title="Tu dirección de contacto">Compártela para que puedan escribirte sin usar tu frase de recuperación.</SettingsGroupLabel>
+      <SettingsGroupLabel action={<InfoButton label="¿Qué es la dirección de contacto?" onPress={onInfo} />} icon={<Fingerprint color={theme.placeholder} size={15} />} title="Tu dirección de contacto">Compártela para que puedan escribirte.</SettingsGroupLabel>
       {fullId ? <CopyField accessibilityLabel="Copiar dirección de contacto" onCopy={onCopy} value={fullId} /> : <Text color={theme.placeholder} fontSize={scale(13)}>Sin dirección de red todavía</Text>}
       {fullId ? (
         <XStack gap={8}>
