@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { describeChatPreview } from './chat-preview';
 
 const NOW = new Date('2026-10-25T12:00:00').getTime();
-const BASE = { now: NOW, onlineStatus: true, lastSeenEnabled: true };
+const BASE = { now: NOW, shareActivity: true };
 
 describe('describeChatPreview', () => {
   it('deja el texto tal cual cuando hay vista previa', () => {
@@ -35,12 +35,12 @@ describe('describeChatPreview', () => {
   });
 
   it('cae a la presencia cuando no hay mensajes', () => {
-    expect(describeChatPreview({ ...BASE, preview: '', lastSeen: NOW - 1_000 }).text).toBe('En línea');
-    expect(describeChatPreview({ ...BASE, preview: '', lastSeen: NOW - 300_000 }).text).toBe('Última vez hace 5 min');
+    expect(describeChatPreview({ ...BASE, preview: '', lastActive: NOW - 1_000 }).text).toBe('En línea');
+    expect(describeChatPreview({ ...BASE, preview: '', lastActive: NOW - 300_000 }).text).toBe('Última vez hace 5 min');
   });
 
-  it('respeta la preferencia de última vez', () => {
-    expect(describeChatPreview({ ...BASE, preview: '', lastSeen: NOW - 300_000, lastSeenEnabled: false }).text).toBe('Desconectado');
+  it('no dice nada de la presencia si compartir está apagado', () => {
+    expect(describeChatPreview({ ...BASE, preview: '', lastActive: NOW - 300_000, shareActivity: false }).text).toBe('');
   });
 
   it('no inventa presencia sin datos', () => {

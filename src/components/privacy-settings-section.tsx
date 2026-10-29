@@ -12,7 +12,7 @@ export function PrivacySettingsSection() {
   const preferences = usePreferences();
 
   return <YStack gap={12}>
-    <SettingsSectionHeader icon={<LockKeyhole color={theme.accent} size={18} />} title="Privacidad">Las dos primeras se anuncian a tus contactos; presencia y última vez solo cambian lo que ves de ellos.</SettingsSectionHeader>
+    <SettingsSectionHeader icon={<LockKeyhole color={theme.accent} size={18} />} title="Privacidad">Las confirmaciones de lectura se anuncian a tus contactos. Presencia y actividad van juntas: o las compartes y las ves, o ni una cosa ni la otra.</SettingsSectionHeader>
 
     <SettingsGroup>
       <SettingsToggleRow
@@ -22,25 +22,13 @@ export function PrivacySettingsSection() {
         value={preferences.readReceipts}
       />
       <SettingsToggleRow
-        description="Enviar la hora de tu última actividad a tus contactos"
-        label="Compartir mi hora de actividad"
+        description="Ver su presencia y su última actividad, y que ellos vean la tuya"
+        label="Compartir mi presencia y actividad"
         onChange={(value) => void updatePreferences({ shareActivity: value })}
         value={preferences.shareActivity}
       />
-      <SettingsToggleRow
-        description="Ver si están en línea en la lista y en el chat"
-        label="Presencia de tus contactos"
-        onChange={(value) => void updatePreferences({ onlineStatus: value })}
-        value={preferences.onlineStatus}
-      />
-      <SettingsToggleRow
-        description="Ver cuándo fue su última actividad"
-        label="Última vez de tus contactos"
-        onChange={(value) => void updatePreferences({ lastSeen: value })}
-        value={preferences.lastSeen}
-      />
     </SettingsGroup>
 
-    <SettingsNote>Al desactivar las confirmaciones de lectura no se envía `READ`: la conversación se marca leída solo aquí. Al desactivar «Compartir mi hora de actividad» tu latido deja de llevar la hora: lo que ya vieron tus contactos no se borra, pero deja de avanzar. El punto verde de «en línea» sigue dependiendo de que la app esté abierta, porque se deduce de cualquier paquete y no solo de ese latido.</SettingsNote>
+    <SettingsNote>Al desactivar las confirmaciones de lectura no se envía `READ`: la conversación se marca leída solo aquí. Al desactivar «Compartir mi presencia y actividad» tu latido deja de llevar la hora, dejas de ver la presencia y la última actividad de tus contactos, y ellos dejan de ver la tuya. El punto verde de «en línea» depende de que la app esté abierta.</SettingsNote>
   </YStack>;
 }

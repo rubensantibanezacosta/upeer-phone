@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { activeAt, describeLastSeen, describePresence, isOnline, ONLINE_WINDOW_MS } from './presence';
+import { describeLastSeen, describePresence, isOnline, ONLINE_WINDOW_MS } from './presence';
 
 const NOW = new Date('2026-10-25T12:00:00').getTime();
 const MINUTE = 60_000;
@@ -39,50 +39,25 @@ describe('describeLastSeen', () => {
   });
 });
 
-describe('activeAt', () => {
-  it('prefiere la actividad del usuario sobre la alcanzabilidad', () => {
-    expect(activeAt(NOW - 5_000, NOW - 1_000)).toBe(NOW - 5_000);
-  });
-
-  it('cae a la alcanzabilidad cuando aún no hay actividad', () => {
-    expect(activeAt(0, NOW - 1_000)).toBe(NOW - 1_000);
-    expect(activeAt(undefined, NOW - 1_000)).toBe(NOW - 1_000);
-  });
-
-  it('devuelve null sin ningún dato', () => {
-    expect(activeAt(undefined, undefined)).toBeNull();
-    expect(activeAt(0, 0)).toBeNull();
-  });
-});
-
 describe('describePresence', () => {
-  const base = { now: NOW, onlineStatus: true, lastSeenEnabled: true };
+  const base = { now: NOW, shareActivity: true };
 
-  it('antepone En línea cuando el contacto está activo', () => {
-    expect(describePresence({ ...base, lastSeen: NOW - 1_000 })).toBe('En línea');
-  });
-
-  it('no llama En línea a un nodo alcanzable sin actividad del usuario', () => {
-    expect(describePresence({ ...base, lastActive: NOW - 5 * MINUTE, lastSeen: NOW - 1_000 })).toBe('Última vez hace 5 min');
-  });
-
-  it('llama En línea cuando la actividad del usuario es reciente', () => {
-    expect(describePresence({ ...base, lastActive: NOW - 2_000, lastSeen: NOW - 3 * 60 * MINUTE })).toBe('En línea');
+  it('llama En línea cuando la actividad anunciada es reciente', () => {
+    expect(describePresence({ ...base, lastActive: NOW - 2_000 })).toBe('En línea');
   });
 
   it('cae a última vez cuando la actividad es antigua', () => {
-    expect(describePresence({ ...base, lastSeen: NOW - 5 * MINUTE })).toBe('Última vez hace 5 min');
+    expect(describePresence({ ...base, lastActive: NOW - 5 * MINUTE })).toBe('Última vez hace 5 min');
   });
 
-  it('oculta la última vez si la preferencia está apagada', () => {
-    expect(describePresence({ ...base, lastSeenEnabled: false, lastSeen: NOW - 5 * MINUTE })).toBe('Desconectado');
+  it('no anuncia conexión si el contacto no comparte su actividad', () => {
+    expect(describePresence({ ...base, lastActive: undefined })).toBe('Desconectado');
+    expect(describePresence({ ...base, lastActive: 0 })).toBe('Desconectado');
   });
 
-  it('oculta el En línea si la preferencia está apagada', () => {
-    expect(describePresence({ ...base, onlineStatus: false, lastSeen: NOW - 1_000 })).toBe('Última vez hace un momento');
-  });
-
-  it('no inventa presencia sin datos', () => {
-    expect(describePresence({ ...base, lastSeen: undefined })).toBe('Desconectado');
+  it('no muestra nada de nadie si compartir está apagado', () => {
+    expect(describePresence({ ...base, shareActivity: false, lastActive: NOW - 2_000 })).toBeNull();
+    expect(describePresence({ ...base, shareActivity: false, lastActive: NOW - 5 * MINUTE })).toBeNull();
+    expect(describePresence({ ...base, shareActivity: false, lastActive: undefined })).toBeNull();
   });
 });

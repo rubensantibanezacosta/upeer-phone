@@ -2,19 +2,13 @@ export const ONLINE_WINDOW_MS = 65_000;
 
 type PresenceInput = {
   lastActive?: number | null;
-  lastSeen?: number | null;
   now: number;
-  onlineStatus: boolean;
-  lastSeenEnabled: boolean;
+  shareActivity: boolean;
 };
 
 function toMillis(value?: number | null): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null;
   return value;
-}
-
-export function activeAt(lastActive?: number | null, lastSeen?: number | null): number | null {
-  return toMillis(lastActive) ?? toMillis(lastSeen);
 }
 
 export function isOnline(lastActive: number | undefined | null, now: number, windowMs = ONLINE_WINDOW_MS): boolean {
@@ -42,10 +36,11 @@ export function describeLastSeen(lastSeen: number | undefined | null, now: numbe
   return `el ${day} ${MONTHS[date.getMonth()]} a las ${formatClock(date)}`;
 }
 
-export function describePresence({ lastActive: active, lastSeen, now, onlineStatus, lastSeenEnabled }: PresenceInput): string {
-  const reference = activeAt(active, lastSeen);
-  if (onlineStatus && isOnline(reference, now)) return 'En línea';
-  if (!lastSeenEnabled) return 'Desconectado';
-  const label = describeLastSeen(reference, now);
+export function describePresence({ lastActive, now, shareActivity }: PresenceInput): string | null {
+  if (!shareActivity) return null;
+  const active = toMillis(lastActive);
+  if (active === null) return 'Desconectado';
+  if (isOnline(active, now)) return 'En línea';
+  const label = describeLastSeen(active, now);
   return label ? `Última vez ${label}` : 'Desconectado';
 }

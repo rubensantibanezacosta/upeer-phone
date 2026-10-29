@@ -8,11 +8,18 @@ internal class ProtocolPresence(
   private val persist: () -> Unit,
 ) {
   fun touch(upeerId: String, atMillis: Long, nowMillis: Long): Boolean {
-    if (!validId(upeerId) || atMillis <= 0) return false
-    val at = atMillis.coerceAtMost(nowMillis)
+    if (!validId(upeerId)) return false
     return synchronized(lock) {
       val peers = state().optJSONObject("peers") ?: return@synchronized false
       val peer = peers.optJSONObject(upeerId) ?: return@synchronized false
+      if (atMillis <= 0L) {
+        if (peer.optLong("lastActive", 0L) <= 0L) return@synchronized false
+        peer.put("lastActive", 0L)
+        state().put("peers", peers)
+        persist()
+        return@synchronized true
+      }
+      val at = atMillis.coerceAtMost(nowMillis)
       if (at <= peer.optLong("lastActive", 0L)) return@synchronized false
       peer.put("lastActive", at)
       state().put("peers", peers)

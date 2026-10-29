@@ -31,7 +31,7 @@ export type ChatListEntry = {
   pinned?: boolean;
   favorite?: boolean;
   activity?: ConversationActivity | '';
-  lastSeen?: number;
+  lastActive?: number;
   group?: boolean;
   members?: number;
 };
@@ -72,10 +72,9 @@ export function ChatListItem({ entry, now, onOpen, onOpenMenu }: ChatListItemPro
     preview: entry.preview,
     pending: entry.pending,
     activity: entry.activity,
-    lastSeen: entry.lastSeen,
+    lastActive: entry.lastActive,
     now,
-    onlineStatus: preferences.onlineStatus,
-    lastSeenEnabled: preferences.lastSeen,
+    shareActivity: preferences.shareActivity,
   });
   const previewColor = preview.accent ? theme.accent : isEmphasized ? theme.text : theme.placeholder;
   const time = formatConversationTime(entry.timestamp);

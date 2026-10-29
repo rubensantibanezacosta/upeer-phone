@@ -61,7 +61,7 @@ export default function ChatRoute() {
   const [isRequest, setIsRequest] = useState(false);
   const [requestReceivedAt, setRequestReceivedAt] = useState(0);
   const [peerActivity, setPeerActivity] = useState<ConversationActivity | ''>('');
-  const [peerPresence, setPeerPresence] = useState<{ lastActive?: number; lastSeen?: number }>({});
+  const [peerPresence, setPeerPresence] = useState<number | undefined>(undefined);
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
@@ -79,7 +79,7 @@ export default function ChatRoute() {
     const ownConversation = conversations.find((conversation) => conversation.upeerId === upeerId);
     const conversationAlias = ownConversation?.alias;
     setPeerActivity(ownConversation?.activity ?? '');
-    setPeerPresence({ lastActive: ownConversation?.lastActive, lastSeen: ownConversation?.lastSeen });
+    setPeerPresence(ownConversation?.lastActive);
     setPeerAvatar(ownConversation?.avatar);
     setGroupMembers(ownConversation?.members ?? 0);
     const resolvedName = resolveContactName(contact?.name, conversationAlias, upeerId);
@@ -176,7 +176,7 @@ export default function ChatRoute() {
   }, []);
   const reloadContacts = useCallback(() => refresh().catch((cause: unknown) => console.warn('No se pudo recargar la agenda.', cause)), [refresh]);
   const contactCard = useContactCard({ contacts, onOpenContact: openContactInfo, onSaved: reloadContacts });
-  const presence = usePresenceLabel(peerPresence.lastActive, peerPresence.lastSeen);
+  const presence = usePresenceLabel(peerPresence);
   const { notice: retentionNotice } = useChatRetention(upeerId);
   const { styleId: chatStyleId } = useChatStyle(upeerId);
   const androidKeyboard = useAndroidKeyboardHeight();

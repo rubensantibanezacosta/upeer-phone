@@ -53,6 +53,22 @@ class ProtocolPresenceTest {
   }
 
   @Test
+  fun `forgets the activity when a peer stops sharing it`() {
+    val (state, presence) = store(JSONObject().put("lastActive", now))
+
+    assertTrue(presence.touch(peerId, 0L, now))
+
+    assertEquals(0L, state.getJSONObject("peers").getJSONObject(peerId).getLong("lastActive"))
+  }
+
+  @Test
+  fun `keeps quiet when a silent peer never shared activity`() {
+    val (_, presence) = store(JSONObject())
+
+    assertFalse(presence.touch(peerId, 0L, now))
+  }
+
+  @Test
   fun `only targets reachable peers seen within the window`() {
     val peers = JSONObject()
       .put("a".repeat(64), JSONObject().put("address", "200::1").put("publicKey", "b".repeat(64)).put("lastSeen", now - 1_000))
