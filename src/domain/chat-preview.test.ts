@@ -39,8 +39,9 @@ describe('describeChatPreview', () => {
     expect(describeChatPreview({ ...BASE, preview: '', lastActive: NOW - 300_000 }).text).toBe('Última vez hace 5 min');
   });
 
-  it('no dice nada de la presencia si compartir está apagado', () => {
-    expect(describeChatPreview({ ...BASE, preview: '', lastActive: NOW - 300_000, shareActivity: false }).text).toBe('');
+  it('cae a «Sin mensajes» si compartir está apagado, haya o no actividad', () => {
+    expect(describeChatPreview({ ...BASE, preview: '', lastActive: NOW - 300_000, shareActivity: false }).text).toBe('Sin mensajes');
+    expect(describeChatPreview({ ...BASE, preview: '', shareActivity: false }).text).toBe('Sin mensajes');
   });
 
   it('no inventa presencia sin datos', () => {

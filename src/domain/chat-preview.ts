@@ -22,5 +22,5 @@ export function describeChatPreview({ preview, pending, activity, lastActive, no
   if (activity === 'recording') return { text: 'Grabando audio…', accent: true, italic: false };
   if (activity === 'typing') return { text: 'Escribiendo…', accent: true, italic: false };
   if (preview) return { text: preview, accent: false, italic: false };
-  return { text: describePresence({ lastActive, now, shareActivity }) ?? '', accent: false, italic: false };
+  return { text: describePresence({ lastActive, now, shareActivity }) ?? 'Sin mensajes', accent: false, italic: false };
 }

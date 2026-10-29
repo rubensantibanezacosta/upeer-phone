@@ -110,7 +110,7 @@ export default function ChatsRoute() {
       upeerId: conversation.upeerId,
       title: conversation.alias || conversation.upeerId.slice(0, 12),
       avatar: conversation.avatar,
-      preview: previewMessage(conversation.lastMessage) || 'Sin mensajes',
+      preview: previewMessage(conversation.lastMessage),
       timestamp: conversation.lastTimestamp,
       unread: conversation.unread,
       isMine: conversation.lastIsMine === true,
