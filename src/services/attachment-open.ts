@@ -9,6 +9,7 @@ export type AttachmentOpenPlan =
   | { kind: 'media' }
   | { kind: 'share' }
   | { kind: 'request' }
+  | { kind: 'own-devices' }
   | { kind: 'notice'; message: string };
 
 export const OWN_DEVICE_NOTICE = 'El archivo está en otro de tus dispositivos';
@@ -18,7 +19,7 @@ export function planAttachmentOpen(
   options: { exists: boolean; requestable: boolean; isMine?: boolean }
 ): AttachmentOpenPlan {
   const request = (message: string): AttachmentOpenPlan => {
-    if (options.isMine) return { kind: 'notice', message: OWN_DEVICE_NOTICE };
+    if (options.isMine) return { kind: 'own-devices' };
     return options.requestable ? { kind: 'request' } : { kind: 'notice', message };
   };
   if (!canOpenAttachment(info)) return request('El archivo todavía no se ha descargado');

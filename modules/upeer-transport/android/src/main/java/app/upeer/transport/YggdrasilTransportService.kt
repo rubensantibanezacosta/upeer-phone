@@ -327,6 +327,7 @@ class YggdrasilTransportService : Service() {
     override fun cancelFile(fileId: String): Boolean = protocol.cancelFile(fileId)
     override fun requestFile(upeerId: String, fileId: String, messageId: String, chatUpeerId: String): Boolean =
       protocol.requestFile(upeerId, fileId, messageId.ifBlank { null }, chatUpeerId.ifBlank { null })
+    override fun requestFileFromOwnDevices(fileId: String): Boolean = protocol.requestFileFromOwnDevices(fileId)
     override fun outboundFilesJSON(): String = protocol.outboundFiles()
     override fun startCall(upeerId: String, kind: String): String = protocol.startCall(upeerId, kind).orEmpty()
     override fun acceptCall(callId: String): Boolean = protocol.acceptCall(callId)

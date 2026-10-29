@@ -4,6 +4,7 @@ import { useSnackbar } from '@/components/snackbar';
 import { attachmentUri, type AttachmentInfo } from '@/domain/attachment';
 import { attachmentFileExists } from '@/hooks/use-attachment-file';
 import { attachmentOpenMessage, openAttachment, OWN_DEVICE_NOTICE, planAttachmentOpen } from '@/services/attachment-open';
+import { requestFileFromOwnDevices } from '../../modules/upeer-transport/src/UPeerTransportModule';
 
 export function useAttachmentOpener(
   onMedia?: (info: AttachmentInfo) => void,
@@ -20,6 +21,19 @@ export function useAttachmentOpener(
     });
     if (plan.kind === 'request') {
       void onMissing?.(info, messageId);
+      return;
+    }
+    if (plan.kind === 'own-devices') {
+      const fileId = info.transferId;
+      if (!fileId) {
+        showSnackbar(OWN_DEVICE_NOTICE);
+        return;
+      }
+      const requested = await requestFileFromOwnDevices(fileId).catch((cause: unknown) => {
+        console.warn('No se pudo pedir el archivo a mis otros dispositivos.', cause);
+        return false;
+      });
+      showSnackbar(requested ? 'Pidiendo el archivo a tus otros dispositivos…' : OWN_DEVICE_NOTICE);
       return;
     }
     if (plan.kind === 'notice') {

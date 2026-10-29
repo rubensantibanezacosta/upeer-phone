@@ -26,7 +26,10 @@ internal object SyncPackets {
   const val RESET = "SYNC_RESET"
   const val REGISTRY = "SYNC_REGISTRY"
 
-  private val types = setOf(HELLO, ENVELOPE, HISTORY_REQ, HISTORY_RES, ACK, RESET, REGISTRY)
+  private val types = setOf(
+    HELLO, ENVELOPE, HISTORY_REQ, HISTORY_RES, ACK, RESET, REGISTRY,
+    SyncFilePackets.REQ, SyncFilePackets.RES, SyncFilePackets.CHUNK,
+  )
 
   fun isSyncType(type: String): Boolean = type in types
 

@@ -190,6 +190,7 @@ class UPeerTransportModule : Module() {
     AsyncFunction("requestFile") { upeerId: String, fileId: String, messageId: String, chatUpeerId: String ->
       service().requestFile(upeerId, fileId, messageId, chatUpeerId)
     }
+    AsyncFunction("requestFileFromOwnDevices") { fileId: String -> service().requestFileFromOwnDevices(fileId) }
     AsyncFunction("outboundFilesJSON") { service().outboundFilesJSON() }
     AsyncFunction("startCall") { upeerId: String, kind: String -> service().startCall(upeerId, kind) }
     AsyncFunction("acceptCall") { callId: String -> service().acceptCall(callId) }

@@ -17,6 +17,13 @@ internal class ProtocolSync(
 ) {
   private val channel = SyncChannel(identity, state)
   private val applier = SyncApplier(state)
+  private val files = SyncFileChannel(
+    identity,
+    state,
+    deviceSignedPreKeys,
+    channel,
+    { peer, packet -> sendFilePacket(peer, packet) },
+  )
   private val history = SyncHistory(
     identity,
     state,
@@ -114,9 +121,63 @@ internal class ProtocolSync(
 
   fun isSyncType(type: String): Boolean = SyncPackets.isSyncType(type)
 
+  fun isSyncFileType(type: String): Boolean = files.isFileType(type)
+
+  fun requestFileSync(fileId: String): Boolean = files.request(fileId)
+
+  fun filesHandling(packet: org.json.JSONObject, senderDeviceId: String, senderDevicePublicKey: String): Boolean {
+    val type = packet.optString("type")
+    if (!files.isFileType(type)) return false
+    val device = identity.currentDevice()
+    if (device == null) return true
+    if (!packet.optString("recipientDeviceId").equals(device.deviceId, ignoreCase = true)) return true
+    files.handle(packet, senderDeviceId, senderDevicePublicKey)
+    return true
+  }
+
+  private fun sendFilePacket(peer: SyncPeerRecord, packet: org.json.JSONObject): Boolean {
+    val bridge = activeBridge ?: return false
+    if (peer.address.isBlank()) return false
+    val device = identity.currentDevice() ?: return false
+    val frame = channel.sealEnvelope(bridge, device, peer, packet, packet) ?: run {
+      Log.w("UPeerTransport", "No se pudo sellar el paquete de ficheros de sincronización")
+      return false
+    }
+    return send(bridge, peer.address, frame)
+  }
+
+  private fun handleFilePacket(payload: ByteArray, packet: org.json.JSONObject, type: String, source: String): String {
+    val self = identity.current()?.upeerID() ?: return InboundPolicy.rejected(packet)
+    val auth = when (val result = SyncSelfAuth.authenticate(packet, self, System.currentTimeMillis(), ::verifyCertificate, ::isRevoked)) {
+      is SyncSelfAuthResult.Rejected -> {
+        Log.w("UPeerTransport", "Paquete $type rechazado: ${result.reason}")
+        return InboundPolicy.rejected(packet)
+      }
+      is SyncSelfAuthResult.Accepted -> result.identity
+    }
+    if (!policy.allow(packet, source)) return policy.rateLimited(packet)
+    try {
+      validate(payload, auth.devicePublicKey, self)
+    } catch (cause: Exception) {
+      Log.w("UPeerTransport", "Firma de $type inválida para ${auth.deviceId.take(12)}")
+      return InboundPolicy.rejected(packet)
+    }
+    filesHandling(packet, auth.deviceId, auth.devicePublicKey)
+    return JSONObject().put("type", type).put("senderUpeerId", self).put("deviceId", auth.deviceId).toString()
+  }
+
+  private fun verifyCertificate(certificateJSON: String, accountUpeerId: String, nowMillis: Long): Boolean =
+    app.upeer.transportbridge.transportbridge.Transportbridge.verifyDeviceCertificate(certificateJSON, accountUpeerId, nowMillis)
+
+  private fun isRevoked(deviceId: String): Boolean {
+    val self = identity.current()?.upeerID() ?: return true
+    return deviceBindings.isRevoked(self, deviceId)
+  }
+
   fun handle(activeBridge: Bridge, payload: ByteArray, packet: org.json.JSONObject, type: String, source: String): String {
     seenPeers[source] = System.currentTimeMillis()
     this.activeBridge = activeBridge
+    if (files.isFileType(type)) return handleFilePacket(payload, packet, type, source)
     return replies.handle(activeBridge, payload, packet, type, source)
   }
 

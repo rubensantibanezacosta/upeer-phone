@@ -203,6 +203,32 @@ internal class ProtocolMessageList(
     }
   }
 
+  fun attachmentContent(fileId: String): String? = synchronized(lock) {
+    if (fileId.isBlank()) return@synchronized null
+    for (index in 0 until messages().length()) {
+      val message = messages().optJSONObject(index) ?: continue
+      if (MessageAttachments.fileIdOf(message) != fileId) continue
+      MessageAttachments.content(message)?.let { return@synchronized it }
+    }
+    null
+  }
+
+  fun applySyncedSavedPath(fileId: String, savedPath: String): String? = synchronized(lock) {
+    if (fileId.isBlank() || savedPath.isBlank()) return@synchronized null
+    val list = messages()
+    for (index in 0 until list.length()) {
+      val message = list.optJSONObject(index) ?: continue
+      if (MessageAttachments.fileIdOf(message) != fileId) continue
+      val content = MessageAttachments.content(message) ?: continue
+      val parsed = runCatching { JSONObject(content) }.getOrNull() ?: continue
+      parsed.put("savedPath", savedPath)
+      message.put("content", parsed.toString())
+      persist()
+      return@synchronized message.optString("id").ifEmpty { null }
+    }
+    null
+  }
+
   private fun messages(): JSONArray = stateProvider().optJSONArray("messages") ?: JSONArray()
 
   private fun put(next: JSONArray) {

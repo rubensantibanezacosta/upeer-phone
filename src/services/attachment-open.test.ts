@@ -126,11 +126,11 @@ describe('planAttachmentOpen', () => {
     expect(planAttachmentOpen(info() as never, { exists: false, requestable: true })).toEqual({ kind: 'request' });
   });
 
-  it('avisa en vez de pedir cuando el archivo es mío', () => {
+  it('pide a mis otros dispositivos cuando el archivo es mío y no está aquí', () => {
     expect(planAttachmentOpen(info({ localPath: undefined }) as never, { exists: false, requestable: true, isMine: true }))
-      .toEqual({ kind: 'notice', message: OWN_DEVICE_NOTICE });
+      .toEqual({ kind: 'own-devices' });
     const image = info({ kind: 'image', mimeType: 'image/jpeg', fileName: 'foto.jpg' });
     expect(planAttachmentOpen(image as never, { exists: false, requestable: true, isMine: true }))
-      .toEqual({ kind: 'notice', message: OWN_DEVICE_NOTICE });
+      .toEqual({ kind: 'own-devices' });
   });
 });

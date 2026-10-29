@@ -95,6 +95,7 @@ interface IYggdrasilTransport {
   String sendFile(String upeerId, String path, String fileName, String mimeType, String caption, boolean isVoiceNote, String chatUpeerId, String messageId);
   boolean cancelFile(String fileId);
   boolean requestFile(String upeerId, String fileId, String messageId, String chatUpeerId);
+  boolean requestFileFromOwnDevices(String fileId);
   String outboundFilesJSON();
   String startCall(String upeerId, String kind);
   boolean acceptCall(String callId);

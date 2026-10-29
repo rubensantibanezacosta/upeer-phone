@@ -30,6 +30,9 @@ internal class YggdrasilProtocol(
   private val policy = InboundPolicy(rateLimiter)
   private val egress = ProtocolEgress(::selfAddress)
   private val transfers = FileTransferState(transferStorage)
+  init {
+    SyncFileReceive.attachDirectory(transferStorage())
+  }
   private val handshake = YggdrasilHandshake(identity, signedPreKeys, deviceSignedPreKeys, deviceBindings, state)
   private val outbox = YggdrasilOutbox(
     identity,
@@ -698,6 +701,8 @@ internal class YggdrasilProtocol(
 
   fun requestFile(upeerId: String, fileId: String, messageId: String?, chatUpeerId: String?): Boolean =
     fileRequests.request(upeerId, fileId, messageId, chatUpeerId)
+
+  fun requestFileFromOwnDevices(fileId: String): Boolean = sync.requestFileSync(fileId)
 
   private fun sendSealed(upeerId: String, data: JSONObject, label: String): Boolean {
     val active = bridge ?: return false
