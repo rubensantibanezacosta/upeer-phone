@@ -3,12 +3,20 @@ import type { DhtLocationPublication } from '../../modules/upeer-transport/src/U
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
 
-export type LocationTone = 'ok' | 'warn' | 'danger' | 'idle';
+export type LocationRow = { label: string; value: string };
 
-export type LocationSummary = {
-  detail: string;
-  title: string;
-  tone: LocationTone;
+export type LocationError = { label: string; detail: string };
+
+export type LocationState = {
+  rows: LocationRow[];
+  errors: LocationError[];
+  published: boolean;
+};
+
+export const LOCATION_ERROR_LABELS: Record<string, string> = {
+  certificado: 'Certificado',
+  identidad: 'Identidad',
+  red: 'Red',
 };
 
 export function describeAge(timestamp: number, now: number): string | null {
@@ -28,37 +36,38 @@ export function describeAge(timestamp: number, now: number): string | null {
   return days === 1 ? 'hace 1 día' : `hace ${days} días`;
 }
 
-export function describePublication(publication: DhtLocationPublication | null | undefined, now: number): LocationSummary {
-  if (!publication) {
-    return { detail: 'El servicio todavía no ha publicado tu ubicación.', title: 'Sin datos de publicación', tone: 'idle' };
-  }
+function describeNodes(nodes: number): string {
+  if (nodes <= 0) return 'Ningún nodo todavía.';
+  return nodes === 1 ? 'En 1 nodo.' : `En ${nodes} nodos.`;
+}
 
-  const published = describeAge(publication.publishedAt, now);
-  const error = publication.error;
+function describeFanout(fanout: number): string {
+  if (fanout <= 0) return 'Sin contactos íntimos todavía.';
+  return fanout === 1 ? 'A 1 contacto.' : `A ${fanout} contactos.`;
+}
 
-  if (error) {
-    const when = describeAge(error.at, now);
-    const suffix = when ? ` (${when})` : '';
-    const prefix = error.kind === 'certificado'
-      ? 'Certificado rechazado'
-      : error.kind === 'identidad'
-        ? 'Sin identidad de cuenta'
-        : 'Fallo de red';
-    return { detail: `${error.message}${suffix}`, title: prefix, tone: error.kind === 'identidad' ? 'warn' : 'danger' };
-  }
+export function describeLocationState(publication: DhtLocationPublication | null | undefined, now: number): LocationState {
+  const published = Boolean(publication && publication.publishedAt > 0);
+  const publishedAt = publication ? describeAge(publication.publishedAt, now) : null;
+  const sequence = publication && publication.dhtSeq > 0 ? ` · secuencia ${publication.dhtSeq}` : '';
+  const rows: LocationRow[] = [
+    {
+      label: 'Última publicación',
+      value: published && publishedAt ? `Publicada ${publishedAt}${sequence}.` : 'Todavía no se ha publicado.',
+    },
+    { label: 'Copias en la red', value: describeNodes(publication?.nodes ?? 0) },
+    { label: 'Contactos avisados', value: describeFanout(publication?.fanout ?? 0) },
+  ];
 
-  if (!published) {
-    return { detail: 'Todavía no se ha publicado tu bloque en la DHT.', title: 'Sin publicar', tone: 'warn' };
-  }
+  const error = publication?.error;
+  const errors: LocationError[] = error
+    ? [{
+      label: LOCATION_ERROR_LABELS[error.kind] ?? 'Aviso',
+      detail: `${error.message}${describeAge(error.at, now) ? ` (${describeAge(error.at, now)})` : ''}`,
+    }]
+    : [];
 
-  const fanout = publication.fanout > 0
-    ? `Repartido a ${publication.fanout} ${publication.fanout === 1 ? 'contacto' : 'contactos'}`
-    : 'Todavía sin contactos íntimos a los que repartir';
-  const nodes = publication.nodes > 0
-    ? `${publication.nodes} ${publication.nodes === 1 ? 'nodo' : 'nodos'}`
-    : 'ningún nodo';
-
-  return { detail: `Publicado ${published} en ${nodes}. ${fanout}.`, title: 'Ubicación publicada', tone: 'ok' };
+  return { rows, errors, published };
 }
 
 export function describeLocationAddress(address?: string | null): string | null {

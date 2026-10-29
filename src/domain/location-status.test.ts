@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { describeAge, describeLocationAddress, describePublication } from './location-status';
+import { describeAge, describeLocationAddress, describeLocationState } from './location-status';
 import type { DhtLocationPublication } from '../../modules/upeer-transport/src/UPeerTransport.types';
 
 const MINUTE = 60 * 1000;
@@ -39,67 +39,52 @@ describe('describeAge', () => {
   });
 });
 
-describe('describePublication', () => {
+describe('describeLocationState', () => {
   const now = 100 * HOUR;
 
-  it('asks for data when there is nothing yet', () => {
-    const summary = describePublication(null, now);
+  it('marks a node with no publication as pending', () => {
+    const state = describeLocationState(null, now);
 
-    expect(summary.tone).toBe('idle');
-    expect(summary.title).toBe('Sin datos de publicación');
+    expect(state.published).toBe(false);
+    expect(state.rows).toEqual([
+      { label: 'Última publicación', value: 'Todavía no se ha publicado.' },
+      { label: 'Copias en la red', value: 'Ningún nodo todavía.' },
+      { label: 'Contactos avisados', value: 'Sin contactos íntimos todavía.' },
+    ]);
+    expect(state.errors).toEqual([]);
   });
 
-  it('warns when nothing has been published', () => {
-    const summary = describePublication(publication(), now);
+  it('describes a successful publication without claiming a phone location', () => {
+    const state = describeLocationState(publication({ publishedAt: now - 2 * MINUTE, dhtSeq: 7, nodes: 4, fanout: 3 }), now);
 
-    expect(summary.tone).toBe('warn');
-    expect(summary.title).toBe('Sin publicar');
-  });
-
-  it('reports a successful publication with nodes and fan-out', () => {
-    const summary = describePublication(publication({ publishedAt: now - 2 * MINUTE, nodes: 4, fanout: 3 }), now);
-
-    expect(summary.tone).toBe('ok');
-    expect(summary.title).toBe('Ubicación publicada');
-    expect(summary.detail).toContain('hace 2 minutos');
-    expect(summary.detail).toContain('4 nodos');
-    expect(summary.detail).toContain('3 contactos');
+    expect(state.published).toBe(true);
+    expect(state.rows[0].value).toBe('Publicada hace 2 minutos · secuencia 7.');
+    expect(state.rows[1].value).toBe('En 4 nodos.');
+    expect(state.rows[2].value).toBe('A 3 contactos.');
   });
 
   it('uses the singular where it applies', () => {
-    const summary = describePublication(publication({ publishedAt: now - MINUTE, nodes: 1, fanout: 1 }), now);
+    const state = describeLocationState(publication({ publishedAt: now - MINUTE, nodes: 1, fanout: 1 }), now);
 
-    expect(summary.detail).toContain('1 nodo');
-    expect(summary.detail).toContain('1 contacto');
+    expect(state.rows[1].value).toBe('En 1 nodo.');
+    expect(state.rows[2].value).toBe('A 1 contacto.');
   });
 
-  it('says when there is nobody to fan out to', () => {
-    const summary = describePublication(publication({ publishedAt: now - MINUTE, nodes: 2 }), now);
+  it('labels each error by origin and keeps when it happened', () => {
+    const network = describeLocationState(publication({ error: { kind: 'red', message: 'timeout', at: now - 3 * MINUTE } }), now);
+    const certificate = describeLocationState(publication({ error: { kind: 'certificado', message: 'no válido', at: now } }), now);
+    const identity = describeLocationState(publication({ error: { kind: 'identidad', message: 'sin cuenta', at: now } }), now);
 
-    expect(summary.detail).toContain('sin contactos íntimos');
+    expect(network.errors).toEqual([{ label: 'Red', detail: 'timeout (hace 3 minutos)' }]);
+    expect(certificate.errors[0].label).toBe('Certificado');
+    expect(identity.errors[0].label).toBe('Identidad');
   });
 
-  it('separates a network failure from a certificate one', () => {
-    const network = describePublication(publication({ error: { kind: 'red', message: 'socket cerrado', at: now - MINUTE } }), now);
-    const certificate = describePublication(publication({ error: { kind: 'certificado', message: 'no válido', at: now - MINUTE } }), now);
+  it('falls back to a generic label for an unknown origin', () => {
+    const state = describeLocationState(publication({ error: { kind: 'otra', message: 'algo', at: 0 } }), now);
 
-    expect(network.tone).toBe('danger');
-    expect(network.title).toBe('Fallo de red');
-    expect(certificate.tone).toBe('danger');
-    expect(certificate.title).toBe('Certificado rechazado');
-  });
-
-  it('keeps an identity problem as a warning instead of a failure', () => {
-    const summary = describePublication(publication({ error: { kind: 'identidad', message: 'sin cuenta', at: now } }), now);
-
-    expect(summary.tone).toBe('warn');
-    expect(summary.title).toBe('Sin identidad de cuenta');
-  });
-
-  it('shows when the error happened', () => {
-    const summary = describePublication(publication({ error: { kind: 'red', message: 'timeout', at: now - 3 * MINUTE } }), now);
-
-    expect(summary.detail).toBe('timeout (hace 3 minutos)');
+    expect(state.errors[0].label).toBe('Aviso');
+    expect(state.errors[0].detail).toBe('algo');
   });
 });
 
