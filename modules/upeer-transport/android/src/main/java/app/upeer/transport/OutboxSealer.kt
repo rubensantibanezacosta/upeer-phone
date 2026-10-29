@@ -33,12 +33,18 @@ internal class OutboxSealer(
   }
 
   fun sealAndSend(activeBridge: Bridge, entry: JSONObject, target: Target): Result {
+    val nextPacket = seal(entry, target) ?: return Result.Failed("resultado de cifrado inválido")
+    if (!link.sendPacket(activeBridge, target.address, nextPacket)) return Result.Failed("writeFrame falló")
+    return Result.Sent
+  }
+
+  fun seal(entry: JSONObject, target: Target): String? {
     val messageID = entry.optString("id")
-    val currentIdentity = identity.current() ?: return Result.Failed("identidad no disponible")
+    val currentIdentity = identity.current() ?: return null
     val currentDevice = target.binding?.let { identity.currentDevice() }
       ?.takeIf { it.accountUpeerId == currentIdentity.upeerID() }
     val useDevice = target.binding != null && currentDevice != null
-    try {
+    return try {
       val result = OutboxPacketFactory.packet(
         currentIdentity,
         currentDevice.takeIf { useDevice },
@@ -51,14 +57,13 @@ internal class OutboxSealer(
       )
       val nextSession = result.optString("session")
       val nextPacket = result.optString("packet")
-      if (nextSession.isEmpty() || nextPacket.isEmpty()) return Result.Failed("resultado de cifrado inválido")
+      if (nextSession.isEmpty() || nextPacket.isEmpty()) return null
       state.saveSession(target.upeerId, nextSession)
       outbox.setPacket(messageID, nextPacket)
-      if (!link.sendPacket(activeBridge, target.address, nextPacket)) return Result.Failed("writeFrame falló")
-      return Result.Sent
+      nextPacket
     } catch (cause: Exception) {
       Log.w(TAG, "No se pudo cifrar $messageID para ${target.upeerId}: ${message(cause)}")
-      return Result.Failed(message(cause))
+      null
     }
   }
 

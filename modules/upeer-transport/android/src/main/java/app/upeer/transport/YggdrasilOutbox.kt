@@ -43,6 +43,7 @@ internal class YggdrasilOutbox(
     { synchronized(lock) { selfAddress } },
     ::isActive,
   )
+  private val giveUp = OutboxGiveUp(outbox, state, sealer, vault, deviceBindings)
   private val actions = OutboxActions(link, state, outbox, admission, { synchronized(lock) { bridge } }, { synchronized(lock) { running } }) { wake() }
   private var bridge: Bridge? = null
   private var selfAddress = ""
@@ -166,7 +167,7 @@ internal class YggdrasilOutbox(
             if (isActive(activeBridge)) deliver(activeBridge, entry)
           }
         } catch (cause: Exception) {
-          retry(messageID, entry, message(cause))
+          giveUp.retry(activeBridge, messageID, entry, message(cause))
         } finally {
           inFlight.remove(messageID)
         }
@@ -201,18 +202,18 @@ internal class YggdrasilOutbox(
     val upeerId = entry.optString("upeerId")
     val peer = state.peerFor(upeerId)
     if (peer == null) {
-      retry(messageID, entry, "peer desconocido")
+      giveUp.retry(activeBridge, messageID, entry, "peer desconocido")
       return
     }
     val address = peer.optString("address")
     val publicKey = peer.optString("publicKey")
     if (address.isBlank()) {
-      retry(messageID, entry, "peer sin dirección")
+      giveUp.retry(activeBridge, messageID, entry, "peer sin dirección")
       return
     }
     if (publicKey.length != 64) {
       link.sendHandshakeRequest(activeBridge, address)
-      retry(messageID, entry, "handshake pendiente")
+      giveUp.retry(activeBridge, messageID, entry, "handshake pendiente")
       return
     }
     val deviceBinding = deviceBindings.bindingFor(peer, upeerId)
@@ -222,18 +223,17 @@ internal class YggdrasilOutbox(
         deviceBinding?.let { ExpectedContactDevice(it.deviceId, it.devicePublicKey) },
       )
     } catch (cause: ContactAdmissionException) {
-      retry(messageID, entry, message(cause))
+      giveUp.retry(activeBridge, messageID, entry, message(cause))
       return
     }
     val packet = entry.optString("packet")
     if (packet.isNotEmpty()) {
       val sends = entry.optInt("sends", 0)
-      if (entry.has("sentAt") && !OutboxRetryPolicy.canResend(sends)) {
-        if (vault.escrow(activeBridge, entry)) return
-        fail(messageID, entry, "sin ACK tras $sends reenvíos")
+      if (OutboxFallback.outOfResends(entry)) {
+        giveUp.fail(activeBridge, messageID, entry, "sin ACK tras $sends reenvíos")
         return
       }
-      if (link.sendPacket(activeBridge, address, packet)) markSent(messageID, entry) else retry(messageID, entry, "writeFrame falló")
+      if (link.sendPacket(activeBridge, address, packet)) markSent(messageID, entry) else giveUp.retry(activeBridge, messageID, entry, "writeFrame falló")
       return
     }
     val target = OutboxSealer.Target(
@@ -246,12 +246,12 @@ internal class YggdrasilOutbox(
     )
     if (target.session == null && sealer.recipientSpk(target) == null) {
       link.sendHandshakeRequest(activeBridge, address)
-      retry(messageID, entry, "handshake pendiente")
+      giveUp.retry(activeBridge, messageID, entry, "handshake pendiente")
       return
     }
     when (val result = sealer.sealAndSend(activeBridge, entry, target)) {
       OutboxSealer.Result.Sent -> markSent(messageID, entry)
-      is OutboxSealer.Result.Failed -> retry(messageID, entry, result.reason)
+      is OutboxSealer.Result.Failed -> giveUp.retry(activeBridge, messageID, entry, result.reason)
     }
   }
 
@@ -265,22 +265,6 @@ internal class YggdrasilOutbox(
     outbox.markSent(entryID, System.currentTimeMillis() + ACK_TIMEOUT_MS, sends)
     state.messages.markStatus(entryID, "sent")
     Log.i(TAG, "Mensaje $entryID enviado; esperando ACK (reenvíos=$sends)")
-  }
-
-  private fun retry(entryID: String, entry: JSONObject, reason: String) {
-    val attempts = entry.optInt("attempts", 0) + 1
-    if (!OutboxRetryPolicy.canRetry(attempts)) {
-      fail(entryID, entry, "descartada tras $attempts intentos: $reason")
-      return
-    }
-    outbox.markAttempt(entryID, attempts, System.currentTimeMillis() + OutboxRetryPolicy.backoffMs(attempts), reason)
-    Log.w(TAG, "Reintento $attempts de $entryID para ${entry.optString("upeerId")} en ${OutboxRetryPolicy.backoffMs(attempts)}ms: $reason")
-  }
-
-  private fun fail(entryID: String, entry: JSONObject, reason: String) {
-    outbox.remove(entryID)
-    if (entry.optString("kind", "CHAT") != "CHAT_UPDATE") state.messages.markStatus(entryID, "failed")
-    Log.w(TAG, "Entrada $entryID marcada como fallida: $reason")
   }
 
   private fun message(cause: Throwable): String = (cause.message ?: cause.javaClass.simpleName).take(240)
