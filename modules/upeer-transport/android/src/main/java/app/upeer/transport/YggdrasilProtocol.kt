@@ -327,6 +327,17 @@ internal class YggdrasilProtocol(
     return changed
   }
 
+  fun setRetentionMap(map: Map<String, String>): String {
+    val previous = state.retentionMap()
+    val status = state.setRetentionMap(map)
+    for (chatId in previous.keys + map.keys) {
+      val before = MessageRetention.resolve(previous[chatId])
+      val after = MessageRetention.resolve(map[chatId])
+      if (before != after) sync.publishRetention(chatId, after)
+    }
+    return status
+  }
+
   fun flushSyncOutbound(): Int = sync.flushOutbound()
 
   fun setProfile(alias: String, avatar: String) {

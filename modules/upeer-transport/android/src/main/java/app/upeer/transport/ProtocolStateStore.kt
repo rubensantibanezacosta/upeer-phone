@@ -323,6 +323,8 @@ internal class ProtocolStateStore(context: Context) {
 
   fun retentionId(upeerId: String): String = retention.id(upeerId)
 
+  fun retentionMap(): Map<String, String> = retention.map()
+
   fun retentionStatusJSON(): String = retention.statusJSON()
 
   fun setRetentionMap(map: Map<String, String>): String {
@@ -348,6 +350,15 @@ internal class ProtocolStateStore(context: Context) {
 
   fun applySyncSettings(block: String, values: Map<String, Boolean>, occurredAt: Long): Boolean =
     preferences.applySyncSettings(block, values, occurredAt)
+
+  fun applyRetentionSync(patch: SyncRetentionPatch, occurredAt: Long): Boolean {
+    val before = retention.id(patch.chatId)
+    retention.set(MessageRetention.withChat(retention.map(), patch.chatId, patch.retention))
+    preferences.setSettingsClock("${SyncSettings.RETENTION}:${patch.chatId}", occurredAt)
+    val changed = before != patch.retention
+    if (changed) messages.purgeExpired()
+    return changed
+  }
 
   fun privacyValues(): Map<String, Boolean> = preferences.privacyValues()
 

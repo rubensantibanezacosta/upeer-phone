@@ -69,4 +69,69 @@ class SyncSettingsTest {
     assertEquals(SyncSettings.NOTIFICATIONS, patch?.block)
     assertEquals(mapOf("messages" to true, "sound" to false), patch?.values)
   }
+
+  @Test
+  fun entityForABooleanBlockIsTheBlockItself() {
+    assertEquals("privacy", SyncSettings.entity(JSONObject().put("block", "privacy")))
+    assertEquals("notifications", SyncSettings.entity(JSONObject().put("block", "notifications")))
+  }
+
+  @Test
+  fun entityForRetentionCarriesTheChat() {
+    assertEquals(
+      "retention:chat-1",
+      SyncSettings.entity(JSONObject().put("block", "retention").put("chatId", "chat-1")),
+    )
+  }
+
+  @Test
+  fun entityRejectsUnknownBlocksAndEmptyChats() {
+    assertNull(SyncSettings.entity(JSONObject().put("block", "appearance")))
+    assertNull(SyncSettings.entity(JSONObject().put("block", "retention")))
+    assertNull(SyncSettings.entity(JSONObject().put("block", "retention").put("chatId", "   ")))
+    assertNull(SyncSettings.entity(JSONObject().put("block", "retention").put("chatId", "x".repeat(201))))
+  }
+
+  @Test
+  fun parseRetentionResolvesThePreset() {
+    val patch = SyncSettings.parseRetention(
+      JSONObject().put("block", "retention").put("chatId", "chat-1").put("retention", "7d"),
+    )
+    assertEquals("chat-1", patch?.chatId)
+    assertEquals("7d", patch?.retention)
+  }
+
+  @Test
+  fun parseRetentionNormalizesAnUnknownPreset() {
+    val patch = SyncSettings.parseRetention(
+      JSONObject().put("block", "retention").put("chatId", "chat-1").put("retention", "dos días"),
+    )
+    assertEquals(MessageRetention.OFF, patch?.retention)
+  }
+
+  @Test
+  fun parseRetentionRejectsAnotherBlock() {
+    assertNull(SyncSettings.parseRetention(JSONObject().put("block", "privacy")))
+  }
+
+  @Test
+  fun retentionPayloadRoundTrips() {
+    val payload = SyncSettings.retentionPayload("chat-9", "24h")
+    assertEquals("retention", payload?.optString("block"))
+    assertEquals("chat-9", payload?.optString("chatId"))
+    val patch = SyncSettings.parseRetention(payload!!)
+    assertEquals("chat-9", patch?.chatId)
+    assertEquals("24h", patch?.retention)
+  }
+
+  @Test
+  fun retentionPayloadRejectsAnEmptyChat() {
+    assertNull(SyncSettings.retentionPayload("  ", "24h"))
+  }
+
+  @Test
+  fun retentionIsAValidBlock() {
+    assertTrue(SyncSettings.RETENTION in SyncSettings.blocks())
+    assertTrue(SyncSettings.isBooleanBlock(SyncSettings.RETENTION).not())
+  }
 }

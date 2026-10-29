@@ -56,6 +56,14 @@ internal object MessageRetention {
     return json
   }
 
+  fun withChat(map: Map<String, String>, chatId: String, retention: String?): Map<String, String> {
+    val next = LinkedHashMap(map)
+    if (chatId.isBlank()) return next
+    val resolved = resolve(retention)
+    if (resolved == OFF) next.remove(chatId) else next[chatId] = resolved
+    return sanitize(next)
+  }
+
   fun expiresAt(timestamp: Long, durationMs: Long): Long? {
     if (timestamp <= 0L || durationMs <= 0L) return null
     return timestamp + durationMs

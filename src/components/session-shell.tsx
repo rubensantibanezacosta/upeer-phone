@@ -12,6 +12,7 @@ import { pushBlockedPeers } from '@/storage/contact-store';
 import { useActivitySignal } from '@/hooks/use-activity-signal';
 import { usePreferences } from '@/hooks/use-preferences';
 import { adoptNativePreferences } from '@/storage/preferences-sync';
+import { adoptNativeRetention } from '@/storage/retention-store';
 
 const SETTINGS_SYNC_POLL_MS = 2000;
 
@@ -85,6 +86,7 @@ export function SessionShell({ identity, onSignOut, children }: {
     const timer = setInterval(() => {
       adoptNativePreferences()
         .then(() => setNativePreferencesReady(true))
+        .then(() => adoptNativeRetention())
         .catch((cause: unknown) => {
           console.warn('No se pudieron adoptar los ajustes sincronizados.', cause);
         });

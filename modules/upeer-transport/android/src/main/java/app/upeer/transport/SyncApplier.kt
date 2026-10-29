@@ -109,10 +109,18 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
   }
 
   private fun applySettings(payload: JSONObject, occurredAt: Long): Boolean {
-    val patch = SyncSettings.parse(payload) ?: return false
-    if (!state.claimSettingsUpdate(patch.block, occurredAt)) return false
-    val changed = state.applySyncSettings(patch.block, patch.values, occurredAt)
-    Log.i(TAG, "Ajustes de ${patch.block} sincronizados: ${if (changed) "aplicados" else "ya estaban igual"}")
+    val entity = SyncSettings.entity(payload) ?: return false
+    if (!state.claimSettingsUpdate(entity, occurredAt)) return false
+    val block = payload.optString("block")
+    if (SyncSettings.isBooleanBlock(block)) {
+      val patch = SyncSettings.parse(payload) ?: return false
+      val changed = state.applySyncSettings(entity, patch.values, occurredAt)
+      Log.i(TAG, "Ajustes de $entity sincronizados: ${if (changed) "aplicados" else "ya estaban igual"}")
+      return true
+    }
+    val retention = SyncSettings.parseRetention(payload) ?: return false
+    val changed = state.applyRetentionSync(retention, occurredAt)
+    Log.i(TAG, "Plazo de ${retention.chatId} sincronizado: ${if (changed) "aplicado" else "ya estaba igual"}")
     return true
   }
 

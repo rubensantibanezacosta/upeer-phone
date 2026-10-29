@@ -240,7 +240,7 @@ class YggdrasilTransportService : Service() {
         val value = parsed.optString(chatId, "")
         if (value.isNotEmpty()) map[chatId] = value
       }
-      protocolState.setRetentionMap(map)
+      protocol.setRetentionMap(map)
       Log.i(TAG, "Mensajes temporales sincronizados: ${map.size}")
     }
     override fun retentionStatusJSON(): String = protocolState.retentionStatusJSON()

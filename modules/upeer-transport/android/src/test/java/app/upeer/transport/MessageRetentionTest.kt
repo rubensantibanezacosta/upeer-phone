@@ -143,6 +143,39 @@ class MessageRetentionTest {
     assertEquals(1, state.getJSONArray("messages").length())
   }
 
+  @Test
+  fun `withChat adds a preset for the chat`() {
+    val next = MessageRetention.withChat(mapOf("a" to "24h"), "b", "7d")
+    assertEquals(mapOf("a" to "24h", "b" to "7d"), next)
+  }
+
+  @Test
+  fun `withChat replaces an existing preset`() {
+    assertEquals(mapOf("a" to "90d"), MessageRetention.withChat(mapOf("a" to "24h"), "a", "90d"))
+  }
+
+  @Test
+  fun `withChat off deletes the entry`() {
+    assertEquals(emptyMap<String, String>(), MessageRetention.withChat(mapOf("a" to "24h"), "a", "off"))
+  }
+
+  @Test
+  fun `withChat normalizes an unknown preset`() {
+    assertEquals(emptyMap<String, String>(), MessageRetention.withChat(emptyMap(), "a", "dos días"))
+  }
+
+  @Test
+  fun `withChat ignores a blank chat`() {
+    assertEquals(mapOf("a" to "24h"), MessageRetention.withChat(mapOf("a" to "24h"), " ", "7d"))
+  }
+
+  @Test
+  fun `withChat does not mutate the original map`() {
+    val original = mapOf("a" to "24h")
+    MessageRetention.withChat(original, "b", "7d")
+    assertEquals(mapOf("a" to "24h"), original)
+  }
+
   private fun ids(array: JSONArray?): List<String> {
     val result = mutableListOf<String>()
     for (index in 0 until (array?.length() ?: 0)) {

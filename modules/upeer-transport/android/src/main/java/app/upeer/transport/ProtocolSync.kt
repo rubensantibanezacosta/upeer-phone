@@ -59,6 +59,11 @@ internal class ProtocolSync(
     return outbound.publish(activeBridge, SyncEventKinds.SETTINGS_UPDATE, payload)
   }
 
+  fun publishRetention(chatId: String, retention: String): Boolean {
+    val payload = SyncSettings.retentionPayload(chatId, retention) ?: return false
+    return outbound.publish(activeBridge, SyncEventKinds.SETTINGS_UPDATE, payload)
+  }
+
   fun flushOutbound(): Int {
     val bridge = activeBridge ?: return 0
     return outbound.flush(bridge)
