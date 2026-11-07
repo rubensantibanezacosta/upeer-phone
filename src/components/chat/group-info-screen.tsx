@@ -261,6 +261,7 @@ export function GroupInfoScreen({ groupId, onBack, onChanged, onOpenMessage = ()
         </> : null}
       </ScrollView>
       <GroupMemberMenu
+        avatar={member ? avatars[member] : undefined}
         canManage={isAdmin}
         memberId={member}
         name={nameOf(member ?? '')}

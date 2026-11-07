@@ -9,6 +9,7 @@ import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
 
 type GroupMemberMenuProps = {
+  avatar?: string;
   memberId: string | null;
   name: string;
   canManage: boolean;
@@ -17,7 +18,7 @@ type GroupMemberMenuProps = {
   onRemove: () => void;
 };
 
-export function GroupMemberMenu({ memberId, name, canManage, onClose, onTransferAdmin, onRemove }: GroupMemberMenuProps) {
+export function GroupMemberMenu({ avatar, memberId, name, canManage, onClose, onTransferAdmin, onRemove }: GroupMemberMenuProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const insets = useSafeAreaInsets();
@@ -29,7 +30,7 @@ export function GroupMemberMenu({ memberId, name, canManage, onClose, onTransfer
         <Pressable accessibilityLabel="Cerrar menú del miembro" onPress={onClose} style={[StyleSheet.absoluteFill, { backgroundColor: theme.backdrop }]} />
         <View accessibilityViewIsModal style={[styles.menu, { backgroundColor: theme.backgroundElement, borderColor: theme.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
           <XStack alignItems="center" gap={12} paddingHorizontal={16} paddingVertical={14}>
-            <ProfileAvatar name={name} size={44} />
+            <ProfileAvatar avatar={avatar} name={name} size={44} />
             <YStack flex={1} gap={2}>
               <SizableText color={theme.text} fontSize={scale(16)} fontWeight="700" numberOfLines={1}>{name}</SizableText>
               <Text color={theme.placeholder} fontSize={scale(11)} numberOfLines={1} style={styles.identifier}>{memberId}</Text>
