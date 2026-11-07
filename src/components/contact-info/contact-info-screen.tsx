@@ -6,6 +6,7 @@ import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactInfoHero } from '@/components/contact-info/contact-info-hero';
 import { ChatCipherSheet } from '@/components/chat/chat-cipher-sheet';
+import { ChatStarredSheet } from '@/components/chat/chat-starred-sheet';
 import { ContactShareSheet } from '@/components/chat/contact-share-sheet';
 import { InteractiveRow } from '@/components/contact-info/interactive-row';
 import { InfoSections, SectionSeparator, SettingsGroup } from '@/components/settings-section-parts';
@@ -30,11 +31,12 @@ import { deleteConversation as clearNativeConversation, getConversations } from 
 type ContactInfoScreenProps = {
   upeerId: string;
   onBack: () => void;
+  onOpenMessage?: (messageId: string) => void;
 };
 
 const PRESENCE_POLL_MS = 5000;
 
-export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
+export function ContactInfoScreen({ upeerId, onBack, onOpenMessage = () => undefined }: ContactInfoScreenProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const { showSnackbar } = useSnackbar();
@@ -44,6 +46,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
   const [peerAvatar, setPeerAvatar] = useState<string | undefined>(undefined);
   const [peerAlias, setPeerAlias] = useState<string | undefined>(undefined);
   const [sharing, setSharing] = useState(false);
+  const [starredOpen, setStarredOpen] = useState(false);
   const [cipherOpen, setCipherOpen] = useState(false);
   const cipher = usePeerSecurity();
   const loadCipher = cipher.load;
@@ -191,7 +194,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
             <InteractiveRow icon={flags.muted ? Bell : BellOff} label={flags.muted ? 'Reactivar notificaciones' : 'Silenciar notificaciones'} onPress={() => toggleFlag('muted')} />
             <InteractiveRow icon={Archive} label="Archivar chat" onPress={() => toggleFlag('archived')} />
             {isSelf ? null : <InteractiveRow icon={() => <Heart color={theme.text} fill={contact?.isFavorite ? 'currentColor' : 'none'} size={22} />} label={contact?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />}
-            <InteractiveRow chevron icon={Star} label="Mensajes destacados" onPress={pending('Mensajes destacados')} />
+            <InteractiveRow chevron icon={Star} label="Mensajes destacados" onPress={() => setStarredOpen(true)} />
             <InteractiveRow chevron icon={LockKeyhole} label="Cifrado" onPress={() => setCipherOpen(true)} />
           </SettingsGroup>
           <SectionSeparator />
@@ -206,6 +209,13 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
           </SettingsGroup>
         </InfoSections>
       </ScrollView>
+      <ChatStarredSheet
+        messages={[]}
+        onClose={() => setStarredOpen(false)}
+        onOpenMessage={(messageId) => { setStarredOpen(false); onOpenMessage(messageId); }}
+        upeerId={upeerId}
+        visible={starredOpen}
+      />
       <ContactShareSheet
         contact={contact ?? null}
         onClose={() => setSharing(false)}

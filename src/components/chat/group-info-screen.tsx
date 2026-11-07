@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, BellOff, Crown, Eraser, Heart, Images, LogOut, Phone, Search, Star, UserMinus, UserPlus, Users, Video } from '@tamagui/lucide-icons-2';
 import { Input, SizableText, Text, XStack, YStack } from 'tamagui';
 
+import { ChatStarredSheet } from '@/components/chat/chat-starred-sheet';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ContactPicker } from '@/components/contact-picker';
@@ -36,11 +37,12 @@ type GroupInfoScreenProps = {
   groupId: string;
   onBack: () => void;
   onChanged?: () => void;
+  onOpenMessage?: (messageId: string) => void;
 };
 
 type ScreenMode = 'info' | 'invite' | 'member';
 
-export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenProps) {
+export function GroupInfoScreen({ groupId, onBack, onChanged, onOpenMessage = () => undefined }: GroupInfoScreenProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const { showSnackbar } = useSnackbar();
@@ -52,6 +54,7 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
   const [mode, setMode] = useState<ScreenMode>('info');
   const [selected, setSelected] = useState<string[]>([]);
   const [member, setMember] = useState<string | null>(null);
+  const [starredOpen, setStarredOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -272,7 +275,7 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
             <PlainGroup>
               <InteractiveRow icon={BellOff} label={flags.muted ? 'Reactivar notificaciones' : 'Silenciar notificaciones'} onPress={() => toggleFlag('muted')} />
               <InteractiveRow icon={() => <Heart color={theme.text} fill={active?.isFavorite ? 'currentColor' : 'none'} size={22} />} label={active?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={pending('Favorito del grupo')} />
-              <InteractiveRow chevron icon={Star} label="Mensajes destacados" onPress={pending('Mensajes destacados')} />
+              <InteractiveRow chevron icon={Star} label="Mensajes destacados" onPress={() => setStarredOpen(true)} />
             </PlainGroup>
 
             <SectionSeparator />
@@ -283,6 +286,13 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
           </InfoSections>
         </> : null}
       </ScrollView>
+      <ChatStarredSheet
+        messages={[]}
+        onClose={() => setStarredOpen(false)}
+        onOpenMessage={(messageId) => { setStarredOpen(false); onOpenMessage(messageId); }}
+        upeerId={groupId}
+        visible={starredOpen}
+      />
     </SafeAreaView>
   );
 }
