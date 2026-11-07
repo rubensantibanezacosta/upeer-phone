@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, BellOff, Eraser, Heart, Images, LogOut, MoreVertical, Phone, Search, Star, UserPlus, Users, Video } from '@tamagui/lucide-icons-2';
+import { ArrowLeft, BellOff, Eraser, Heart, LogOut, MoreVertical, Star } from '@tamagui/lucide-icons-2';
 import { Input, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ChatStarredSheet } from '@/components/chat/chat-starred-sheet';
+import { SharedMediaRow } from '@/components/chat/shared-media-row';
+import { GroupInfoHero } from '@/components/chat/group-info-hero';
 import { GroupInviteForm } from '@/components/chat/group-invite-form';
 import { GroupMemberMenu } from '@/components/chat/group-member-menu';
 import { NativeRippleButton } from '@/components/native-ripple-button';
@@ -12,7 +14,6 @@ import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { InteractiveRow } from '@/components/contact-info/interactive-row';
 import { InfoSections, PlainGroup, SectionSeparator } from '@/components/settings-section-parts';
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
-import { ProfileAvatar } from '@/components/profile-avatar';
 import { useSnackbar } from '@/components/snackbar';
 import { useConversationFlags } from '@/hooks/use-conversation-flags';
 import { useSelfUpeerId } from '@/hooks/use-self-upeer-id';
@@ -194,22 +195,19 @@ export function GroupInfoScreen({ groupId, onBack, onChanged, onOpenMessage = ()
         /> : null}
 
         {mode === 'info' ? <>
-          <YStack alignItems="center" gap={5} paddingTop={4}>
-            {avatars[groupId] ? <ProfileAvatar avatar={avatars[groupId]} name={active?.name || 'Grupo'} size={96} /> : <View style={[styles.groupAvatar, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}><Users color={theme.placeholder} size={40} /></View>}
-            <NativeRipplePressable accessibilityLabel="Renombrar grupo" accessibilityRole="button" disabled={!isAdmin} onPress={() => { setDraft(active?.name ?? ''); setRenaming(true); }}>
-              <SizableText color={theme.text} fontSize={scale(20)} fontWeight="700" numberOfLines={2} textAlign="center">{active?.name || 'Grupo'}</SizableText>
-            </NativeRipplePressable>
-            <XStack alignItems="center" gap={5}>
-              <Text color={theme.placeholder} fontSize={scale(12)}>{`Grupo · ${members.length} ${members.length === 1 ? 'miembro' : 'miembros'}`}</Text>
-            </XStack>
-            {active?.status === 'invited' ? <Text color={theme.accent} fontSize={scale(12)}>Invitación pendiente</Text> : null}
-            <XStack gap={18} paddingTop={12}>
-              <InteractiveRow accessibilityLabel="Llamar al grupo" disabled icon={Phone} label="Llamar" onPress={pending('Llamada de voz')} variant="action" />
-              <InteractiveRow accessibilityLabel="Videollamar al grupo" disabled icon={Video} label="Vídeo" onPress={pending('Videollamada')} variant="action" />
-              <InteractiveRow accessibilityLabel="Buscar en el chat" icon={Search} label="Buscar" onPress={openSearch} variant="action" />
-              <InteractiveRow accessibilityLabel="Añadir miembros" disabled={!isAdmin} icon={UserPlus} label="Añadir" onPress={() => { setSelected([]); setMode('invite'); }} variant="action" />
-            </XStack>
-          </YStack>
+          <GroupInfoHero
+            avatar={avatars[groupId]}
+            canAdd={isAdmin}
+            canRename={isAdmin}
+            invited={active?.status === 'invited'}
+            memberCount={members.length}
+            name={active?.name || 'Grupo'}
+            onAdd={() => { setSelected([]); setMode('invite'); }}
+            onCall={pending('Llamada de voz')}
+            onRename={() => { setDraft(active?.name ?? ''); setRenaming(true); }}
+            onSearch={openSearch}
+            onVideo={pending('Videollamada')}
+          />
 
           {renaming ? <YStack gap={8}>
             <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Nombre del grupo</Text>
@@ -256,7 +254,7 @@ export function GroupInfoScreen({ groupId, onBack, onChanged, onOpenMessage = ()
             </PlainGroup>
 
             <SectionSeparator />
-            <InteractiveRow chevron icon={Images} label="Multimedia" onPress={pending('Multimedia')} />
+            <SharedMediaRow chatId={groupId} />
             <SectionSeparator />
 
             <PlainGroup>

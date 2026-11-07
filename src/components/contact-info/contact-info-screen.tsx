@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Archive, ArrowLeft, Ban, Bell, BellOff, Heart, Images, LockKeyhole, LockOpen, Share2, Star, Trash2, UserMinus } from '@tamagui/lucide-icons-2';
+import { Archive, ArrowLeft, Ban, Bell, BellOff, Heart, LockKeyhole, LockOpen, Share2, Star, Trash2, UserMinus } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactInfoHero } from '@/components/contact-info/contact-info-hero';
@@ -10,6 +10,7 @@ import { ChatStarredSheet } from '@/components/chat/chat-starred-sheet';
 import { ContactShareSheet } from '@/components/chat/contact-share-sheet';
 import { InteractiveRow } from '@/components/contact-info/interactive-row';
 import { InfoSections, SectionSeparator, SettingsGroup } from '@/components/settings-section-parts';
+import { SharedMediaRow } from '@/components/chat/shared-media-row';
 import { CopyField } from '@/components/copy-field';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useSnackbar } from '@/components/snackbar';
@@ -187,7 +188,7 @@ export function ContactInfoScreen({ upeerId, onBack, onOpenMessage = () => undef
         </YStack>
         <InfoSections>
           <SectionSeparator />
-          <InteractiveRow chevron icon={Images} label="Multimedia" onPress={pending('Multimedia')} />
+          <SharedMediaRow chatId={upeerId} />
           <SectionSeparator />
           <SettingsGroup>
             {isSelf ? null : <InteractiveRow disabled={!contact} icon={Share2} label="Compartir contacto" onPress={() => setSharing(true)} />}
