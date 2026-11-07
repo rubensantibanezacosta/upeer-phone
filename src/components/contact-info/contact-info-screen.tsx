@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Archive, ArrowLeft, Ban, Bell, BellOff, Images, LockKeyhole, LockOpen, Share2, Star, Trash2, UserMinus } from '@tamagui/lucide-icons-2';
+import { Archive, ArrowLeft, Ban, Bell, BellOff, Heart, Images, LockKeyhole, LockOpen, Share2, Star, Trash2, UserMinus } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactInfoHero } from '@/components/contact-info/contact-info-hero';
@@ -190,7 +190,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
             {isSelf ? null : <InteractiveRow disabled={!contact} icon={Share2} label="Compartir contacto" onPress={() => setSharing(true)} />}
             <InteractiveRow icon={flags.muted ? Bell : BellOff} label={flags.muted ? 'Reactivar notificaciones' : 'Silenciar notificaciones'} onPress={() => toggleFlag('muted')} />
             <InteractiveRow icon={Archive} label="Archivar chat" onPress={() => toggleFlag('archived')} />
-            {isSelf ? null : <InteractiveRow icon={Star} label={contact?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />}
+            {isSelf ? null : <InteractiveRow icon={() => <Heart color={theme.text} fill={contact?.isFavorite ? 'currentColor' : 'none'} size={22} />} label={contact?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />}
             <InteractiveRow chevron icon={Star} label="Mensajes destacados" onPress={pending('Mensajes destacados')} />
             <InteractiveRow chevron icon={LockKeyhole} label="Cifrado" onPress={() => setCipherOpen(true)} />
           </SettingsGroup>

@@ -44,10 +44,14 @@ export function SettingsGroupLabel({ action, children, icon, title }: { action?:
 
 export function SectionSeparator({ inset = 16 }: { inset?: number }) {
   const theme = useTheme();
-  return <View style={{ backgroundColor: theme.border, height: StyleSheet.hairlineWidth, marginHorizontal: inset }} />;
+  return <View style={{ backgroundColor: theme.border, height: StyleSheet.hairlineWidth, marginHorizontal: inset, marginVertical: 8 }} />;
 }
 
 export function InfoSections({ children }: { children: ReactNode }) {
+  return <YStack gap={0}>{children}</YStack>;
+}
+
+export function PlainGroup({ children }: { children: ReactNode }) {
   return <YStack gap={0}>{children}</YStack>;
 }
 
