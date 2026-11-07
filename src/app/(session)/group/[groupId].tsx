@@ -7,6 +7,7 @@ export default function GroupInfoRoute() {
   return <GroupInfoScreen
     groupId={groupId ?? ''}
     onBack={() => router.back()}
+    onOpenContact={(target) => router.push({ pathname: '/contact/[upeerId]', params: { upeerId: target } })}
     onOpenMessage={(messageId) => router.push({ pathname: '/chat/[upeerId]', params: { upeerId: groupId ?? '', messageId } })}
   />;
 }

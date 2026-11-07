@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, BellOff, Crown, Eraser, Heart, Images, LogOut, Phone, Search, Star, UserMinus, UserPlus, Users, Video } from '@tamagui/lucide-icons-2';
+import { ArrowLeft, BellOff, Eraser, Heart, Images, LogOut, MoreVertical, Phone, Search, Star, UserPlus, Users, Video } from '@tamagui/lucide-icons-2';
 import { Input, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ChatStarredSheet } from '@/components/chat/chat-starred-sheet';
+import { GroupInviteForm } from '@/components/chat/group-invite-form';
+import { GroupMemberMenu } from '@/components/chat/group-member-menu';
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
-import { ContactPicker } from '@/components/contact-picker';
 import { InteractiveRow } from '@/components/contact-info/interactive-row';
 import { InfoSections, PlainGroup, SectionSeparator } from '@/components/settings-section-parts';
 import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
@@ -38,11 +39,12 @@ type GroupInfoScreenProps = {
   onBack: () => void;
   onChanged?: () => void;
   onOpenMessage?: (messageId: string) => void;
+  onOpenContact?: (upeerId: string) => void;
 };
 
-type ScreenMode = 'info' | 'invite' | 'member';
+type ScreenMode = 'info' | 'invite';
 
-export function GroupInfoScreen({ groupId, onBack, onChanged, onOpenMessage = () => undefined }: GroupInfoScreenProps) {
+export function GroupInfoScreen({ groupId, onBack, onChanged, onOpenMessage = () => undefined, onOpenContact = () => undefined }: GroupInfoScreenProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const { showSnackbar } = useSnackbar();
@@ -73,11 +75,6 @@ export function GroupInfoScreen({ groupId, onBack, onChanged, onOpenMessage = ()
   }, [load, showSnackbar]);
 
   const back = () => {
-    if (mode === 'member') {
-      setMode('info');
-      setMember(null);
-      return;
-    }
     if (mode === 'invite') {
       setMode('info');
       setSelected([]);
@@ -102,7 +99,6 @@ export function GroupInfoScreen({ groupId, onBack, onChanged, onOpenMessage = ()
       onChanged?.();
       showSnackbar(success);
       setMode('info');
-      setMember(null);
       setSelected([]);
       setRenaming(false);
     } catch (cause) {
@@ -161,7 +157,7 @@ export function GroupInfoScreen({ groupId, onBack, onChanged, onOpenMessage = ()
     ]);
   };
 
-  const heading = mode === 'invite' ? 'Invitar al grupo' : mode === 'member' ? nameOf(member ?? '') : 'Info. del grupo';
+  const heading = mode === 'invite' ? 'Invitar al grupo' : 'Info. del grupo';
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
@@ -172,40 +168,17 @@ export function GroupInfoScreen({ groupId, onBack, onChanged, onOpenMessage = ()
         <SizableText color={theme.text} flex={1} fontSize={scale(17)} fontWeight="700" numberOfLines={1}>{heading}</SizableText>
       </XStack>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {mode === 'invite' ? <YStack gap={10}>
-          <Text color={theme.placeholder} fontSize={scale(12)}>Solo pueden invitarse contactos ya conectados: la invitación viaja cifrada a su clave.</Text>
-          <ContactPicker
-            contacts={available}
-            emptyLabel="No quedan contactos conectados por invitar"
-            onToggle={(contact) => setSelected((current) => (current.includes(contact.upeerId)
-              ? current.filter((id) => id !== contact.upeerId)
-              : [...current, contact.upeerId]))}
-            searchPlaceholder="Buscar contacto"
-            selectedIds={selected}
-          />
-          <NativeRippleButton
-            backgroundColor={theme.accent}
-            color={theme.onAccent}
-            disabled={busy || selected.length === 0}
-            fontWeight="700"
-            height={46}
-            onPress={() => void run(async () => {
-              for (const target of selected) await inviteToGroup(groupId, target);
-            }, selected.length === 1 ? 'Invitación enviada' : 'Invitaciones enviadas')}
-          >
-            {busy ? 'Invitando…' : `Invitar${selected.length > 0 ? ` (${selected.length})` : ''}`}
-          </NativeRippleButton>
-        </YStack> : null}
-
-        {mode === 'member' && member ? <YStack gap={6}>
-          <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Miembro</Text>
-          <Text color={theme.placeholder} fontFamily="monospace" fontSize={scale(11)} numberOfLines={1}>{member}</Text>
-          {isAdmin ? <InteractiveRow icon={Crown} label="Transferir administración" onPress={() => void run(async () => {
-            await transferGroupAdmin(groupId, member);
-          }, 'Administración transferida')} /> : null}
-          {isAdmin ? <InteractiveRow icon={UserMinus} label={`Expulsar a ${nameOf(member)}`} onPress={() => confirmRemove(member)} tone="danger" /> : null}
-          {!isAdmin ? <Text color={theme.placeholder} fontSize={scale(12)}>Solo el administrador puede gestionar a los miembros.</Text> : null}
-        </YStack> : null}
+        {mode === 'invite' ? <GroupInviteForm
+          available={available}
+          busy={busy}
+          onInvite={() => void run(async () => {
+            for (const target of selected) await inviteToGroup(groupId, target);
+          }, selected.length === 1 ? 'Invitación enviada' : 'Invitaciones enviadas')}
+          onToggle={(contact) => setSelected((current) => (current.includes(contact.upeerId)
+            ? current.filter((id) => id !== contact.upeerId)
+            : [...current, contact.upeerId]))}
+          selected={selected}
+        /> : null}
 
         {mode === 'info' ? <>
           <YStack alignItems="center" gap={5} paddingTop={4}>
@@ -260,11 +233,12 @@ export function GroupInfoScreen({ groupId, onBack, onChanged, onOpenMessage = ()
               {members.length === 0
                 ? <Text color={theme.placeholder} fontSize={scale(15)} paddingHorizontal={16} paddingVertical={12}>No hay miembros disponibles.</Text>
                 : members.map((upeerId) => <InteractiveRow
-                  accessibilityLabel={`Opciones de ${nameOf(upeerId)}`}
+                  accessibilityLabel={`Info. de ${nameOf(upeerId)}`}
                   icon={() => <ContactTrustAvatar avatar={avatars[upeerId]} name={nameOf(upeerId)} size={40} />}
                   key={upeerId}
                   label={upeerId === selfId ? 'Tú' : nameOf(upeerId)}
-                  onPress={() => { setMember(upeerId); setMode('member'); }}
+                  onPress={() => (upeerId === selfId ? undefined : onOpenContact(upeerId))}
+                  trailing={upeerId === selfId ? undefined : <NativeRipplePressable accessibilityLabel={`Acciones de ${nameOf(upeerId)}`} accessibilityRole="button" onPress={() => setMember(upeerId)} style={styles.memberMenu}><MoreVertical color={theme.placeholder} size={19} /></NativeRipplePressable>}
                 />)}
             </PlainGroup>
 
@@ -286,6 +260,14 @@ export function GroupInfoScreen({ groupId, onBack, onChanged, onOpenMessage = ()
           </InfoSections>
         </> : null}
       </ScrollView>
+      <GroupMemberMenu
+        canManage={isAdmin}
+        memberId={member}
+        name={nameOf(member ?? '')}
+        onClose={() => setMember(null)}
+        onRemove={() => { const target = member; setMember(null); if (target) confirmRemove(target); }}
+        onTransferAdmin={() => { const target = member; setMember(null); if (target) void run(async () => { await transferGroupAdmin(groupId, target); }, 'Administración transferida'); }}
+      />
       <ChatStarredSheet
         messages={[]}
         onClose={() => setStarredOpen(false)}
@@ -301,5 +283,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   headerButton: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 },
   content: { gap: 18, paddingBottom: 32, paddingHorizontal: 20, paddingTop: 4 },
+  memberMenu: { alignItems: 'center', borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
   groupAvatar: { alignItems: 'center', borderRadius: 48, borderWidth: StyleSheet.hairlineWidth, height: 96, justifyContent: 'center', width: 96 },
 });
