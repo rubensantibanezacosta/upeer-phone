@@ -179,6 +179,8 @@ class YggdrasilTransportService : Service() {
       admitted { protocol.removeGroupMember(groupId, upeerId) }
     override fun transferGroupAdmin(groupId: String, upeerId: String) =
       admitted { protocol.transferGroupAdmin(groupId, upeerId) }
+    override fun setGroupFavorite(groupId: String, isFavorite: Boolean) =
+      admitted { protocol.setGroupFavorite(groupId, isFavorite) }
     override fun leaveGroup(groupId: String) = admitted { protocol.leaveGroup(groupId) }
     override fun renameGroup(groupId: String, name: String) =
       admitted { protocol.renameGroup(groupId, name) }

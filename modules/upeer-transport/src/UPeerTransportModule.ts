@@ -39,6 +39,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   inviteToGroup(groupId: string, upeerId: string): Promise<void>;
   removeGroupMember(groupId: string, upeerId: string): Promise<void>;
   transferGroupAdmin(groupId: string, upeerId: string): Promise<void>;
+  setGroupFavorite(groupId: string, isFavorite: boolean): Promise<boolean>;
   leaveGroup(groupId: string): Promise<void>;
   renameGroup(groupId: string, name: string): Promise<void>;
   editChat(upeerId: string, messageId: string, content: string): Promise<number>;
@@ -319,6 +320,10 @@ export async function removeGroupMember(groupId: string, upeerId: string): Promi
 
 export async function transferGroupAdmin(groupId: string, upeerId: string): Promise<void> {
   return nativeModule.transferGroupAdmin(groupId, upeerId);
+}
+
+export async function setGroupFavorite(groupId: string, isFavorite: boolean): Promise<boolean> {
+  return nativeModule.setGroupFavorite(groupId, isFavorite);
 }
 
 export async function leaveGroup(groupId: string): Promise<void> {

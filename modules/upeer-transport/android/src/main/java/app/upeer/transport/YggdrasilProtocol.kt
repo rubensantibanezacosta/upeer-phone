@@ -266,6 +266,8 @@ internal class YggdrasilProtocol(
 
   fun transferGroupAdmin(groupId: String, upeerId: String) = groupAdmin.transferAdmin(groupId, upeerId)
 
+  fun setGroupFavorite(groupId: String, isFavorite: Boolean) = state.groups.setFavorite(groupId, isFavorite)
+
   fun leaveGroup(groupId: String) = groupAdmin.leave(groupId)
 
   fun renameGroup(groupId: String, name: String) = groupAdmin.rename(groupId, name)

@@ -33,6 +33,7 @@ interface IYggdrasilTransport {
   void inviteToGroup(String groupId, String upeerId);
   void removeGroupMember(String groupId, String upeerId);
   void transferGroupAdmin(String groupId, String upeerId);
+  boolean setGroupFavorite(String groupId, boolean isFavorite);
   void leaveGroup(String groupId);
   void renameGroup(String groupId, String name);
   int editChat(String upeerId, String messageId, String content);

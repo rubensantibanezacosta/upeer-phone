@@ -31,6 +31,7 @@ import {
   leaveGroup,
   removeGroupMember,
   renameGroup,
+  setGroupFavorite,
   transferGroupAdmin,
 } from '../../../modules/upeer-transport/src/UPeerTransportModule';
 
@@ -67,12 +68,14 @@ export function GroupInfoScreen({ groupId, onBack, onChanged, onOpenMessage = ()
     setAvatars(Object.fromEntries(conversations.map((conversation) => [conversation.upeerId, conversation.avatar || undefined])));
   }), [groupId]);
 
+  const reportFailure = useCallback((cause: unknown) => {
+    console.warn('No se pudo cargar el grupo.', cause);
+    showSnackbar('No se pudo cargar el grupo');
+  }, [showSnackbar]);
+
   useEffect(() => {
-    load().catch((cause: unknown) => {
-      console.warn('No se pudo cargar el grupo.', cause);
-      showSnackbar('No se pudo cargar el grupo');
-    });
-  }, [load, showSnackbar]);
+    load().catch(reportFailure);
+  }, [load, reportFailure]);
 
   const back = () => {
     if (mode === 'invite') {
@@ -126,6 +129,16 @@ export function GroupInfoScreen({ groupId, onBack, onChanged, onOpenMessage = ()
   };
 
   const pending = (label: string) => () => showSnackbar(`${label}: pendiente en el roadmap`);
+
+  const toggleFavorite = () => {
+    const next = active?.isFavorite !== true;
+    setGroupFavorite(groupId, next)
+      .then(() => { load().catch(reportFailure); onChanged?.(); showSnackbar(next ? 'Añadido a Favoritos' : 'Quitado de Favoritos'); })
+      .catch((cause: unknown) => {
+        console.warn('No se pudo cambiar el favorito del grupo.', cause);
+        showSnackbar('No se pudo cambiar el favorito del grupo');
+      });
+  };
 
   const openSearch = () => {
     requestChatSearch(groupId);
@@ -248,7 +261,7 @@ export function GroupInfoScreen({ groupId, onBack, onChanged, onOpenMessage = ()
 
             <PlainGroup>
               <InteractiveRow icon={BellOff} label={flags.muted ? 'Reactivar notificaciones' : 'Silenciar notificaciones'} onPress={() => toggleFlag('muted')} />
-              <InteractiveRow icon={() => <Heart color={theme.text} fill={active?.isFavorite ? 'currentColor' : 'none'} size={22} />} label={active?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={pending('Favorito del grupo')} />
+              <InteractiveRow icon={() => <Heart color={theme.text} fill={active?.isFavorite ? 'currentColor' : 'none'} size={22} />} label={active?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />
               <InteractiveRow chevron icon={Star} label="Mensajes destacados" onPress={() => setStarredOpen(true)} />
             </PlainGroup>
 

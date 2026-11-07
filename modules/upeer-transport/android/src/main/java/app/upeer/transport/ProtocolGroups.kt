@@ -50,6 +50,20 @@ internal class ProtocolGroups(
     }
   }
 
+  fun setFavorite(groupId: String, isFavorite: Boolean): Boolean {
+    if (!validId(groupId)) return false
+    return synchronized(lock) {
+      val groups = bucket()
+      val entry = groups.optJSONObject(groupId) ?: return@synchronized false
+      if (entry.optBoolean("isFavorite") == isFavorite) return@synchronized true
+      entry.put("isFavorite", isFavorite)
+      groups.put(groupId, entry)
+      state().put("groups", groups)
+      persist()
+      true
+    }
+  }
+
   fun delete(groupId: String): Boolean {
     if (!validId(groupId)) return false
     return synchronized(lock) {

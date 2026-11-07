@@ -94,6 +94,7 @@ class UPeerTransportModule : Module() {
     AsyncFunction("inviteToGroup") { groupId: String, upeerId: String -> service().inviteToGroup(groupId, upeerId) }
     AsyncFunction("removeGroupMember") { groupId: String, upeerId: String -> service().removeGroupMember(groupId, upeerId) }
     AsyncFunction("transferGroupAdmin") { groupId: String, upeerId: String -> service().transferGroupAdmin(groupId, upeerId) }
+    AsyncFunction("setGroupFavorite") { groupId: String, isFavorite: Boolean -> service().setGroupFavorite(groupId, isFavorite) }
     AsyncFunction("leaveGroup") { groupId: String -> service().leaveGroup(groupId) }
     AsyncFunction("renameGroup") { groupId: String, name: String -> service().renameGroup(groupId, name) }
     AsyncFunction("editChat") { upeerId: String, messageId: String, content: String -> service().editChat(upeerId, messageId, content) }
