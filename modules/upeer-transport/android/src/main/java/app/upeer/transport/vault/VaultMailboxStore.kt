@@ -1,95 +1,107 @@
 package app.upeer.transport.vault
 
-import android.content.Context
-import app.upeer.transport.KeystoreStore
-import org.json.JSONArray
-import org.json.JSONObject
+import android.content.ContentValues
+import android.database.sqlite.SQLiteDatabase
+import app.upeer.transport.ProtocolCipher
+import app.upeer.transport.ProtocolDatabase
 
-internal class VaultMailboxStore(context: Context) {
-  private val store = KeystoreStore(
-    context = context,
-    preferencesName = "upeer_vault_mailbox",
-    keyAlias = "upeer-vault-mailbox",
-    valueKey = "vault_state",
-  )
-  private val lock = Any()
-  private var state = loadState()
+/**
+ * Buzón del vault (`vault_storage`), igual que `upper-desktop/src/main_process/storage/vault`.
+ *
+ * Guarda los sobres cifrados que otros contactos nos dejan para reenviarlos cuando el destinatario
+ * aparezca. Antes vivía en un `SharedPreferences` cifrado propio; ahora comparte la base de datos
+ * del protocolo, de modo que el mismo esquema sirve en los dos clientes.
+ *
+ * La columna `data` va cifrada por columna con [ProtocolCipher]: es el sobre de otro usuario, así
+ * que en el escritorio lo protege SQLCipher y aquí el Keystore.
+ */
+internal class VaultMailboxStore(
+  private val db: ProtocolDatabase,
+  private val cipher: ProtocolCipher,
+) {
+  private val gate = Any()
 
-  fun snapshot(nowMillis: Long): VaultMailboxState = synchronized(lock) {
-    val purged = VaultMailbox.purge(state, nowMillis)
-    if (purged.entries.size != state.entries.size) {
-      state = purged
-      persist()
-    }
-    state
+  fun snapshot(nowMillis: Long): VaultMailboxState = synchronized(gate) {
+    purgeExpired(nowMillis)
+    val entries = allEntries()
+    VaultMailboxState(nextId(entries), entries)
   }
 
-  fun insert(entry: VaultEntry, nowMillis: Long, quotaBytes: Long = VaultMailbox.QUOTA_BYTES_PER_SENDER): VaultMailboxInsert = synchronized(lock) {
-    val result = VaultMailbox.insert(state, entry, nowMillis, quotaBytes)
-    if (result is VaultMailboxInsert.Stored) {
-      state = result.state
-      persist()
+  fun insert(entry: VaultEntry, nowMillis: Long, quotaBytes: Long = VaultMailbox.QUOTA_BYTES_PER_SENDER): VaultMailboxInsert =
+    synchronized(gate) {
+      purgeExpired(nowMillis)
+      val entries = allEntries()
+      val current = VaultMailboxState(nextId(entries), entries)
+      val result = VaultMailbox.insert(current, entry, nowMillis, quotaBytes)
+      if (result is VaultMailboxInsert.Stored) store(entry)
+      result
     }
-    result
-  }
 
-  fun release(payloadHashes: Collection<String>): Int = synchronized(lock) {
-    val (next, removed) = VaultMailbox.release(state, payloadHashes)
-    if (removed > 0) {
-      state = next
-      persist()
+  fun release(payloadHashes: Collection<String>): Int = synchronized(gate) {
+    if (payloadHashes.isEmpty()) return@synchronized 0
+    var removed = 0
+    for (hash in payloadHashes) {
+      removed += db.database().delete("vault_storage", "payload_hash = ?", arrayOf(hash.lowercase()))
     }
     removed
   }
 
-  fun entry(payloadHash: String, nowMillis: Long): VaultEntry? = synchronized(lock) {
-    val hash = payloadHash.lowercase()
-    snapshot(nowMillis).entries.firstOrNull { it.payloadHash == hash }
+  fun entry(payloadHash: String, nowMillis: Long): VaultEntry? = synchronized(gate) {
+    purgeExpired(nowMillis)
+    find(payloadHash.lowercase())
   }
 
-  fun renew(payloadHash: String, expiresAt: Long): Boolean = synchronized(lock) {
-    val (next, renewed) = VaultMailbox.renew(state, payloadHash, expiresAt)
-    if (renewed) {
-      state = next
-      persist()
+  fun renew(payloadHash: String, expiresAt: Long): Boolean = synchronized(gate) {
+    val values = ContentValues()
+    values.put("expires_at", expiresAt)
+    db.database().update(
+      "vault_storage",
+      values,
+      "payload_hash = ?",
+      arrayOf(payloadHash.lowercase()),
+    ) > 0
+  }
+
+  fun expiringSoon(windowMillis: Long, nowMillis: Long): List<VaultEntry> = synchronized(gate) {
+    purgeExpired(nowMillis)
+    val entries = allEntries()
+    VaultMailbox.expiringSoon(VaultMailboxState(nextId(entries), entries), windowMillis, nowMillis)
+  }
+
+  fun clear() = synchronized(gate) {
+    db.database().execSQL("DELETE FROM vault_storage")
+  }
+
+  /** Vuelca el buzón que vivía en su `SharedPreferences` cifrado y vacía esa copia. */
+  fun migrateLegacy(legacyEntries: List<VaultEntry>): Int = synchronized(gate) {
+    val flags = db.database()
+    val done = flags.rawQuery("SELECT value FROM _app_flags WHERE key = 'vault_to_sqlite'", null)
+      .use { it.moveToFirst() }
+    if (done) return@synchronized 0
+    var migrated = 0
+    if (count() == 0) {
+      for (entry in legacyEntries) {
+        store(entry)
+        migrated += 1
+      }
     }
-    renewed
+    flags.execSQL("INSERT OR REPLACE INTO _app_flags (key, value) VALUES ('vault_to_sqlite', '1')")
+    migrated
   }
 
-  fun expiringSoon(windowMillis: Long, nowMillis: Long): List<VaultEntry> = synchronized(lock) {
-    VaultMailbox.expiringSoon(snapshot(nowMillis), windowMillis, nowMillis)
-  }
-
-  fun clear() = synchronized(lock) {
-    state = VaultMailboxState(1L, emptyList())
-    store.clear()
-  }
-
-  private fun persist() {
-    val entries = JSONArray()
-    for (entry in state.entries) {
-      entries.put(
-        JSONObject()
-          .put("id", entry.id)
-          .put("hash", entry.payloadHash)
-          .put("recipient", entry.recipientSid)
-          .put("sender", entry.senderSid)
-          .put("priority", entry.priority)
-          .put("data", entry.data)
-          .put("expiresAt", entry.expiresAt)
-          .apply { if (entry.recipientDeviceId != null) put("device", entry.recipientDeviceId) },
-      )
-    }
-    val document = JSONObject().put("nextId", state.nextId).put("entries", entries)
-    store.save(document.toString().toByteArray(Charsets.UTF_8))
-  }
-
-  private fun loadState(): VaultMailboxState {
-    val raw = store.load() ?: return VaultMailboxState(1L, emptyList())
-    val document = runCatching { JSONObject(String(raw, Charsets.UTF_8)) }.getOrNull()
-      ?: return VaultMailboxState(1L, emptyList())
-    val entries = mutableListOf<VaultEntry>()
-    val array = document.optJSONArray("entries") ?: JSONArray()
+  /** Lee el buzón antiguo de su `SharedPreferences` y lo vacía, para volcarlo a SQLite. */
+  fun legacyEntries(context: android.content.Context): List<VaultEntry>? {
+    val store = app.upeer.transport.KeystoreStore(
+      context,
+      "upeer_vault_mailbox",
+      "upeer-vault-mailbox",
+      "vault_state",
+    )
+    val raw = runCatching { store.load() }.getOrNull() ?: return null
+    runCatching { store.clear() }
+    val document = runCatching { org.json.JSONObject(String(raw, Charsets.UTF_8)) }.getOrNull() ?: return null
+    val array = document.optJSONArray("entries") ?: return emptyList()
+    val entries = ArrayList<VaultEntry>()
     for (index in 0 until array.length()) {
       val item = array.optJSONObject(index) ?: continue
       val hash = item.optString("hash")
@@ -108,8 +120,73 @@ internal class VaultMailboxStore(context: Context) {
         ),
       )
     }
+    return entries
+  }
+
+  private fun purgeExpired(nowMillis: Long) {
+    db.database().delete("vault_storage", "expires_at > 0 AND expires_at <= ?", arrayOf(nowMillis.toString()))
+  }
+
+  private fun count(): Int = db.database().rawQuery("SELECT COUNT(*) FROM vault_storage", null).use {
+    if (it.moveToFirst()) it.getInt(0) else 0
+  }
+
+  private fun nextId(entries: List<VaultEntry>): Long {
     val maxId = entries.maxOfOrNull { it.id } ?: 0L
-    val nextId = maxOf(document.optLong("nextId", 1L), maxId + 1)
-    return VaultMailboxState(nextId, entries)
+    return maxOf(maxId + 1, 1L)
+  }
+
+  private fun store(entry: VaultEntry) {
+    val values = ContentValues()
+    values.put("payload_hash", entry.payloadHash.lowercase())
+    values.put("recipient_sid", entry.recipientSid)
+    values.put("recipient_device_id", entry.recipientDeviceId)
+    values.put("sender_sid", entry.senderSid)
+    values.put("priority", entry.priority)
+    values.put("data", cipher.seal(entry.data) ?: "")
+    values.put("expires_at", entry.expiresAt)
+    db.database().insertWithOnConflict("vault_storage", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+  }
+
+  private fun find(payloadHash: String): VaultEntry? =
+    db.database().rawQuery("SELECT * FROM vault_storage WHERE payload_hash = ?", arrayOf(payloadHash)).use {
+      if (it.moveToNext()) toEntry(it, 0L) else null
+    }
+
+  private fun allEntries(): List<VaultEntry> {
+    val found = ArrayList<VaultEntry>()
+    db.database().rawQuery(
+      "SELECT * FROM vault_storage ORDER BY priority ASC, expires_at ASC",
+      null,
+    ).use { cursor ->
+      var index = 0L
+      while (cursor.moveToNext()) {
+        toEntry(cursor, index)?.let(found::add)
+        index += 1
+      }
+    }
+    return found
+  }
+
+  private fun toEntry(cursor: android.database.Cursor, fallbackId: Long): VaultEntry? {
+    fun text(column: String): String? {
+      val index = cursor.getColumnIndex(column)
+      return if (index >= 0 && !cursor.isNull(index)) cursor.getString(index) else null
+    }
+
+    val hash = text("payload_hash") ?: return null
+    val sender = text("sender_sid") ?: return null
+    val idIndex = cursor.getColumnIndex("id")
+    val id = if (idIndex >= 0 && !cursor.isNull(idIndex)) cursor.getLong(idIndex) else fallbackId
+    return VaultEntry(
+      id = id,
+      payloadHash = hash,
+      recipientSid = text("recipient_sid").orEmpty(),
+      recipientDeviceId = text("recipient_device_id"),
+      senderSid = sender,
+      priority = text("priority")?.toIntOrNull() ?: VaultStoreEnvelope.PRIORITY_MESSAGE,
+      data = cipher.open(text("data")).orEmpty(),
+      expiresAt = text("expires_at")?.toLongOrNull() ?: 0L,
+    )
   }
 }

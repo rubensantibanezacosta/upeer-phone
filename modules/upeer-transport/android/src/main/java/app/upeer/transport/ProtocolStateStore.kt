@@ -31,6 +31,10 @@ internal class ProtocolStateStore(context: Context) {
   private val syncDatabase = ProtocolSyncDatabase(database, cipher)
   private val settingsDatabase = ProtocolSettingsDatabase(database)
 
+  /** Tablas del esquema del escritorio que el modulo lee y escribe directamente. */
+  val assets = ProtocolAssetDatabase(database)
+  val pulseSync = ProtocolPulseSyncDatabase(database, cipher)
+
   /** Caché de lectura: SQLite es la verdad, este JSON es lo que ve el resto del módulo. */
   private var state = ProtocolStateCodec.load(store)
 

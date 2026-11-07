@@ -189,13 +189,6 @@ internal class ProtocolDatabase(context: Context) {
         "created_at INTEGER NOT NULL, acked_at INTEGER, PRIMARY KEY (event_id, target_device_id))",
     )
     db.execSQL("CREATE INDEX IF NOT EXISTS sync_relay_target_idx ON sync_relay(target_device_id, acked_at)")
-    // usage
-    db.execSQL(
-      "CREATE TABLE IF NOT EXISTS usage (" +
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, day TEXT NOT NULL, " +
-        "count INTEGER NOT NULL DEFAULT 0, bytes INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL)",
-    )
-    db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS usage_kind_day_idx ON usage(kind, day)")
     // _app_flags (control de migraciones one-time, igual que en escritorio)
     db.execSQL("CREATE TABLE IF NOT EXISTS _app_flags (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
   }
@@ -213,6 +206,8 @@ internal class ProtocolDatabase(context: Context) {
     renameColumn(db, "contacts", "signed_pre_key_sig", "signed_pre_key_signature")
     renameColumn(db, "contacts", "device_signed_pre_key_sig", "device_signed_pre_key_signature")
     renameColumn(db, "sync_peers", "device_signed_pre_key_sig", "device_signed_pre_key_signature")
+    // Tabla creada por una version anterior y quitada del esquema: el escritorio no la tiene.
+    db.execSQL("DROP TABLE IF EXISTS usage")
     for ((column, definition) in OUTBOX_EXTRA_COLUMNS) {
       addColumn(db, "pending_outbox", column, definition)
     }
@@ -264,7 +259,6 @@ internal class ProtocolDatabase(context: Context) {
       "sync_peers",
       "sync_events",
       "sync_relay",
-      "usage",
     )
 
     private val OUTBOX_EXTRA_COLUMNS = listOf(

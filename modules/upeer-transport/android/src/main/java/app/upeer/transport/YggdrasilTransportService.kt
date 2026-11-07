@@ -405,7 +405,9 @@ class YggdrasilTransportService : Service() {
       notifications::notifyMessage,
       admissionGuard,
       contactAdmission,
-      VaultMailboxStore(this),
+      VaultMailboxStore(protocolState.databaseHandle(), protocolState.cipherHandle()).also { vaultMailbox ->
+        vaultMailbox.legacyEntries(this)?.let { legacy -> vaultMailbox.migrateLegacy(legacy) }
+      },
       enrollmentResponse = ::installEnrollmentResponse,
       enrollmentRequest = ::handleInBandEnrollment,
       transferStorage = { filesDir },
