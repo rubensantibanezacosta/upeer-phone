@@ -31,9 +31,19 @@ class ProtocolDatabaseParityTest {
   }
 
   @Test
+  fun `el esquema del escritorio se lee de verdad`() {
+    // Si no se encuentra schema.ts, la comparación no probaría nada: mejor fallar que callar.
+    assertTrue(
+      "No se encontró upper-desktop/src/main_process/storage/schema.ts desde ${File(System.getProperty("user.dir")).absolutePath}",
+      findSchema() != null,
+    )
+    assertTrue("schema.ts no declara tablas de drizzle", desktopTables().size >= MIN_DESKTOP_TABLES)
+  }
+
+  @Test
   fun `el movil declara todas las tablas del escritorio`() {
     val desktop = desktopTables()
-    if (desktop.isEmpty()) return // sin el repositorio del escritorio no hay nada que comparar
+    if (desktop.isEmpty()) return // cubierto arriba
     val missing = desktop - ProtocolDatabase.TABLES.toSet()
     assertTrue("Faltan tablas del escritorio en el móvil: $missing", missing.isEmpty())
   }
@@ -44,6 +54,11 @@ class ProtocolDatabaseParityTest {
     if (desktop.isEmpty()) return
     val extra = ProtocolDatabase.TABLES.toSet() - desktop
     assertTrue("Tablas del móvil que no existen en el escritorio: $extra", extra.isEmpty())
+  }
+
+  private companion object {
+    /** El esquema del escritorio tiene 16 tablas; por debajo de 10, la lectura está rota. */
+    const val MIN_DESKTOP_TABLES = 10
   }
 
   @Test
