@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, BellOff, Crown, Eraser, Image, LogOut, Pencil, Star, UserMinus, UserPlus, Users } from '@tamagui/lucide-icons-2';
+import { ArrowLeft, BellOff, Crown, Eraser, Images, LogOut, Pencil, Star, UserMinus, UserPlus, Users } from '@tamagui/lucide-icons-2';
 import { Input, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { NativeRippleButton } from '@/components/native-ripple-button';
@@ -243,9 +243,15 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
 
           <InfoSections>
             <SectionSeparator />
-            <InteractiveRow chevron icon={Image} label="Multimedia compartida" onPress={pending('Multimedia compartida')} />
-            <SectionSeparator />
-
+            <XStack alignItems="center" justifyContent="space-between" paddingHorizontal={16} paddingVertical={4}>
+              <SizableText color={theme.text} fontSize={scale(15)} fontWeight="700">Miembros</SizableText>
+              {isAdmin ? <NativeRipplePressable accessibilityLabel="Añadir miembros" accessibilityRole="button" onPress={() => { setSelected([]); setMode('invite'); }}>
+                <XStack alignItems="center" gap={6}>
+                  <UserPlus color={theme.textSecondary} size={18} />
+                  <Text color={theme.textSecondary} fontSize={scale(13)} fontWeight="600">Añadir</Text>
+                </XStack>
+              </NativeRipplePressable> : null}
+            </XStack>
             <SettingsGroup>
               {members.length === 0
                 ? <Text color={theme.placeholder} fontSize={scale(15)} paddingHorizontal={16} paddingVertical={12}>No hay miembros disponibles.</Text>
@@ -258,9 +264,10 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
                 />)}
             </SettingsGroup>
 
-            {isAdmin ? <><SectionSeparator /><InteractiveRow icon={UserPlus} label="Añadir" onPress={() => { setSelected([]); setMode('invite'); }} /></> : null}
-
             <SectionSeparator />
+            <InteractiveRow chevron icon={Images} label="Multimedia" onPress={pending('Multimedia')} />
+            <SectionSeparator />
+
             <SettingsGroup>
               <InteractiveRow icon={BellOff} label={flags.muted ? 'Reactivar notificaciones' : 'Silenciar notificaciones'} onPress={() => toggleFlag('muted')} />
               <InteractiveRow icon={Star} label={active?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={pending('Favorito del grupo')} />

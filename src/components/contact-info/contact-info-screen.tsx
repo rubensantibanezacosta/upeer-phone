@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Archive, ArrowLeft, Ban, Bell, BellOff, Image, LockKeyhole, LockOpen, Share2, Star, Trash2, UserMinus } from '@tamagui/lucide-icons-2';
+import { Archive, ArrowLeft, Ban, Bell, BellOff, Images, LockKeyhole, LockOpen, Share2, Star, Trash2, UserMinus } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactInfoHero } from '@/components/contact-info/contact-info-hero';
@@ -184,7 +184,7 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
         </YStack>
         <InfoSections>
           <SectionSeparator />
-          <InteractiveRow chevron icon={Image} label="Multimedia compartida" onPress={pending('Multimedia compartida')} />
+          <InteractiveRow chevron icon={Images} label="Multimedia" onPress={pending('Multimedia')} />
           <SectionSeparator />
           <SettingsGroup>
             {isSelf ? null : <InteractiveRow disabled={!contact} icon={Share2} label="Compartir contacto" onPress={() => setSharing(true)} />}
