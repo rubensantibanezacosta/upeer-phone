@@ -16,8 +16,10 @@ internal class SyncEventLog(
     if (draft.occurredAt <= 0) return null
     return synchronized(lock) {
       val sync = bucket()
-      val events = sync.getJSONArray("events")
-      if (indexOf(events, draft.eventId) >= 0) return@synchronized null
+      // Con SQLite `bucket()` no lleva "events": la lista de eventos vive en su tabla.
+      val events = if (db == null) sync.getJSONArray("events") else null
+      if (events != null && indexOf(events, draft.eventId) >= 0) return@synchronized null
+      if (events == null && contains(draft.eventId)) return@synchronized null
       val sequence = SyncSequence.next(sync.optLong("sequence", 0L), nowMillis)
       val record = SyncEventRecord(
         eventId = draft.eventId,
@@ -38,8 +40,9 @@ internal class SyncEventLog(
         state().put("sync", sync)
         return@synchronized record
       }
-      events.put(record.toJson())
-      val kept = trimmed(events)
+      val target = events ?: throw IllegalStateException("registro de eventos sin tabla ni bloque")
+      target.put(record.toJson())
+      val kept = trimmed(target)
       run {
         sync.put("sequence", sequence)
         state().put("sync", sync)
@@ -56,6 +59,7 @@ internal class SyncEventLog(
 
   fun contains(eventId: String): Boolean {
     if (!validEventId(eventId)) return false
+    db?.let { return it.contains(eventId) }
     return synchronized(lock) { indexOf(bucket().getJSONArray("events"), eventId) >= 0 }
   }
 
@@ -83,6 +87,7 @@ internal class SyncEventLog(
 
   fun attachOrigin(eventId: String, origin: SyncOriginSignature): Boolean {
     if (!validEventId(eventId)) return false
+    db?.let { return it.setOrigin(eventId, origin.deviceId, origin.signature, origin.certificate.toString()) }
     return synchronized(lock) {
       val sync = bucket()
       val events = sync.getJSONArray("events")
@@ -157,19 +162,27 @@ internal class SyncEventLog(
 
   fun pendingApplication(limit: Int): List<SyncEventRecord> {
     if (limit <= 0) return emptyList()
-    return synchronized(lock) {
-      val events = bucket().getJSONArray("events")
-      val known = bucket().optJSONArray("applied")
+    db?.let { database ->
+      // La lista de aplicados vive en el bloque (memoria); hay que descontarla también aquí, o los
+      // eventos ya aplicados vuelven a la cola en cada pasada y no se aplica nunca nada nuevo.
+      val applied = synchronized(lock) { bucket().optJSONArray("applied") }
       val seen = HashSet<String>()
-      if (known != null) for (index in 0 until known.length()) seen.add(known.optString(index))
+      if (applied != null) for (index in 0 until applied.length()) seen.add(applied.optString(index))
+      val page = database.inbound(limit)
       val found = mutableListOf<SyncEventRecord>()
-      for (index in 0 until events.length()) {
-        val record = SyncEventRecord.from(events.optJSONObject(index) ?: continue) ?: continue
-        if (record.direction != "inbound") continue
+      for (index in 0 until page.length()) {
+        val record = SyncEventRecord.from(page.optJSONObject(index) ?: continue) ?: continue
         if (record.eventId in seen) continue
         found.add(record)
       }
-      found.sortedBy { it.sequence }.take(limit)
+      return found.sortedBy { it.sequence }.take(limit)
+    }
+    return synchronized(lock) {
+      SyncEventIndex.pendingApplication(
+        bucket().getJSONArray("events"),
+        bucket().optJSONArray("applied"),
+        limit,
+      )
     }
   }
 
@@ -199,18 +212,8 @@ internal class SyncEventLog(
   }
 
   fun pendingCount(): Int = synchronized(lock) {
-    val events = bucket().getJSONArray("events")
-    val known = bucket().optJSONArray("applied")
-    val seen = HashSet<String>()
-    if (known != null) for (index in 0 until known.length()) seen.add(known.optString(index))
-    var pending = 0
-    for (index in 0 until events.length()) {
-      val event = events.optJSONObject(index) ?: continue
-      if (event.optString("direction") != "inbound") continue
-      if (event.optString("eventId") in seen) continue
-      pending += 1
-    }
-    pending
+    db?.let { database -> return@synchronized database.byDirection("inbound").size }
+    SyncEventIndex.pendingCount(bucket().getJSONArray("events"), bucket().optJSONArray("applied"))
   }
 
   private fun capped(values: org.json.JSONArray): org.json.JSONArray {

@@ -40,7 +40,7 @@ internal class ProtocolStateStore(context: Context) {
 
   private val migration = ProtocolStateMigration(
     database, messageDatabase, contactDatabase, groupDatabase,
-    sessionDatabase, syncPeerDatabase, settingsDatabase, SyncEventDatabase(context),
+    sessionDatabase, syncPeerDatabase, settingsDatabase, SyncEventDatabase(database),
   )
 
   private val mirror = ProtocolStateMirror(
@@ -74,17 +74,19 @@ internal class ProtocolStateStore(context: Context) {
   val groups = ProtocolGroups({ state }, lock, { persist("groups") })
   val groupKeys = ProtocolGroupKeys({ state }, lock, { persist("groups") })
   val presence = ProtocolPresence({ state }, lock, { persist("rest") })
-  private val syncEventDatabase = SyncEventDatabase(context).also { database ->
+  private val syncEventDatabase = SyncEventDatabase(database).also { events ->
+    // El fichero suelto de la versión anterior se vuelca aquí y se retira.
+    events.migrateLegacyFile(context)
     val sync = state.optJSONObject("sync") ?: JSONObject()
     val legacy = sync.optJSONArray("events")
-    if (legacy != null && legacy.length() > 0) database.migrateFrom(sync)
-    if (sync.has("events") && database.count() > 0) {
+    if (legacy != null && legacy.length() > 0) events.migrateFrom(sync)
+    if (sync.has("events") && events.count() > 0) {
       sync.remove("events")
       state.put("sync", sync)
       migratePending = true
-      Log.i(TAG, "Migración: eventos sacados del estado (${database.count()} en SQLite)")
+      Log.i(TAG, "Migración: eventos sacados del estado (${events.count()} en SQLite)")
     } else if (sync.has("events")) {
-      Log.w(TAG, "Migración: el estado tiene eventos pero SQLite está vacía (${database.count()})")
+      Log.w(TAG, "Migración: el estado tiene eventos pero SQLite está vacía (${events.count()})")
     }
   }
   val syncEvents = SyncEventLog({ state }, lock, { persist("sync") }, SyncEventLog.MAX_EVENTS, syncEventDatabase)

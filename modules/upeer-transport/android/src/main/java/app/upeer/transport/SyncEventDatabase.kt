@@ -7,33 +7,18 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
-internal class SyncEventDatabase(context: Context) {
-  private val file = File(context.filesDir, "sync-events.db")
+/**
+ * Registro de eventos de sincronización, en la tabla `sync_events` de la base del protocolo.
+ *
+ * Antes abría su **propio** fichero (`sync-events.db`), de cuando el estado no tenía tablas. Al migrar
+ * todo a SQLite eso quedó descuadrado con el esquema del escritorio: había dos bases y los eventos
+ * recibidos se escribían en la que ya no se creaba. Ahora comparte [ProtocolDatabase], que es la única
+ * que tiene `sync_events`, y el fichero viejo se vuelca una sola vez si existe.
+ */
+internal class SyncEventDatabase(private val shared: ProtocolDatabase) {
   private val lock = Any()
-  private var db: SQLiteDatabase? = null
 
-  private fun database(): SQLiteDatabase = synchronized(lock) {
-    db ?: SQLiteDatabase.openOrCreateDatabase(file, null).also { opened ->
-      opened.execSQL(
-        "CREATE TABLE IF NOT EXISTS sync_events (" +
-          "event_id TEXT PRIMARY KEY, " +
-          "origin_device_id TEXT NOT NULL, " +
-          "kind TEXT NOT NULL, " +
-          "occurred_at INTEGER NOT NULL, " +
-          "sequence INTEGER NOT NULL DEFAULT 0, " +
-          "payload TEXT NOT NULL, " +
-          "origin_signature TEXT, " +
-          "origin_certificate TEXT, " +
-          "entity_id TEXT, " +
-          "direction TEXT NOT NULL, " +
-          "applied_at INTEGER NOT NULL)",
-      )
-      opened.execSQL("CREATE INDEX IF NOT EXISTS sync_events_origin_idx ON sync_events(origin_device_id)")
-      opened.execSQL("CREATE INDEX IF NOT EXISTS sync_events_occurred_idx ON sync_events(occurred_at)")
-      opened.execSQL("CREATE INDEX IF NOT EXISTS sync_events_sequence_idx ON sync_events(sequence)")
-      db = opened
-    }
-  }
+  private fun database(): SQLiteDatabase = shared.database()
 
   fun insert(record: SyncEventRecord): Boolean = synchronized(lock) {
     val database = database()
@@ -96,6 +81,20 @@ internal class SyncEventDatabase(context: Context) {
       while (cursor.moveToNext()) result.put(cursorToRecord(cursor))
     }
     result
+  }
+
+  /** Recuento por dirección, equivalente al recorrido del bloque `events` en memoria. */
+  fun byDirection(direction: String): List<SyncEventRecord> = synchronized(lock) {
+    val found = ArrayList<SyncEventRecord>()
+    database().rawQuery(
+      "SELECT * FROM sync_events WHERE direction = ?",
+      arrayOf(direction),
+    ).use { cursor ->
+      while (cursor.moveToNext()) {
+        SyncEventRecord.from(cursorToRecord(cursor))?.let(found::add)
+      }
+    }
+    found
   }
 
   fun pendingFor(direction: String, ack: Long): Int = synchronized(lock) {
@@ -193,6 +192,27 @@ internal class SyncEventDatabase(context: Context) {
     )
   }
 
+  /** Vuelca el fichero suelto de una versión anterior y lo retira. */
+  fun migrateLegacyFile(context: Context) {
+    val legacy = File(context.filesDir, "sync-events.db")
+    if (!legacy.isFile) return
+    runCatching {
+      val rows = SQLiteDatabase.openDatabase(legacy.path, null, SQLiteDatabase.OPEN_READONLY)
+      var migrated = 0
+      rows.rawQuery("SELECT * FROM sync_events", null).use { cursor ->
+        while (cursor.moveToNext()) {
+          val record = SyncEventRecord.from(cursorToRecord(cursor)) ?: continue
+          if (insert(record)) migrated += 1
+        }
+      }
+      rows.close()
+      Log.i(TAG, "Eventos migrados desde sync-events.db: $migrated")
+      legacy.delete()
+    }.onFailure { cause ->
+      Log.w(TAG, "No se pudieron migrar los eventos de sync-events.db", cause)
+    }
+  }
+
   fun migrateFrom(sync: JSONObject?) {
     val legacy = sync?.optJSONArray("events") ?: return
     if (legacy.length() == 0) return
@@ -207,11 +227,11 @@ internal class SyncEventDatabase(context: Context) {
     }
   }
 
+  /** Borra los eventos de sincronización de la cuenta; no cierra la base compartida. */
   fun clear() {
     synchronized(lock) {
-      db?.close()
-      db = null
-      runCatching { file.delete() }
+      database().execSQL("DELETE FROM sync_events")
+      database().execSQL("DELETE FROM sync_relay")
     }
   }
 
