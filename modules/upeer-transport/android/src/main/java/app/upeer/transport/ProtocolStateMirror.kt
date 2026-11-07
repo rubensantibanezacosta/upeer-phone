@@ -101,59 +101,102 @@ internal class ProtocolStateMirror(
     }
   }
 
+  /**
+   * Vuelca los mensajes del estado y borra los que se hayan quitado a propósito.
+   *
+   * Sin el borrado, vaciar una conversación solo cambiaba la copia en memoria: las filas seguían en
+   * SQLite y los mensajes reaparecían en el siguiente arranque.
+   *
+   * El borrado es **por conversación y solo sobre los ids que esa conversación tenía guardados**, nunca
+   * «todo lo que falte del estado»: `ProtocolMessageState.upsert` recorta el estado a 500 mensajes, así
+   * que un borrado por diferencia real eliminaría de disco los que caen fuera de ese tope.
+   */
+  private var knownByChat: Map<String, Set<String>>? = null
+  private var knownContactKeys: Set<String>? = null
+  private var knownGroupKeys: Set<String>? = null
+  private var knownSessionKeys: Set<String>? = null
+  private var knownPeerKeys: Set<String>? = null
+
   fun writeMessages(state: JSONObject) {
-    val messageList = state.optJSONArray("messages") ?: return
+    val messageList = state.optJSONArray("messages") ?: org.json.JSONArray()
     val pairs = ArrayList<Pair<JSONObject, String>>(messageList.length())
     for (index in 0 until messageList.length()) {
       val message = messageList.optJSONObject(index) ?: continue
       val chat = message.optString("upeerId")
-      if (chat.isEmpty()) continue
+      if (chat.isEmpty() || message.optString("id").isEmpty()) continue
       pairs.add(message to chat)
     }
+    val present = ProtocolMessagePrune.index(state)
+    for ((chat, gone) in ProtocolMessagePrune.prune(knownByChat, present)) {
+      messages.deleteByIds(chat, gone)
+    }
     if (pairs.isNotEmpty()) messages.insertAll(pairs)
+    knownByChat = present
+  }
+
+  /** Fija la foto de ids conocidos sin escribir nada, para el primer volcado tras arrancar. */
+  fun primeMessageIndex(state: JSONObject) {
+    knownByChat = ProtocolMessagePrune.index(state)
+    knownContactKeys = state.optJSONObject("peers")?.keys()?.asSequence()?.toSet() ?: emptySet()
+    knownGroupKeys = state.optJSONObject("groups")?.keys()?.asSequence()?.toSet() ?: emptySet()
+    knownSessionKeys = state.optJSONObject("sessions")?.keys()?.asSequence()?.toSet() ?: emptySet()
+    knownPeerKeys = state.optJSONObject("sync")?.optJSONObject("devices")?.keys()?.asSequence()?.toSet()
+      ?: emptySet()
   }
 
   fun writeContacts(state: JSONObject) {
-    val peers = state.optJSONObject("peers") ?: return
+    val peers = state.optJSONObject("peers") ?: org.json.JSONObject()
     val map = LinkedHashMap<String, JSONObject>()
     val keys = peers.keys()
     while (keys.hasNext()) {
       val upeerId = keys.next()
       peers.optJSONObject(upeerId)?.let { map[upeerId] = it }
     }
+    // Borrar un contacto o bloquearlo tiene que llegar a disco, no solo a la copia en memoria.
+    for (gone in knownContactKeys.orEmpty() - map.keys) contacts.delete(gone)
+    knownContactKeys = map.keys.toSet()
     if (map.isNotEmpty()) contacts.insertAll(map)
   }
 
   fun writeGroups(state: JSONObject) {
-    val groupMap = state.optJSONObject("groups") ?: return
+    val groupMap = state.optJSONObject("groups") ?: org.json.JSONObject()
     val map = LinkedHashMap<String, JSONObject>()
     val keys = groupMap.keys()
     while (keys.hasNext()) {
       val groupId = keys.next()
       groupMap.optJSONObject(groupId)?.let { map[groupId] = it }
     }
+    // Salir de un grupo o que lo borren desde otro dispositivo debe desaparecer también de la tabla.
+    for (gone in knownGroupKeys.orEmpty() - map.keys) groups.delete(gone)
+    knownGroupKeys = map.keys.toSet()
     if (map.isNotEmpty()) groups.insertAll(map)
   }
 
   fun writeSessions(state: JSONObject) {
-    val sessionMap = state.optJSONObject("sessions") ?: return
+    val sessionMap = state.optJSONObject("sessions") ?: org.json.JSONObject()
     val map = LinkedHashMap<String, JSONObject>()
     val keys = sessionMap.keys()
     while (keys.hasNext()) {
       val key = keys.next()
       sessionMap.optJSONObject(key)?.let { map[key] = it }
     }
+    // Un reset de ratchet o una rotación de clave elimina sesiones: eso también va a disco.
+    for (gone in knownSessionKeys.orEmpty() - map.keys) deleteSession(gone)
+    knownSessionKeys = map.keys.toSet()
     if (map.isNotEmpty()) sessions.insertAll(map)
   }
 
   fun writeSyncPeers(state: JSONObject) {
-    val deviceMap = state.optJSONObject("sync")?.optJSONObject("devices") ?: return
+    val deviceMap = state.optJSONObject("sync")?.optJSONObject("devices") ?: org.json.JSONObject()
     val map = LinkedHashMap<String, JSONObject>()
     val keys = deviceMap.keys()
     while (keys.hasNext()) {
       val deviceId = keys.next()
       deviceMap.optJSONObject(deviceId)?.let { map[deviceId] = it }
     }
+    // Un dispositivo propio desvinculado deja de ser par de sincronización.
+    for (gone in knownPeerKeys.orEmpty() - map.keys) syncPeers.delete(gone)
+    knownPeerKeys = map.keys.toSet()
     if (map.isNotEmpty()) syncPeers.insertAll(map)
   }
 

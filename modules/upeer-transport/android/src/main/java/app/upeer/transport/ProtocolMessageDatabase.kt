@@ -37,6 +37,18 @@ internal class ProtocolMessageDatabase(private val db: ProtocolDatabase) {
     for ((message, chat) in messages) insert(message, chat)
   }
 
+  /** Borra de una conversación los mensajes indicados (los que se han quitado a propósito). */
+  fun deleteByIds(chatUpeerId: String, ids: Set<String>) {
+    if (ids.isEmpty()) return
+    val database = db.database()
+    val placeholders = ids.joinToString(",") { "?" }
+    database.execSQL(
+      "DELETE FROM messages WHERE chat_upeer_id = ? AND id IN ($placeholders)",
+      (listOf(chatUpeerId) + ids).toTypedArray(),
+    )
+    database.execSQL("DELETE FROM reactions WHERE message_id NOT IN (SELECT id FROM messages)")
+  }
+
   fun delete(messageId: String) {
     db.database().delete("messages", "id = ?", arrayOf(messageId))
   }

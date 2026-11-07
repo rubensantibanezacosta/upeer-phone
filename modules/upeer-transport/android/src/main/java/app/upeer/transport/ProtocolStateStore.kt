@@ -116,6 +116,8 @@ internal class ProtocolStateStore(context: Context) {
       (rebuilt.optJSONObject("sync") ?: JSONObject().also { rebuilt.put("sync", it) }).put("events", events)
     }
     state = ProtocolStateCodec.normalize(rebuilt)
+    // Foto de lo que hay en disco, para poder distinguir una baja de un recorte al volcar cambios.
+    mirror.primeMessageIndex(state)
     Log.i(TAG, "Estado cargado desde SQLite: ${mirror.counts()}")
   }
 
