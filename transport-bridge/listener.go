@@ -132,6 +132,9 @@ func (b *Bridge) acceptLoop(state *listenerState) {
 			closeListenerState(state)
 			return
 		}
+		// Cada tramo de fichero es un frame: sin esto espera al temporizador de Nagle.
+		setTCPNoDelay(connection)
+		enableKeepAlive(connection)
 		select {
 		case state.accepted <- connection:
 		case <-state.done:

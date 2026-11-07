@@ -12,29 +12,29 @@ public abstract class Transportbridge {
 		Seq.touch(); // for loading the native library
 		_init();
 	}
-	
+
 	private Transportbridge() {} // uninstantiable
-	
+
 	// touch is called from other bound packages to initialize this package
 	public static void touch() {}
-	
+
 	private static native void _init();
-	
-	
+
+
 	public static final long MaxFrameBytes = 10485760L;
-	
+
 	public static native void setErrEmptyFrame(java.lang.Exception v);
 	public static native java.lang.Exception getErrEmptyFrame();
-	
+
 	public static native void setErrFrameTooLarge(java.lang.Exception v);
 	public static native java.lang.Exception getErrFrameTooLarge();
-	
+
 	public static native void setErrRatchetAuthentication(java.lang.Exception v);
 	public static native java.lang.Exception getErrRatchetAuthentication();
-	
+
 	public static native void setErrRootIdentityUnavailable(java.lang.Exception v);
 	public static native java.lang.Exception getErrRootIdentityUnavailable();
-	
+
 	public static native String accountRegistryKey(String accountUpeerID) throws Exception;
 	public static native String approveDevicePairingRequest(byte[] accountSecretKey, String requestJSON, long epoch, long issuedAt, long expiresAt) throws Exception;
 	public static native String buildAccountRegistryFromCertificates(byte[] accountSecretKey, String certificatesJSON, String revokedJSON, long epoch, long issuedAt, long ttlMillis) throws Exception;

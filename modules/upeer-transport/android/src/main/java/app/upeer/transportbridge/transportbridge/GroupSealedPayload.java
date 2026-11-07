@@ -13,26 +13,26 @@ random 24-byte nonce next to the authenticated ciphertext, both hex encoded.
  */
 public final class GroupSealedPayload implements Seq.Proxy {
 	static { Transportbridge.touch(); }
-	
+
 	private final int refnum;
-	
+
 	@Override public final int incRefnum() {
 	      Seq.incGoRef(refnum, this);
 	      return refnum;
 	}
-	
+
 	GroupSealedPayload(int refnum) { this.refnum = refnum; Seq.trackGoRef(refnum, this); }
-	
+
 	public GroupSealedPayload() { this.refnum = __New(); Seq.trackGoRef(refnum, this); }
-	
+
 	private static native int __New();
-	
+
 	public final native String getNonce();
 	public final native void setNonce(String v);
-	
+
 	public final native String getCiphertext();
 	public final native void setCiphertext(String v);
-	
+
 	@Override public boolean equals(Object o) {
 		if (o == null || !(o instanceof GroupSealedPayload)) {
 		    return false;
@@ -58,11 +58,11 @@ public final class GroupSealedPayload implements Seq.Proxy {
 		}
 		return true;
 	}
-	
+
 	@Override public int hashCode() {
 	    return java.util.Arrays.hashCode(new Object[] {getNonce(), getCiphertext()});
 	}
-	
+
 	@Override public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append("GroupSealedPayload").append("{");

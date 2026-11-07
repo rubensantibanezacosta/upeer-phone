@@ -313,6 +313,8 @@ func (b *Bridge) DialTCP(address string, port int) (int32, error) {
 	if err != nil {
 		return 0, fmt.Errorf("dial Yggdrasil TCP endpoint: %w", err)
 	}
+	setTCPNoDelay(conn)
+	enableKeepAlive(conn)
 	return b.storeConnection(conn)
 }
 

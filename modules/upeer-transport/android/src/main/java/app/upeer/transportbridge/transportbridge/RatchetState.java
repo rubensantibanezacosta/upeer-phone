@@ -9,56 +9,56 @@ import go.Seq;
 
 public final class RatchetState implements Seq.Proxy {
 	static { Transportbridge.touch(); }
-	
+
 	private final int refnum;
-	
+
 	@Override public final int incRefnum() {
 	      Seq.incGoRef(refnum, this);
 	      return refnum;
 	}
-	
+
 	RatchetState(int refnum) { this.refnum = refnum; Seq.trackGoRef(refnum, this); }
-	
+
 	public RatchetState() { this.refnum = __New(); Seq.trackGoRef(refnum, this); }
-	
+
 	private static native int __New();
-	
+
 	// skipped field RatchetState.RK with unsupported type: [32]byte
-	
+
 	// skipped field RatchetState.CKS with unsupported type: *[32]byte
-	
+
 	// skipped field RatchetState.CKR with unsupported type: *[32]byte
-	
+
 	public final native long getNS();
 	public final native void setNS(long v);
-	
+
 	public final native long getNR();
 	public final native void setNR(long v);
-	
+
 	public final native long getPN();
 	public final native void setPN(long v);
-	
+
 	// skipped field RatchetState.DHSPK with unsupported type: [32]byte
-	
+
 	// skipped field RatchetState.DHSSK with unsupported type: [32]byte
-	
+
 	// skipped field RatchetState.DHR with unsupported type: *[32]byte
-	
+
 	// skipped field RatchetState.Skipped with unsupported type: map[string][32]byte
-	
+
 	// skipped field RatchetState.SkippedOrder with unsupported type: []string
-	
+
 	@Override public boolean equals(Object o) {
 		if (o == null || !(o instanceof RatchetState)) {
 		    return false;
 		}
 		RatchetState that = (RatchetState)o;
 		// skipped field RatchetState.RK with unsupported type: [32]byte
-		
+
 		// skipped field RatchetState.CKS with unsupported type: *[32]byte
-		
+
 		// skipped field RatchetState.CKR with unsupported type: *[32]byte
-		
+
 		long thisNS = getNS();
 		long thatNS = that.getNS();
 		if (thisNS != thatNS) {
@@ -75,22 +75,22 @@ public final class RatchetState implements Seq.Proxy {
 		    return false;
 		}
 		// skipped field RatchetState.DHSPK with unsupported type: [32]byte
-		
+
 		// skipped field RatchetState.DHSSK with unsupported type: [32]byte
-		
+
 		// skipped field RatchetState.DHR with unsupported type: *[32]byte
-		
+
 		// skipped field RatchetState.Skipped with unsupported type: map[string][32]byte
-		
+
 		// skipped field RatchetState.SkippedOrder with unsupported type: []string
-		
+
 		return true;
 	}
-	
+
 	@Override public int hashCode() {
 	    return java.util.Arrays.hashCode(new Object[] {getNS(), getNR(), getPN()});
 	}
-	
+
 	@Override public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append("RatchetState").append("{");
