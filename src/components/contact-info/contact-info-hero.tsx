@@ -33,7 +33,7 @@ export function ContactInfoHero({ alias, avatar, upeerId, status, presence = nul
   const presenceLabel = presenceText(presence, status);
 
   return (
-    <YStack alignItems="center" gap={5} paddingHorizontal={20} paddingTop={4}>
+    <YStack alignItems="center" gap={5} paddingTop={4}>
       <ContactTrustAvatar avatar={avatar} name={alias} size={96} vouchScore={score} />
       <SizableText color={theme.text} fontSize={scale(20)} fontWeight="700" numberOfLines={2} textAlign="center">{alias}</SizableText>
       <Text color={theme.placeholder} ellipsizeMode="middle" fontFamily="monospace" fontSize={scale(12)} numberOfLines={1}>{upeerId}</Text>

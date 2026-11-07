@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Crown, LogOut, Pencil, UserMinus, UserPlus } from '@tamagui/lucide-icons-2';
+import { ArrowLeft, Crown, LogOut, Pencil, UserMinus, UserPlus, Users } from '@tamagui/lucide-icons-2';
 import { Input, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { NativeRippleButton } from '@/components/native-ripple-button';
@@ -16,6 +16,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { getContacts, type UPeerContact } from '@/storage/contact-store';
 import type { ProtocolGroup } from '../../../modules/upeer-transport/src/UPeerTransport.types';
 import {
+  getConversations,
   getGroups,
   inviteToGroup,
   leaveGroup,
@@ -38,6 +39,7 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
   const { showSnackbar } = useSnackbar();
   const [group, setGroup] = useState<ProtocolGroup | null>(null);
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
+  const [avatars, setAvatars] = useState<Record<string, string | undefined>>({});
   const [mode, setMode] = useState<ScreenMode>('info');
   const [selected, setSelected] = useState<string[]>([]);
   const [member, setMember] = useState<string | null>(null);
@@ -45,9 +47,10 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(() => Promise.all([getGroups(), getContacts()]).then(([groups, list]) => {
+  const load = useCallback(() => Promise.all([getGroups(), getContacts(), getConversations()]).then(([groups, list, conversations]) => {
     setGroup(groups.find((item) => item.groupId === groupId) ?? null);
     setContacts(list);
+    setAvatars(Object.fromEntries(conversations.map((conversation) => [conversation.upeerId, conversation.avatar || undefined])));
   }), [groupId]);
 
   useEffect(() => {
@@ -160,8 +163,8 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
         </YStack> : null}
 
         {mode === 'info' ? <>
-          <YStack alignItems="center" gap={5} paddingHorizontal={20} paddingTop={4}>
-            <ProfileAvatar avatar={active?.avatar} name={active?.name || 'Grupo'} size={96} />
+          <YStack alignItems="center" gap={5} paddingTop={4}>
+            {avatars[groupId] ? <ProfileAvatar avatar={avatars[groupId]} name={active?.name || 'Grupo'} size={96} /> : <View style={[styles.groupAvatar, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}><Users color={theme.placeholder} size={40} /></View>}
             <SizableText color={theme.text} fontSize={scale(20)} fontWeight="700" numberOfLines={2} textAlign="center">{active?.name || 'Grupo'}</SizableText>
             <XStack alignItems="center" gap={5}>
               <Text color={theme.placeholder} fontSize={scale(12)}>{`Grupo · ${members.length} ${members.length === 1 ? 'miembro' : 'miembros'}`}</Text>
@@ -187,14 +190,14 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
               value={draft}
             />
             <XStack gap={8}>
-              <NativeRippleButton backgroundColor={theme.backgroundElement} color={theme.text} flex={1} height={44} onPress={() => setRenaming(false)}>Cancelar</NativeRippleButton>
+              <NativeRippleButton backgroundColor={theme.backgroundElement} borderColor={theme.border} borderWidth={1} color={theme.text} flex={1} height={46} onPress={() => setRenaming(false)}>Cancelar</NativeRippleButton>
               <NativeRippleButton
                 backgroundColor={theme.accent}
                 color={theme.onAccent}
                 disabled={busy || draft.trim().length === 0}
                 flex={1}
                 fontWeight="700"
-                height={44}
+                height={46}
                 onPress={() => void run(() => renameGroup(groupId, draft.trim()), 'Grupo renombrado')}
               >
                 {busy ? 'Guardando…' : 'Guardar'}
@@ -207,7 +210,7 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
             {members.map((upeerId) => <InteractiveRow
               accessibilityLabel={`Opciones de ${nameOf(upeerId)}`}
               description={memberLabel(upeerId)}
-              icon={() => <ProfileAvatar name={nameOf(upeerId)} size={22} />}
+              icon={() => <ProfileAvatar avatar={avatars[upeerId]} name={nameOf(upeerId)} size={22} />}
               key={upeerId}
               label={upeerId === selfId ? 'Tú' : nameOf(upeerId)}
               onPress={() => { setMember(upeerId); setMode('member'); }}
@@ -235,4 +238,5 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   headerButton: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 },
   content: { gap: 18, paddingBottom: 32, paddingHorizontal: 20, paddingTop: 4 },
+  groupAvatar: { alignItems: 'center', borderRadius: 48, borderWidth: StyleSheet.hairlineWidth, height: 96, justifyContent: 'center', width: 96 },
 });
