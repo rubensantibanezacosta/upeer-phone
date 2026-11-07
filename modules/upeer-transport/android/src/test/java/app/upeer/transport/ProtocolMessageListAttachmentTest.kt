@@ -80,13 +80,28 @@ class ProtocolMessageListAttachmentTest {
     assertEquals("/datos/synced/uno.png", refs.first().savedPath)
   }
 
-  private fun save(id: String, fileId: String, savedPath: String?) {
+  @Test
+  fun `anuncia como ruta local la que trae el mensaje cuando no hay copia propia`() {
+    save("id-1", "uno", savedPath = null, localPath = "file:///home/otro/foto.png")
+
+    assertEquals("/home/otro/foto.png", MessageAttachments.localPathOfContent(messages.attachmentContent("uno")!!))
+  }
+
+  @Test
+  fun `descarta una ruta local que no es absoluta`() {
+    val content = JSONObject().put("type", "file").put("fileId", "uno").put("localPath", "foto.png").toString()
+
+    assertNull(MessageAttachments.localPathOfContent(content))
+  }
+
+  private fun save(id: String, fileId: String, savedPath: String?, localPath: String? = null) {
     val content = JSONObject()
       .put("type", "file")
       .put("fileId", fileId)
       .put("fileName", "$fileId.png")
       .put("fileSize", 10)
     if (savedPath != null) content.put("savedPath", savedPath)
+    if (localPath != null) content.put("localPath", localPath)
     messages.save(
       JSONObject()
         .put("id", id)

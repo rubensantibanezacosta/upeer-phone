@@ -34,6 +34,13 @@ internal object MessageAttachments {
 
   fun fileNameOfContent(raw: String): String = parsed(raw)?.optString("fileName").orEmpty()
 
+  fun localPathOfContent(raw: String): String? {
+    val parsed = parsed(raw) ?: return null
+    val path = parsed.optString("localPath").ifEmpty { return null }
+    if (!path.startsWith("/") && !path.startsWith("file://")) return null
+    return path.removePrefix("file://")
+  }
+
   private fun parsed(raw: String): JSONObject? =
     runCatching { JSONObject(raw) }.getOrNull()?.takeIf { it.optString("type") in KINDS }
 

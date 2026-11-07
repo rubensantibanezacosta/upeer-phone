@@ -17,8 +17,9 @@ internal class SyncFileServe(
     val sender = SyncSender(device.deviceId, device.certificate)
     val content = state.messages.attachmentContent(request.fileId)
     val savedPath = content?.let(MessageAttachments::savedPathOfContent)
-    val file = savedPath?.let(::File)
-    if (file == null || !file.isFile) {
+    val announced = content?.let(MessageAttachments::localPathOfContent)
+    val file = fileFor(request.fileId, savedPath, announced)
+    if (file == null) {
       Log.i(TAG, "El adjunto ${request.fileId} no está en este dispositivo")
       refuse(peer, sender, request, "not-here", stream)
       return
@@ -46,6 +47,15 @@ internal class SyncFileServe(
     } finally {
       packets.release()
     }
+  }
+
+  private fun fileFor(fileId: String, savedPath: String?, announced: String?): File? {
+    for (candidate in listOfNotNull(savedPath, announced)) {
+      val file = runCatching { File(candidate) }.getOrNull() ?: continue
+      if (runCatching { file.isFile }.getOrDefault(false)) return file
+    }
+    val stored = SyncFileReceive.storedPath(fileId)
+    return stored?.let(::File)?.takeIf { runCatching { it.isFile }.getOrDefault(false) }
   }
 
   private fun refuse(
