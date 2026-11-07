@@ -132,4 +132,56 @@ class SyncFilePacketsTest {
     assertNull(SyncFilePackets.chunk(sender, "b".repeat(64), "abc12345", 0, ByteArray(SyncFilePackets.CHUNK_SIZE + 1)))
     assertNull(SyncFilePackets.parseChunk(JSONObject().put("requestId", "abc12345").put("index", 0).put("data", "")))
   }
+
+  // ── Varios tramos por frame ────────────────────────────────────────────────
+
+  private fun batchOf(count: Int, size: Int = 16): List<ByteArray> =
+    (0 until count).map { index -> ByteArray(size) { (index + it).toByte() } }
+
+  @Test
+  fun `un lote se deshace en los mismos tramos con sus indices`() {
+    val chunks = batchOf(5)
+    val packet = SyncFilePackets.chunkBatch(sender, "b".repeat(64), "abc12345", 10, chunks)
+    requireNotNull(packet)
+
+    val parsed = SyncFilePackets.parseChunks(packet)
+
+    assertEquals(5, parsed.size)
+    assertEquals(listOf(10, 11, 12, 13, 14), parsed.map { it.index })
+    for ((position, chunk) in parsed.withIndex()) {
+      assertArrayEquals("tramo $position", chunks[position], chunk.bytes)
+    }
+    assertEquals("abc12345", parsed.first().requestId)
+  }
+
+  @Test
+  fun `un frame de un solo tramo sigue leyendose igual`() {
+    // Compatibilidad: el camino antiguo tiene que seguir funcionando.
+    val chunk = SyncFilePackets.chunk(sender, "b".repeat(64), "abc12345", 3, ByteArray(4) { 7 })
+    requireNotNull(chunk)
+
+    val parsed = SyncFilePackets.parseChunks(chunk)
+
+    assertEquals(1, parsed.size)
+    assertEquals(3, parsed.first().index)
+  }
+
+  @Test
+  fun `no se agrupan mas tramos de los permitidos`() {
+    val tooMany = batchOf(SyncFilePackets.MAX_BATCH_CHUNKS + 1)
+    assertNull(SyncFilePackets.chunkBatch(sender, "b".repeat(64), "abc12345", 0, tooMany))
+  }
+
+  @Test
+  fun `un lote vacio o con indices invalidos se rechaza`() {
+    assertNull(SyncFilePackets.chunkBatch(sender, "b".repeat(64), "abc12345", 0, emptyList()))
+    assertNull(SyncFilePackets.chunkBatch(sender, "b".repeat(64), "abc12345", -1, batchOf(2)))
+    assertTrue(SyncFilePackets.parseChunks(JSONObject().put("requestId", "abc12345").put("batch", org.json.JSONArray())).isEmpty())
+  }
+
+  @Test
+  fun `un tramo mayor que el tamano de chunk invalida el lote`() {
+    val huge = ByteArray(SyncFilePackets.CHUNK_SIZE + 1)
+    assertNull(SyncFilePackets.chunkBatch(sender, "b".repeat(64), "abc12345", 0, listOf(huge)))
+  }
 }

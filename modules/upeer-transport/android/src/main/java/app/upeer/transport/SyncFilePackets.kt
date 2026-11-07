@@ -8,6 +8,12 @@ internal object SyncFilePackets {
   const val CHUNK = "SYNC_FILE_CHUNK"
 
   const val CHUNK_SIZE = 192 * 1024
+
+  /** Varios tramos por frame: 8 tramos de 192 KB en base64 son ~2 MB, muy por debajo de los 10 MB del puente. */
+  const val MAX_BATCH_CHUNKS = 8
+
+  /** Margen de seguridad sobre el JSON codificado de un lote. */
+  private const val MAX_BATCH_ENCODED = 2 * 1024 * 1024
   const val MAX_BYTES = 512L * 1024L * 1024L
 
   private val types = setOf(REQ, RES, CHUNK)
@@ -107,6 +113,70 @@ internal object SyncFilePackets {
     val bytes = decodeBase64(encoded) ?: return null
     if (bytes.isEmpty() || bytes.size > CHUNK_SIZE) return null
     return Chunk(requestId, index, bytes)
+  }
+
+  /**
+   * Varios tramos en un solo frame.
+   *
+   * Cada frame cuesta una vuelta de ratchet y una escritura; con un tramo por frame, servir un vídeo
+   * de 140 tramos paga 140 veces ese coste. El tamaño lógico del chunk no cambia: el receptor sigue
+   * recibiendo tramos sueltos con su índice y los reensambla igual, con huecos incluidos.
+   *
+   * El límite lo pone el transporte, no el gusto: el puente rechaza frames de más de 10 MB
+   * (`MaxFrameBytes` en `framing.go`). Con tramos de 192 KB en base64 (~256 KB) caben 8 sin acercarse.
+   */
+  fun chunkBatch(
+    sender: SyncSender,
+    recipientDeviceId: String,
+    requestId: String,
+    firstIndex: Int,
+    chunks: List<ByteArray>,
+  ): JSONObject? {
+    if (!SyncPackets.validRequestId(requestId)) return null
+    if (firstIndex < 0 || chunks.isEmpty() || chunks.size > MAX_BATCH_CHUNKS) return null
+    if (chunks.any { it.isEmpty() || it.size > CHUNK_SIZE }) return null
+    val items = org.json.JSONArray()
+    var encodedBytes = 0
+    for ((offset, data) in chunks.withIndex()) {
+      val encoded = encodeBase64(data)
+      encodedBytes += encoded.length
+      if (encodedBytes > MAX_BATCH_ENCODED) return null
+      items.put(
+        JSONObject().put("index", firstIndex + offset).put("data", encoded),
+      )
+    }
+    return SyncPackets.decorate(
+      JSONObject()
+        .put("type", CHUNK)
+        .put("requestId", requestId)
+        .put("batch", items),
+      sender,
+      recipientDeviceId,
+    )
+  }
+
+  /** Deshace un lote en tramos sueltos. Un frame de un solo tramo (`data`) devuelve uno. */
+  fun parseChunks(payload: JSONObject): List<Chunk> {
+    val batch = payload.optJSONArray("batch")
+    if (batch == null) return listOfNotNull(parseChunk(payload))
+    val requestId = payload.optString("requestId")
+    if (!SyncPackets.validRequestId(requestId)) return emptyList()
+    if (batch.length() > MAX_BATCH_CHUNKS) return emptyList()
+    val chunks = ArrayList<Chunk>(batch.length())
+    var encodedBytes = 0
+    for (position in 0 until batch.length()) {
+      val item = batch.optJSONObject(position) ?: return emptyList()
+      val index = item.optInt("index", -1)
+      if (index < 0) return emptyList()
+      val encoded = item.optString("data")
+      if (encoded.isEmpty()) return emptyList()
+      encodedBytes += encoded.length
+      if (encodedBytes > MAX_BATCH_ENCODED) return emptyList()
+      val bytes = decodeBase64(encoded) ?: return emptyList()
+      if (bytes.isEmpty() || bytes.size > CHUNK_SIZE) return emptyList()
+      chunks.add(Chunk(requestId, index, bytes))
+    }
+    return chunks
   }
 
   fun chunkCount(fileSize: Long, chunkSize: Int): Int {

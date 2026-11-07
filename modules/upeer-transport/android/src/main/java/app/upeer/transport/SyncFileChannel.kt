@@ -161,9 +161,21 @@ internal class SyncFileChannel(
     }
   }
 
+  /**
+   * Aplica un frame de datos, que puede traer **varios tramos** (`batch`) o uno solo (`data`).
+   *
+   * Los tramos de un lote se escriben en orden; el que completa el fichero cierra la recepción y el
+   * resto del lote ya no tiene nada que hacer, así que se para.
+   */
   private fun onChunk(peer: SyncPeerRecord, payload: JSONObject) {
-    val chunk = SyncFilePackets.parseChunk(payload) ?: return
-    val pending = touch(chunk.requestId) ?: return
+    for (chunk in SyncFilePackets.parseChunks(payload)) {
+      if (!applyChunk(peer, chunk)) return
+    }
+  }
+
+  /** Devuelve `false` cuando la recepción termina y no hay que seguir con el resto del lote. */
+  private fun applyChunk(peer: SyncPeerRecord, chunk: SyncFilePackets.Chunk): Boolean {
+    val pending = touch(chunk.requestId) ?: return false
     when (SyncFileReceive.write(chunk, pending.fileId)) {
       SyncFileReceive.Outcome.PROGRESS -> Unit
       SyncFileReceive.Outcome.QUEUED -> Log.i(TAG, "Tramo temprano del adjunto ${pending.fileId} en espera de la cabecera")
@@ -175,13 +187,16 @@ internal class SyncFileChannel(
           onStored(pending.fileId)
         }
         Log.i(TAG, "Adjunto ${pending.fileId} recibido de ${peer.deviceId.take(12)}")
+        return false
       }
       SyncFileReceive.Outcome.DISCARDED -> {
         complete(chunk.requestId)
         SyncFileReceive.close(chunk.requestId)
         Log.w(TAG, "Recepción del adjunto ${pending.fileId} descartada")
+        return false
       }
     }
+    return true
   }
 
   internal data class PendingRequest(val requestId: String, val fileId: String, var touchedAt: Long)

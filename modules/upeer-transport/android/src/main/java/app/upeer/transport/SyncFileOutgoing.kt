@@ -19,21 +19,38 @@ internal class SyncFileOutgoing(
 
   override fun hasNext(): Boolean = index < total
 
+  /**
+   * Devuelve un frame con **varios tramos** cuando quedan suficientes.
+   *
+   * Un tramo por frame paga una vuelta de ratchet y una escritura por cada trozo de 192 KB; agrupando
+   * de 8 en 8 ese coste se divide, y el receptor no cambia porque sigue recibiendo tramos con su índice.
+   * El último lote puede llevar menos.
+   */
   override fun next(): JSONObject {
     if (index < 0) {
       index = 0
       return header ?: throw IllegalStateException("sin cabecera del adjunto")
     }
-    val bounds = SyncFilePackets.bounds(index, SyncFilePackets.CHUNK_SIZE, size)
-      ?: throw IllegalStateException("tramo $index fuera del fichero")
     val source = handle ?: RandomAccessFile(file, "r").also { handle = it }
-    source.seek(bounds.first)
-    val read = source.read(buffer, 0, bounds.second)
-    if (read <= 0) throw IllegalStateException("no se pudo leer el tramo $index")
-    val packet = SyncFilePackets.chunk(sender, recipient, requestId, index, buffer.copyOf(read))
-      ?: throw IllegalStateException("tramo $index no construible")
-    index += 1
-    return packet
+    val pending = minOf(SyncFilePackets.MAX_BATCH_CHUNKS, total - index)
+    val first = index
+    val slices = ArrayList<ByteArray>(pending)
+    for (offset in 0 until pending) {
+      val current = first + offset
+      val bounds = SyncFilePackets.bounds(current, SyncFilePackets.CHUNK_SIZE, size)
+        ?: throw IllegalStateException("tramo $current fuera del fichero")
+      source.seek(bounds.first)
+      val read = source.read(buffer, 0, bounds.second)
+      if (read <= 0) throw IllegalStateException("no se pudo leer el tramo $current")
+      slices.add(buffer.copyOf(read))
+    }
+    index += pending
+    if (pending == 1) {
+      return SyncFilePackets.chunk(sender, recipient, requestId, first, slices[0])
+        ?: throw IllegalStateException("tramo $first no construible")
+    }
+    return SyncFilePackets.chunkBatch(sender, recipient, requestId, first, slices)
+      ?: throw IllegalStateException("lote desde el tramo $first no construible")
   }
 
   fun release() {
