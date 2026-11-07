@@ -73,14 +73,15 @@ internal object ProtocolMessageState {
   }
 
   fun snapshot(messages: JSONArray, upeerId: String, limit: Int): String {
-    val newest = buildList {
-      for (index in 0 until messages.length()) {
-        val message = messages.optJSONObject(index) ?: continue
-        if (upeerId.isNotBlank() && message.optString("upeerId") != upeerId) continue
-        add(JSONObject(message.toString()))
-      }
+    val capped = limit.coerceIn(1, MAX_MESSAGES)
+    val matched = ArrayList<JSONObject>()
+    for (index in 0 until messages.length()) {
+      val message = messages.optJSONObject(index) ?: continue
+      if (upeerId.isNotBlank() && message.optString("upeerId") != upeerId) continue
+      matched.add(message)
     }
-    return JSONArray(newest.take(limit.coerceIn(1, MAX_MESSAGES)).reversed()).toString()
+    val newest = matched.takeLast(capped).map { JSONObject(it.toString()) }
+    return JSONArray(newest.reversed()).toString()
   }
 
   fun historyBefore(messages: JSONArray, upeerId: String, beforeTimestamp: Long, limit: Int): String {
@@ -122,5 +123,5 @@ internal object ProtocolMessageState {
 
   const val DELETED_CONTENT = "Mensaje eliminado"
 
-  private const val MAX_MESSAGES = 500
+  const val MAX_MESSAGES = 500
 }

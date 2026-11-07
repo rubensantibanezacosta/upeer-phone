@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View, type FlatList } from 'react-native';
+import { AppState, KeyboardAvoidingView, Platform, StyleSheet, View, type FlatList } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraCaptureSheet } from '@/components/chat/camera-capture-sheet';
@@ -49,6 +49,7 @@ import type { ProtocolMessage } from '../../../../modules/upeer-transport/src/UP
 import { getMessages, getConversations, markConversationRead, startCall as startChatCall } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
 
 const MESSAGE_LIMIT = 200;
+const CHAT_REFRESH_MS = 5000;
 
 export default function ChatRoute() {
   const theme = useTheme();
@@ -73,7 +74,11 @@ export default function ChatRoute() {
 
   const refresh = useCallback(async () => {
     if (!upeerId) return;
-    const [nextMessages, nextContacts, conversations] = await Promise.all([getMessages(upeerId, MESSAGE_LIMIT), getContacts(), getConversations()]);
+    const [nextMessages, nextContacts, conversations] = await Promise.all([
+      getMessages(upeerId, MESSAGE_LIMIT),
+      getContacts(),
+      getConversations(),
+    ]);
     const snapshot = snapshotRefresh({ messages: nextMessages, contacts: nextContacts, conversations });
     const change = changedSections(refreshSnapshot.current, snapshot);
     refreshSnapshot.current = snapshot;
@@ -91,9 +96,8 @@ export default function ChatRoute() {
     setGroupMembers(ownConversation?.members ?? 0);
     const resolvedName = resolveContactName(contact?.name, conversationAlias, upeerId);
     setAlias(resolvedName);
-    if (contact && resolvedName !== contact.name && resolvedName !== placeholderName(upeerId)) {
-      await saveContact({ ...contact, name: resolvedName });
-    }
+    const shouldRename = contact !== undefined && contact !== null && resolvedName !== contact.name && resolvedName !== placeholderName(upeerId);
+    if (shouldRename) await saveContact({ ...(contact as UPeerContact), name: resolvedName });
     const decision = decideRequestState({
       contactStatus: contact?.status,
       hasIncoming: nextMessages.some((message) => !message.isMine),
@@ -104,8 +108,10 @@ export default function ChatRoute() {
     setIsRequest(decision === 'request');
     setRequestReceivedAt(nextMessages.find((message) => !message.isMine)?.timestamp ?? 0);
     if (decision === 'auto-accept') {
-      const base = contact ?? { address: '', createdAt: Date.now(), publicKey: null };
-      await saveContact({ ...base, name: resolvedName, status: 'connected', upeerId });
+      if (contact?.status !== 'connected') {
+        const base = contact ?? { address: '', createdAt: Date.now(), publicKey: null };
+        await saveContact({ ...base, name: resolvedName, status: 'connected', upeerId });
+      }
       setContactStatus('connected');
     }
     if (hasUnreadIncoming(nextMessages)) await markConversationRead(upeerId);
@@ -133,8 +139,9 @@ export default function ChatRoute() {
       });
     }, 0);
     const timer = setInterval(() => {
+      if (AppState.currentState !== 'active') return;
       void refresh().catch((cause: unknown) => console.warn('No se pudo actualizar el chat.', cause));
-    }, 1500);
+    }, CHAT_REFRESH_MS);
     return () => {
       clearTimeout(initial);
       clearInterval(timer);

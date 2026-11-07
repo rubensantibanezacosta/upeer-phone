@@ -82,6 +82,14 @@ internal object MessageRetention {
     if (expires != null) message.put("expiresAt", expires) else message.remove("expiresAt")
   }
 
+  fun hasExpired(messages: JSONArray, now: Long): Boolean {
+    for (index in 0 until messages.length()) {
+      val message = messages.optJSONObject(index) ?: continue
+      if (isExpired(message.optLong("expiresAt", 0L), now)) return true
+    }
+    return false
+  }
+
   fun withoutExpired(messages: JSONArray, now: Long): JSONArray? {
     var removed = false
     val kept = JSONArray()

@@ -9,6 +9,8 @@ internal class ProtocolMessageList(
   private val lock: Any,
   private val persist: () -> Unit,
   private val retentionFor: (String) -> String? = { null },
+  /** Acceso directo a SQLite: permite leer una conversación sin recorrer todo el estado. */
+  private val database: ProtocolMessageDatabase? = null,
 ) {
   fun owner(messageID: String): String? = synchronized(lock) {
     ProtocolMessageState.find(messages(), messageID)?.optString("upeerId")?.ifEmpty { null }
@@ -183,7 +185,8 @@ internal class ProtocolMessageList(
 
   fun snapshot(upeerId: String, limit: Int): String = synchronized(lock) {
     purgeExpired()
-    ProtocolMessageState.snapshot(messages(), upeerId, limit)
+    database?.conversation(upeerId, limit)?.toString()
+      ?: ProtocolMessageState.snapshot(messages(), upeerId, limit)
   }
 
   fun searchJSON(query: String, limit: Int, offset: Int, chatUpeerId: String? = null): String = synchronized(lock) {
@@ -193,10 +196,22 @@ internal class ProtocolMessageList(
 
   fun historyBeforeJSON(upeerId: String, beforeTimestamp: Long, limit: Int): String = synchronized(lock) {
     purgeExpired()
-    ProtocolMessageState.historyBefore(messages(), upeerId, beforeTimestamp, limit)
+    database?.historyBefore(upeerId, beforeTimestamp, limit)?.toString()
+      ?: ProtocolMessageState.historyBefore(messages(), upeerId, beforeTimestamp, limit)
   }
 
   fun purgeExpired(now: Long = System.currentTimeMillis()) {
+    if (database != null) {
+      if (!database.hasExpired(now)) return
+      synchronized(lock) {
+        database.deleteExpired(now)
+        val next = MessageRetention.withoutExpired(messages(), now) ?: return@synchronized
+        put(next)
+        persist()
+      }
+      return
+    }
+    if (!MessageRetention.hasExpired(messages(), now)) return
     synchronized(lock) {
       val next = MessageRetention.withoutExpired(messages(), now) ?: return@synchronized
       put(next)

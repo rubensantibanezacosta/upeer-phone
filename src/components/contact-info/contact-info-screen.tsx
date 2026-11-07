@@ -27,7 +27,7 @@ import { flagMessage, flagsFor, type ConversationFlag } from '@/domain/conversat
 import { requestChatSearch } from '@/storage/chat-search-request';
 import { setConversationFlag } from '@/storage/conversation-flags-store';
 import { deleteContactAndConversation, getContacts, saveContact, setContactFavorite, type UPeerContact } from '@/storage/contact-store';
-import { deleteConversation as clearNativeConversation, getPeerProfile } from '../../../modules/upeer-transport/src/UPeerTransportModule';
+import { deleteConversation as clearNativeConversation, getPeerProfile, type PeerProfileSnapshot } from '../../../modules/upeer-transport/src/UPeerTransportModule';
 
 type ContactInfoScreenProps = {
   upeerId: string;
@@ -61,7 +61,13 @@ export function ContactInfoScreen({ upeerId, onBack, onOpenMessage = () => undef
     showSnackbar('No se pudo cargar la ficha del contacto');
   }, [showSnackbar]);
 
-  const load = useCallback(() => Promise.all([getContacts(), getPeerProfile(upeerId)]).then(([list, peer]) => {
+  const load = useCallback(() => Promise.all([
+    getContacts(),
+    getPeerProfile(upeerId).catch((cause: unknown) => {
+      console.warn('No se pudo leer el perfil del contacto.', cause);
+      return { upeerId } as PeerProfileSnapshot;
+    }),
+  ]).then(([list, peer]) => {
     setContact(list.find((item) => item.upeerId === upeerId) ?? null);
     setPresenceAt(peer.lastActive || undefined);
     setPeerAvatar(peer.avatar || undefined);

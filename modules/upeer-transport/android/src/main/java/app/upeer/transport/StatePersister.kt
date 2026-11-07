@@ -3,7 +3,9 @@ package app.upeer.transport
 internal class StatePersister(
   private val lock: Any,
   private val snapshot: () -> ByteArray,
-  private val write: (ByteArray) -> Unit,
+  private val blocks: () -> Map<String, ByteArray> = { emptyMap() },
+  private val write: (String, ByteArray) -> Unit,
+  private val onBlocksWritten: () -> Unit = {},
   private val onError: (Exception) -> Unit,
 ) {
   private val gate = Object()
@@ -72,12 +74,17 @@ internal class StatePersister(
         generation
       }
       coalesce()
-      val bytes = synchronized(lock) { snapshot() }
-      try {
-        write(bytes)
-      } catch (cause: Exception) {
-        onError(cause)
+      val pending = synchronized(lock) { blocks() }
+      var wroteAll = false
+      for ((block, bytes) in pending) {
+        try {
+          write(block, bytes)
+          wroteAll = true
+        } catch (cause: Exception) {
+          onError(cause)
+        }
       }
+      if (wroteAll) onBlocksWritten()
       synchronized(gate) {
         if (target > writtenGeneration) writtenGeneration = target
         gate.notifyAll()

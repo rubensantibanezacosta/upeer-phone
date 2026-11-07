@@ -23,13 +23,12 @@ internal class SyncHistory(
     val progress = state.history.progress(peer.deviceId)
     if (progress.done && !force) {
       if (!checked.add(peer.deviceId)) return
-      state.history.beginRun(peer.deviceId)
       lastRequest.remove(peer.deviceId)
     }
     val now = nowMillis()
     if (now - (lastRequest[peer.deviceId] ?: 0L) < REQUEST_COOLDOWN_MS) return
     lastRequest[peer.deviceId] = now
-    Log.i(TAG, "Pidiendo histórico a ${peer.deviceId.take(12)} desde ${progress.cursor ?: "el principio"}")
+    Log.i(TAG, "Pidiendo histórico a ${peer.deviceId.take(12)} desde ${progress.cursor ?: "el principio"}${if (progress.done) " (diferencial)" else ""}")
     sendRequest(activeBridge, peer, progress.cursor)
   }
 

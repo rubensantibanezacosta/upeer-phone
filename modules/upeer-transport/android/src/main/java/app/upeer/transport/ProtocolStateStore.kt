@@ -15,33 +15,100 @@ internal class ProtocolStateStore(context: Context) {
     valueKey = "protocol_state",
   )
   private val lock = Any()
+
+  private val database = ProtocolDatabase(context)
+  private val cipher = ProtocolCipher(context)
+  private val messageDatabase = ProtocolMessageDatabase(database)
+  private val contactDatabase = ProtocolContactDatabase(database)
+  private val groupDatabase = ProtocolGroupDatabase(database)
+  private val sessionDatabase = ProtocolSessionDatabase(database, cipher)
+  private val syncPeerDatabase = ProtocolSyncPeerDatabase(database)
+  private val syncDatabase = ProtocolSyncDatabase(database, cipher)
+  private val settingsDatabase = ProtocolSettingsDatabase(database)
+
+  /** Caché de lectura: SQLite es la verdad, este JSON es lo que ve el resto del módulo. */
   private var state = ProtocolStateCodec.load(store)
+
+  private val migration = ProtocolStateMigration(
+    database, messageDatabase, contactDatabase, groupDatabase,
+    sessionDatabase, syncPeerDatabase, settingsDatabase, SyncEventDatabase(context),
+  )
+
+  private val mirror = ProtocolStateMirror(
+    database, messageDatabase, contactDatabase, groupDatabase,
+    sessionDatabase, syncPeerDatabase, syncDatabase, settingsDatabase,
+  )
+
   private var lastSyncState = ""
   private var lastSyncGate = ""
   private var lastSyncMissing = -1
   private val batchGate = Any()
+  private var migratePending = false
   private var stateRevision = 0L
   private var conversationsCache: Pair<Long, String>? = null
   private var batchDepth = 0
   private var batchDirty = false
+
+  private val dirtyBlocks = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
   private val persister = StatePersister(
     lock = lock,
-    snapshot = { state.toString().toByteArray(Charsets.UTF_8) },
-    write = { bytes -> store.save(bytes) },
+    snapshot = { ByteArray(0) },
+    blocks = { collectDirty() },
+    write = { _, _ -> },
     onError = { cause -> Log.e(TAG, "No se pudo persistir el estado del protocolo", cause) },
   )
 
-  val retention = ProtocolRetention({ state }, lock, ::persist)
-  val reputation = ReputationStore({ state }, lock, ::persist)
-  val messages = ProtocolMessageList({ state }, lock, ::persist, ::retentionId)
-  val groups = ProtocolGroups({ state }, lock, ::persist)
-  val groupKeys = ProtocolGroupKeys({ state }, lock, ::persist)
-  val presence = ProtocolPresence({ state }, lock, ::persist)
-  val syncEvents = SyncEventLog({ state }, lock, ::persist)
-  val syncPeers = SyncDevicePeers({ state }, lock, ::persist)
-  val history = SyncHistoryState({ state }, lock, ::persist)
-  private val typing = ProtocolTyping({ state }, lock, ::persist)
-  val preferences = ProtocolPreferences({ state }, lock, ::persist)
+  val retention = ProtocolRetention({ state }, lock, { persist("rest") })
+  val reputation = ReputationStore({ state }, lock, { persist("reputation") })
+  val messages = ProtocolMessageList({ state }, lock, { persist("messages") }, ::retentionId, messageDatabase)
+  val groups = ProtocolGroups({ state }, lock, { persist("groups") })
+  val groupKeys = ProtocolGroupKeys({ state }, lock, { persist("groups") })
+  val presence = ProtocolPresence({ state }, lock, { persist("rest") })
+  private val syncEventDatabase = SyncEventDatabase(context).also { database ->
+    val sync = state.optJSONObject("sync") ?: JSONObject()
+    val legacy = sync.optJSONArray("events")
+    if (legacy != null && legacy.length() > 0) database.migrateFrom(sync)
+    if (sync.has("events") && database.count() > 0) {
+      sync.remove("events")
+      state.put("sync", sync)
+      migratePending = true
+      Log.i(TAG, "Migración: eventos sacados del estado (${database.count()} en SQLite)")
+    } else if (sync.has("events")) {
+      Log.w(TAG, "Migración: el estado tiene eventos pero SQLite está vacía (${database.count()})")
+    }
+  }
+  val syncEvents = SyncEventLog({ state }, lock, { persist("sync") }, SyncEventLog.MAX_EVENTS, syncEventDatabase)
+  val syncPeers = SyncDevicePeers({ state }, lock, { persist("sync") })
+  val history = SyncHistoryState({ state }, lock, { persist("sync") })
+  private val typing = ProtocolTyping({ state }, lock, { persist("rest") })
+  val preferences = ProtocolPreferences({ state }, lock, { persist("rest") })
+
+  /**
+   * Arranque del almacenamiento: migra una única vez el contenido de los bloques cifrados a las
+   * tablas SQLite y, a partir de ahí, reconstruye el estado en memoria leyendo de la base de datos.
+   */
+  private fun openStorage() {
+    val summary = migration.run(state)
+    if (summary != null) {
+      Log.i(TAG, "Estado migrado a SQLite (${database.fileSize() / 1024} KB)")
+    }
+    // Con la migración hecha, los bloques cifrados del estado ya no se usan: se retiran siempre,
+    // también en los arranques posteriores a la migración.
+    if (migration.isDone() && store.hasBlocks()) {
+      runCatching { store.clearBlocks() }
+        .onSuccess { Log.i(TAG, "Bloques cifrados del estado retirados (${database.fileSize() / 1024} KB en SQLite)") }
+        .onFailure { cause -> Log.w(TAG, "No se pudieron retirar los bloques cifrados del estado", cause) }
+    }
+    val rebuilt = mirror.read()
+    // Conserva los eventos de sincronización, que ya vivían en su propia tabla.
+    val events = state.optJSONObject("sync")?.optJSONArray("events")
+    if (events != null) {
+      (rebuilt.optJSONObject("sync") ?: JSONObject().also { rebuilt.put("sync", it) }).put("events", events)
+    }
+    state = ProtocolStateCodec.normalize(rebuilt)
+    Log.i(TAG, "Estado cargado desde SQLite: ${mirror.counts()}")
+  }
 
   @Volatile
   var fileWork: SyncFileWork = SyncFileWork.EMPTY
@@ -94,7 +161,7 @@ internal class ProtocolStateStore(context: Context) {
       }
       peers.put(upeerId, existing)
       state.put("peers", peers)
-      persist()
+      persist("peers")
       keyChanged || deviceChanged
     }
   }
@@ -122,7 +189,7 @@ internal class ProtocolStateStore(context: Context) {
       }
       peers.put(upeerId, existing)
       state.put("peers", peers)
-      persist()
+      persist("peers")
     }
     return true
   }
@@ -146,7 +213,7 @@ internal class ProtocolStateStore(context: Context) {
       if (decision != SignedPreKeyUpdate.UPDATED) return@synchronized decision
       existing.put(field, copy(signedPreKey))
       state.put("peers", peers)
-      persist()
+      persist("peers")
       SignedPreKeyUpdate.UPDATED
     }
   }
@@ -158,7 +225,7 @@ internal class ProtocolStateStore(context: Context) {
       val existing = peers.optJSONObject(upeerId) ?: return@synchronized false
       existing.put("lastSeen", System.currentTimeMillis())
       state.put("peers", peers)
-      persist()
+      persist("peers")
       true
     }
   }
@@ -207,7 +274,7 @@ internal class ProtocolStateStore(context: Context) {
       val normalizedAvatar = ProfileFields.avatar(avatar)
       if (normalizedAvatar.isEmpty()) profile.remove("avatar") else profile.put("avatar", normalizedAvatar)
       state.put("profile", profile)
-      persist()
+      persist("rest")
     }
   }
 
@@ -247,21 +314,21 @@ internal class ProtocolStateStore(context: Context) {
       val sessions = state.optJSONObject("sessions") ?: JSONObject()
       sessions.put(sessionKey(upeerId, context), sessionJSON)
       state.put("sessions", sessions)
-      persist()
+      persist("sessions")
     }
   }
 
   fun clearSession(upeerId: String, context: String = DIRECT_SESSION_CONTEXT) {
     synchronized(lock) {
       state.optJSONObject("sessions")?.remove(sessionKey(upeerId, context))
-      persist()
+      persist("rest")
     }
   }
 
   fun clearSessions(upeerId: String) {
     synchronized(lock) {
       removeSessionsFor(upeerId)
-      persist()
+      persist("rest")
     }
   }
 
@@ -289,7 +356,7 @@ internal class ProtocolStateStore(context: Context) {
     val ids = buildList { for (index in 0 until parsed.length()) add(parsed.optString(index)) }
     return synchronized(lock) {
       messages.purgeExpired()
-      ProtocolMessageState.selectByIds(state.optJSONArray("messages") ?: JSONArray(), ids)
+      messageDatabase.byIds(ids, ProtocolMessageState.MAX_MESSAGES).toString()
     }
   }
 
@@ -453,13 +520,47 @@ internal class ProtocolStateStore(context: Context) {
 
   private fun validId(value: String): Boolean = value.length == 64 && value.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
 
-  private fun persist() {
+  private fun persist(block: String? = null) {
     stateRevision += 1
+    if (block != null) dirtyBlocks.add(block)
     if (batchDepth > 0) {
       batchDirty = true
       return
     }
     persister.request()
+  }
+
+  /**
+   * Escribe a SQLite solo los bloques que cambiaron.
+   *
+   * Se llama desde el hilo escritor del [StatePersister], que agrupa varias modificaciones seguidas
+   * en una sola pasada (`coalesce`) para no escribir la misma fila repetidamente.
+   */
+  private fun collectDirty(): Map<String, ByteArray> {
+    val blocks = synchronized(lock) {
+      val pending = dirtyBlocks.toList()
+      dirtyBlocks.clear()
+      pending
+    }
+    if (blocks.isEmpty()) return emptyMap()
+    for (block in blocks) {
+      try {
+        mirror.writeBlock(state, block)
+      } catch (cause: Exception) {
+        Log.e(TAG, "No se pudo escribir el bloque $block en SQLite", cause)
+      }
+    }
+    return mapOf("sqlite" to ByteArray(0))
+  }
+
+  fun flushMigration() {
+    if (!migratePending) return
+    persist("sync")
+    if (!flushPersistence()) {
+      Log.w(TAG, "La migración del registro de sincronización no se pudo confirmar")
+      return
+    }
+    migratePending = false
   }
 
   fun <T> batch(write: () -> T): T {
@@ -481,6 +582,10 @@ internal class ProtocolStateStore(context: Context) {
   }
 
   fun flushPersistence(): Boolean = persister.flush()
+
+  init {
+    openStorage()
+  }
 
   internal companion object {
     private const val TAG = "UPeerTransport"

@@ -8,6 +8,7 @@ internal class SyncEventLog(
   private val lock: Any,
   private val persist: () -> Unit,
   private val maxEvents: Int = MAX_EVENTS,
+  private val db: SyncEventDatabase? = null,
 ) {
   fun record(draft: SyncEventDraft, nowMillis: Long): SyncEventRecord? {
     if (!validEventId(draft.eventId)) return null
@@ -29,11 +30,24 @@ internal class SyncEventLog(
         originSignature = draft.originSignature,
         originCertificate = draft.originCertificate,
       )
+      val database = db
+      if (database != null) {
+        database.insert(record)
+        database.trim(maxEvents)
+        sync.put("sequence", sequence)
+        state().put("sync", sync)
+        return@synchronized record
+      }
       events.put(record.toJson())
-      sync.put("sequence", sequence)
-      sync.put("events", trimmed(events))
-      state().put("sync", sync)
-      persist()
+      val kept = trimmed(events)
+      run {
+        sync.put("sequence", sequence)
+        state().put("sync", sync)
+        sync.put("sequence", sequence)
+        sync.put("events", kept)
+        state().put("sync", sync)
+        persist()
+      }
       record
     }
   }
@@ -48,6 +62,15 @@ internal class SyncEventLog(
   fun eventsAfter(sequence: Long, limit: Int): List<SyncEventRecord> {
     if (limit <= 0) return emptyList()
     return synchronized(lock) {
+      val database = db
+      if (database != null) {
+        val page = database.afterSequence(sequence, limit)
+        val found = mutableListOf<SyncEventRecord>()
+        for (index in 0 until page.length()) {
+          SyncEventRecord.from(page.optJSONObject(index) ?: continue)?.let { found.add(it) }
+        }
+        return@synchronized found
+      }
       val events = bucket().getJSONArray("events")
       val found = mutableListOf<SyncEventRecord>()
       for (index in 0 until events.length()) {
@@ -70,10 +93,17 @@ internal class SyncEventLog(
       event.put("originDeviceId", origin.deviceId)
       event.put("originSignature", origin.signature)
       event.put("originCertificate", origin.certificate.toString())
+      val database = db
+      if (database != null) {
+        return@synchronized database.setOrigin(
+          eventId,
+          origin.deviceId,
+          origin.signature,
+          origin.certificate.toString(),
+        )
+      }
       events.put(index, event)
-      sync.put("events", events)
-      state().put("sync", sync)
-      persist()
+      commitEvents(events, sync.optLong("sequence", 0L))
       true
     }
   }
@@ -85,8 +115,7 @@ internal class SyncEventLog(
       if (acks.optLong(deviceId, 0L) >= sequence) return@synchronized false
       acks.put(deviceId, sequence)
       sync.put("acks", acks)
-      state().put("sync", sync)
-      persist()
+      commitMeta(sync)
       true
     }
   }
@@ -110,6 +139,18 @@ internal class SyncEventLog(
     if ((0 until applied.length()).any { applied.optString(it) == eventId }) return@synchronized
     applied.put(eventId)
     sync.put("applied", capped(applied))
+    commitMeta(sync)
+  }
+
+  private fun commitEvents(events: JSONArray, sequence: Long) {
+    val sync = state().optJSONObject("sync") ?: JSONObject()
+    sync.put("sequence", sequence)
+    sync.put("events", events)
+    state().put("sync", sync)
+    persist()
+  }
+
+  private fun commitMeta(sync: JSONObject) {
     state().put("sync", sync)
     persist()
   }
@@ -135,6 +176,16 @@ internal class SyncEventLog(
   fun inboundMessages(limit: Int): List<SyncEventRecord> {
     if (limit <= 0) return emptyList()
     return synchronized(lock) {
+      val database = db
+      if (database != null) {
+        val page = database.inbound(limit)
+        val found = mutableListOf<SyncEventRecord>()
+        for (index in 0 until page.length()) {
+          val record = SyncEventRecord.from(page.optJSONObject(index) ?: continue) ?: continue
+          if (record.kind == SyncEventKinds.MESSAGE_UPSERT) found.add(record)
+        }
+        return@synchronized found
+      }
       val events = bucket().getJSONArray("events")
       val found = mutableListOf<SyncEventRecord>()
       for (index in 0 until events.length()) {
@@ -173,6 +224,7 @@ internal class SyncEventLog(
 
   fun pendingFor(deviceId: String): Int {
     val ack = ackFor(deviceId)
+    db?.let { return it.pendingFor("outbound", ack) }
     val events = synchronized(lock) { bucket().getJSONArray("events") }
     var pending = 0
     for (index in 0 until events.length()) {
@@ -184,7 +236,13 @@ internal class SyncEventLog(
   }
 
   private fun bucket(): JSONObject {
+    val database = db
     val sync = state().optJSONObject("sync") ?: JSONObject()
+    if (database != null) {
+      sync.remove("events")
+      sync.put("sequence", database.maxSequence())
+      return sync
+    }
     if (sync.optJSONArray("events") == null) sync.put("events", JSONArray())
     return sync
   }
@@ -210,7 +268,7 @@ internal class SyncEventLog(
   private fun validDeviceId(value: String): Boolean =
     value.length == 64 && value.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
 
-  private companion object {
+  companion object {
     const val MAX_EVENTS = 300
   }
 }

@@ -236,6 +236,7 @@ internal class YggdrasilProtocol(
 
   fun start(activeBridge: Bridge) {
     bridge = activeBridge
+    state.flushMigration()
     outbox.start(activeBridge)
     outbox.queryVaults(activeBridge)
     outbox.renewVaultEntries(activeBridge)

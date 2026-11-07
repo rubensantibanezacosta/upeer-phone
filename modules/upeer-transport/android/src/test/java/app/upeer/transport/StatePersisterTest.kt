@@ -17,7 +17,8 @@ class StatePersisterTest {
   private fun persister(delayMillis: Long = 0L) = StatePersister(
     lock = gate,
     snapshot = { synchronized(gate) { content.toByteArray(Charsets.UTF_8) } },
-    write = { bytes ->
+    blocks = { synchronized(gate) { mapOf("messages" to content.toByteArray(Charsets.UTF_8)) } },
+    write = { _, bytes ->
       if (delayMillis > 0) Thread.sleep(delayMillis)
       writes.incrementAndGet()
       lastWritten.set(String(bytes, Charsets.UTF_8))
@@ -69,7 +70,8 @@ class StatePersisterTest {
     val persister = StatePersister(
       lock = gate,
       snapshot = { byteArrayOf(1) },
-      write = { throw IllegalStateException("llavero ocupado") },
+      blocks = { mapOf("messages" to byteArrayOf(1)) },
+      write = { _, _ -> throw IllegalStateException("llavero ocupado") },
       onError = { errors.incrementAndGet() },
     )
 
