@@ -211,8 +211,18 @@ internal class SyncEventLog(
     }
   }
 
+  /**
+   * Eventos recibidos que aún no se han aplicado. Es lo que muestra «eventos pendientes de aplicar» y lo
+   * que mantiene la sincronización en `syncing`, así que tiene que descontar los aplicados: si no, la
+   * pantalla se queda en «214 eventos pendientes» para siempre aunque no quede nada por hacer.
+   */
   fun pendingCount(): Int = synchronized(lock) {
-    db?.let { database -> return@synchronized database.byDirection("inbound").size }
+    db?.let { database ->
+      val applied = bucket().optJSONArray("applied")
+      val seen = HashSet<String>()
+      if (applied != null) for (index in 0 until applied.length()) seen.add(applied.optString(index))
+      return@synchronized database.byDirection("inbound").count { it.eventId !in seen }
+    }
     SyncEventIndex.pendingCount(bucket().getJSONArray("events"), bucket().optJSONArray("applied"))
   }
 
