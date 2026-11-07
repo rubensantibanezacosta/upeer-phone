@@ -45,6 +45,7 @@ interface IYggdrasilTransport {
   String historyBeforeJSON(String upeerId, long beforeTimestamp, int limit);
   String conversationsJSON();
   String peerSecurityJSON(String upeerId);
+  String peerProfileJSON(String upeerId);
   void markConversationRead(String upeerId);
   void sendTyping(String upeerId, String state);
   void sendRetention(String upeerId, String retention);

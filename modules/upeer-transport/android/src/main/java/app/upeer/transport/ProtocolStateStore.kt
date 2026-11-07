@@ -20,6 +20,8 @@ internal class ProtocolStateStore(context: Context) {
   private var lastSyncGate = ""
   private var lastSyncMissing = -1
   private val batchGate = Any()
+  private var stateRevision = 0L
+  private var conversationsCache: Pair<Long, String>? = null
   private var batchDepth = 0
   private var batchDirty = false
   private val persister = StatePersister(
@@ -300,13 +302,18 @@ internal class ProtocolStateStore(context: Context) {
     messages.historyBeforeJSON(upeerId, beforeTimestamp, limit)
 
   fun conversationsJSON(): String = synchronized(lock) {
+    val activities = typingActivities(System.currentTimeMillis())
+    val cached = conversationsCache
+    if (activities.isEmpty() && cached != null && cached.first == stateRevision) return cached.second
     messages.purgeExpired()
-    ProtocolConversations.build(
+    val built = ProtocolConversations.build(
       state.optJSONArray("messages") ?: JSONArray(),
       state.optJSONObject("peers") ?: JSONObject(),
-      typingActivities(System.currentTimeMillis()),
+      activities,
       groups.index(),
     )
+    if (activities.isEmpty()) conversationsCache = stateRevision to built
+    built
   }
 
   fun groupsJSON(): String = groups.snapshot().toString()
@@ -447,6 +454,7 @@ internal class ProtocolStateStore(context: Context) {
   private fun validId(value: String): Boolean = value.length == 64 && value.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
 
   private fun persist() {
+    stateRevision += 1
     if (batchDepth > 0) {
       batchDirty = true
       return

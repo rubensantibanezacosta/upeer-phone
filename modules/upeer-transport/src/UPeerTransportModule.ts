@@ -52,6 +52,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   conversationsJSON(): Promise<string>;
   groupsJSON(): Promise<string>;
   peerSecurityJSON(upeerId: string): Promise<string>;
+  peerProfileJSON(upeerId: string): Promise<string>;
   markConversationRead(upeerId: string): Promise<void>;
   sendTyping(upeerId: string, state: ConversationActivityState): Promise<void>;
   sendRetention(upeerId: string, retention: string): Promise<void>;
@@ -377,6 +378,17 @@ export async function getConversations(): Promise<ProtocolConversation[]> {
 
 export async function getGroups(): Promise<ProtocolGroup[]> {
   return JSON.parse(await nativeModule.groupsJSON()) as ProtocolGroup[];
+}
+
+export type PeerProfileSnapshot = {
+  upeerId: string;
+  alias?: string;
+  avatar?: string;
+  lastActive?: number;
+};
+
+export async function getPeerProfile(upeerId: string): Promise<PeerProfileSnapshot> {
+  return JSON.parse(await nativeModule.peerProfileJSON(upeerId)) as PeerProfileSnapshot;
 }
 
 export async function getPeerSecurity(upeerId: string): Promise<PeerSecurity> {

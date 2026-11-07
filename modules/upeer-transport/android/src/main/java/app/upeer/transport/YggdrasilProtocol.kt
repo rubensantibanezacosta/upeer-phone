@@ -381,6 +381,16 @@ internal class YggdrasilProtocol(
   fun conversationsJSON(): String = state.conversationsJSON()
   fun groupsJSON(): String = state.groupsJSON()
 
+  fun peerProfileJSON(upeerId: String): String {
+    val peer = state.peerFor(upeerId) ?: return "{}"
+    return JSONObject()
+      .put("upeerId", upeerId)
+      .put("alias", peer.optString("alias"))
+      .put("avatar", peer.optString("avatar"))
+      .put("lastActive", peer.optLong("lastActive", 0L))
+      .toString()
+  }
+
   fun peerSecurityJSON(upeerId: String): String = PeerSecurityReport.json(
     upeerId,
     state.peerFor(upeerId),

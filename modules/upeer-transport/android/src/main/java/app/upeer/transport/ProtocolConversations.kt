@@ -29,17 +29,10 @@ internal object ProtocolConversations {
       val current = latestReaction[upeerId]
       if (current == null || at >= current.first.optLong("at", 0L)) latestReaction[upeerId] = reaction to message
     }
+    val unreadByChat = countUnread(messages)
     val result = latest.map { (upeerId, message) ->
       val group = groups[upeerId]
-      var unread = 0
-      for (index in 0 until messages.length()) {
-        val candidate = messages.optJSONObject(index) ?: continue
-        if (candidate.optString("upeerId") == upeerId &&
-          !candidate.optBoolean("isMine") &&
-          !candidate.optBoolean("deleted") &&
-          candidate.optString("status") == "delivered"
-        ) unread++
-      }
+      val unread = unreadByChat[upeerId] ?: 0
       val reacted = latestReaction[upeerId]
       val reactionNewer = reacted != null && reacted.first.optLong("at", 0L) > message.optLong("timestamp", 0L)
       val entry = JSONObject()
@@ -91,5 +84,18 @@ internal object ProtocolConversations {
       )
     }
     return JSONArray(result.sortedByDescending { it.optLong("lastTimestamp") }).toString()
+  }
+
+  private fun countUnread(messages: JSONArray): Map<String, Int> {
+    val counts = HashMap<String, Int>()
+    for (index in 0 until messages.length()) {
+      val message = messages.optJSONObject(index) ?: continue
+      if (message.optBoolean("isMine") || message.optBoolean("deleted")) continue
+      if (message.optString("status") != "delivered") continue
+      val upeerId = message.optString("upeerId")
+      if (upeerId.isBlank()) continue
+      counts[upeerId] = (counts[upeerId] ?: 0) + 1
+    }
+    return counts
   }
 }
