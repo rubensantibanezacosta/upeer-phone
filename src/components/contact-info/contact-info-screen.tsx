@@ -184,14 +184,15 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
         </YStack>
         <InfoSections>
           <SectionSeparator />
-          <InteractiveRow icon={Image} label="Multimedia compartida" onPress={pending('Multimedia compartida')} />
+          <InteractiveRow chevron icon={Image} label="Multimedia compartida" onPress={pending('Multimedia compartida')} />
           <SectionSeparator />
           <SettingsGroup>
             {isSelf ? null : <InteractiveRow disabled={!contact} icon={Share2} label="Compartir contacto" onPress={() => setSharing(true)} />}
             <InteractiveRow icon={flags.muted ? Bell : BellOff} label={flags.muted ? 'Reactivar notificaciones' : 'Silenciar notificaciones'} onPress={() => toggleFlag('muted')} />
             <InteractiveRow icon={Archive} label="Archivar chat" onPress={() => toggleFlag('archived')} />
             {isSelf ? null : <InteractiveRow icon={Star} label={contact?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />}
-            <InteractiveRow icon={LockKeyhole} label="Cifrado" onPress={() => setCipherOpen(true)} />
+            <InteractiveRow chevron icon={Star} label="Mensajes destacados" onPress={pending('Mensajes destacados')} />
+            <InteractiveRow chevron icon={LockKeyhole} label="Cifrado" onPress={() => setCipherOpen(true)} />
           </SettingsGroup>
           <SectionSeparator />
           <SettingsGroup>

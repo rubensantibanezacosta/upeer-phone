@@ -243,7 +243,7 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
 
           <InfoSections>
             <SectionSeparator />
-            <InteractiveRow icon={Image} label="Multimedia compartida" onPress={pending('Multimedia compartida')} description="Fotos, vídeos y archivos" />
+            <InteractiveRow chevron icon={Image} label="Multimedia compartida" onPress={pending('Multimedia compartida')} />
             <SectionSeparator />
 
             <SettingsGroup>
@@ -264,6 +264,7 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
             <SettingsGroup>
               <InteractiveRow icon={BellOff} label={flags.muted ? 'Reactivar notificaciones' : 'Silenciar notificaciones'} onPress={() => toggleFlag('muted')} />
               <InteractiveRow icon={Star} label={active?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={pending('Favorito del grupo')} />
+              <InteractiveRow chevron icon={Star} label="Mensajes destacados" onPress={pending('Mensajes destacados')} />
             </SettingsGroup>
 
             <SectionSeparator />

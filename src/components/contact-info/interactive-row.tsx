@@ -19,9 +19,10 @@ type InteractiveRowProps = {
   hint?: string;
   description?: string;
   variant?: 'row' | 'action';
+  chevron?: boolean;
 };
 
-export function InteractiveRow({ icon: Icon, label, onPress, accessibilityLabel, disabled = false, tone = 'default', hint, description, variant = 'row' }: InteractiveRowProps) {
+export function InteractiveRow({ icon: Icon, label, onPress, accessibilityLabel, disabled = false, tone = 'default', hint, description, variant = 'row', chevron = false }: InteractiveRowProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const color = tone === 'danger' ? theme.danger : theme.text;
@@ -46,7 +47,7 @@ export function InteractiveRow({ icon: Icon, label, onPress, accessibilityLabel,
         <SizableText color={labelColor} fontSize={scale(15)} fontWeight="600">{label}</SizableText>
         {description ? <Text color={theme.placeholder} fontSize={scale(12)}>{description}</Text> : null}
       </YStack>
-      {hint ? <Text color={theme.placeholder} fontSize={scale(11)} fontWeight="500">{hint}</Text> : tone === 'default' ? <ChevronRight color={theme.placeholder} size={15} /> : null}
+      {hint ? <Text color={theme.placeholder} fontSize={scale(11)} fontWeight="500">{hint}</Text> : chevron ? <ChevronRight color={theme.placeholder} size={15} /> : null}
     </NativeRipplePressable>
   );
 }

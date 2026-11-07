@@ -58,7 +58,7 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
                 accessibilityLiveRegion="polite"
                 accessibilityRole="alert"
                 pointerEvents="none"
-                style={[styles.snackbar, { backgroundColor: theme.backgroundSelected, borderColor: theme.accent, opacity, transform: [{ translateY }] }]}
+                style={[styles.snackbar, { backgroundColor: theme.backgroundSelected, opacity, transform: [{ translateY }] }]}
               >
                 <CheckCircle2 color={theme.accent} size={18} />
                 <Text color={theme.text} fontSize={scale(13)} fontWeight="600">{message}</Text>
@@ -80,5 +80,5 @@ export function useSnackbar() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   overlay: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 24 },
-  snackbar: { alignItems: 'center', borderRadius: 12, borderWidth: 1, elevation: 8, flexDirection: 'row', gap: 8, justifyContent: 'center', minHeight: 48, paddingHorizontal: 16, paddingVertical: 12, shadowColor: '#000', shadowOffset: { height: 4, width: 0 }, shadowOpacity: 0.3, shadowRadius: 10 },
+  snackbar: { alignItems: 'center', borderRadius: 12, elevation: 8, flexDirection: 'row', gap: 8, justifyContent: 'center', minHeight: 48, paddingHorizontal: 16, paddingVertical: 12, shadowColor: '#000', shadowOffset: { height: 4, width: 0 }, shadowOpacity: 0.3, shadowRadius: 10 },
 });
