@@ -3,7 +3,6 @@ export type ChatBackState = {
   searchActive: boolean;
   sheetOpen: boolean;
   cardOpen: boolean;
-  groupOpen: boolean;
   forwarding: boolean;
   composing: boolean;
   selecting?: boolean;
@@ -14,7 +13,6 @@ export type ChatBackAction =
   | 'close-search'
   | 'close-sheet'
   | 'close-card'
-  | 'close-group'
   | 'cancel-forwarding'
   | 'cancel-composing'
   | 'exit-selection'
@@ -26,7 +24,6 @@ export function resolveChatBack(state: ChatBackState): ChatBackAction {
   if (state.searchActive) return 'close-search';
   if (state.sheetOpen) return 'close-sheet';
   if (state.cardOpen) return 'close-card';
-  if (state.groupOpen) return 'close-group';
   if (state.forwarding) return 'cancel-forwarding';
   if (state.composing) return 'cancel-composing';
   return 'leave';

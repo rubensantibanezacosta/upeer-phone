@@ -5,7 +5,6 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { CameraCaptureSheet } from '@/components/chat/camera-capture-sheet';
 import { ContactCardSheet } from '@/components/chat/contact-card-sheet';
 import { ChatHeader } from '@/components/chat/chat-header';
-import { GroupInfoSheet } from '@/components/chat/group-info-sheet';
 import { ChatInputArea } from '@/components/chat/chat-input-area';
 import { ChatMessageOverlays } from '@/components/chat/chat-message-overlays';
 import { ChatOptionsMenu } from '@/components/chat/chat-options-menu';
@@ -67,7 +66,6 @@ export default function ChatRoute() {
   const [peerPresence, setPeerPresence] = useState<number | undefined>(undefined);
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [groupMembers, setGroupMembers] = useState(0);
   const isGroup = upeerId?.startsWith('grp-') === true;
   const { loading: loadingMessages, markLoaded: markMessagesLoaded } = useFirstLoad();
@@ -176,7 +174,7 @@ export default function ChatRoute() {
 
   const openInfo = useCallback(() => {
     if (isGroup) {
-      setGroupInfoOpen(true);
+      router.push({ pathname: '/group/[groupId]', params: { groupId: upeerId ?? '' } });
       return;
     }
     router.push({ pathname: '/contact/[upeerId]', params: { upeerId: upeerId ?? '' } });
@@ -244,7 +242,6 @@ export default function ChatRoute() {
       cardOpen: contactCard.selected !== null,
       composing: editing !== null || replyingTo !== null,
       forwarding: forwarding !== null,
-      groupOpen: groupInfoOpen,
       menuOpen,
       searchActive: search.active,
       selecting: selection.active,
@@ -254,7 +251,6 @@ export default function ChatRoute() {
       cancelComposing: cancelContext,
       cancelForwarding,
       closeCard: contactCard.close,
-      closeGroup: () => setGroupInfoOpen(false),
       closeMenu: () => setMenuOpen(false),
       closeSearch: search.close,
       closeSheet: sheet.close,
@@ -310,7 +306,6 @@ export default function ChatRoute() {
       ) : null}
       <CameraCaptureSheet onClose={closeCamera} onOpenLibrary={openLibrary} onPick={(attachment) => { void sendPicked(attachment); }} visible={cameraOpen} />
       <ContactCardSheet action={contactCard.action} card={contactCard.selected} error={contactCard.error} onClose={contactCard.close} visible={contactCard.selected !== null} />
-      <GroupInfoSheet groupId={isGroup && groupInfoOpen ? upeerId ?? null : null} onChanged={refresh} onClose={() => setGroupInfoOpen(false)} />
       <ChatOptionsMenu isGroup={isGroup} isSelf={isSelfChat} messages={messages} name={alias} onChanged={refresh} onCloseChat={() => router.back()} onCloseMenu={() => setMenuOpen(false)} onOpenInfo={openInfo} onOpenMessage={scrollToMessage} onSearch={search.open} upeerId={upeerId ?? ''} visible={menuOpen} />
       <ChatMessageOverlays contacts={contacts} forwarding={forwarding} onForwardClose={cancelForwarding} onForwarded={handleForwarded} onSelect={(message) => { sheet.close(); selection.start(message); }} selfUpeerId={selfUpeerId} sheet={sheet} />
       <MediaViewer attachment={media} onClose={() => setMedia(null)} />

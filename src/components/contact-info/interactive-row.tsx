@@ -34,7 +34,7 @@ export function InteractiveRow({ icon: Icon, label, onPress, accessibilityLabel,
         <YStack alignItems="center" backgroundColor={theme.backgroundElement} borderRadius={26} height={52} justifyContent="center" width={52}>
           <Icon color={color} size={22} />
         </YStack>
-        <Text color={labelColor} fontSize={scale(11)} fontWeight="600">{label}</Text>
+        <Text color={labelColor} fontSize={scale(11)} fontWeight="600" numberOfLines={1}>{label}</Text>
       </NativeRipplePressable>
     );
   }

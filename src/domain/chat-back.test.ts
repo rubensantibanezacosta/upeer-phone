@@ -7,7 +7,6 @@ const NONE: ChatBackState = {
   searchActive: false,
   sheetOpen: false,
   cardOpen: false,
-  groupOpen: false,
   forwarding: false,
   composing: false,
 };
@@ -35,10 +34,6 @@ describe('resolveChatBack', () => {
 
   it('cierra la tarjeta de contacto antes que el reenvío', () => {
     expect(resolveChatBack({ ...NONE, cardOpen: true, forwarding: true })).toBe('close-card');
-  });
-
-  it('cierra la ficha de grupo antes que el reenvío', () => {
-    expect(resolveChatBack({ ...NONE, groupOpen: true, forwarding: true })).toBe('close-group');
   });
 
   it('cancela el reenvío antes que la composición', () => {

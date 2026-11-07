@@ -33,6 +33,7 @@ export default function AuthenticatedLayout() {
       <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen name="chat/[upeerId]" options={{ headerShown: false }} />
       <Stack.Screen name="contact/[upeerId]" options={{ headerShown: false }} />
+      <Stack.Screen name="group/[groupId]" options={{ headerShown: false }} />
     </Stack>
     <SyncBlockingOverlay />
     <CallOverlay />
