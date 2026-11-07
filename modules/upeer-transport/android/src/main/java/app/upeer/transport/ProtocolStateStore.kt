@@ -18,6 +18,11 @@ internal class ProtocolStateStore(context: Context) {
 
   private val database = ProtocolDatabase(context)
   private val cipher = ProtocolCipher(context)
+
+  /** Acceso a la base para los almacenes que comparten el esquema (outbox, relay). */
+  internal fun databaseHandle(): ProtocolDatabase = database
+
+  internal fun cipherHandle(): ProtocolCipher = cipher
   private val messageDatabase = ProtocolMessageDatabase(database)
   private val contactDatabase = ProtocolContactDatabase(database)
   private val groupDatabase = ProtocolGroupDatabase(database)

@@ -105,6 +105,70 @@ internal class SyncEventDatabase(context: Context) {
     ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
   }
 
+  /** Eventos inbound que hay que retransmitir a otro dispositivo propio (tabla `sync_relay`). */
+  fun relayEnqueue(eventId: String, targetDeviceId: String, sequence: Long): Boolean = synchronized(lock) {
+    relayEnqueueUnlocked(eventId, targetDeviceId, sequence)
+  }
+
+  fun relayMarkAcked(eventId: String, targetDeviceId: String): Boolean = synchronized(lock) {
+    val values = android.content.ContentValues()
+    values.put("acked_at", System.currentTimeMillis())
+    database().update(
+      "sync_relay",
+      values,
+      "event_id = ? AND target_device_id = ? AND acked_at IS NULL",
+      arrayOf(eventId, targetDeviceId),
+    ) > 0
+  }
+
+  /** Eventos pendientes de retransmitir, unidos con su contenido, como `listPendingSyncRelay`. */
+  fun relayPending(targetDeviceId: String, limit: Int): JSONArray = synchronized(lock) {
+    val result = JSONArray()
+    database().rawQuery(
+      "SELECT e.* FROM sync_relay r INNER JOIN sync_events e ON e.event_id = r.event_id " +
+        "WHERE r.target_device_id = ? AND r.acked_at IS NULL " +
+        "ORDER BY r.sequence ASC, r.event_id ASC LIMIT ?",
+      arrayOf(targetDeviceId, limit.toString()),
+    ).use { cursor ->
+      while (cursor.moveToNext()) result.put(cursorToRecord(cursor))
+    }
+    result
+  }
+
+  /**
+   * Encola para `targetDeviceId` todos los eventos inbound que aún no se le han retransmitido.
+   * Equivale a `enqueueSyncRelayBacklog` del escritorio.
+   */
+  fun relayBacklog(targetDeviceId: String): Int = synchronized(lock) {
+    database().rawQuery(
+      "SELECT event_id, sequence FROM sync_events WHERE direction = 'inbound' " +
+        "AND origin_device_id != ? " +
+        "AND event_id NOT IN (SELECT event_id FROM sync_relay WHERE target_device_id = ?)",
+      arrayOf(targetDeviceId, targetDeviceId),
+    ).use { cursor ->
+      var queued = 0
+      while (cursor.moveToNext()) {
+        if (relayEnqueueUnlocked(cursor.getString(0), targetDeviceId, cursor.getLong(1))) queued += 1
+      }
+      queued
+    }
+  }
+
+  private fun relayEnqueueUnlocked(eventId: String, targetDeviceId: String, sequence: Long): Boolean {
+    val values = android.content.ContentValues()
+    values.put("event_id", eventId)
+    values.put("target_device_id", targetDeviceId)
+    values.put("sequence", sequence)
+    values.put("created_at", System.currentTimeMillis())
+    return database().insertWithOnConflict("sync_relay", null, values, SQLiteDatabase.CONFLICT_IGNORE) > -1
+  }
+
+  fun relayCount(): Int = synchronized(lock) {
+    database().rawQuery("SELECT COUNT(*) FROM sync_relay WHERE acked_at IS NULL", null).use {
+      if (it.moveToFirst()) it.getInt(0) else 0
+    }
+  }
+
   fun setOrigin(eventId: String, deviceId: String, signature: String, certificate: String): Boolean = synchronized(lock) {
     val values = android.content.ContentValues()
     values.put("origin_device_id", deviceId)

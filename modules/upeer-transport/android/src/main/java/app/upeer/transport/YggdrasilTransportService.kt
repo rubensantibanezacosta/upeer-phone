@@ -399,7 +399,9 @@ class YggdrasilTransportService : Service() {
       DeviceSignedPreKeyStore(this),
       DeviceMessagingBindings(revokedFor = ::revokedDevicesOf),
       protocolState,
-      OutboxStore(this),
+      OutboxStore(protocolState.databaseHandle(), protocolState.cipherHandle()).also { outbox ->
+        outbox.migrateLegacy(KeystoreStore(this, "upeer_yggdrasil_outbox", "upeer-yggdrasil-outbox", "outbox_state"))
+      },
       notifications::notifyMessage,
       admissionGuard,
       contactAdmission,

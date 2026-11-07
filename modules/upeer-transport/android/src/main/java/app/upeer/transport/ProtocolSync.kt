@@ -49,8 +49,9 @@ internal class ProtocolSync(
     validate,
     selfAddress,
     send,
-    { applier.applyAll(state.syncEvents.pendingApplication(APPLY_BATCH)) },
-    onAdmissionChanged,
+    applyEvents = { applier.applyAll(state.syncEvents.pendingApplication(APPLY_BATCH)) },
+    onAdmissionChanged = onAdmissionChanged,
+    relayEvent = { active, record, sender -> relayToOtherDevices(active, record, sender) },
   )
   private var discovery: SyncDiscovery? = null
   private var registrySource: () -> String = { "" }
@@ -62,6 +63,9 @@ internal class ProtocolSync(
     { record -> signOrigin(record) },
     { active, address, json -> send(active, address, json) },
   )
+
+  private fun relayToOtherDevices(active: Bridge?, record: SyncEventRecord, sender: String): Int =
+    outbound.relay(active, record, sender)
 
   private val autofetch = SyncFileAutoFetch(
     { state.messages.attachmentRefs() },

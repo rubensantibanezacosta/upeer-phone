@@ -235,6 +235,31 @@ internal class SyncEventLog(
     return pending
   }
 
+  /**
+   * Encola un evento recibido para retransmitirlo a otro dispositivo propio, y devuelve los que
+   * quedan pendientes de enviar a ese dispositivo (tabla `sync_relay`, como en el escritorio).
+   */
+  fun relayEnqueue(eventId: String, targetDeviceId: String, sequence: Long): Boolean =
+    db?.relayEnqueue(eventId, targetDeviceId, sequence) ?: false
+
+  fun relayBacklog(targetDeviceId: String): Int = db?.relayBacklog(targetDeviceId) ?: 0
+
+  fun relayPending(targetDeviceId: String, limit: Int): List<SyncEventRecord> {
+    val database = db ?: return emptyList()
+    if (limit <= 0) return emptyList()
+    val page = database.relayPending(targetDeviceId, limit)
+    val found = ArrayList<SyncEventRecord>(page.length())
+    for (index in 0 until page.length()) {
+      SyncEventRecord.from(page.optJSONObject(index) ?: continue)?.let(found::add)
+    }
+    return found
+  }
+
+  fun relayMarkAcked(eventId: String, targetDeviceId: String): Boolean =
+    db?.relayMarkAcked(eventId, targetDeviceId) ?: false
+
+  fun relayPendingCount(): Int = db?.relayCount() ?: 0
+
   private fun bucket(): JSONObject {
     val database = db
     val sync = state().optJSONObject("sync") ?: JSONObject()

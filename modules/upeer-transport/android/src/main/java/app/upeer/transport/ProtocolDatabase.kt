@@ -142,7 +142,13 @@ internal class ProtocolDatabase(context: Context) {
     db.execSQL(
       "CREATE TABLE IF NOT EXISTS pending_outbox (" +
         "id INTEGER PRIMARY KEY AUTOINCREMENT, msg_id TEXT NOT NULL, recipient_sid TEXT NOT NULL, " +
-        "plaintext TEXT NOT NULL, reply_to TEXT, created_at INTEGER NOT NULL)",
+        "plaintext TEXT NOT NULL, reply_to TEXT, created_at INTEGER NOT NULL, " +
+        // Columnas propias del movil: el outbox necesita distinguir CHAT de CHAT_UPDATE y
+        // recordar el estado de los reintentos, que el escritorio guarda solo con los campos base.
+        "kind TEXT NOT NULL DEFAULT 'CHAT', target_msg_id TEXT, version INTEGER NOT NULL DEFAULT 0, " +
+        "attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at INTEGER NOT NULL DEFAULT 0, " +
+        "sends INTEGER NOT NULL DEFAULT 0, timestamp INTEGER NOT NULL DEFAULT 0, " +
+        "last_error TEXT, sent_at INTEGER, packet TEXT)",
     )
     db.execSQL("CREATE INDEX IF NOT EXISTS pending_outbox_recipient_idx ON pending_outbox(recipient_sid)")
     // devices
@@ -207,6 +213,9 @@ internal class ProtocolDatabase(context: Context) {
     renameColumn(db, "contacts", "signed_pre_key_sig", "signed_pre_key_signature")
     renameColumn(db, "contacts", "device_signed_pre_key_sig", "device_signed_pre_key_signature")
     renameColumn(db, "sync_peers", "device_signed_pre_key_sig", "device_signed_pre_key_signature")
+    for ((column, definition) in OUTBOX_EXTRA_COLUMNS) {
+      addColumn(db, "pending_outbox", column, definition)
+    }
   }
 
   private fun renameColumn(db: SQLiteDatabase, table: String, from: String, to: String) {
@@ -220,6 +229,12 @@ internal class ProtocolDatabase(context: Context) {
     }.onFailure { cause ->
       Log.w(TAG, "No se pudo migrar $table.$from a $to", cause)
     }
+  }
+
+  private fun addColumn(db: SQLiteDatabase, table: String, column: String, definition: String) {
+    if (columns(db, table).contains(column)) return
+    runCatching { db.execSQL("ALTER TABLE $table ADD COLUMN $column $definition") }
+      .onFailure { cause -> Log.w(TAG, "No se pudo añadir $table.$column", cause) }
   }
 
   private fun columns(db: SQLiteDatabase, table: String): Set<String> =
@@ -250,6 +265,19 @@ internal class ProtocolDatabase(context: Context) {
       "sync_events",
       "sync_relay",
       "usage",
+    )
+
+    private val OUTBOX_EXTRA_COLUMNS = listOf(
+      "kind" to "TEXT NOT NULL DEFAULT 'CHAT'",
+      "target_msg_id" to "TEXT",
+      "version" to "INTEGER NOT NULL DEFAULT 0",
+      "attempts" to "INTEGER NOT NULL DEFAULT 0",
+      "next_attempt_at" to "INTEGER NOT NULL DEFAULT 0",
+      "sends" to "INTEGER NOT NULL DEFAULT 0",
+      "timestamp" to "INTEGER NOT NULL DEFAULT 0",
+      "last_error" to "TEXT",
+      "sent_at" to "INTEGER",
+      "packet" to "TEXT",
     )
 
     private const val TAG = "UPeerTransport"

@@ -18,6 +18,7 @@ internal class SyncReplies(
   private val selfAddress: () -> String,
   private val send: (Bridge, String, String) -> Boolean,
   private val applyEvents: () -> Int = { 0 },
+  private val relayEvent: ((Bridge?, SyncEventRecord, String) -> Int) = { _, _, _ -> 0 },
   private val onAdmissionChanged: () -> Unit = {},
   private val nowMillis: () -> Long = System::currentTimeMillis,
 ) {
@@ -254,6 +255,9 @@ internal class SyncReplies(
           Log.i(TAG, "Evento ${decision.event.kind} de ${decision.originDeviceId.take(12)} registrado")
           val projected = applyEvents()
           if (projected > 0) Log.i(TAG, "Evento ${decision.event.kind} proyectado en el almacén local")
+          // Si hay un tercer dispositivo propio, se le retransmite (tabla `sync_relay`).
+          val relayed = relayEvent(activeBridge, recorded, auth.deviceId)
+          if (relayed > 0) Log.i(TAG, "Evento ${decision.event.kind} retransmitido a $relayed dispositivo(s)")
         }
       }
     }

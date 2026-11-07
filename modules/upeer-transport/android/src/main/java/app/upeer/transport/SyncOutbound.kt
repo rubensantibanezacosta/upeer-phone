@@ -59,6 +59,54 @@ internal class SyncOutbound(
     peer.address.isNotBlank() && pendingFor(peer.deviceId).isNotEmpty()
   }
 
+  /**
+   * Retransmite a los demás dispositivos propios un evento que nos ha llegado de otro.
+   *
+   * Es lo que hace `relaySyncEvent` en el escritorio: el dispositivo origen y el que acaba de
+   * enviarlo quedan fuera, y el evento se encola en `sync_relay` para cada destino. Sirve para que
+   * un tercer dispositivo reciba lo que no pudo escuchar directamente.
+   */
+  fun relay(activeBridge: Bridge?, event: SyncEventRecord, senderDeviceId: String): Int {
+    val origin = event.originDeviceId ?: senderDeviceId
+    val targets = state.syncPeers.list().filter { peer ->
+      peer.deviceId != senderDeviceId && peer.deviceId != origin
+    }
+    if (targets.isEmpty()) return 0
+    for (peer in targets) {
+      state.syncEvents.relayEnqueue(event.eventId, peer.deviceId, event.sequence)
+    }
+    if (activeBridge == null) return 0
+    var sent = 0
+    for (peer in targets) {
+      if (peer.address.isBlank()) continue
+      sent += flushRelay(activeBridge, peer)
+    }
+    if (sent > 0) Log.i(TAG, "Eventos retransmitidos a otros dispositivos propios: $sent")
+    return sent
+  }
+
+  /** Encola el histórico recibido para un par recién alcanzado y lo envía (`relayBacklogToPeer`). */
+  fun relayBacklog(activeBridge: Bridge?, peer: SyncPeerRecord): Int {
+    if (peer.address.isBlank()) return 0
+    state.syncEvents.relayBacklog(peer.deviceId)
+    return activeBridge?.let { flushRelay(it, peer) } ?: 0
+  }
+
+  private fun flushRelay(activeBridge: Bridge, peer: SyncPeerRecord): Int {
+    var sent = 0
+    for (batch in 0 until MAX_RELAY_BATCHES) {
+      val records = state.syncEvents.relayPending(peer.deviceId, RELAY_BATCH_SIZE)
+      if (records.isEmpty()) return sent
+      for (record in records) {
+        if (!deliverTo(activeBridge, peer, record)) continue
+        state.syncEvents.relayMarkAcked(record.eventId, peer.deviceId)
+        sent += 1
+      }
+      if (records.size < RELAY_BATCH_SIZE) return sent
+    }
+    return sent
+  }
+
   private fun pendingFor(deviceId: String): List<SyncEventRecord> {
     val ack = state.syncEvents.ackFor(deviceId)
     return state.syncEvents.eventsAfter(ack, BATCH).filter { it.direction == OUTBOUND }
@@ -100,5 +148,7 @@ internal class SyncOutbound(
     const val TAG = "UPeerTransport"
     const val OUTBOUND = "outbound"
     const val BATCH = 100
+    const val RELAY_BATCH_SIZE = 200
+    const val MAX_RELAY_BATCHES = 25
   }
 }
