@@ -40,13 +40,13 @@ export function InteractiveRow({ icon: Icon, label, onPress, accessibilityLabel,
   }
 
   return (
-    <NativeRipplePressable accessibilityLabel={accessibilityLabel ?? label} accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[styles.row, dimmed, { backgroundColor: theme.backgroundElement }]}>
+    <NativeRipplePressable accessibilityLabel={accessibilityLabel ?? label} accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[styles.row, dimmed]}>
       <Icon color={color} size={22} />
       <YStack flex={1} gap={3}>
         <SizableText color={labelColor} fontSize={scale(15)} fontWeight="600">{label}</SizableText>
         {description ? <Text color={theme.placeholder} fontSize={scale(12)}>{description}</Text> : null}
       </YStack>
-      {hint ? <Text color={theme.placeholder} fontSize={scale(11)} fontWeight="500">{hint}</Text> : tone === 'danger' ? null : <ChevronRight color={theme.placeholder} size={15} />}
+      {hint ? <Text color={theme.placeholder} fontSize={scale(11)} fontWeight="500">{hint}</Text> : tone === 'default' ? <ChevronRight color={theme.placeholder} size={15} /> : null}
     </NativeRipplePressable>
   );
 }
@@ -54,5 +54,5 @@ export function InteractiveRow({ icon: Icon, label, onPress, accessibilityLabel,
 const styles = StyleSheet.create({
   action: { alignItems: 'center', borderRadius: 30, gap: 6, minWidth: 62, overflow: 'hidden', paddingVertical: 4 },
   dimmed: { opacity: 0.45 },
-  row: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 14, minHeight: 58, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 10 },
+  row: { alignItems: 'center', flexDirection: 'row', gap: 12, minHeight: 64, overflow: 'hidden', paddingHorizontal: 16, paddingVertical: 12 },
 });

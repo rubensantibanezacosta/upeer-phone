@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Archive, ArchiveRestore, ArrowLeft, Ban, Bell, BellOff, LockKeyhole, LockOpen, Share2, Star, Trash2, UserMinus } from '@tamagui/lucide-icons-2';
+import { Archive, ArrowLeft, Ban, Bell, BellOff, Image, LockKeyhole, LockOpen, Share2, Star, Trash2, UserMinus } from '@tamagui/lucide-icons-2';
 import { SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { ContactInfoHero } from '@/components/contact-info/contact-info-hero';
 import { ChatCipherSheet } from '@/components/chat/chat-cipher-sheet';
 import { ContactShareSheet } from '@/components/chat/contact-share-sheet';
 import { InteractiveRow } from '@/components/contact-info/interactive-row';
+import { InfoSections, SectionSeparator, SettingsGroup } from '@/components/settings-section-parts';
 import { CopyField } from '@/components/copy-field';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { useSnackbar } from '@/components/snackbar';
@@ -181,24 +182,28 @@ export function ContactInfoScreen({ upeerId, onBack }: ContactInfoScreenProps) {
           <CopyField accessibilityLabel="Copiar identidad uPeer" onCopy={() => { void copyToClipboard(upeerId, 'Identidad copiada'); }} truncate value={upeerId} />
           {contact?.address ? <CopyField accessibilityLabel="Copiar dirección de red" onCopy={() => { void copyToClipboard(contact.address, 'Dirección copiada'); }} truncate value={contact.address} /> : null}
         </YStack>
-        <YStack gap={6}>
-          <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Conversación</Text>
-          {isSelf ? null : <InteractiveRow disabled={!contact} icon={Share2} label="Compartir contacto" onPress={() => setSharing(true)} />}
-          <InteractiveRow icon={flags.muted ? Bell : BellOff} label={flags.muted ? 'Activar notificaciones' : 'Silenciar notificaciones'} onPress={() => toggleFlag('muted')} />
-          <InteractiveRow icon={flags.archived ? ArchiveRestore : Archive} label={flags.archived ? 'Desarchivar chat' : 'Archivar chat'} onPress={() => toggleFlag('archived')} />
-          {isSelf ? null : <InteractiveRow icon={Star} label={contact?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />}
-          <InteractiveRow icon={LockKeyhole} label="Cifrado" onPress={() => setCipherOpen(true)} />
-        </YStack>
-        <YStack gap={6}>
-          <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Zona de riesgo</Text>
-          <InteractiveRow icon={Trash2} label="Vaciar chat" onPress={confirmClearChat} />
-          {isSelf ? null : (
-            <>
-              <InteractiveRow disabled={!contact} icon={blocked ? LockOpen : Ban} label={blocked ? 'Desbloquear contacto' : `Bloquear a ${alias}`} onPress={toggleBlock} tone="danger" />
-              <InteractiveRow disabled={!contact} icon={UserMinus} label="Eliminar contacto" onPress={confirmDelete} tone="danger" />
-            </>
-          )}
-        </YStack>
+        <InfoSections>
+          <SectionSeparator />
+          <InteractiveRow icon={Image} label="Multimedia compartida" onPress={pending('Multimedia compartida')} />
+          <SectionSeparator />
+          <SettingsGroup>
+            {isSelf ? null : <InteractiveRow disabled={!contact} icon={Share2} label="Compartir contacto" onPress={() => setSharing(true)} />}
+            <InteractiveRow icon={flags.muted ? Bell : BellOff} label={flags.muted ? 'Reactivar notificaciones' : 'Silenciar notificaciones'} onPress={() => toggleFlag('muted')} />
+            <InteractiveRow icon={Archive} label="Archivar chat" onPress={() => toggleFlag('archived')} />
+            {isSelf ? null : <InteractiveRow icon={Star} label={contact?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={toggleFavorite} />}
+            <InteractiveRow icon={LockKeyhole} label="Cifrado" onPress={() => setCipherOpen(true)} />
+          </SettingsGroup>
+          <SectionSeparator />
+          <SettingsGroup>
+            <InteractiveRow icon={Trash2} label="Vaciar chat" onPress={confirmClearChat} />
+            {isSelf ? null : (
+              <>
+                <InteractiveRow disabled={!contact} icon={blocked ? LockOpen : Ban} label={blocked ? 'Desbloquear' : `Bloquear a ${alias}`} onPress={toggleBlock} tone="danger" />
+                <InteractiveRow disabled={!contact} icon={UserMinus} label="Eliminar contacto" onPress={confirmDelete} tone="danger" />
+              </>
+            )}
+          </SettingsGroup>
+        </InfoSections>
       </ScrollView>
       <ContactShareSheet
         contact={contact ?? null}

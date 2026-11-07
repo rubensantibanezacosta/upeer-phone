@@ -1,21 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Crown, LogOut, Pencil, UserMinus, UserPlus, Users } from '@tamagui/lucide-icons-2';
+import { ArrowLeft, BellOff, Crown, Eraser, Image, LogOut, Pencil, Star, UserMinus, UserPlus, Users } from '@tamagui/lucide-icons-2';
 import { Input, SizableText, Text, XStack, YStack } from 'tamagui';
 
 import { NativeRippleButton } from '@/components/native-ripple-button';
 import { NativeRipplePressable } from '@/components/native-ripple-pressable';
 import { ContactPicker } from '@/components/contact-picker';
 import { InteractiveRow } from '@/components/contact-info/interactive-row';
+import { InfoSections, SectionSeparator, SettingsGroup } from '@/components/settings-section-parts';
+import { ContactTrustAvatar } from '@/components/contact-trust-avatar';
 import { ProfileAvatar } from '@/components/profile-avatar';
 import { useSnackbar } from '@/components/snackbar';
+import { useConversationFlags } from '@/hooks/use-conversation-flags';
 import { useSelfUpeerId } from '@/hooks/use-self-upeer-id';
 import { useTextScale } from '@/hooks/use-text-scale';
 import { useTheme } from '@/hooks/use-theme';
+import { flagMessage, flagsFor, type ConversationFlag } from '@/domain/conversation-flags';
 import { getContacts, type UPeerContact } from '@/storage/contact-store';
+import { setConversationFlag } from '@/storage/conversation-flags-store';
 import type { ProtocolGroup } from '../../../modules/upeer-transport/src/UPeerTransport.types';
 import {
+  deleteConversation,
   getConversations,
   getGroups,
   inviteToGroup,
@@ -40,6 +46,8 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
   const [group, setGroup] = useState<ProtocolGroup | null>(null);
   const [contacts, setContacts] = useState<UPeerContact[]>([]);
   const [avatars, setAvatars] = useState<Record<string, string | undefined>>({});
+  const conversationFlags = useConversationFlags();
+  const flags = flagsFor(conversationFlags, groupId);
   const [mode, setMode] = useState<ScreenMode>('info');
   const [selected, setSelected] = useState<string[]>([]);
   const [member, setMember] = useState<string | null>(null);
@@ -79,7 +87,6 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
   const selfId = useSelfUpeerId();
   const isAdmin = active?.adminUpeerId === selfId;
   const nameOf = (upeerId: string) => contacts.find((item) => item.upeerId === upeerId)?.name ?? `${upeerId.slice(0, 10)}…`;
-  const memberLabel = (upeerId: string) => (upeerId === active?.adminUpeerId ? 'Administrador' : upeerId === selfId ? 'Tú' : 'Miembro');
   const available = contacts.filter((contact) => contact.status === 'connected' && !members.includes(contact.upeerId));
 
   const run = async (action: () => Promise<void>, success: string) => {
@@ -106,6 +113,35 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
     Alert.alert('Salir del grupo', 'Dejarás de recibir los mensajes de este grupo en este dispositivo.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Salir', style: 'destructive', onPress: () => void run(() => leaveGroup(groupId), 'Has salido del grupo') },
+    ]);
+  };
+
+  const toggleFlag = (flag: ConversationFlag) => {
+    setConversationFlag(groupId, flag)
+      .then(() => showSnackbar(flagMessage(flag, !flags[flag])))
+      .catch((cause: unknown) => {
+        console.warn('No se pudo cambiar el ajuste del grupo.', cause);
+        showSnackbar('No se pudo cambiar el ajuste del grupo');
+      });
+  };
+
+  const pending = (label: string) => () => showSnackbar(`${label}: pendiente en el roadmap`);
+
+  const confirmClearChat = () => {
+    Alert.alert('Vaciar chat', 'Se borrarán todos los mensajes de esta conversación en este dispositivo. El grupo se conserva.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Vaciar',
+        style: 'destructive',
+        onPress: () => {
+          deleteConversation(groupId)
+            .then(() => { showSnackbar('Conversación vaciada'); onChanged?.(); })
+            .catch((cause: unknown) => {
+              console.warn('No se pudo vaciar la conversación.', cause);
+              showSnackbar('No se pudo vaciar la conversación');
+            });
+        },
+      },
     ]);
   };
 
@@ -205,29 +241,37 @@ export function GroupInfoScreen({ groupId, onBack, onChanged }: GroupInfoScreenP
             </XStack>
           </YStack> : null}
 
-          <YStack gap={6}>
-            <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Miembros</Text>
-            {members.map((upeerId) => <InteractiveRow
-              accessibilityLabel={`Opciones de ${nameOf(upeerId)}`}
-              description={memberLabel(upeerId)}
-              icon={() => <ProfileAvatar avatar={avatars[upeerId]} name={nameOf(upeerId)} size={22} />}
-              key={upeerId}
-              label={upeerId === selfId ? 'Tú' : nameOf(upeerId)}
-              onPress={() => { setMember(upeerId); setMode('member'); }}
-            />)}
-            {members.length === 0 ? <Text color={theme.placeholder} fontSize={scale(12)}>Sin miembros sincronizados todavía.</Text> : null}
-          </YStack>
+          <InfoSections>
+            <SectionSeparator />
+            <InteractiveRow icon={Image} label="Multimedia compartida" onPress={pending('Multimedia compartida')} description="Fotos, vídeos y archivos" />
+            <SectionSeparator />
 
-          <YStack gap={6}>
-            <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Administración</Text>
-            <InteractiveRow icon={UserPlus} label="Invitar contactos" onPress={() => { setSelected([]); setMode('invite'); }} />
-            <InteractiveRow icon={Pencil} label="Renombrar grupo" onPress={() => { setDraft(active?.name ?? ''); setRenaming(true); }} />
-          </YStack>
+            <SettingsGroup>
+              {members.length === 0
+                ? <Text color={theme.placeholder} fontSize={scale(15)} paddingHorizontal={16} paddingVertical={12}>No hay miembros disponibles.</Text>
+                : members.map((upeerId) => <InteractiveRow
+                  accessibilityLabel={`Opciones de ${nameOf(upeerId)}`}
+                  icon={() => <ContactTrustAvatar avatar={avatars[upeerId]} name={nameOf(upeerId)} size={40} />}
+                  key={upeerId}
+                  label={upeerId === selfId ? 'Tú' : nameOf(upeerId)}
+                  onPress={() => { setMember(upeerId); setMode('member'); }}
+                />)}
+            </SettingsGroup>
 
-          <YStack gap={6}>
-            <Text color={theme.placeholder} fontSize={scale(12)} fontWeight="600">Zona de riesgo</Text>
-            <InteractiveRow icon={LogOut} label="Salir del grupo" onPress={confirmLeave} tone="danger" />
-          </YStack>
+            {isAdmin ? <><SectionSeparator /><InteractiveRow icon={UserPlus} label="Añadir" onPress={() => { setSelected([]); setMode('invite'); }} /></> : null}
+
+            <SectionSeparator />
+            <SettingsGroup>
+              <InteractiveRow icon={BellOff} label={flags.muted ? 'Reactivar notificaciones' : 'Silenciar notificaciones'} onPress={() => toggleFlag('muted')} />
+              <InteractiveRow icon={Star} label={active?.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'} onPress={pending('Favorito del grupo')} />
+            </SettingsGroup>
+
+            <SectionSeparator />
+            <SettingsGroup>
+              <InteractiveRow icon={Eraser} label="Vaciar chat" onPress={confirmClearChat} />
+              <InteractiveRow icon={LogOut} label="Salir del grupo" onPress={confirmLeave} tone="danger" />
+            </SettingsGroup>
+          </InfoSections>
         </> : null}
       </ScrollView>
     </SafeAreaView>

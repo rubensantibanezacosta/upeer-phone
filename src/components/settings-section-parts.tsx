@@ -42,6 +42,15 @@ export function SettingsGroupLabel({ action, children, icon, title }: { action?:
   );
 }
 
+export function SectionSeparator({ inset = 16 }: { inset?: number }) {
+  const theme = useTheme();
+  return <View style={{ backgroundColor: theme.border, height: StyleSheet.hairlineWidth, marginHorizontal: inset }} />;
+}
+
+export function InfoSections({ children }: { children: ReactNode }) {
+  return <YStack gap={0}>{children}</YStack>;
+}
+
 export function SettingsGroup({ children }: { children: ReactNode }) {
   const theme = useTheme();
   return (
