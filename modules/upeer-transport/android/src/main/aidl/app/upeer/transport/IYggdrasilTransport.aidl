@@ -100,6 +100,7 @@ interface IYggdrasilTransport {
   boolean requestFileFromOwnDevices(String fileId);
   String outboundFilesJSON();
   String startCall(String upeerId, String kind);
+  boolean selfCallAvailable();
   boolean acceptCall(String callId);
   boolean rejectCall(String callId);
   boolean endCall(String callId);

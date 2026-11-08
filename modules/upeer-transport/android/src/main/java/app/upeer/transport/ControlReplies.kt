@@ -40,7 +40,18 @@ internal class ControlReplies(
     val metadata = JSONObject(metadataJSON)
     if (!allow(metadata, sourceAddress)) return rateLimited(metadata)
     state.touchPresence(senderUpeerId)
-    if (signature == PacketSignature.Account) state.rememberPeer(metadata)
+    // `rememberPeer` guarda la dirección del contacto (`senderYggAddress`, que va dentro de la firma).
+    // Solo se llamaba con firma **de cuenta**, así que con firma **enlazada** —la que usa el escritorio
+    // para hablar con el móvil— la dirección del contacto no se aprendía nunca y la fila se quedaba
+    // vacía: de ahí que la mitad de los contactos no tuvieran dirección y no se les pudiera llamar.
+    // La firma enlazada también se ha verificado ya arriba contra la clave de dispositivo, así que la
+    // dirección de esos metadatos es tan fiable como la de la cuenta.
+    if (signature == PacketSignature.Account || signature is PacketSignature.Linked) {
+      state.rememberPeer(metadata)
+    }
+    // Además se guarda la dirección de origen real como dirección conocida: el `senderYggAddress`
+    // del paquete puede faltar en clientes viejos, pero por dónde llegó el paquete es un hecho.
+    state.rememberSourceAddress(senderUpeerId, sourceAddress)
     if (type == "PING") {
       state.presence.touch(senderUpeerId, packet.optLong("activeAt", 0L), System.currentTimeMillis())
       sendPong(senderUpeerId)

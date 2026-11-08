@@ -267,6 +267,30 @@ internal class ProtocolStateStore(context: Context) {
   }
 
   /**
+   * Apunta por dónde llegó un paquete de este contacto, si aún no tenía dirección.
+   *
+   * Es el aprendizaje que faltaba en el móvil y que el escritorio sí hace (`handlers.ts`: actualiza la
+   * dirección con la de origen de cada paquete entrante). Sin esto, un contacto cuyo `senderYggAddress`
+   * viniera vacío —o que hablara con firma enlazada antes del arreglo de `ControlReplies`— se quedaba
+   * sin dirección para siempre, y llamarle devolvía «sin dirección conocida».
+   *
+   * **Solo rellena huecos**: una dirección que ya funciona no se pisa con la de origen, porque un
+   * paquete puede llegar por otra ruta (relay, relay de vault) y guardar esa la rompería. Cambiar la
+   * principal es cosa del perfil sincronizado, que lo anuncia explícitamente.
+   */
+  fun rememberSourceAddress(upeerId: String, sourceAddress: String): Boolean = synchronized(lock) {
+    if (!validId(upeerId) || !PeerAddress.valid(sourceAddress)) return@synchronized false
+    val peers = state.optJSONObject("peers") ?: return@synchronized false
+    val existing = peers.optJSONObject(upeerId) ?: return@synchronized false
+    if (existing.optString("address").isNotEmpty()) return@synchronized false
+    existing.put("address", sourceAddress)
+    peers.put(upeerId, existing)
+    state.put("peers", peers)
+    persist("peers")
+    true
+  }
+
+  /**
    * Guarda las direcciones de un contacto que llegan por sincronización (`CONTACT_PROFILE`).
    *
    * Sin esto el móvil se quedaba **sin dirección** de los contactos: el escritorio no la mandaba en el

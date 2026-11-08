@@ -195,6 +195,7 @@ class UPeerTransportModule : Module() {
     AsyncFunction("requestFileFromOwnDevices") { fileId: String -> service().requestFileFromOwnDevices(fileId) }
     AsyncFunction("outboundFilesJSON") { service().outboundFilesJSON() }
     AsyncFunction("startCall") { upeerId: String, kind: String -> service().startCall(upeerId, kind) }
+    AsyncFunction("selfCallAvailable") { service().selfCallAvailable() }
     AsyncFunction("acceptCall") { callId: String -> service().acceptCall(callId) }
     AsyncFunction("rejectCall") { callId: String -> service().rejectCall(callId) }
     AsyncFunction("endCall") { callId: String -> service().endCall(callId) }

@@ -20,6 +20,13 @@ type ChatHeaderProps = {
   vouchScore?: number;
   isRequest?: boolean;
   isSelf?: boolean;
+  /**
+   * En un chat con uno mismo: ¿hay otro dispositivo de mi cuenta al que llamar?
+   *
+   * Sin esto, quien tiene la cuenta solo en el móvil y el escritorio se queda sin ningún botón de
+   * llamada: todos sus contactos son su propia cuenta.
+   */
+  selfCallable?: boolean;
   activity?: ConversationActivity | '';
   presence?: string | null;
   onBack: () => void;
@@ -37,7 +44,7 @@ function HeaderAction({ label, onPress, children }: { label: string; onPress: ()
   );
 }
 
-export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isRequest = false, isSelf = false, activity = '', presence = null, onBack, onOpenInfo, onOpenMenu, onStartCall, onUnavailable }: ChatHeaderProps) {
+export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isRequest = false, isSelf = false, selfCallable = false, activity = '', presence = null, onBack, onOpenInfo, onOpenMenu, onStartCall, onUnavailable }: ChatHeaderProps) {
   const theme = useTheme();
   const scale = useTextScale();
   const score = useVouchScore(upeerId) ?? vouchScore;
@@ -59,8 +66,8 @@ export function ChatHeader({ alias, avatar, upeerId, status, vouchScore, isReque
           {subtitle ? <Text color={activity ? theme.accent : theme.placeholder} fontSize={scale(12)} numberOfLines={1}>{subtitle}</Text> : null}
         </YStack>
       </NativeRipplePressable>
-      {isRequest || isSelf ? null : <HeaderAction label="Videollamada" onPress={() => (onStartCall ? onStartCall('video') : onUnavailable('Videollamada'))}><Video color={theme.text} size={24} /></HeaderAction>}
-      {isRequest || isSelf ? null : <HeaderAction label="Llamada de voz" onPress={() => (onStartCall ? onStartCall('audio') : onUnavailable('Llamada de voz'))}><Phone color={theme.text} size={22} /></HeaderAction>}
+      {isRequest || (isSelf && !selfCallable) ? null : <HeaderAction label="Videollamada" onPress={() => (onStartCall ? onStartCall('video') : onUnavailable('Videollamada'))}><Video color={theme.text} size={24} /></HeaderAction>}
+      {isRequest || (isSelf && !selfCallable) ? null : <HeaderAction label="Llamada de voz" onPress={() => (onStartCall ? onStartCall('audio') : onUnavailable('Llamada de voz'))}><Phone color={theme.text} size={22} /></HeaderAction>}
       <HeaderAction label="Opciones de la conversación" onPress={onOpenMenu}><MoreVertical color={theme.text} size={24} /></HeaderAction>
     </XStack>
   );

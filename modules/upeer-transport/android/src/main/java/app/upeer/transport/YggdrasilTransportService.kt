@@ -333,6 +333,7 @@ class YggdrasilTransportService : Service() {
     override fun requestFileFromOwnDevices(fileId: String): Boolean = protocol.requestFileFromOwnDevices(fileId)
     override fun outboundFilesJSON(): String = protocol.outboundFiles()
     override fun startCall(upeerId: String, kind: String): String = protocol.startCall(upeerId, kind).orEmpty()
+    override fun selfCallAvailable(): Boolean = protocol.selfCallAvailable()
     override fun acceptCall(callId: String): Boolean = protocol.acceptCall(callId)
     override fun rejectCall(callId: String): Boolean = protocol.rejectCall(callId)
     override fun endCall(callId: String): Boolean = protocol.endCall(callId)

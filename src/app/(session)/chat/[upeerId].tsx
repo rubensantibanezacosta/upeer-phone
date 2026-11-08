@@ -46,7 +46,7 @@ import { useTheme } from '@/hooks/use-theme';
 import type { PickedAttachment } from '@/services/attachment-picker';
 import { getContacts, saveContact, type UPeerContact } from '@/storage/contact-store';
 import type { ProtocolMessage } from '../../../../modules/upeer-transport/src/UPeerTransport.types';
-import { getMessages, getConversations, markConversationRead, startCall as startChatCall } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
+import { getMessages, getConversations, markConversationRead, selfCallAvailable, startCall as startChatCall } from '../../../../modules/upeer-transport/src/UPeerTransportModule';
 
 const MESSAGE_LIMIT = 200;
 const CHAT_REFRESH_MS = 5000;
@@ -211,9 +211,24 @@ export default function ChatRoute() {
     showSnackbar(`${label}: pendiente en el roadmap`);
   }, [showSnackbar]);
 
+  // En el chat con uno mismo, ¿hay otro dispositivo de mi cuenta al que llamar? Con la cuenta en el
+  // móvil y el escritorio sí lo hay, y sin esto esos usuarios no ven nunca los botones.
+  const [selfCallExtraDevice, setSelfCallExtraDevice] = useState(false);
+  useEffect(() => {
+    // Solo consulta el nativo cuando hay algo que preguntar; en cualquier otro chat no hace falta.
+    if (!isSelfChat) return;
+    let live = true;
+    void selfCallAvailable()
+      .then((value) => { if (live) setSelfCallExtraDevice(value); })
+      .catch(() => { if (live) setSelfCallExtraDevice(false); });
+    return () => { live = false; };
+  }, [isSelfChat]);
+  // Derivado, no estado: fuera del chat con uno mismo nunca hay botón de llamada a sí mismo.
+  const selfCallable = isSelfChat && selfCallExtraDevice;
+
   const startCall = useCallback((kind: 'audio' | 'video') => {
-    if (isSelfChat) {
-      showSnackbar('No puedes llamarte a ti mismo');
+    if (isSelfChat && !selfCallable) {
+      showSnackbar('No hay otro dispositivo de tu cuenta al que llamar');
       return;
     }
     if (isGroup) {
@@ -226,7 +241,7 @@ export default function ChatRoute() {
       console.warn('No se pudo iniciar la llamada.', cause);
       showSnackbar('No se pudo iniciar la llamada');
     });
-  }, [isGroup, isSelfChat, showSnackbar, upeerId]);
+  }, [isGroup, isSelfChat, selfCallable, showSnackbar, upeerId]);
 
   const [media, setMedia] = useState<AttachmentInfo | null>(null);
   const requestAttachment = useAttachmentRequester(upeerId ?? '');
@@ -286,7 +301,7 @@ export default function ChatRoute() {
     <View style={styles.root}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.background }]}>
         {selection.active ? <ChatSelectionBar count={selection.chosen.length} onClose={selection.clear} /> : null}
-        <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} isSelf={isSelfChat} onBack={() => router.back()} onOpenInfo={openInfo} onOpenMenu={() => setMenuOpen(true)} onStartCall={startCall} onUnavailable={showUnavailable} presence={isGroup ? (groupMembers > 0 ? `${groupMembers} miembros` : 'Grupo') : presence} status={contactStatus} activity={peerActivity} upeerId={upeerId ?? ''} />
+        <ChatHeader alias={alias || 'Conversación'} avatar={peerAvatar} isRequest={isRequest} isSelf={isSelfChat} onBack={() => router.back()} onOpenInfo={openInfo} onOpenMenu={() => setMenuOpen(true)} onStartCall={startCall} onUnavailable={showUnavailable} selfCallable={selfCallable} presence={isGroup ? (groupMembers > 0 ? `${groupMembers} miembros` : 'Grupo') : presence} status={contactStatus} activity={peerActivity} upeerId={upeerId ?? ''} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.root, androidKeyboard > 0 ? { paddingBottom: androidKeyboard } : null]}>
           {isRequest ? <ChatRequestScreen alias={alias || 'Remitente desconocido'} onAccept={acceptRequest} onBlock={blockRequest} receivedAt={requestReceivedAt} upeerId={upeerId ?? ''} /> : (
             <ChatTimelineList

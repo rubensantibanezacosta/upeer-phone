@@ -114,6 +114,7 @@ declare class UPeerTransportModule extends NativeModule<{}> {
   requestFileFromOwnDevices(fileId: string): Promise<boolean>;
   outboundFilesJSON(): Promise<string>;
   startCall(upeerId: string, kind: string): Promise<string>;
+  selfCallAvailable(): Promise<boolean>;
   acceptCall(callId: string): Promise<boolean>;
   rejectCall(callId: string): Promise<boolean>;
   endCall(callId: string): Promise<boolean>;
@@ -681,6 +682,17 @@ export type CallState = {
 
 export async function startCall(upeerId: string, kind: CallKind): Promise<string> {
   return nativeModule.startCall(upeerId, kind);
+}
+
+/**
+ * ¿Hay otro dispositivo de mi cuenta al que llamar?
+ *
+ * En el chat con uno mismo la app esconde los botones de llamada, porque llamarse a uno mismo no tenía
+ * sentido. Con la cuenta abierta en el móvil y el escritorio sí lo tiene, y sin esto esos usuarios no
+ * ven nunca un botón de llamada: todos sus contactos son su propia cuenta.
+ */
+export async function selfCallAvailable(): Promise<boolean> {
+  return nativeModule.selfCallAvailable();
 }
 
 export async function acceptCall(callId: string): Promise<boolean> {
