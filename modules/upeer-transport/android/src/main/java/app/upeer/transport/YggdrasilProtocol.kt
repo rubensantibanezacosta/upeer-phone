@@ -217,18 +217,6 @@ internal class YggdrasilProtocol(
     }
   }
 
-  /** Mi cuenta, en minúsculas, o null si aún no hay identidad cargada. */
-  private fun myAccount(): String? = identity.current()?.upeerID()?.lowercase()?.takeIf(String::isNotEmpty)
-
-  /** Mi dispositivo, o null si no está enrolado (modo solo dispositivo). */
-  private fun myDeviceId(): String? = identity.currentDevice()?.deviceId?.lowercase()
-
-  /** ¿Este `upeerId` es mi propia cuenta? */
-  private fun isOwnAccount(upeerId: String): Boolean {
-    val mine = myAccount() ?: return false
-    return upeerId.lowercase() == mine
-  }
-
   fun startCall(upeerId: String, kind: String): String? {
     if (upeerId.isBlank()) return null
     if (state.isBlocked(upeerId)) {
@@ -238,22 +226,6 @@ internal class YggdrasilProtocol(
     // Llamada a otro dispositivo de **mi propia cuenta**. Antes se rechazaba sin más, y con la cuenta
     // abierta en el móvil y el escritorio eso dejaba la función sin ningún uso posible: todos los
     // contactos son uno mismo. La dirección del otro dispositivo ya está en `sync_peers`.
-    if (isOwnAccount(upeerId)) {
-      val targets = SelfCallTargets.addresses(state.syncPeers.list().map { it.toJson() }, myDeviceId())
-      if (targets.isEmpty()) {
-        Log.i(TAG, "Llamada a mi cuenta no iniciada: no hay otro dispositivo con dirección conocida")
-        return null
-      }
-      val session = callStore.start(upeerId, kind, outgoing = true) ?: run {
-        Log.i(TAG, "Llamada a mi cuenta no iniciada: ya hay otra en curso")
-        return null
-      }
-      for (address in targets) {
-        controlSender.scheduleCall(upeerId, CallPackets.offer(session.callId, kind, System.currentTimeMillis()), CallPackets.OFFER)
-      }
-      Log.i(TAG, "Llamada a mi cuenta ofrecida a ${targets.size} dispositivo(s)")
-      return session.callId
-    }
     if (state.addressFor(upeerId) == null) {
       Log.i(TAG, "Llamada a $upeerId no iniciada: sin dirección conocida")
       return null
@@ -289,16 +261,6 @@ internal class YggdrasilProtocol(
     controlSender.scheduleCall(session.peerUpeerId, packet, packet.optString("type"))
     return true
   }
-
-  /**
-   * ¿Hay otro dispositivo de mi cuenta al que llamar?
-   *
-   * La UI lo usa para decidir si enseña los botones en el chat con uno mismo. Sin esto, quien tiene la
-   * cuenta solo en el móvil y el escritorio no ve nunca un botón de llamada, porque todos sus
-   * contactos son su propia cuenta.
-   */
-  fun selfCallAvailable(): Boolean =
-    SelfCallTargets.canCallSelf(state.syncPeers.list().map { it.toJson() }, myDeviceId())
 
   fun endCall(callId: String): Boolean {
     val session = callStore.active() ?: return false
