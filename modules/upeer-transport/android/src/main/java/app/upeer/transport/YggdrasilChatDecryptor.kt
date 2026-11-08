@@ -47,9 +47,15 @@ internal class YggdrasilChatDecryptor(
     context: String,
   ): String? = openContent(packet, field, senderUpeerId, publicKey, isDevicePacket, context)
 
-  private fun decryptContent(packet: JSONObject, senderUpeerId: String, publicKey: String, isDevicePacket: Boolean): String =
-    openContent(packet, "content", senderUpeerId, publicKey, isDevicePacket, DIRECT_CONTEXT)
-      ?: throw IllegalStateException("CHAT has no usable ratchet session")
+  private fun decryptContent(packet: JSONObject, senderUpeerId: String, publicKey: String, isDevicePacket: Boolean): String {
+    // Se prueba el contexto del dispositivo emisor (lo que usa el cifrado desde el
+    // arreglo multi-dispositivo) y se cae al `direct` histórico para sesiones ya abiertas.
+    val senderDeviceId = packet.optString("senderDeviceId").ifEmpty { null }
+    for (context in DirectRatchetContext.candidates(senderDeviceId)) {
+      openContent(packet, "content", senderUpeerId, publicKey, isDevicePacket, context)?.let { return it }
+    }
+    throw IllegalStateException("CHAT has no usable ratchet session")
+  }
 
   private fun openContent(
     packet: JSONObject,

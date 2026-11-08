@@ -239,11 +239,14 @@ internal class YggdrasilOutbox(
       if (link.sendPacket(activeBridge, address, packet)) markSent(messageID, entry) else giveUp.retry(activeBridge, messageID, entry, "writeFrame falló")
       return
     }
+    // Se usa la sesión del dispositivo concreto (y se cae a la histórica de cuenta si
+    // aún no hay ninguna), igual que hace el escritorio.
+    val ratchetContext = DirectRatchetContext.forDevice(deviceBinding?.deviceId)
     val target = OutboxSealer.Target(
       upeerId,
       address,
       publicKey,
-      state.sessionFor(upeerId),
+      state.sessionFor(upeerId, ratchetContext) ?: state.sessionFor(upeerId),
       peer.optJSONObject("signedPreKey"),
       deviceBinding,
     )

@@ -58,7 +58,10 @@ internal class OutboxSealer(
       val nextSession = result.optString("session")
       val nextPacket = result.optString("packet")
       if (nextSession.isEmpty() || nextPacket.isEmpty()) return null
-      state.saveSession(target.upeerId, nextSession)
+      // La sesión se guarda en el contexto del dispositivo del contacto, no en `direct`:
+      // una sola sesión por cuenta se desincroniza en cuanto el otro lado usa más de un
+      // dispositivo. El escritorio hace lo mismo.
+      state.saveSession(target.upeerId, nextSession, DirectRatchetContext.forDevice(target.binding?.deviceId))
       outbox.setPacket(messageID, nextPacket)
       nextPacket
     } catch (cause: Exception) {
