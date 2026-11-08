@@ -10,6 +10,11 @@ internal class ControlSender(
   private val state: ProtocolStateStore,
   private val bridgeProvider: () -> Bridge?,
   private val publishReaction: (messageId: String, emoji: String, remove: Boolean) -> Unit = { _, _, _ -> },
+  // El PING es, junto al handshake, la única vía rutinaria por la que el contacto conoce
+  // nuestro dispositivo. Sin estos campos su `deviceSignedPreKey` queda vacío y el mensaje
+  // cifrado contra el dispositivo no descifra.
+  private val deviceBindings: DeviceMessagingBindings? = null,
+  private val deviceSignedPreKeys: DeviceSignedPreKeyStore? = null,
 ) {
   fun sendTyping(upeerId: String, state: String) {
     send(upeerId, "upeer-typing", TypingIndicators.data(state), "TYPING")
@@ -22,6 +27,15 @@ internal class ControlSender(
     val targets = state.presence.targets(nowMillis - ACTIVE_TARGET_WINDOW_MS, MAX_ACTIVE_TARGETS)
     val shareActivity = state.activitySharing()
     val packet = ControlPings.active(nowMillis, shareActivity)
+    val currentDevice = identity.currentDevice()
+    val bindings = deviceBindings
+    val spks = deviceSignedPreKeys
+    if (currentDevice != null && bindings != null && spks != null) {
+      val fields = bindings.handshakeFields(currentDevice, spks)
+      if (fields != null) {
+        for (key in fields.keys()) packet.put(key, fields.get(key))
+      }
+    }
     for (upeerId in targets) send(upeerId, "upeer-presence", packet, "PING")
   }
 

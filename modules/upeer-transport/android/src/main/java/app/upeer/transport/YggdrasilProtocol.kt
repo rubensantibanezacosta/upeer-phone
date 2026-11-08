@@ -56,7 +56,14 @@ internal class YggdrasilProtocol(
   @Volatile
   private var bridge: Bridge? = null
 
-  private val controlSender = ControlSender(identity, state, { bridge }, { messageId, emoji, remove -> sync.publishReaction(messageId, emoji, remove) })
+  private val controlSender = ControlSender(
+    identity,
+    state,
+    { bridge },
+    { messageId, emoji, remove -> sync.publishReaction(messageId, emoji, remove) },
+    deviceBindings,
+    deviceSignedPreKeys,
+  )
   private val controlReplies = ControlReplies(identity, deviceBindings, state, outbox, rateLimiter, controlSender::sendPong)
   private val chatInbound = ChatInbound(state, chatDecryptor, controlSender, onInboundMessage)
   private val groupSealer = GroupControlSealer(identity, state)
