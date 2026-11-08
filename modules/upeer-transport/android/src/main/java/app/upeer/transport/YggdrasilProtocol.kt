@@ -95,9 +95,36 @@ internal class YggdrasilProtocol(
   }
   // El coordinador de media se crea antes que el store porque el cierre de cualquier llamada —da igual
   // quién la cuelgue— tiene que soltar el micrófono y el códec.
+  // Canal UDP de la media: el escritorio manda CALL_MEDIA por UDP al 50006, no por la conexión de
+  // control. Sin esto el audio llegaba a un puerto cerrado y se perdía sin decir nada.
+  private val callMediaChannel = CallMediaChannel(
+    bridge = {
+      // Adaptador de una línea: el canal solo necesita cuatro operaciones y así se puede falsear en
+      // pruebas sin arrastrar el puente entero.
+      val active = bridge ?: error("puente no iniciado")
+      object : CallMediaChannel.BridgeBindings {
+        override fun dialUDP(address: String, port: Int): Int = active.dialUDP(address, port.toLong()).toInt()
+        override fun writeDatagram(connectionID: Int, payload: ByteArray) = active.writeDatagram(connectionID, payload)
+        override fun read(connectionID: Int, maxBytes: Int, timeoutMillis: Int): ByteArray =
+          active.read(connectionID, maxBytes.toLong(), timeoutMillis.toLong())
+        override fun closeConnection(connectionID: Int) = active.closeConnection(connectionID)
+      }
+    },
+    onPacket = { _, packet -> handleMediaDatagram(packet) },
+  )
+
+  /**
+   * Un datagrama de media que llegó por UDP: puede ser un sobre de media suelto o un trozo de uno
+   * partido. `CallMediaChannel` ya reensambla; aquí solo se valida el sobre y se pasa al motor.
+   */
+  private fun handleMediaDatagram(packet: ByteArray) {
+    val decoded = CallMediaPacket.decode(packet) ?: return
+    callMedia.onInboundPacket(decoded)
+  }
   private val callMedia = CallMediaCoordinator()
   private val callStore = CallStore(onEnded = { session ->
     callMedia.stop()
+    callMediaChannel.close()
     callEvents.onEnded(session)
   })
   private val callInbound = CallInbound(
@@ -169,6 +196,15 @@ internal class YggdrasilProtocol(
    * en llamadas que no se llegan a coger.
    */
   private fun startCallMedia(session: CallSession) {
+    // Primero el canal UDP: sin él el audio iría a la conexión de control y el escritorio, que
+    // escucha la media en el 50006, no recibiría nada.
+    val other = state.syncPeers.list().firstOrNull { it.address.isNotEmpty() }?.address
+      ?: state.addressFor(session.peerUpeerId)
+    if (other != null && callMediaChannel.connect(other)) {
+      Log.i(TAG, "Canal UDP de media abierto: ${callMediaChannel.summary()}")
+    } else {
+      Log.w(TAG, "Sin canal UDP de media: el audio de ${session.callId} no saldrá por UDP")
+    }
     val ok = callMedia.start(session) { packet ->
       controlSender.scheduleCall(session.peerUpeerId, packet, CallPackets.MEDIA)
     }
