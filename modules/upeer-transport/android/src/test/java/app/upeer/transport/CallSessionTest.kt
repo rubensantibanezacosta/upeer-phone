@@ -76,6 +76,21 @@ class CallSessionTest {
   }
 
   @Test
+  fun `contestada en otro dispositivo no deja una perdida falsa`() {
+    // Con varios dispositivos de la misma cuenta, una saliente puede cerrarse con
+    // `answered-elsewhere`: la llamada existió, solo que la cogió el otro. Escribir «perdida»
+    // dejaría una fila mentirosa en el historial de este dispositivo.
+    assertNull(CallEvent.summary(session(endReason = CallEndReasons.ANSWERED_ELSEWHERE)))
+    assertNull(CallEvent.summary(session(outgoing = false, endReason = CallEndReasons.ANSWERED_ELSEWHERE)))
+  }
+
+  @Test
+  fun `answered-elsewhere no se avisa al otro extremo`() {
+    // Si se avisara, el llamante recibiría un cierre por cada dispositivo de la cuenta.
+    assertFalse(CallEvent.notifiesPeer(session(outgoing = true, endReason = CallEndReasons.ANSWERED_ELSEWHERE)))
+  }
+
+  @Test
   fun `solo avisa al otro extremo cuando el escritorio también lo haría`() {
     assertTrue(CallEvent.notifiesPeer(session(outgoing = true)))
     assertFalse(CallEvent.notifiesPeer(session(outgoing = true, endReason = CallEndReasons.REJECTED)))

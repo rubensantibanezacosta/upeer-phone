@@ -84,6 +84,31 @@ class CallStoreTest {
     clock += 5_000L
     assertEquals("{}", store.snapshotJSON())
   }
+
+  /** Varios dispositivos de la misma cuenta: la oferta suena en todos con el mismo callId. */
+  @Test
+  fun `la misma llamada no cuenta como ocupado`() {
+    val session = store.start(peer, CallKinds.AUDIO, outgoing = false, callId = "llamada-1")!!
+    // El segundo dispositivo de mi cuenta recibe la oferta de ESTA misma llamada: no es un ocupado,
+    // y responder CALL_BUSY colgaría la que ya está en marcha en el primer dispositivo.
+    assertFalse(store.busyWithOther("llamada-1"))
+    assertEquals(session.callId, "llamada-1")
+  }
+
+  @Test
+  fun `otra llamada distinta si es ocupado`() {
+    store.start(peer, CallKinds.AUDIO, outgoing = false, callId = "llamada-1")
+    assertTrue(store.busyWithOther("llamada-2"))
+  }
+
+  @Test
+  fun `sin llamada viva nunca hay ocupado`() {
+    assertFalse(store.busyWithOther("llamada-1"))
+    store.start(peer, CallKinds.AUDIO, outgoing = true, callId = "llamada-1")
+    store.end("llamada-1", CallEndReasons.LOCAL_HANGUP)
+    // Terminada: deja de ocupar aunque la sesión siga visible un rato.
+    assertFalse(store.busyWithOther("llamada-2"))
+  }
 }
 
 class CallPacketsTest {

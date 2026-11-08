@@ -17,6 +17,9 @@ internal object CallEvent {
       val seconds = session.durationSeconds()
       return "$label · ${duration(seconds)} · ${session.connectedAt}"
     }
+    // Si la contestó otro dispositivo de mi misma cuenta, no es una llamada perdida: la llamada
+    // ocurrió, solo que en el otro. Una saliente sin conectar sí es «perdida».
+    if (session.endReason == CallEndReasons.ANSWERED_ELSEWHERE) return null
     if (session.outgoing) return "$label perdida"
     if (session.endReason == CallEndReasons.REJECTED) return "$label rechazada"
     return null
@@ -24,8 +27,9 @@ internal object CallEvent {
 
   /** El escritorio avisa al otro extremo cuando la llamada salió y no fue rechazada, y cuando entró y se atendió. */
   fun notifiesPeer(session: CallSession): Boolean =
-    (session.outgoing && session.endReason != CallEndReasons.REJECTED) ||
-      (!session.outgoing && session.connectedAt > 0L)
+    session.endReason != CallEndReasons.ANSWERED_ELSEWHERE &&
+      ((session.outgoing && session.endReason != CallEndReasons.REJECTED) ||
+        (!session.outgoing && session.connectedAt > 0L))
 
   fun duration(seconds: Long): String {
     val safe = seconds.coerceAtLeast(0L)

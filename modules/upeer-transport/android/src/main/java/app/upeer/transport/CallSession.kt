@@ -26,6 +26,8 @@ internal object CallEndReasons {
   const val REJECTED = "rejected"
   const val BUSY = "busy"
   const val CANCELED = "canceled"
+  /** Otro dispositivo de la misma cuenta contestó: esta llamada ya no es para este. */
+  const val ANSWERED_ELSEWHERE = "answered-elsewhere"
   const val NO_ANSWER = "no-answer"
   const val ERROR = "error"
 }

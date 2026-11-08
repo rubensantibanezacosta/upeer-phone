@@ -93,11 +93,21 @@ internal class YggdrasilProtocol(
   private val callEvents = CallEvents(state.messages) { upeerId, content, messageId ->
     outbox.enqueue(upeerId, content, "", messageId)
   }
-  private val callStore = CallStore(onEnded = callEvents::onEnded)
+  // El coordinador de media se crea antes que el store porque el cierre de cualquier llamada —da igual
+  // quién la cuelgue— tiene que soltar el micrófono y el códec.
+  private val callMedia = CallMediaCoordinator()
+  private val callStore = CallStore(onEnded = { session ->
+    callMedia.stop()
+    callEvents.onEnded(session)
+  })
   private val callInbound = CallInbound(
     store = callStore,
     send = { upeerId, data, label -> controlSender.scheduleCall(upeerId, data, label) },
     onIncoming = ::onIncomingCall,
+    // La media se abre al conectar, no al ofertar: abrir el micrófono cuando aún suena el timbre
+    // graba la conversación de la habitación antes de que nadie coja el teléfono.
+    onConnected = { session -> startCallMedia(session) },
+    onMedia = { packet -> callMedia.onInboundPacket(packet) },
   )
   private val vaultReplies = VaultReplies(
     identity,
@@ -151,6 +161,26 @@ internal class YggdrasilProtocol(
     incomingCallListener?.invoke(session)
   }
 
+  /**
+   * Abre la media de una llamada conectada.
+   *
+   * Se llama solo cuando la llamada ya está conectada (porque la acepté o porque me aceptaron). Abrir
+   * el micrófono al ofertar grabaría la habitación mientras suena el timbre, y además gastaría batería
+   * en llamadas que no se llegan a coger.
+   */
+  private fun startCallMedia(session: CallSession) {
+    val ok = callMedia.start(session) { packet ->
+      controlSender.scheduleCall(session.peerUpeerId, packet, CallPackets.MEDIA)
+    }
+    if (ok) {
+      Log.i(TAG, "Media de ${session.callId} abierta (${callMedia.summary()})")
+    } else {
+      // El caso esperado: un móvil sin micrófono disponible, o emulador. La llamada sigue por
+      // señalización y se dice en voz alta en vez de dejar al usuario adivinando.
+      Log.w(TAG, "Media de ${session.callId} no disponible: ${callMedia.summary()}")
+    }
+  }
+
   fun startCall(upeerId: String, kind: String): String? {
     if (upeerId.isBlank()) return null
     if (state.isBlocked(upeerId)) {
@@ -176,6 +206,7 @@ internal class YggdrasilProtocol(
     if (!callStore.accept(callId)) return false
     controlSender.scheduleCall(session.peerUpeerId, CallPackets.accept(callId, System.currentTimeMillis()), CallPackets.ACCEPT)
     callStore.connect(callId)
+    callStore.active()?.let(::startCallMedia)
     return true
   }
 
@@ -196,6 +227,9 @@ internal class YggdrasilProtocol(
     val session = callStore.active() ?: return false
     if (session.callId != callId) return false
     if (!callStore.end(callId, CallEndReasons.LOCAL_HANGUP)) return false
+    // Soltar micrófono y códec pase lo que pase: un AudioRecord que se queda abierto sigue gastando
+    // batería hasta que muere el proceso.
+    callMedia.stop()
     val connected = session.connectedAt > 0L
     val packet = if (!connected && session.outgoing) {
       CallPackets.cancel(callId, System.currentTimeMillis())

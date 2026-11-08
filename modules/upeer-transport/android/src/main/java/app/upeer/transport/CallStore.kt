@@ -33,6 +33,19 @@ internal class CallStore(
 
   fun busy(): Boolean = active() != null
 
+  /**
+   * ¿La llamada viva es esta misma, venga de donde venga?
+   *
+   * Con la cuenta abierta en varios dispositivos, la oferta suena en todos con **el mismo `callId`**.
+   * Sin esta comprobación, el segundo dispositivo pregunta `busy()`, ve la llamada del primero y
+   * responde `CALL_BUSY` a su propio llamante, que colgaría la llamada que ya estaba en marcha. Solo
+   * es «ocupado» cuando la llamada viva es **otra**.
+   */
+  fun busyWithOther(callId: String): Boolean {
+    val current = active() ?: return false
+    return current.callId != callId
+  }
+
   fun start(peerUpeerId: String, kind: String, outgoing: Boolean, callId: String? = null): CallSession? {
     synchronized(lock) {
       if (busy()) return null
