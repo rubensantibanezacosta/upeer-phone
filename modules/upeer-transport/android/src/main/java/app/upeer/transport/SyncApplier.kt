@@ -181,8 +181,18 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
     val name = payload.optString("name").trim()
     val avatar = ProfileFields.avatar(payload.optString("avatar"))
     val learnedKey = state.rememberContactKey(upeerId, payload.optString("publicKey"))
-    if (name.isEmpty() && avatar.isEmpty()) return learnedKey
-    return state.rememberContactProfile(upeerId, name, avatar) || learnedKey
+    // La dirección viene en el perfil desde el 08/11. Antes no se mandaba, así que el móvil se quedaba
+    // sin dirección de los contactos y las llamadas a ellos no salían nunca.
+    val primary = payload.optString("address").takeIf(String::isNotEmpty)
+    val knownArray = payload.optJSONArray("knownAddresses")
+    val known = if (knownArray == null) {
+      emptyList()
+    } else {
+      (0 until knownArray.length()).mapNotNull { index -> knownArray.optString(index).takeIf(String::isNotEmpty) }
+    }
+    val learnedAddress = state.rememberContactAddresses(upeerId, primary, known)
+    if (name.isEmpty() && avatar.isEmpty()) return learnedKey || learnedAddress
+    return state.rememberContactProfile(upeerId, name, avatar) || learnedKey || learnedAddress
   }
 
   private companion object {

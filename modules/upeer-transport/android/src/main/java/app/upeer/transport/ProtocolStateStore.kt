@@ -266,6 +266,45 @@ internal class ProtocolStateStore(context: Context) {
     true
   }
 
+  /**
+   * Guarda las direcciones de un contacto que llegan por sincronización (`CONTACT_PROFILE`).
+   *
+   * Sin esto el móvil se quedaba **sin dirección** de los contactos: el escritorio no la mandaba en el
+   * perfil y aquí tampoco se aplicaba, así que las llamadas a esos contactos no salían nunca («sin
+   * dirección conocida») y los mensajes no tenían a dónde ir. Se vio el 08/11 con cuatro contactos y
+   * tres direcciones vacías.
+   *
+   * La dirección principal solo se pisa si la que llega es válida: una cadena vacía de un cliente
+   * viejo no puede borrar una dirección que ya servía.
+   */
+  fun rememberContactAddresses(upeerId: String, primary: String?, known: List<String>): Boolean = synchronized(lock) {
+    if (!validId(upeerId)) return@synchronized false
+    val addresses = ArrayList<String>()
+    val trimmedPrimary = primary?.trim().orEmpty()
+    if (PeerAddress.valid(trimmedPrimary)) addresses.add(trimmedPrimary)
+    for (entry in known) {
+      val candidate = entry.trim()
+      if (PeerAddress.valid(candidate) && !addresses.contains(candidate)) addresses.add(candidate)
+    }
+    if (addresses.isEmpty()) return@synchronized false
+    val peers = state.optJSONObject("peers") ?: JSONObject()
+    val existing = peers.optJSONObject(upeerId) ?: JSONObject()
+    var changed = false
+    val current = existing.optString("address")
+    // Si la principal que llega es válida y distinta, se actualiza; si solo hay conocidas, se rellena
+    // el hueco pero no se pisa una principal que ya funcionaba.
+    if (addresses.first() != current && (PeerAddress.valid(trimmedPrimary) || current.isBlank())) {
+      existing.put("address", addresses.first())
+      changed = true
+    }
+    if (changed) {
+      peers.put(upeerId, existing)
+      state.put("peers", peers)
+      persist()
+    }
+    changed
+  }
+
   fun rememberContactProfile(upeerId: String, alias: String, avatar: String): Boolean = synchronized(lock) {
     if (!validId(upeerId)) return@synchronized false
     val peers = state.optJSONObject("peers") ?: JSONObject()
