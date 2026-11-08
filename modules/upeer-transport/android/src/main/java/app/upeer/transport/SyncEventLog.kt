@@ -9,6 +9,8 @@ internal class SyncEventLog(
   private val persist: () -> Unit,
   private val maxEvents: Int = MAX_EVENTS,
   private val db: SyncEventDatabase? = null,
+  /** Marca el bloque `sync` como sucio. Sin esto los metadatos se quedan en memoria. */
+  private val persistBlock: () -> Unit = persist,
 ) {
   fun record(draft: SyncEventDraft, nowMillis: Long): SyncEventRecord? {
     if (!validEventId(draft.eventId)) return null
@@ -157,22 +159,28 @@ internal class SyncEventLog(
 
   private fun commitMeta(sync: JSONObject) {
     state().put("sync", sync)
-    persist()
+    // Hay que marcar `sync` como bloque sucio: `persist()` a secas no escribe nada, así que la lista
+    // de aplicados se quedaba en memoria y el evento volvía a la cola en el siguiente arranque.
+    persistBlock()
   }
 
   fun pendingApplication(limit: Int): List<SyncEventRecord> {
     if (limit <= 0) return emptyList()
     db?.let { database ->
-      // La lista de aplicados vive en el bloque (memoria); hay que descontarla también aquí, o los
-      // eventos ya aplicados vuelven a la cola en cada pasada y no se aplica nunca nada nuevo.
-      val applied = synchronized(lock) { bucket().optJSONArray("applied") }
-      val seen = HashSet<String>()
-      if (applied != null) for (index in 0 until applied.length()) seen.add(applied.optString(index))
-      val page = database.inbound(limit)
+      // La lista de aplicados se descuenta dentro de la consulta. Si se pide la página y se filtra
+      // en memoria, el LIMIT ya se ha gastado en eventos aplicados: con 214 entrantes y tope 500 la
+      // página era siempre la misma, se descartaba entera y quedaban 927 no-ops por arranque.
+      val applied = synchronized(lock) {
+        val array = bucket().optJSONArray("applied")
+        if (array == null) emptySet() else (0 until array.length()).mapTo(HashSet()) { array.optString(it) }
+      }
+      val page = database.pendingInbound(applied, limit)
       val found = mutableListOf<SyncEventRecord>()
       for (index in 0 until page.length()) {
         val record = SyncEventRecord.from(page.optJSONObject(index) ?: continue) ?: continue
-        if (record.eventId in seen) continue
+        // Red de seguridad: si la consulta tuvo que recortar el `NOT IN` por el límite de variables
+        // de SQLite, aquí se cae lo aplicado que se hubiera colado.
+        if (record.eventId in applied) continue
         found.add(record)
       }
       return found.sortedBy { it.sequence }.take(limit)
@@ -191,11 +199,13 @@ internal class SyncEventLog(
     return synchronized(lock) {
       val database = db
       if (database != null) {
-        val page = database.inbound(limit)
+        // El filtro por tipo va antes del LIMIT (lo hace la consulta), no después: si no, la página
+        // se gasta en eventos de otros tipos y la reparación se queda mirando siempre los mismos.
+        val page = database.inboundOfKind(SyncEventKinds.MESSAGE_UPSERT, limit)
         val found = mutableListOf<SyncEventRecord>()
         for (index in 0 until page.length()) {
           val record = SyncEventRecord.from(page.optJSONObject(index) ?: continue) ?: continue
-          if (record.kind == SyncEventKinds.MESSAGE_UPSERT) found.add(record)
+          found.add(record)
         }
         return@synchronized found
       }

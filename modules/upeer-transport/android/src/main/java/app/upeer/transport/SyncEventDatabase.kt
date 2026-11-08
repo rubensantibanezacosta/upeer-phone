@@ -72,6 +72,52 @@ internal class SyncEventDatabase(private val shared: ProtocolDatabase) {
     result
   }
 
+  /**
+   * Entrantes que aún no están en [applied], de más antiguo a más nuevo, como mucho [limit].
+   *
+   * Antes se pedía [inbound] y se descartaban los ya aplicados en Kotlin, pero el `LIMIT` se
+   * aplicaba en SQL sobre *todos* los entrantes: con 214 entrantes y un tope de 500 la página traía
+   * siempre los mismos 214 y no quedaba ninguna posición para lo pendiente de verdad. El `NOT IN`
+   * tiene que ir en el `WHERE` para que el `LIMIT` cuente solo lo que falta.
+   *
+   * El `NOT IN` se envía como marcadores (`?`) y no interpolando la lista: son cientos de ids y
+   * concatenarlos en el SQL lo dejaría expuesto a comillas y a cadenas gigantes.
+   */
+  fun pendingInbound(applied: Collection<String>, limit: Int): JSONArray = synchronized(lock) {
+    if (limit <= 0) return@synchronized JSONArray()
+    // SQLite admite ~999 variables por consulta. Por encima de eso (posible con historial largo) se
+    // recorta el filtro a los ids más recientes: los que quedan fuera ya se descartan en Kotlin, así
+    // que lo peor que pasa es perder un poco de precisión en la página, nunca aplicar de más.
+    val skip = if (applied.size > MAX_APPLIED_FILTER) applied.toList().takeLast(MAX_APPLIED_FILTER).toSet() else applied.toSet()
+    val filter = if (skip.isEmpty()) {
+      ""
+    } else {
+      " AND event_id NOT IN (" + skip.joinToString(",") { "?" } + ")"
+    }
+    val args = if (skip.isEmpty()) arrayOf(limit.toString()) else (skip + limit.toString()).toTypedArray()
+    val result = JSONArray()
+    database().rawQuery(
+      "SELECT * FROM sync_events WHERE direction = 'inbound'$filter " +
+        "ORDER BY occurred_at ASC, sequence ASC LIMIT ?",
+      args,
+    ).use { cursor ->
+      while (cursor.moveToNext()) result.put(cursorToRecord(cursor))
+    }
+    result
+  }
+
+  /** Entrantes de un tipo, con el filtro en SQL para que el límite no se gaste en otros tipos. */
+  fun inboundOfKind(kind: String, limit: Int): JSONArray = synchronized(lock) {
+    val result = JSONArray()
+    database().rawQuery(
+      "SELECT * FROM sync_events WHERE direction = 'inbound' AND kind = ? ORDER BY occurred_at DESC LIMIT ?",
+      arrayOf(kind, limit.toString()),
+    ).use { cursor ->
+      while (cursor.moveToNext()) result.put(cursorToRecord(cursor))
+    }
+    result
+  }
+
   fun afterSequence(sequence: Long, limit: Int): JSONArray = synchronized(lock) {
     val result = JSONArray()
     database().rawQuery(
@@ -254,5 +300,8 @@ internal class SyncEventDatabase(private val shared: ProtocolDatabase) {
 
   private companion object {
     const val TAG = "UPeerTransport"
+
+    /** Tope de ids en el `NOT IN`, muy por debajo de las ~999 variables que admite SQLite. */
+    const val MAX_APPLIED_FILTER = 800
   }
 }

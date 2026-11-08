@@ -198,6 +198,17 @@ internal class ProtocolStateMirror(
     for (gone in knownPeerKeys.orEmpty() - map.keys) syncPeers.delete(gone)
     knownPeerKeys = map.keys.toSet()
     if (map.isNotEmpty()) syncPeers.insertAll(map)
+    // El resto del bloque `sync` no tiene tabla en el escritorio: se guarda como ajuste.
+    // Sin esto se perdían el contador de secuencia, los acuses y la lista de eventos ya aplicados,
+    // así que al reiniciar el móvil volvía a aplicar los mismos eventos una y otra vez.
+    val meta = org.json.JSONObject()
+    val source = state.optJSONObject("sync")
+    if (source != null) {
+      for (key in SYNC_META_KEYS) {
+        if (source.has(key)) meta.put(key, source.opt(key))
+      }
+    }
+    if (meta.length() > 0) settings.put(SYNC_META_KEY, meta.toString())
   }
 
   fun writeReputation(state: JSONObject) {
@@ -292,8 +303,20 @@ internal class ProtocolStateMirror(
     state.put("groups", toObject(groups.all()))
     state.put("sessions", toObject(sessions.all()))
     val sync = JSONObject().put("devices", toObject(syncPeers.all()))
+    val stored = settings.all()
+    // Metadatos del bloque `sync` que no tienen tabla: vuelven a su sitio, no como clave suelta.
+    stored[SYNC_META_KEY]?.let { raw ->
+      runCatching { JSONObject(raw) }.getOrNull()?.let { meta ->
+        val keys = meta.keys()
+        while (keys.hasNext()) {
+          val key = keys.next()
+          sync.put(key, meta.opt(key))
+        }
+      }
+    }
     state.put("sync", sync)
-    for ((key, raw) in settings.all()) {
+    for ((key, raw) in stored) {
+      if (key == SYNC_META_KEY) continue
       state.put(key, decode(raw))
     }
     return state
@@ -315,6 +338,10 @@ internal class ProtocolStateMirror(
 
   private companion object {
     val OWN_TABLES = setOf("messages", "peers", "groups", "sessions", "sync")
+
+    /** Claves del bloque `sync` que no tienen columna propia en el esquema del escritorio. */
+    val SYNC_META_KEYS = listOf("sequence", "acks", "applied")
+    const val SYNC_META_KEY = "sync_meta"
 
     @Suppress("unused")
     const val TAG = "UPeerTransport"

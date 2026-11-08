@@ -8,7 +8,9 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
     val outcome = project(record)
     when (outcome) {
       SyncApplyOutcome.APPLIED -> Log.i(TAG, "Evento ${record.kind} aplicado en el almacén local")
-      SyncApplyOutcome.UNCHANGED -> Log.i(TAG, "Evento ${record.kind} sin cambios que aplicar")
+      // Un no-op es el caso normal: la reparación barre eventos que ya están en el almacén. A nivel
+      // info inundaba logcat con ~900 líneas por arranque y tapaba los mensajes que importaban.
+      SyncApplyOutcome.UNCHANGED -> Log.d(TAG, "Evento ${record.kind} sin cambios que aplicar")
       SyncApplyOutcome.UNSUPPORTED -> Log.i(TAG, "Evento ${record.kind} sin proyección local todavía")
       SyncApplyOutcome.REJECTED -> Log.w(TAG, "Evento ${record.kind} rechazado por contenido inválido")
     }
@@ -56,7 +58,15 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
 
   fun repairMissingMessages(limit: Int = REPAIR_BATCH): Int {
     var repaired = 0
+    var skipped = 0
     for (record in state.syncEvents.inboundMessages(limit)) {
+      // Se barre el histórico entrante para reparar los mensajes que falten en el almacén, pero la
+      // mayoría ya están dentro. Aplicarlos igual costaba ~900 no-ops por arranque (medido en el
+      // dispositivo el 08/11), con su CPU y su ruido en logcat.
+      if (state.syncEvents.applied(record.eventId) && state.messages.find(messageId(record)) != null) {
+        skipped += 1
+        continue
+      }
       val outcome = try {
         apply(record)
       } catch (cause: Exception) {
@@ -65,8 +75,18 @@ internal class SyncApplier(private val state: ProtocolStateStore) {
       }
       if (outcome == SyncApplyOutcome.APPLIED) repaired += 1
     }
+    if (repaired > 0) Log.i(TAG, "Reparación: reparados=$repaired saltados=$skipped")
     return repaired
   }
+
+  /**
+   * Id del mensaje dentro del payload de `MESSAGE_UPSERT`.
+   *
+   * Ojo: el payload guarda el id en `id` (lo fija `SyncHistoryPayload.desktop`), **no** en
+   * `messageId`. Leer la clave equivocada devolvía cadena vacía, `find("")` daba null y el filtro de
+   * "ya aplicado" no saltaba nunca: 116 eventos reprocesados en cada pasada, con su `Log.d` cada uno.
+   */
+  private fun messageId(record: SyncEventRecord): String = record.payload.optString("id")
 
   private fun deleteGroup(groupId: String): Boolean {
     state.groupKeys.forget(groupId)

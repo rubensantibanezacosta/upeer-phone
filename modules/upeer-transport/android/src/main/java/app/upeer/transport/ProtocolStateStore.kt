@@ -89,7 +89,14 @@ internal class ProtocolStateStore(context: Context) {
       Log.w(TAG, "Migración: el estado tiene eventos pero SQLite está vacía (${events.count()})")
     }
   }
-  val syncEvents = SyncEventLog({ state }, lock, { persist("sync") }, SyncEventLog.MAX_EVENTS, syncEventDatabase)
+  val syncEvents = SyncEventLog(
+    state = { state },
+    lock = lock,
+    persist = { persister.request() },
+    maxEvents = SyncEventLog.MAX_EVENTS,
+    db = syncEventDatabase,
+    persistBlock = { persist("sync") },
+  )
   val syncPeers = SyncDevicePeers({ state }, lock, { persist("sync") })
   val history = SyncHistoryState({ state }, lock, { persist("sync") })
   private val typing = ProtocolTyping({ state }, lock, { persist("rest") })
